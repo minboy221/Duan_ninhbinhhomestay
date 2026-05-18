@@ -1,0 +1,250 @@
+@media (max-width: 767px) {
+
+    /* HERO */
+    .hero {
+        padding-top: 40px;
+    }
+
+    .hero .container_hero {
+        flex-direction: column;
+        margin-top: 0;
+        gap: 25px;
+    }
+
+    /* LEFT */
+    .left {
+        width: 100%;
+        position: relative;
+    }
+
+    .main-img {
+        width: 100%;
+        max-height: 250px;
+        object-fit: cover;
+    }
+
+    /* Ẩn bớt cho gọn */
+    .circle-img {
+        display: none;
+    }
+
+    /* Badge nhỏ lại */
+    .badge-top {
+        top: 10px;
+        right: 10px;
+        transform: none;
+        padding: 15px 20px;
+    }
+
+    .badge-bottom {
+        bottom: 10px;
+        left: 10px;
+        padding: 15px 20px;
+    }
+
+    .badge h2 {
+        font-size: 16px;
+    }
+
+    .badge p {
+        font-size: 12px;
+    }
+
+    /* RIGHT */
+    .right {
+        width: 100%;
+        text-align: center;
+    }
+
+    .right h1 {
+        font-size: 24px;
+        line-height: 1.4;
+    }
+
+    .desc {
+        font-size: 14px;
+    }
+
+    /* FEATURES */
+    .features {
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .features ul {
+        padding-left: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .features li {
+        text-align: left;
+        width: fit-content;
+        font-size: 14px;
+    }
+
+    /* SLOGAN */
+    .slogan {
+        margin-top: 40px;
+    }
+
+    .baoslogan img {
+        height: auto;
+        min-height: 480px;
+    }
+
+    .vertical-text {
+        display: none;
+        /* Hide background text on mobile */
+    }
+
+    .infor-left {
+        width: 90%;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        /* Centered nicely */
+        text-align: center;
+    }
+
+    .infor-left h2 {
+        font-size: 28px;
+    }
+
+    .infor-left p {
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    /* WHY US (TÍNH NĂNG) */
+    .why-us {
+        margin-top: 150px;
+        padding: 0 10px;
+        height: 600px;
+    }
+
+    .why-us .container {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(2, 1fr);
+        column-gap: 15px;
+        row-gap: 25px;
+        justify-items: center;
+        align-items: center;
+    }
+
+    .center-text {
+        grid-column: span 1;
+        text-align: center;
+        margin-top: -450px;
+        order: -1;
+    }
+
+    .center-text h2 {
+        font-size: 26px;
+    }
+
+    .center-text h3 {
+        font-size: 20px;
+    }
+
+    .hex {
+        position: relative;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        width: 155px;
+        height: 175px;
+    }
+
+    .hex span {
+        font-size: 11px;
+        width: 80%;
+    }
+}
+
+
+@media (min-width: 768px) and (max-width: 1023px) {
+
+    .hero .container {
+        flex-direction: column;
+        margin-top: -80px;
+    }
+
+    .left,
+    .right {
+        width: 100%;
+    }
+
+    .right {
+        text-align: center;
+    }
+
+    .right h1 {
+        font-size: 28px;
+    }
+
+    .features {
+        justify-content: center;
+        gap: 30px;
+    }
+
+    /* SLOGAN */
+    .slogan {
+        margin-top: 50px;
+    }
+
+    .infor-left {
+        width: 80%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+
+    .vertical-text {
+        font-size: 50px;
+        letter-spacing: 5px;
+        left: 50%;
+        top: 20%;
+        transform: translate(-50%, -50%);
+    }
+
+    /* WHY US (TÍNH NĂNG) */
+    .why-us {
+        margin-top: 100px;
+        padding: 0 20px;
+    }
+
+    .why-us .container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 30px;
+        min-height: auto;
+    }
+
+    .center-text {
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
+        width: 100%;
+        order: -1;
+        /* Push the title to the top */
+        margin-bottom: 20px;
+    }
+
+    .hex {
+        position: relative;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        margin: 10px;
+    }
+}

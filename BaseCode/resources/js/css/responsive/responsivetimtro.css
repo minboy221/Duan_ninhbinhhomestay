@@ -1,0 +1,162 @@
+/* =============================================
+   RESPONSIVETIMTRO.CSS
+   Mobile: <= 767px | Tablet: 768–1023px
+   ============================================= */
+
+/* Mobile */
+@media (max-width: 767px) {
+
+    /* Layout chung */
+    .layout {
+        flex-direction: column;
+        padding: 0 15px;
+        margin: 0 auto 40px;
+        gap: 30px;
+    }
+
+    /* Bộ lọc */
+    @media (max-width: 767px) {
+
+        .filter {
+            width: 100%;
+            margin-top: 20px;
+            padding: 0 10px;
+        }
+
+        .baofilter {
+            width: 100%;
+            border-radius: 15px;
+        }
+
+        .dropdown {
+            position: fixed;
+            /* 👈 QUAN TRỌNG */
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            max-height: 50vh;
+        }
+
+        .dropdown ul {
+            max-height: 250px;
+        }
+    }
+
+    /* Hiển thị phòng */
+    .room {
+        width: 100%;
+    }
+
+    .baoroom {
+        width: 100%;
+    }
+
+    .item_room {
+        flex-direction: column;
+        transform: none;
+        /* Bỏ transform để layout không bị lệch */
+        margin-bottom: 25px;
+        border-radius: 20px;
+        height: auto;
+    }
+
+    .item_room img {
+        width: 100%;
+        height: 220px;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .infor_room {
+        padding: 15px 20px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .title_room h2 {
+        font-size: 18px;
+    }
+
+    .about_room {
+        width: 100%;
+    }
+
+    .user_room {
+        margin-top: 15px;
+        margin-bottom: 10px;
+    }
+
+    .user_room img {
+        width: 35px;
+        height: 35px;
+        border-radius: 100%;
+    }
+
+    .user_room p {
+        transform: none;
+        margin-top: 0;
+    }
+
+    .btn {
+        position: static;
+        /* Thay vì absolute */
+        display: block;
+        text-align: center;
+        margin-top: 15px;
+        width: 100%;
+        border-radius: 12px;
+    }
+
+    /* Phân trang */
+    .phantrang {
+        margin-top: 10px;
+    }
+
+    .baophantrang {
+        transform: none;
+        justify-content: center;
+    }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .layout {
+        flex-direction: column;
+        padding: 0 20px;
+        gap: 40px;
+    }
+
+    .filter {
+        width: 100%;
+        margin-top: -120px;
+    }
+
+    .baofilter {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .baofilter h2,
+    .btn_filter {
+        grid-column: 1 / -1;
+    }
+
+    .baoroom {
+        width: 100%;
+    }
+
+    .item_room {
+        transform: none;
+    }
+
+    .item_room img {
+        width: 280px;
+    }
+
+    .baophantrang {
+        transform: none;
+        justify-content: center;
+    }
+}

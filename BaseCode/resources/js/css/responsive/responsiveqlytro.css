@@ -1,0 +1,94 @@
+/* =============================================
+   RESPONSIVEQLYTRO.CSS
+   Mobile: <= 767px | Tablet: 768–1023px
+   ============================================= */
+
+/* Mobile (<= 767px) */
+@media (max-width: 767px) {
+    /* Tiêu đề phần thông tin nơi ở */
+    .title_noio {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+
+    .title_noio h2 {
+        font-size: 18px;
+    }
+
+    .title_noio .status {
+        padding: 8px 15px;
+        border-radius: 10px;
+    }
+
+    .status p {
+        font-size: 13px;
+    }
+
+    /* Khối form nhập liệu */
+    form {
+        padding: 15px;
+        margin-top: 20px;
+    }
+
+    .row {
+        flex-direction: column;
+        gap: 0;
+        margin-bottom: 0;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group input {
+        padding: 12px 15px;
+        font-size: 14px;
+        width: 100%;
+    }
+
+    /* Các khối hợp đồng và lịch sử */
+    .hopdong, 
+    .history_thanhtoan {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+        padding: 15px 10px;
+    }
+
+    .hopdong h2, 
+    .history_thanhtoan h2 {
+        font-size: 18px;
+    }
+
+    /* Nút bấm full màn hình */
+    .btn-hopdong {
+        width: 100%;
+        text-align: center;
+        display: block;
+        padding: 12px;
+        font-size: 14px;
+        border-radius: 12px;
+    }
+    .close{
+        top: 1px;
+        right: 30px;
+    }
+}
+
+/* Tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .title_noio h2 {
+        font-size: 20px;
+    }
+
+    .hopdong, 
+    .history_thanhtoan {
+        align-items: center;
+    }
+
+    .btn-hopdong {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+}

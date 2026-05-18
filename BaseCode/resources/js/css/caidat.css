@@ -1,0 +1,453 @@
+@import url('user.css');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.bao_item {
+    max-width: 810px;
+    height: 1200px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.25),
+        inset 0 0 10px rgba(255, 255, 255, 0.2);
+    padding: 20px;
+    margin-bottom: 120px;
+}
+
+/* phần form nhập */
+.title_noio h2 {
+    color: #1a1a1a;
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.title_noio h2::before {
+    content: '';
+    width: 5px;
+    height: 24px;
+    background: linear-gradient(to bottom, #102a6d, #45abe6);
+    border-radius: 2px;
+}
+
+.title_noio p {
+    margin-top: 5px;
+    color: #777;
+    font-size: 15px;
+}
+
+.thong_tin_user {
+    margin-top: 20px;
+}
+
+.row {
+    display: flex;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin-bottom: 10px;
+}
+
+.form-group label {
+    font-size: 15px;
+    margin-bottom: 5px;
+    color: #000;
+}
+
+.form-group input {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    outline: none;
+    font-size: 14px;
+    transition: 0.25s;
+}
+
+.form-group input:focus {
+    border-color: #4facfe;
+    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.15);
+}
+
+.btn_save {
+    margin-top: 20px;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #102a6d, #45abe6);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-hopdong:active {
+    transform: scale(0.90);
+}
+
+.password-form {
+    margin-top: 15px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.password-form h4 {
+    color: #1a1a1a;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.password-form h4::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    background: linear-gradient(to bottom, #102a6d, #45abe6);
+    border-radius: 2px;
+}
+
+/* Phần upload ảnh cccd */
+.upload_cccd {
+    margin-top: 25px;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+}
+
+.upload_cccd h3 {
+    color: #1a1a1a;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.upload_cccd h3::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(to bottom, #102a6d, #45abe6);
+    border-radius: 2px;
+}
+
+.upload-desc {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 25px;
+}
+
+.cccd-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+}
+
+.cccd-card {
+    background: #f8fbff;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e1e8f0;
+    transition: all 0.3s ease;
+}
+
+.cccd-card:hover {
+    border-color: #4facfe;
+    box-shadow: 0 5px 15px rgba(79, 172, 254, 0.1);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    background: rgba(79, 172, 254, 0.05);
+    padding: 12px 15px;
+    border-bottom: 1px solid #e1e8f0;
+}
+
+.card-header p {
+    margin: 0;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+.upload-container {
+    padding: 20px;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    padding: 30px 15px;
+    border: 2px dashed #cbd5e0;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    background: #ffffff;
+}
+
+.upload-label:hover {
+    border-color: #4facfe;
+    background: #f0f7ff;
+}
+
+.upload-icon-box {
+    width: 54px;
+    height: 54px;
+    background: #eef2f7;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+}
+
+.upload-label:hover .upload-icon-box {
+    background: #4facfe;
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.upload-icon-box i {
+    font-size: 24px;
+    color: #4facfe;
+}
+
+.upload-label:hover .upload-icon-box i {
+    color: #fff;
+}
+
+.upload-text {
+    text-align: center;
+}
+
+.upload-text .main-text {
+    display: block;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.upload-text .sub-text {
+    display: block;
+    font-size: 0.8rem;
+    color: #a0aec0;
+}
+
+/* Preview Box Styling */
+.preview-box {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 15px;
+    z-index: 5;
+    background: #f8fbff;
+}
+
+.preview-box.active {
+    display: block;
+}
+
+.preview-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.preview-actions {
+    position: absolute;
+    top: 25px;
+    right: 25px;
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(-5px);
+    transition: all 0.3s ease;
+}
+
+.preview-box:hover .preview-actions {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.btn-remove,
+.btn-change {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn-remove {
+    background: #ff4d4f;
+    color: white;
+}
+
+.btn-remove:hover {
+    background: #ff7875;
+    transform: scale(1.1);
+}
+
+.btn-change {
+    background: #4facfe;
+    color: white;
+    margin-bottom: 0;
+    /* Override label margin */
+}
+
+.btn-change:hover {
+    background: #45abe6;
+    transform: scale(1.1);
+}
+
+@media (max-width: 991px) {
+    .cccd-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* phần xem thiết bị đăng nhập */
+.bao_thietbi {
+    margin-top: 15px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.bao_thietbi h4 {
+    color: #1a1a1a;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bao_thietbi h4::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    background: linear-gradient(to bottom, #102a6d, #45abe6);
+    border-radius: 2px;
+}
+
+.thietbi_item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f5f7fa;
+    transition: 0.3s;
+}
+
+.thietbi_item:hover {
+    background: #eef2f7;
+}
+
+.thietbi_item i {
+    font-size: 25px;
+    color: #45abe6;
+}
+
+.infor_thietbi p {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: #111827;
+}
+
+/* SUB TEXT */
+.infor_thietbi span {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* phần xoá tài khoản */
+.bao_delete {
+    margin-top: 15px;
+    background: #fadfdf;
+    padding: 20px;
+    border: 2px dashed #d32c2c;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.title_delete {
+    display: flex;
+    gap: 5px;
+}
+
+.title_delete i {
+    color: #d32c2c;
+    font-size: 20px;
+}
+
+.title_delete h4 {
+    font-size: 20px;
+    color: #d32c2c;
+}
+
+.item_delete {
+    display: flex;
+    justify-content: space-between;
+    color: #d32c2c;
+}
+
+.delete_btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 15px;
+    background-color: #d32c2c;
+    color: #fff;
+    font-weight: 700;
+    transition: 0.3s;
+}
+
+.delete_btn:active {
+    transform: scale(0.90);
+}

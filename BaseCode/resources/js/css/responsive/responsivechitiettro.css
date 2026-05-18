@@ -1,0 +1,168 @@
+/* =============================================
+   RESPONSIVECHITIETTRO.CSS
+   Mobile: <= 767px | Tablet: 768–1023px
+   ============================================= */
+
+/* Mobile (<= 767px) */
+@media screen and (max-width: 767px) {
+    .dieuhuong {
+        margin-top: 70px;
+        margin-left: 20px;
+        height: 45px;
+        position: fixed;
+    }
+
+    .layout {
+        flex-direction: column;
+        margin-top: 50px;
+        gap: 30px;
+        padding: 0 15px;
+    }
+
+    .room_detail {
+        width: 100%;
+    }
+
+    .container {
+        margin-top: 0;
+        max-width: 100%;
+    }
+
+    .gallery {
+        width: 100%;
+        border-radius: 15px;
+    }
+
+    .main-image {
+        height: 250px;
+    }
+
+    .thumbnails {
+        gap: 5px;
+        padding: 8px;
+    }
+
+    .thumbnails img {
+        width: 75px;
+        height: 45px;
+    }
+
+    .detail_tro {
+        width: 100%;
+        padding: 20px;
+        margin-top: 15px;
+        border-radius: 15px;
+    }
+
+    .tieude h2 {
+        font-size: 20px;
+    }
+
+    .price_tro p {
+        font-size: 22px;
+    }
+
+    .infor_tro {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .baotienich {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .bando iframe {
+        height: 250px;
+    }
+
+    /* Sidebar - Landlord Info */
+    .info_chutro {
+        width: 100%;
+        margin-top: 0;
+    }
+
+    .baochutro {
+        width: 100%;
+        max-height: none;
+    }
+
+    .avatar1 {
+        margin-top: 30px;
+        margin-left: 120px;
+        justify-content: center;
+    }
+
+    .content_chutro {
+        grid-template-columns: 1fr;
+        /* Một cột trên mobile */
+        margin-top: 20px;
+    }
+
+    .phone,
+    .nhantin_chutro,
+    .warning {
+        grid-column: span 1;
+    }
+
+    /* Related Posts */
+    .tindang_tro {
+        padding: 0 15px;
+        height: auto;
+        margin-bottom: 80px;
+    }
+
+    .bao_tindang {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .item_tindang img {
+        height: 200px;
+    }
+
+    /* Đăng ký */
+    .dangky {
+        margin-bottom: 20px;
+    }
+}
+
+/* Tablet (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+    .dieuhuong {
+        left: 50%;
+        transform: translateX(-50%);
+        top: 80px;
+    }
+
+    .layout {
+        flex-direction: column;
+        padding: 0 20px;
+        margin-top: 160px;
+    }
+
+    .room_detail {
+        width: 100%;
+    }
+
+    .gallery {
+        width: 100%;
+    }
+
+    .main-image {
+        height: 450px;
+    }
+
+    .info_chutro {
+        width: 100%;
+    }
+
+    .baochutro {
+        width: 100%;
+    }
+
+    .bao_tindang {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

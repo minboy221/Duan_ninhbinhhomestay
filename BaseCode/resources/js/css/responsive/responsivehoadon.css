@@ -1,0 +1,167 @@
+/* =============================================
+   RESPONSIVEHOADON.CSS
+   Mobile: <= 767px | Tablet: 768–1023px
+   ============================================= */
+
+/* Mobile (<= 767px) */
+@media screen and (max-width: 767px) {
+    .lichsuhoadon {
+        margin-top: 100px;
+        padding: 0 15px;
+        margin-bottom: 80px; /* Chừa chỗ cho bottom-nav */
+    }
+
+    .back {
+        padding: 8px 15px;
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .baohoadon {
+        padding: 20px;
+        border-radius: 25px;
+    }
+
+    .title_hoadon h2 {
+        font-size: 20px;
+        line-height: 1.3;
+    }
+
+    .title_hoadon p {
+        font-size: 14px;
+    }
+
+    /* Biến bảng thành Card */
+    .table_hoadon {
+        background: transparent;
+        border: none;
+    }
+
+    .table_hoadon table, 
+    .table_hoadon thead, 
+    .table_hoadon tbody, 
+    .table_hoadon th, 
+    .table_hoadon td, 
+    .table_hoadon tr {
+        display: block;
+        width: 100%;
+    }
+
+    .table_hoadon thead {
+        display: none; /* Ẩn tiêu đề bảng */
+    }
+
+    .table_hoadon tr {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(10px);
+        margin-bottom: 20px;
+        border-radius: 20px;
+        padding: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .table_hoadon td {
+        text-align: right;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        position: relative;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table_hoadon td:last-child {
+        border-bottom: none;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        text-align: center;
+        padding-top: 15px;
+    }
+
+    .table_hoadon td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        color: #64748b;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding-right: 10px;
+    }
+
+    .table_hoadon .price {
+        font-size: 18px;
+    }
+
+    .thaotac {
+        width: 100%;
+        margin-top: 5px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .thaotac button {
+        width: 100%;
+        padding: 12px;
+        font-size: 13px;
+        justify-content: center;
+    }
+
+    /* Modal Mobile */
+    .modal-box {
+        padding: 20px;
+        border-radius: 20px;
+        width: 90%;
+    }
+
+    .modal-box h3 {
+        font-size: 18px;
+    }
+
+    .meter-images {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .meter-item .img-wrapper {
+        height: 180px;
+    }
+
+    .payment-options {
+        flex-direction: column;
+    }
+
+    .payment-item {
+        padding: 12px;
+    }
+}
+
+/* Tablet (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+    .lichsuhoadon {
+        max-width: 95%;
+        margin-top: 110px;
+    }
+
+    .baohoadon {
+        padding: 35px;
+    }
+
+    .table_hoadon th, 
+    .table_hoadon td {
+        padding: 15px 10px;
+        font-size: 14px;
+    }
+
+    .thaotac {
+        gap: 8px;
+    }
+
+    .thaotac button {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+}

@@ -1,0 +1,249 @@
+/* =============================================
+   RESPONSIVELIENHE.CSS
+   Mobile: <= 767px | Tablet: 768–1023px
+   ============================================= */
+
+/* Mobile (<= 767px) */
+@media (max-width: 767px) {
+    .contact {
+        margin-top: 10px;
+        height: auto;
+        /* Bỏ chiều cao cố định 1000px */
+        padding-bottom: 40px;
+    }
+
+    .map iframe {
+        height: 300px;
+    }
+
+    .baolienhe {
+        margin: -50px 15px 0;
+        /* Đè lên map một chút, chừa viền 2 bên */
+        padding: 25px 15px;
+        border-radius: 15px;
+        width: auto;
+        /* Tự co giãn theo màn hình */
+    }
+
+    .title {
+        margin-bottom: 20px;
+    }
+
+    .title h2 {
+        font-size: 28px;
+    }
+
+    .title p {
+        font-size: 13px;
+        padding: 0 10px;
+    }
+
+    .lienhe {
+        grid-template-columns: 1fr;
+        /* Form và thông tin xếp dọc */
+        gap: 30px;
+    }
+
+    .item_contac {
+        margin-top: 10px;
+        align-items: flex-start;
+    }
+
+    .item_contac i {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+        flex-shrink: 0;
+    }
+
+    .item_contac h3 {
+        font-size: 16px;
+    }
+
+    .item_contac p {
+        font-size: 13px;
+    }
+
+    .user_contac {
+        flex-direction: column;
+        /* Tên và Email nằm dọc trên mobile */
+        gap: 15px;
+    }
+
+    .form_contac form {
+        gap: 15px;
+    }
+
+    .form_contac input,
+    .form_contac textarea {
+        padding: 12px 15px;
+        font-size: 14px;
+    }
+
+    .btn_submit a {
+        display: block;
+        width: 100%;
+        text-align: center;
+        padding: 14px;
+        font-size: 15px;
+    }
+}
+
+/* Tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .contact {
+        margin-top: -120px;
+        height: auto;
+        /* Bỏ chiều cao cố định */
+        padding-bottom: 60px;
+    }
+
+    .map iframe {
+        height: 350px;
+    }
+
+    .baolienhe {
+        margin: -80px 20px 0;
+        /* Đè lên map */
+        padding: 40px 30px;
+        width: auto;
+    }
+
+    .title h2 {
+        font-size: 34px;
+    }
+
+    .lienhe {
+        grid-template-columns: 1fr 1fr;
+        /* Giữ 2 cột */
+        gap: 25px;
+    }
+
+    .user_contac {
+        flex-direction: column;
+        /* 2 input Tên và Email nên xuống dòng cho khỏi chật */
+        gap: 20px;
+    }
+}
+
+/* ===== BOTTOM NAV ===== */
+.bottom-nav {
+    display: none;
+}
+
+/* MOBILE ONLY */
+@media (max-width: 767px) {
+
+    .bottom-nav {
+        position: fixed;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 20px);
+        max-width: 420px;
+        height: 65px;
+
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+
+        /* glass effect */
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+
+        border-radius: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+
+        box-shadow:
+            0 8px 30px rgba(0, 0, 0, 0.2),
+            inset 0 0 10px rgba(255, 255, 255, 0.3);
+
+        z-index: 9999;
+    }
+
+    /* ITEM */
+    .bottom-nav .item {
+        text-decoration: none;
+        color: #555;
+        font-size: 11px;
+        font-weight: 500;
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+
+        transition: 0.25s ease;
+    }
+
+    /* ICON */
+    .bottom-nav .item i {
+        font-size: 20px;
+        transition: 0.25s;
+    }
+
+    /* HOVER / ACTIVE */
+    .bottom-nav .item:hover {
+        color: #45abe6;
+    }
+
+    .bottom-nav .item.active {
+        color: #45abe6;
+    }
+
+    .bottom-nav .item.active i {
+        transform: translateY(-2px);
+    }
+
+    /* CLICK EFFECT */
+    .bottom-nav .item:active {
+        transform: scale(0.9);
+    }
+
+    /* ===== NÚT GIỮA NỔI ===== */
+    .bottom-nav .item.center {
+        position: relative;
+        top: -18px;
+
+        width: 55px;
+        height: 55px;
+
+        background: linear-gradient(135deg, #14b89a, #45abe6);
+        color: #fff;
+
+        border-radius: 50%;
+        box-shadow: 0 6px 20px rgba(69, 171, 230, 0.5);
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bottom-nav .item.center i {
+        font-size: 24px;
+    }
+
+    .bottom-nav .item.center span {
+        display: none;
+    }
+
+    /* ===== BADGE ===== */
+    .bottom-nav .badge {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+
+        background: red;
+        color: #fff;
+        font-size: 10px;
+
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+
+    /* ===== TRÁNH CHE NỘI DUNG ===== */
+    body {
+        padding-bottom: 80px;
+    }
+}
