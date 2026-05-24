@@ -1,8 +1,44 @@
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue';
 import MainLayout from '@/Layouts/MainLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import HomePopup from '@/Components/HomePopup.vue';
 
+// Slider Phòng Trọ
+const currentPtSlide = ref(0);
+const totalPtSlides = 3;
+let ptSlideInterval = null;
+
+const nextPtSlide = () => {
+    currentPtSlide.value = (currentPtSlide.value + 1) % totalPtSlides;
+};
+
+const prevPtSlide = () => {
+    currentPtSlide.value = (currentPtSlide.value - 1 + totalPtSlides) % totalPtSlides;
+};
+
+const goToPtSlide = (index) => {
+    currentPtSlide.value = index;
+};
+
+// Tự động chuyển slide sau mỗi 5s
+onMounted(() => {
+    ptSlideInterval = setInterval(nextPtSlide, 5000);
+});
+
+onUnmounted(() => {
+    if (ptSlideInterval) clearInterval(ptSlideInterval);
+});
+
+// Slider Đánh Giá
+const currentReviewIndex = ref(0);
+const maxReviewIndex = 3; // Tổng 6 card, hiển thị 3 card cùng lúc -> max index = 3
+
+const scrollReview = (direction) => {
+    currentReviewIndex.value += direction;
+    if (currentReviewIndex.value < 0) currentReviewIndex.value = 0;
+    if (currentReviewIndex.value > maxReviewIndex) currentReviewIndex.value = maxReviewIndex;
+};
 </script>
 <template>
 
@@ -74,7 +110,8 @@ import HomePopup from '@/Components/HomePopup.vue';
             <div class="pt-slider" id="ptSlider">
 
                 <!-- Slide 1 -->
-                <div class="pt-slide active" style="background-image: url('anh/phong1.jpg')">
+                <div class="pt-slide" :class="{ active: currentPtSlide === 0 }"
+                    style="background-image: url('anh/phong1.jpg')">
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
                         <span class="pt-badge">Nổi Bật</span>
@@ -89,7 +126,8 @@ import HomePopup from '@/Components/HomePopup.vue';
                 </div>
 
                 <!-- Slide 2 -->
-                <div class="pt-slide" style="background-image: url('anh/phong1.jpg')">
+                <div class="pt-slide" :class="{ active: currentPtSlide === 1 }"
+                    style="background-image: url('anh/phong1.jpg')">
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
                         <span class="pt-badge">Hot</span>
@@ -104,7 +142,8 @@ import HomePopup from '@/Components/HomePopup.vue';
                 </div>
 
                 <!-- Slide 3 -->
-                <div class="pt-slide" style="background-image: url('anh/phong1.jpg')">
+                <div class="pt-slide" :class="{ active: currentPtSlide === 2 }"
+                    style="background-image: url('anh/phong1.jpg')">
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
                         <span class="pt-badge">Mới</span>
@@ -119,14 +158,14 @@ import HomePopup from '@/Components/HomePopup.vue';
                 </div>
 
                 <!-- Nút điều hướng -->
-                <button class="pt-nav pt-prev" id="ptPrev"><i class="bi bi-chevron-left"></i></button>
-                <button class="pt-nav pt-next" id="ptNext"><i class="bi bi-chevron-right"></i></button>
+                <button class="pt-nav pt-prev" @click="prevPtSlide"><i class="bi bi-chevron-left"></i></button>
+                <button class="pt-nav pt-next" @click="nextPtSlide"><i class="bi bi-chevron-right"></i></button>
 
                 <!-- Dots -->
-                <div class="pt-dots" id="ptDots">
-                    <span class="pt-dot active" data-index="0"></span>
-                    <span class="pt-dot" data-index="1"></span>
-                    <span class="pt-dot" data-index="2"></span>
+                <div class="pt-dots">
+                    <span class="pt-dot" :class="{ active: currentPtSlide === 0 }" @click="goToPtSlide(0)"></span>
+                    <span class="pt-dot" :class="{ active: currentPtSlide === 1 }" @click="goToPtSlide(1)"></span>
+                    <span class="pt-dot" :class="{ active: currentPtSlide === 2 }" @click="goToPtSlide(2)"></span>
                 </div>
             </div>
         </section>
@@ -223,7 +262,7 @@ import HomePopup from '@/Components/HomePopup.vue';
             </div>
 
             <div class="review-container">
-                <div class="review-track">
+                <div class="review-track" :style="{ transform: `translateX(-${currentReviewIndex * 380}px)` }">
 
                     <!-- card -->
                     <div class="card">
@@ -232,7 +271,7 @@ import HomePopup from '@/Components/HomePopup.vue';
                         <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
                         <div class="user">
                             <img src="anh/banner.png">
-                            <div>
+                            <div class="name_user">
                                 <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
                             </div>
@@ -244,7 +283,7 @@ import HomePopup from '@/Components/HomePopup.vue';
                         <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
                         <div class="user">
                             <img src="anh/banner.png">
-                            <div>
+                            <div class="name_user">
                                 <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
                             </div>
@@ -252,50 +291,50 @@ import HomePopup from '@/Components/HomePopup.vue';
                     </div>
 
                     <div class="card">
-                        <h3>Tuyệt vời</h3>
+                        <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Dịch vụ chu đáo, tư vấn tận tâm. Tôi sẽ quay lại!</p>
+                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
                         <div class="user">
                             <img src="anh/banner.png">
-                            <div>
-                                <b>Lê Hào</b>
+                            <div class="name_user">
+                                <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="card">
-                        <h3>Tốt</h3>
+                        <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm ổn định, giao diện dễ sử dụng.</p>
+                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
                         <div class="user">
                             <img src="anh/banner.png">
-                            <div>
-                                <b>An An</b>
+                            <div class="name_user">
+                                <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
                             </div>
                         </div>
                     </div>
                     <div class="card">
-                        <h3>Tốt</h3>
+                        <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm ổn định, giao diện dễ sử dụng.</p>
+                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
                         <div class="user">
                             <img src="anh/banner.png">
-                            <div>
-                                <b>An An</b>
+                            <div class="name_user">
+                                <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
                             </div>
                         </div>
                     </div>
                     <div class="card">
-                        <h3>Tốt</h3>
+                        <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm ổn định, giao diện dễ sử dụng.</p>
+                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
                         <div class="user">
                             <img src="anh/banner.png">
-                            <div>
-                                <b>An An</b>
+                            <div class="name_user">
+                                <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
                             </div>
                         </div>
@@ -305,8 +344,8 @@ import HomePopup from '@/Components/HomePopup.vue';
 
             <!-- nút -->
             <div class="btns">
-                <button id="prev">❮</button>
-                <button id="next">❯</button>
+                <button id="prev" @click="scrollReview(-1)">❮</button>
+                <button id="next" @click="scrollReview(1)">❯</button>
             </div>
         </section>
         <HomePopup />

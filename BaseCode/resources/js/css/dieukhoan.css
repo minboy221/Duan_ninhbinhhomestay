@@ -12,12 +12,6 @@
      --border: rgba(45, 95, 68, 0.15);
  }
 
- * {
-     margin: 0;
-     padding: 0;
-     box-sizing: border-box;
- }
-
  body {
      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
      background-color: var(--cream);
@@ -48,7 +42,6 @@
  }
 
  .logo {
-     font-family: 'Cormorant Garamond', serif;
      font-size: 1.5rem;
      font-weight: 600;
      color: #fff;
@@ -112,7 +105,6 @@
  }
 
  .hero h1 {
-     font-family: 'Cormorant Garamond', serif;
      font-size: clamp(2.2rem, 5vw, 3.5rem);
      font-weight: 600;
      color: #fff;
@@ -264,7 +256,6 @@
  }
 
  .section-num {
-     font-family: 'Cormorant Garamond', serif;
      font-size: 1.6rem;
      font-weight: 600;
      color: var(--gold);
@@ -274,7 +265,6 @@
  }
 
  .section h2 {
-     font-family: 'Cormorant Garamond', serif;
      font-size: 1.45rem;
      font-weight: 600;
      color: var(--green-dark);
@@ -394,7 +384,6 @@
  }
 
  .footer-logo {
-     font-family: 'Cormorant Garamond', serif;
      font-size: 1.5rem;
      color: #fff;
      margin-bottom: 0.75rem;
