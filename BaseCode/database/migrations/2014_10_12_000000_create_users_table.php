@@ -14,9 +14,11 @@ return new class extends Migration {
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->integer('role')->default(0);
+            $table->string('phone')->nullable();
+            $table->string('cccd_number')->nullable()->comment('số cccd để xác minh tài khoản');
+            $table->enum('role', ['admin', 'landlord', 'tenant'])->default('tenant');
+            $table->boolean('is_verified')->default(false);
             $table->rememberToken();
             $table->timestamps();
         });
