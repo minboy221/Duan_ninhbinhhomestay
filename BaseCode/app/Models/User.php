@@ -42,6 +42,10 @@ class User extends Authenticatable
         return $this-> role === 'user';
     }
 
+    public function isLandlord():bool{
+        return $this-> role === 'landlord';
+    }
+
     /**
      * The attributes that should be cast.
      *
