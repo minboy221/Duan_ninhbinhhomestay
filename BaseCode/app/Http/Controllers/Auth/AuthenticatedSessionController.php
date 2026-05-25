@@ -38,6 +38,10 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
+        if ($request->user()->role === 'landlord') {
+            return redirect()->route('landlord.dashboard');
+        }
+
         return redirect()->intended(RouteServiceProvider::HOME);
     }
 
