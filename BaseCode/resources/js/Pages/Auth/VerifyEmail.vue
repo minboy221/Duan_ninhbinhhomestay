@@ -1,50 +1,45 @@
 <script setup>
 import { ref } from 'vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
+import { Head, Link, useForm, router } from '@inertiajs/vue3'
 
 defineProps({
-    canResetPassword: { type: Boolean },
     status: { type: String },
 })
 
-// Tab hiện tại: 'login' | 'signup' | 'forgot'
-const activeTab = ref('login')
-
-// Form đăng nhập
-const loginForm = useForm({
-    email: '',
-    password: '',
-    remember: false,
+const form = useForm({
+    otp: '',
 })
 
-// Form đăng ký
-const signupForm = useForm({
-    name: '',
-    email: '',
-    password: '',
-    password_confirmation: '',
-    terms: false,
-})
+const otpInputs = ref(['', '', '', '', '', ''])
 
-// Form quên mật khẩu
-const forgotForm = useForm({
-    email: '',
-})
-
-const submitLogin = () => {
-    loginForm.post(route('login'), {
-        onFinish: () => loginForm.reset('password'),
+const submitOtp = () => {
+    form.otp = otpInputs.value.join('')
+    form.post(route('verification.verify.otp'), {
+        preserveScroll: true,
+        onError: () => {
+            otpInputs.value = ['', '', '', '', '', '']
+            document.getElementById('otp-0')?.focus()
+        }
     })
 }
 
-const submitSignup = () => {
-    signupForm.post(route('register'), {
-        onFinish: () => signupForm.reset('password', 'password_confirmation'),
+const resendOtp = () => {
+    router.post(route('verification.send'), {}, {
+        preserveScroll: true,
     })
 }
 
-const submitForgot = () => {
-    forgotForm.post(route('password.email'))
+const handleInput = (index, event) => {
+    const value = event.target.value;
+    if (value && index < 5) {
+        document.getElementById(`otp-${index + 1}`).focus()
+    }
+}
+
+const handleKeydown = (index, event) => {
+    if (event.key === 'Backspace' && !otpInputs.value[index] && index > 0) {
+        document.getElementById(`otp-${index - 1}`).focus()
+    }
 }
 </script>
 
@@ -71,9 +66,6 @@ const submitForgot = () => {
                     </span>
                     <h1 class="text-5xl md:text-7xl font-bold tracking-tight text-[#2c2f31] mb-6 leading-[1.1]"
                         style="font-family: 'Plus Jakarta Sans', sans-serif">
-                        <span v-if="activeTab === 'login'">Welcome Back To</span>
-                        <span v-else-if="activeTab === 'signup'">Tạo Tài Khoản</span>
-                        <span v-else>Quên Mật Khẩu?</span>
                         <span class="text-[#00628c]"> Ninh Bình Home stay.</span>
                     </h1>
                     <p class="text-lg text-[#595c5e] max-w-lg mx-auto lg:mx-0 mb-8 leading-relaxed">
@@ -97,14 +89,8 @@ const submitForgot = () => {
                 <div class="w-full lg:w-1/2 max-w-md">
                     <div class="rounded-2xl shadow-2xl p-8 md:p-10"
                         style="background: rgba(255,255,255,0.7); backdrop-filter: blur(24px); border: 1.5px solid rgba(255,255,255,0.4)">
-                        <!-- Status message -->
-                        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
-                            {{ status }}
-                        </div>
                         <!-- FORM NHẬP MÃ XÁC MINH -->
-                        <div class="flex justify-center lg:justify-end">
-                            <div class="glass-card w-full max-w-md p-10 lg:p-12 rounded-xl shadow-2xl">
-                                <div class="space-y-8">
+                        <div class="space-y-8">
                                     <!-- Header -->
                                     <div class="text-center lg:text-left space-y-2">
                                         <h2 class="font-headline text-3xl font-bold text-on-primary-container">Xác minh
@@ -114,54 +100,48 @@ const submitForgot = () => {
                                             Vui lòng nhập mã xác minh 6 chữ số đã được gửi đến địa chỉ email của bạn.
                                         </p>
                                     </div>
+                                    <!-- Status message -->
+                                    <div v-if="status" class="mb-4 text-sm font-medium text-green-600 text-center bg-green-50 p-3 rounded-lg border border-green-200">
+                                        {{ status === 'verification-link-sent' ? 'Một mã xác minh mới đã được gửi đến email của bạn.' : status }}
+                                    </div>
+                                    <div v-if="form.errors.otp" class="mb-4 text-sm font-medium text-red-600 text-center bg-red-50 p-3 rounded-lg border border-red-200">
+                                        {{ form.errors.otp }}
+                                    </div>
+
                                     <!-- OTP Inputs -->
-                                    <div class="flex justify-between gap-1">
-                                        <input
-                                            class="otp-input w-12 h-14 lg:w-14 lg:h-16 text-center text-2xl font-bold rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 focus:scale-110 transition-all duration-200"
-                                            maxlength="1" type="text" />
-                                        <input
-                                            class="otp-input w-12 h-14 lg:w-14 lg:h-16 text-center text-2xl font-bold rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 focus:scale-110 transition-all duration-200"
-                                            maxlength="1" type="text" />
-                                        <input
-                                            class="otp-input w-12 h-14 lg:w-14 lg:h-16 text-center text-2xl font-bold rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 focus:scale-110 transition-all duration-200"
-                                            maxlength="1" type="text" />
-                                        <input
-                                            class="otp-input w-12 h-14 lg:w-14 lg:h-16 text-center text-2xl font-bold rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 focus:scale-110 transition-all duration-200"
-                                            maxlength="1" type="text" />
-                                        <input
-                                            class="otp-input w-12 h-14 lg:w-14 lg:h-16 text-center text-2xl font-bold rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 focus:scale-110 transition-all duration-200"
-                                            maxlength="1" type="text" />
-                                        <input
-                                            class="otp-input w-12 h-14 lg:w-14 lg:h-16 text-center text-2xl font-bold rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 focus:scale-110 transition-all duration-200"
-                                            maxlength="1" type="text" />
-                                    </div>
-                                    <!-- Actions -->
-                                    <div class="space-y-6">
-                                        <button
-                                            class="w-full py-4 bg-gradient-to-br from-primary to-primary-container text-white font-headline font-bold rounded-full text-lg shadow-lg hover:scale-[1.02] transition-transform active:scale-[0.98]">
-                                            Xác minh
-                                        </button>
-                                        <div class="text-center">
-                                            <p class="text-on-surface-variant text-sm mb-2">Không nhận được mã?</p>
-                                            <a class="text-primary font-semibold hover:text-primary-dim transition-colors inline-flex items-center gap-1 group"
-                                                href="#">
-                                                Resend code
-                                                <span
-                                                    class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                                            </a>
+                                    <form @submit.prevent="submitOtp" class="space-y-6">
+                                        <div class="flex justify-between gap-1">
+                                            <input v-for="(val, index) in otpInputs" :key="index"
+                                                :id="'otp-' + index"
+                                                v-model="otpInputs[index]"
+                                                @input="handleInput(index, $event)"
+                                                @keydown="handleKeydown(index, $event)"
+                                                class="otp-input w-12 h-14 lg:w-14 lg:h-16 text-center text-2xl font-bold rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[#57baf6]/30 focus:scale-110 transition-all duration-200"
+                                                maxlength="1" type="text" />
                                         </div>
-                                    </div>
-                                    <button type="button" @click="activeTab = 'login'"
-                                        class="w-full text-sm text-[#595c5e] hover:text-[#00628c] transition-colors text-center">
-                                        ← Quay lại đăng nhập
-                                    </button>
-                                    <!-- Help link -->
-                                    <div class="pt-4 border-t border-on-surface-variant/10 text-center">
-                                        <a class="text-on-surface-variant/60 text-xs uppercase tracking-widest hover:text-primary transition-colors"
-                                            href="#">Trung tâm hỗ trợ</a>
-                                    </div>
+
+                                        <!-- Actions -->
+                                        <div class="space-y-6">
+                                            <button type="submit" :disabled="form.processing"
+                                                class="w-full py-4 bg-gradient-to-br from-[#00628c] to-[#57baf6] text-white font-headline font-bold rounded-full text-lg shadow-lg hover:scale-[1.02] transition-transform active:scale-[0.98]">
+                                                {{ form.processing ? 'Đang xử lý...' : 'Xác minh' }}
+                                            </button>
+                                            <div class="text-center">
+                                                <p class="text-on-surface-variant text-sm mb-2 text-gray-500">Không nhận được mã?</p>
+                                                <button type="button" @click="resendOtp"
+                                                    class="text-[#00628c] font-semibold hover:text-[#57baf6] transition-colors inline-flex items-center gap-1 group">
+                                                    Gửi lại mã
+                                                    <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+
+                                <!-- Help link -->
+                                <div class="pt-4 border-t border-gray-200 text-center">
+                                    <a class="text-gray-500 text-xs uppercase tracking-widest hover:text-[#00628c] transition-colors"
+                                        href="#">Trung tâm hỗ trợ</a>
                                 </div>
-                            </div>
                         </div>
                         <!-- Social Login -->
                         <div class="mt-10">

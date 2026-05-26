@@ -10,10 +10,20 @@ defineProps({
 // Tab hiện tại: 'login' | 'signup' | 'forgot'
 const activeTab = ref('login')
 
+const showLoginPassword = ref(false)
+const showSignupPassword = ref(false)
+const showSignupPasswordConfirm = ref(false)
+
+const captchaUrl = ref('/captcha/flat?' + Math.random())
+const reloadCaptcha = () => {
+    captchaUrl.value = '/captcha/flat?' + Math.random()
+}
+
 // Form đăng nhập
 const loginForm = useForm({
     email: '',
     password: '',
+    captcha: '',
     remember: false,
 })
 
@@ -23,6 +33,7 @@ const signupForm = useForm({
     email: '',
     password: '',
     password_confirmation: '',
+    captcha: '',
     terms: false,
 })
 
@@ -33,13 +44,19 @@ const forgotForm = useForm({
 
 const submitLogin = () => {
     loginForm.post(route('login'), {
-        onFinish: () => loginForm.reset('password'),
+        onFinish: () => {
+            loginForm.reset('password', 'captcha');
+            reloadCaptcha();
+        },
     })
 }
 
 const submitSignup = () => {
     signupForm.post(route('register'), {
-        onFinish: () => signupForm.reset('password', 'password_confirmation'),
+        onFinish: () => {
+            signupForm.reset('password', 'password_confirmation', 'captcha');
+            reloadCaptcha();
+        },
     })
 }
 
@@ -137,10 +154,29 @@ const submitForgot = () => {
                                 <label class="block text-xs font-bold uppercase tracking-wider text-[#595c5e] ml-4">
                                     Mật khẩu
                                 </label>
-                                <input v-model="loginForm.password" type="password" placeholder="••••••••"
-                                    class="w-full px-6 py-4 bg-white border-none rounded-xl focus:ring-4 focus:ring-[#57baf6]/30 transition-all outline-none text-[#2c2f31]" />
+                                <div class="relative group">
+                                    <input v-model="loginForm.password" :type="showLoginPassword ? 'text' : 'password'" placeholder="••••••••"
+                                        class="w-full pl-6 pr-12 py-4 bg-white border-none rounded-xl focus:ring-4 focus:ring-[#57baf6]/30 transition-all outline-none text-[#2c2f31]" />
+                                    <button type="button" @click="showLoginPassword = !showLoginPassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-[#747779] hover:text-[#00628c] focus:outline-none">
+                                        <span class="material-symbols-outlined text-[20px]">{{ showLoginPassword ? 'visibility_off' : 'visibility' }}</span>
+                                    </button>
+                                </div>
                                 <p v-if="loginForm.errors.password" class="text-red-500 text-xs mt-1 ml-4">
                                     {{ loginForm.errors.password }}
+                                </p>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-[#595c5e] ml-4">
+                                    Mã xác nhận
+                                </label>
+                                <div class="flex flex-col gap-3">
+                                    <input v-model="loginForm.captcha" type="text" placeholder="Nhập mã xác nhận"
+                                        class="w-full px-6 py-4 bg-white border-none rounded-xl focus:ring-4 focus:ring-[#57baf6]/30 transition-all outline-none text-[#2c2f31]" />
+                                    <img :src="captchaUrl" alt="captcha" class="rounded-xl h-[56px] cursor-pointer self-start border border-gray-200" @click="reloadCaptcha" title="Bấm vào để đổi mã" />
+                                </div>
+                                <p v-if="loginForm.errors.captcha" class="text-red-500 text-xs mt-1 ml-4">
+                                    {{ loginForm.errors.captcha }}
                                 </p>
                             </div>
 
@@ -212,9 +248,12 @@ const submitForgot = () => {
                                             class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#595c5e] group-focus-within:text-[#00628c] transition-colors">
                                             lock
                                         </span>
-                                        <input v-model="signupForm.password" type="password"
+                                        <input v-model="signupForm.password" :type="showSignupPassword ? 'text' : 'password'"
                                             placeholder="••••••••"
-                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" />
+                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-12 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" />
+                                        <button type="button" @click="showSignupPassword = !showSignupPassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-[#747779] hover:text-[#00628c] focus:outline-none">
+                                            <span class="material-symbols-outlined text-[20px]">{{ showSignupPassword ? 'visibility_off' : 'visibility' }}</span>
+                                        </button>
                                     </div>
                                     <p v-if="signupForm.errors.password" class="text-red-500 text-xs ml-1">
                                         {{ signupForm.errors.password }}
@@ -229,11 +268,33 @@ const submitForgot = () => {
                                             class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#595c5e] group-focus-within:text-[#00628c] transition-colors">
                                             verified_user
                                         </span>
-                                        <input v-model="signupForm.password_confirmation" type="password"
+                                        <input v-model="signupForm.password_confirmation" :type="showSignupPasswordConfirm ? 'text' : 'password'"
                                             placeholder="••••••••"
-                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" />
+                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-12 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" />
+                                        <button type="button" @click="showSignupPasswordConfirm = !showSignupPasswordConfirm" class="absolute right-4 top-1/2 -translate-y-1/2 text-[#747779] hover:text-[#00628c] focus:outline-none">
+                                            <span class="material-symbols-outlined text-[20px]">{{ showSignupPasswordConfirm ? 'visibility_off' : 'visibility' }}</span>
+                                        </button>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-[#595c5e] px-1">
+                                    Mã xác nhận
+                                </label>
+                                <div class="flex flex-col gap-3">
+                                    <div class="relative group w-full">
+                                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#595c5e] group-focus-within:text-[#00628c] transition-colors">
+                                            verified
+                                        </span>
+                                        <input v-model="signupForm.captcha" type="text" placeholder="Nhập mã xác nhận"
+                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" />
+                                    </div>
+                                    <img :src="captchaUrl" alt="captcha" class="rounded-xl h-[56px] cursor-pointer self-start border border-gray-200" @click="reloadCaptcha" title="Bấm vào để đổi mã" />
+                                </div>
+                                <p v-if="signupForm.errors.captcha" class="text-red-500 text-xs ml-1">
+                                    {{ signupForm.errors.captcha }}
+                                </p>
                             </div>
 
                             <div class="space-y-2">
