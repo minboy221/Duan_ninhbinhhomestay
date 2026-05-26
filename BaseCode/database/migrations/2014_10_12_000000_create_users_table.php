@@ -19,6 +19,7 @@ return new class extends Migration {
             $table->string('cccd_number')->nullable()->comment('số cccd để xác minh tài khoản');
             $table->enum('role', ['admin', 'landlord', 'tenant'])->default('tenant');
             $table->boolean('is_verified')->default(false);
+            $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
