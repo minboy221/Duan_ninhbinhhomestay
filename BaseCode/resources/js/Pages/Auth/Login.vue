@@ -173,7 +173,12 @@ const submitForgot = () => {
                                 <div class="flex flex-col gap-3">
                                     <input v-model="loginForm.captcha" type="text" placeholder="Nhập mã xác nhận"
                                         class="w-full px-6 py-4 bg-white border-none rounded-xl focus:ring-4 focus:ring-[#57baf6]/30 transition-all outline-none text-[#2c2f31]" />
-                                    <img :src="captchaUrl" alt="captcha" class="rounded-xl h-[56px] cursor-pointer self-start border border-gray-200" @click="reloadCaptcha" title="Bấm vào để đổi mã" />
+                                    <div class="flex items-center gap-3">
+                                        <img :src="captchaUrl" alt="captcha" class="rounded-xl h-[56px] cursor-pointer border border-gray-200" @click="reloadCaptcha" title="Bấm vào để đổi mã" />
+                                        <button type="button" @click="reloadCaptcha" class="flex items-center justify-center w-[56px] h-[56px] bg-white rounded-xl shadow-sm text-[#595c5e] hover:text-[#00628c] hover:bg-[#f0f8ff] transition-all focus:outline-none" title="Tải lại mã">
+                                            <span class="material-symbols-outlined text-[24px]">refresh</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <p v-if="loginForm.errors.captcha" class="text-red-500 text-xs mt-1 ml-4">
                                     {{ loginForm.errors.captcha }}
@@ -290,7 +295,12 @@ const submitForgot = () => {
                                         <input v-model="signupForm.captcha" type="text" placeholder="Nhập mã xác nhận"
                                             class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" />
                                     </div>
-                                    <img :src="captchaUrl" alt="captcha" class="rounded-xl h-[56px] cursor-pointer self-start border border-gray-200" @click="reloadCaptcha" title="Bấm vào để đổi mã" />
+                                    <div class="flex items-center gap-3">
+                                        <img :src="captchaUrl" alt="captcha" class="rounded-xl h-[56px] cursor-pointer border border-gray-200" @click="reloadCaptcha" title="Bấm vào để đổi mã" />
+                                        <button type="button" @click="reloadCaptcha" class="flex items-center justify-center w-[56px] h-[56px] bg-white rounded-xl shadow-sm text-[#595c5e] hover:text-[#00628c] hover:bg-[#f0f8ff] transition-all focus:outline-none" title="Tải lại mã">
+                                            <span class="material-symbols-outlined text-[24px]">refresh</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <p v-if="signupForm.errors.captcha" class="text-red-500 text-xs ml-1">
                                     {{ signupForm.errors.captcha }}
@@ -370,9 +380,9 @@ const submitForgot = () => {
                                 </span>
                                 <div class="flex-grow border-t border-[#abadaf]/30"></div>
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <button type="button"
-                                    class="flex items-center justify-center gap-2 py-3 px-4 bg-white border border-[#abadaf]/20 rounded-full hover:bg-[#e5e9eb] transition-all">
+                            <div class="grid grid-cols-1 gap-4">
+                                <a :href="route('google.login')"
+                                    class="flex items-center justify-center gap-2 py-3 px-4 bg-white border border-[#abadaf]/20 rounded-full hover:bg-[#e5e9eb] transition-all cursor-pointer">
                                     <svg class="w-5 h-5" viewBox="0 0 24 24">
                                         <path
                                             d="M12 5.04c1.94 0 3.68.67 5.05 1.97l3.77-3.77C18.53 1.15 15.48 0 12 0 7.31 0 3.25 2.69 1.25 6.63l4.13 3.2C6.35 6.96 8.98 5.04 12 5.04z"
@@ -387,16 +397,8 @@ const submitForgot = () => {
                                             d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.7-2.87c-1.1.73-2.5 1.17-4.23 1.17-3.02 0-5.65-1.92-6.62-4.79l-4.13 3.2C3.25 21.31 7.31 24 12 24z"
                                             fill="#34A853" />
                                     </svg>
-                                    <span class="text-sm font-semibold">Google</span>
-                                </button>
-                                <button type="button"
-                                    class="flex items-center justify-center gap-2 py-3 px-4 bg-white border border-[#abadaf]/20 rounded-full hover:bg-[#e5e9eb] transition-all">
-                                    <svg class="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
-                                        <path
-                                            d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                                    </svg>
-                                    <span class="text-sm font-semibold">Facebook</span>
-                                </button>
+                                    <span class="text-sm font-semibold">Đăng nhập bằng Google</span>
+                                </a>
                             </div>
                         </div>
 
