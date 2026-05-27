@@ -27,6 +27,7 @@ class RegisterRequest extends FormRequest
             'name' => 'required|string|max:100',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'captcha' => 'required|captcha',
             'terms' => 'required|accepted',
         ];
     }
@@ -45,6 +46,8 @@ class RegisterRequest extends FormRequest
             'email.unique' => 'Email này đã được sử dụng.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
+            'captcha.required' => 'Vui lòng nhập mã xác nhận.',
+            'captcha.captcha' => 'Mã xác nhận không đúng.',
             'terms.required' => 'Bạn phải đồng ý với điều khoản dịch vụ.',
             'terms.accepted' => 'Bạn phải chấp nhận các điều khoản để tiếp tục.',
         ];
@@ -59,6 +62,7 @@ class RegisterRequest extends FormRequest
             'name' => 'họ và tên',
             'email' => 'địa chỉ email',
             'password' => 'mật khẩu',
+            'captcha' => 'mã xác nhận',
             'terms' => 'điều khoản',
         ];
     }
