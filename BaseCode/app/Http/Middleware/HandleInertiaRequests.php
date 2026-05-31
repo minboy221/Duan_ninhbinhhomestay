@@ -29,11 +29,13 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        return [
-            ...parent::share($request),
+        return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $request->user(),
+                //phần kiểm tra user có dữ liệu trong bảng user_verifications
+                'has_submitted_verification' => $request->user()
+                    ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $request->user()->id)->exists() : false,
             ],
-        ];
+        ]);
     }
 }

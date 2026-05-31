@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\UserVerification;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -20,9 +21,9 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $fillable = [
         'name',
         'email',
+        'phone',
         'password',
-        'role',
-        'google_id',
+        'role'
     ];
 
     /**
@@ -35,16 +36,19 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
     ];
 
-    public function isAdmin():bool{
-        return $this-> role === 'admin';
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
     }
 
-    public function isUser():bool{
-        return $this-> role === 'user';
+    public function isUser(): bool
+    {
+        return $this->role === 'user';
     }
 
-    public function isLandlord():bool{
-        return $this-> role === 'landlord';
+    public function isLandlord(): bool
+    {
+        return $this->role === 'landlord';
     }
 
     /**
@@ -67,5 +71,16 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->save();
 
         \Illuminate\Support\Facades\Mail::to($this->email)->send(new \App\Mail\VerifyEmailOTP($this->otp_code));
+    }
+    public function verification()
+    {
+        // Liên kết với bảng user_verifications thông qua cột user_id
+        return $this->hasOne(UserVerification::class, 'user_id', 'id');
+    }
+
+    //xác minh thông tin chủ trọ
+    public function boardingHouse()
+    {
+        return $this->hasOne(BoardingHouse::class, 'user_id', 'id');
     }
 }

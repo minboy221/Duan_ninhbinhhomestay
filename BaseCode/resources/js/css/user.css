@@ -15,7 +15,8 @@
     display: flex;
     gap: 90px;
     align-items: flex-start;
-    min-height: calc(150vh - 100px); /* Use min-height instead of fixed height */
+    min-height: calc(150vh - 100px);
+    /* Use min-height instead of fixed height */
 }
 
 .left_section {
@@ -79,6 +80,11 @@
 .infor_user {
     text-align: center;
     margin-bottom: 15px;
+}
+
+.name_user {
+    display: flex;
+    justify-content: center;
 }
 
 .name_user p {
@@ -174,7 +180,8 @@
 
 .bao_item {
     width: 810px;
-    min-height: 700px; /* Changed height to min-height */
+    min-height: 700px;
+    /* Changed height to min-height */
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
@@ -309,6 +316,6 @@
     transform: scale(0.90);
 }
 
-.bottom-nav{
+.bottom-nav {
     display: none;
 }

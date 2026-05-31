@@ -1,12 +1,12 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { ref, onMounted, computed } from "vue";
+import { Link, usePage } from "@inertiajs/vue3";
 
 const props = defineProps({
     showInitially: {
         type: Boolean,
-        default: true
-    }
+        default: true,
+    },
 });
 
 const isVisible = ref(false);
@@ -14,14 +14,14 @@ const isVisible = ref(false);
 const closePopup = () => {
     isVisible.value = false;
     // Store in session storage so it doesn't show again in the same session
-    sessionStorage.setItem('home_popup_seen', 'true');
+    sessionStorage.setItem("home_popup_seen", "true");
 };
 
 const { props: pageProps } = usePage();
 const user = computed(() => pageProps.auth.user);
 
 onMounted(() => {
-    const hasSeen = sessionStorage.getItem('home_popup_seen');
+    const hasSeen = sessionStorage.getItem("home_popup_seen");
     // Only show for registered users (user is logged in)
     if (user.value && !hasSeen && props.showInitially) {
         setTimeout(() => {
@@ -32,61 +32,102 @@ onMounted(() => {
 </script>
 
 <template>
-    <Teleport to="body">
-        <Transition name="fade">
-            <div v-if="isVisible" class="popup-overlay" @click.self="closePopup">
-                <Transition name="zoom">
-                    <div v-if="isVisible" class="popup-container">
-                        <button class="close-btn" @click="closePopup" aria-label="Close">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
+    <div
+        class="popup-chuyen-quyen"
+        v-if="!$page.props.auth.has_submitted_verification">
+        <Teleport to="body">
+            <Transition name="fade">
+                <div
+                    v-if="isVisible"
+                    class="popup-overlay"
+                    @click.self="closePopup"
+                >
+                    <Transition name="zoom">
+                        <div v-if="isVisible" class="popup-container">
+                            <button
+                                class="close-btn"
+                                @click="closePopup"
+                                aria-label="Close"
+                            >
+                                <i class="bi bi-x-lg"></i>
+                            </button>
 
-                        <div class="popup-header">
-                            <h2>Chào Mừng Đến Với <span>Ninh Bình HomeStay</span></h2>
-                            <p>Vui lòng lựa chọn vai trò của bạn để chúng tôi có thể hỗ trợ tốt nhất.</p>
+                            <div class="popup-header">
+                                <h2>
+                                    Chào Mừng Đến Với
+                                    <span>Ninh Bình HomeStay</span>
+                                </h2>
+                                <p>
+                                    Vui lòng lựa chọn vai trò của bạn để chúng
+                                    tôi có thể hỗ trợ tốt nhất.
+                                </p>
+                            </div>
+
+                            <div class="role-selection">
+                                <!-- Owner Role -->
+                                <Link
+                                    :href="route('landlord.verify.create')"
+                                    class="role-card owner"
+                                    @click="closePopup"
+                                >
+                                    <div class="role-icon">
+                                        <span class="material-symbols-outlined"
+                                            >home_work</span
+                                        >
+                                    </div>
+                                    <div class="role-info">
+                                        <h3>Tôi là Chủ Trọ</h3>
+                                        <p>
+                                            Đăng tin, quản lý phòng và tìm kiếm
+                                            người thuê dễ dàng.
+                                        </p>
+                                    </div>
+                                    <div class="role-action">
+                                        <span>Bắt đầu ngay</span>
+                                        <i class="bi bi-arrow-right"></i>
+                                    </div>
+                                </Link>
+
+                                <!-- Renter Role -->
+                                <Link
+                                    :href="route('timtro')"
+                                    class="role-card renter"
+                                    @click="closePopup"
+                                >
+                                    <div class="role-icon">
+                                        <span class="material-symbols-outlined"
+                                            >search_check</span
+                                        >
+                                    </div>
+                                    <div class="role-info">
+                                        <h3>Tôi Tìm Phòng</h3>
+                                        <p>
+                                            Khám phá hàng ngàn phòng trọ,
+                                            homestay ưng ý nhất.
+                                        </p>
+                                    </div>
+                                    <div class="role-action">
+                                        <span>Khám phá ngay</span>
+                                        <i class="bi bi-arrow-right"></i>
+                                    </div>
+                                </Link>
+                            </div>
+
+                            <div class="popup-footer">
+                                <p>
+                                    <Link
+                                        :href="route('home')"
+                                        @click="closePopup"
+                                        >Bỏ qua</Link
+                                    >
+                                </p>
+                            </div>
                         </div>
-
-                        <div class="role-selection">
-                            <!-- Owner Role -->
-                            <Link :href="route('register')" class="role-card owner" @click="closePopup">
-                                <div class="role-icon">
-                                    <span class="material-symbols-outlined">home_work</span>
-                                </div>
-                                <div class="role-info">
-                                    <h3>Tôi là Chủ Trọ</h3>
-                                    <p>Đăng tin, quản lý phòng và tìm kiếm người thuê dễ dàng.</p>
-                                </div>
-                                <div class="role-action">
-                                    <span>Bắt đầu ngay</span>
-                                    <i class="bi bi-arrow-right"></i>
-                                </div>
-                            </Link>
-
-                            <!-- Renter Role -->
-                            <Link :href="route('timtro')" class="role-card renter" @click="closePopup">
-                                <div class="role-icon">
-                                    <span class="material-symbols-outlined">search_check</span>
-                                </div>
-                                <div class="role-info">
-                                    <h3>Tôi Tìm Phòng</h3>
-                                    <p>Khám phá hàng ngàn phòng trọ, homestay ưng ý nhất.</p>
-                                </div>
-                                <div class="role-action">
-                                    <span>Khám phá ngay</span>
-                                    <i class="bi bi-arrow-right"></i>
-                                </div>
-                            </Link>
-                        </div>
-
-                        <div class="popup-footer">
-                            <p><Link :href="route('home')" @click="closePopup">Bỏ qua</Link>
-                            </p>
-                        </div>
-                    </div>
-                </Transition>
-            </div>
-        </Transition>
-    </Teleport>
+                    </Transition>
+                </div>
+            </Transition>
+        </Teleport>
+    </div>
 </template>
 
 <style scoped>
@@ -233,12 +274,20 @@ onMounted(() => {
 }
 
 .role-card.owner {
-    background: linear-gradient(135deg, rgba(16, 42, 109, 0.05) 0%, rgba(69, 171, 230, 0.05) 100%);
+    background: linear-gradient(
+        135deg,
+        rgba(16, 42, 109, 0.05) 0%,
+        rgba(69, 171, 230, 0.05) 100%
+    );
     border-color: rgba(16, 42, 109, 0.1);
 }
 
 .role-card.renter {
-    background: linear-gradient(135deg, rgba(248, 250, 252, 0.8) 0%, rgba(241, 245, 249, 0.8) 100%);
+    background: linear-gradient(
+        135deg,
+        rgba(248, 250, 252, 0.8) 0%,
+        rgba(241, 245, 249, 0.8) 100%
+    );
     border-color: rgba(0, 0, 0, 0.05);
 }
 
@@ -393,7 +442,9 @@ onMounted(() => {
 
 .zoom-enter-active,
 .zoom-leave-active {
-    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.6s ease;
+    transition:
+        transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.6s ease;
 }
 
 .zoom-enter-from,

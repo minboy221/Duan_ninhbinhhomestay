@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\AdminVerificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\LandlordController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Foundation\Application;
+//Phần xác minh thông tin chủ trọ
+use App\Http\Controllers\Api\VerificationController;
+
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -79,32 +83,41 @@ Route::middleware('auth')->group(function () {
 
 // ROUTER cho admin
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/dashboard',  [AdminController::class, 'index'])->name('admin.dashboard');
-    Route::get('/users',      [AdminController::class, 'users'])->name('admin.users');
-    Route::get('/landlords',  [AdminController::class, 'landlords'])->name('admin.landlords');
-    Route::get('/approval',   [AdminController::class, 'approval'])->name('admin.approval');
+    Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
+    //Phần route để xác minh thông tin chủ trọ
+    Route::get('/verifications', [AdminVerificationController::class, 'index'])->name('admin.verifications.index');
+    //xem chi tiết 1 hồ sơ
+    Route::get('/verifications/{userId}', [AdminVerificationController::class, 'show'])->name('admin.verifications.show');
+    //xử lý duyệt hồ sơ/từ chối
+    Route::post('/verifications/{userId}/status', [AdminVerificationController::class, 'updateStatus'])->name('admin.verifications.update-status');
+    //Route Đặc biệt: để admin xem được ảnh lưu trong thư mục private
+    Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
+        ->name('admin.files.private');
+    Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
+    Route::get('/landlords', [AdminController::class, 'landlords'])->name('admin.landlords');
+    Route::get('/approval', [AdminController::class, 'approval'])->name('admin.approval');
     Route::get('/categories', [AdminController::class, 'categories'])->name('admin.categories');
-    Route::get('/reports',    [AdminController::class, 'reports'])->name('admin.reports');
-    Route::get('/reviews',    [AdminController::class, 'reviews'])->name('admin.reviews');
-    Route::get('/revenue',    [AdminController::class, 'revenue'])->name('admin.revenue');
-    Route::get('/roles',      [AdminController::class, 'roles'])->name('admin.roles');
-    Route::get('/auditlog',   [AdminController::class, 'auditlog'])->name('admin.auditlog');
-    Route::get('/website',    [AdminController::class, 'website'])->name('admin.website');
-    Route::get('/ads',        [AdminController::class, 'ads'])->name('admin.ads');
+    Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
+    Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
+    Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
+    Route::get('/roles', [AdminController::class, 'roles'])->name('admin.roles');
+    Route::get('/auditlog', [AdminController::class, 'auditlog'])->name('admin.auditlog');
+    Route::get('/website', [AdminController::class, 'website'])->name('admin.website');
+    Route::get('/ads', [AdminController::class, 'ads'])->name('admin.ads');
 });
 
 // ROUTER cho landlord (chủ trọ)
 Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
-    Route::get('/dashboard',    [LandlordController::class, 'dashboard'])->name('landlord.dashboard');
-    Route::get('/profile',      [LandlordController::class, 'profile'])->name('landlord.profile');
-    Route::get('/rooms',        [LandlordController::class, 'rooms'])->name('landlord.rooms');
-    Route::get('/listings',     [LandlordController::class, 'listings'])->name('landlord.listings');
+    Route::get('/dashboard', [LandlordController::class, 'dashboard'])->name('landlord.dashboard');
+    Route::get('/profile', [LandlordController::class, 'profile'])->name('landlord.profile');
+    Route::get('/rooms', [LandlordController::class, 'rooms'])->name('landlord.rooms');
+    Route::get('/listings', [LandlordController::class, 'listings'])->name('landlord.listings');
     Route::get('/listings/create', [LandlordController::class, 'listingCreate'])->name('landlord.listings.create');
     Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.appointments');
-    Route::get('/tenants',      [LandlordController::class, 'tenants'])->name('landlord.tenants');
-    Route::get('/contracts',    [LandlordController::class, 'contracts'])->name('landlord.contracts');
-    Route::get('/invoices',     [LandlordController::class, 'invoices'])->name('landlord.invoices');
-    Route::get('/finance',      [LandlordController::class, 'finance'])->name('landlord.finance');
+    Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
+    Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
+    Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
+    Route::get('/finance', [LandlordController::class, 'finance'])->name('landlord.finance');
 });
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
@@ -117,6 +130,13 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // Routes cho Google
 Route::get('/auth/google', [AuthController::class, 'redirectToGoogle'])->name('google.login');
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
-
+// Route cho phần xác minh đăng ký chủ trọ
+Route::middleware(['auth'])->group(function () {
+    //route hiển thị giao diện 
+    Route::get('/landlord/verify', [VerificationController::class, 'create'])
+        ->name('landlord.verify.create');
+    Route::post('landlord/verify', [VerificationController::class, 'verify'])
+        ->name('landlord.verify.store');
+});
 require __DIR__ . '/auth.php';
 
