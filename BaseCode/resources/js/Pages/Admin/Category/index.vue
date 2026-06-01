@@ -180,8 +180,8 @@ function deleteItem(item) {
                                 <i :class="['bi', item.is_active ? 'bi-check-circle' : 'bi-x-circle']"></i>
                                 {{ item.is_active ? 'Đang hoạt động' : 'Đã ẩn' }}
                             </p>
-                            <p v-if="activeTab === 'areas' && item.map_embed" class="cat-map-badge">
-                                <i class="bi bi-map"></i> Có bản đồ
+                            <p v-if="activeTab === 'areas'" :class="item.map_embed ? 'cat-map-badge' : 'cat-map-badge-missing'">
+                                <i class="bi bi-map"></i> {{ item.map_embed ? 'Có bản đồ' : 'Chưa có bản đồ' }}
                             </p>
                         </div>
                         <div class="cat-actions">
@@ -333,6 +333,7 @@ function deleteItem(item) {
 
 /* Map badge on card */
 .cat-map-badge { font-size:10px;color:#7c3aed;margin:2px 0 0;display:flex;align-items:center;gap:3px;font-weight:600; }
+.cat-map-badge-missing { font-size:10px;color:#94a3b8;margin:2px 0 0;display:flex;align-items:center;gap:3px;font-weight:600; }
 
 /* Map form elements */
 .form-hint { font-size:11px;color:#94a3b8;margin:0 0 8px;line-height:1.4; }

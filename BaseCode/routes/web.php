@@ -135,17 +135,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     //Route Đặc biệt: để admin xem được ảnh lưu trong thư mục private
     Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
         ->name('admin.files.private');
-    Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
-    Route::get('/landlords', [AdminController::class, 'landlords'])->name('admin.landlords');
-    Route::get('/approval', [AdminController::class, 'approval'])->name('admin.approval');
-    Route::get('/categories', [AdminController::class, 'categories'])->name('admin.categories');
-    Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
-    Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
-    Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
-    Route::get('/roles', [AdminController::class, 'roles'])->name('admin.roles');
-    Route::get('/auditlog', [AdminController::class, 'auditlog'])->name('admin.auditlog');
-    Route::get('/website', [AdminController::class, 'website'])->name('admin.website');
-    Route::get('/ads', [AdminController::class, 'ads'])->name('admin.ads');
+    // Các route trên đã định nghĩa đầy đủ
 });
 
 // ROUTER cho landlord (chủ trọ)
