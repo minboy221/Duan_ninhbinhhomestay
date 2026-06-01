@@ -1,6 +1,22 @@
 <script setup>
 import MainLayout from '@/Layouts/MainLayout.vue';
 import { Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
+
+// Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Controller → Inertia)
+const props = defineProps({
+    categories: { type: Array, default: () => [] },
+    areas:      { type: Array, default: () => [] },
+    amenities:  { type: Array, default: () => [] },
+})
+
+const showDropdown = ref(false)
+const selectedArea = ref(null)
+
+function selectArea(area) {
+    selectedArea.value = area
+    showDropdown.value = false
+}
 </script>
 
 <template>
@@ -13,7 +29,7 @@ import { Head } from '@inertiajs/vue3';
             <div class="banner-text">
                 <h1>Tìm Trọ</h1>
                 <p>
-                <p><a href="index.html">Trang Chủ</a> / Tìm Trọ</p>
+                <p><a href="/">Trang Chủ</a> / Tìm Trọ</p>
                 </p>
             </div>
         </div>
@@ -23,21 +39,28 @@ import { Head } from '@inertiajs/vue3';
             <section class="filter">
                 <div class="baofilter">
                     <h2>Bộ Lọc Tìm Kiếm</h2>
+                    <!-- Khu vực (Dữ liệu từ DB) -->
                     <div class="select_box">
-                        <div class="select">
-                            <span class="selected"><i class="bi bi-geo-alt"></i> Địa điểm</span>
+                        <div class="select" @click="showDropdown = !showDropdown">
+                            <span class="selected">
+                                <i class="bi bi-geo-alt"></i>
+                                {{ selectedArea ? selectedArea.name : 'Chọn khu vực' }}
+                            </span>
                             <span class="arrow"><i class="bi bi-caret-down"></i></span>
                         </div>
 
-                        <div class="dropdown">
+                        <div class="dropdown" v-show="showDropdown">
                             <div class="dropdown-header">
-                                <span>Địa điểm:</span>
+                                <span>Khu vực:</span>
                             </div>
-
                             <ul>
-                                <li class="active">Ninh Bình</li>
-                                <li>Duy Tiên</li>
-                                <li>Đồng Văn</li>
+                                <li
+                                    v-for="area in areas" :key="area.id"
+                                    :class="{ active: selectedArea?.id === area.id }"
+                                    @click="selectArea(area)"
+                                >
+                                    <i :class="['bi', area.icon]"></i> {{ area.name }}
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -51,27 +74,41 @@ import { Head } from '@inertiajs/vue3';
                             <label><input type="radio" name="price"> Trên 3 triệu</label>
                         </div>
                     </div>
-                    <!-- khoảng giá -->
+                    <!-- Diện tích -->
                     <div class="select_option">
                         <h3>Diện Tích:</h3>
                         <div class="price_list">
                             <label><input type="radio" name="dientich">Dưới 20m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich">Dưới 20m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich">Dưới 20m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich">Dưới 20m<sup>2</sup></label>
+                            <label><input type="radio" name="dientich">20 - 30m<sup>2</sup></label>
+                            <label><input type="radio" name="dientich">30 - 50m<sup>2</sup></label>
+                            <label><input type="radio" name="dientich">Trên 50m<sup>2</sup></label>
                         </div>
                     </div>
-                    <!-- tiện ích -->
-                    <div class="select_option">
+                    <!-- Loại phòng (Dữ liệu từ DB) -->
+                    <div class="select_option" v-if="categories.length">
+                        <h3>Loại phòng:</h3>
+                        <div class="feature_list">
+                            <label v-for="cat in categories" :key="cat.id">
+                                <input type="checkbox" :value="cat.id"> <i :class="['bi', cat.icon]"></i> {{ cat.name }}
+                            </label>
+                        </div>
+                    </div>
+                    <!-- tiện ích (Dữ liệu từ DB) -->
+                    <div class="select_option" v-if="amenities.length">
                         <h3>Tiện ích:</h3>
                         <div class="feature_list">
-                            <label><input type="checkbox"> Wifi</label>
-                            <label><input type="checkbox"> Điều hòa</label>
-                            <label><input type="checkbox"> Gác xép</label>
-                            <label><input type="checkbox"> Nóng lạnh</label>
-                            <label><input type="checkbox"> Gần trung tâm</label>
+                            <label v-for="amenity in amenities" :key="amenity.id">
+                                <input type="checkbox" :value="amenity.id"> <i :class="['bi', amenity.icon]"></i> {{ amenity.name }}
+                            </label>
                         </div>
                     </div>
+
+                    <!-- Bản đồ khu vực đã chọn -->
+                    <div v-if="selectedArea?.map_embed" class="map_section">
+                        <h3><i class="bi bi-map"></i> Bản đồ: {{ selectedArea.name }}</h3>
+                        <div class="map_wrap" v-html="selectedArea.map_embed"></div>
+                    </div>
+
                     <div class="bao_btn">
                         <button class="btn_filter">Tìm kiếm</button>
                         <button class="btn_filter_mic"><i class="bi bi-mic"></i>
@@ -236,4 +273,17 @@ import { Head } from '@inertiajs/vue3';
 @import "../../css/timtro.css";
 @import '../../css/responsive/responsivetimtro.css';
 @import '../../css/responsive/responsive.css';
+
+/* Map section */
+.map_section { margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0; }
+.map_section h3 { font-size:14px;font-weight:600;color:#0f172a;margin:0 0 10px;display:flex;align-items:center;gap:6px; }
+.map_wrap { border-radius:12px;overflow:hidden;border:1px solid #e2e8f0; }
+.map_wrap :deep(iframe) { width:100%;height:250px;border:none;display:block; }
+
+/* Dropdown improvements */
+.select { cursor:pointer; }
+.dropdown { z-index:10; }
+.dropdown ul li { cursor:pointer;display:flex;align-items:center;gap:6px; }
+.dropdown ul li:hover { background:#f1f5f9; }
+.dropdown ul li.active { background:#7c3aed;color:#fff; }
 </style>
