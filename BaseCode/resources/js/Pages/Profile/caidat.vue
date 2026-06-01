@@ -1,10 +1,58 @@
 <script setup>
 import UserLayout from '@/Layouts/UserLayout.vue';
-import { Head, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, usePage, useForm } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 
 const { props } = usePage();
 const user = computed(() => props.auth.user);
+
+const passwordForm = useForm({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+    otp: '',
+});
+
+const passwordSuccess = ref(false);
+const showOtpStep = ref(false);
+
+const requestOtp = () => {
+    passwordForm.post(route('password.request-otp'), {
+        preserveScroll: true,
+        onSuccess: (page) => {
+            if (page.props.status === 'otp-sent' || page.props.flash?.status === 'otp-sent') {
+                showOtpStep.value = true;
+            }
+            // fallback in case inertia didn't pass status nicely
+            else if (!passwordForm.hasErrors) {
+                showOtpStep.value = true;
+            }
+        },
+        onError: () => {
+            if (passwordForm.errors.password) {
+                passwordForm.reset('password', 'password_confirmation');
+            }
+            if (passwordForm.errors.current_password) {
+                passwordForm.reset('current_password');
+            }
+        },
+    });
+};
+
+const updatePassword = () => {
+    passwordForm.put(route('password.update'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            passwordForm.reset();
+            showOtpStep.value = false;
+            passwordSuccess.value = true;
+            setTimeout(() => passwordSuccess.value = false, 3000);
+        },
+        onError: () => {
+            passwordForm.otp = '';
+        },
+    });
+};
 </script>
 
 <template>
@@ -19,21 +67,53 @@ const user = computed(() => props.auth.user);
                     <p>Quản lý bảo mật,thông báo và quyền riêng tư của bạn.</p>
                 </div>
                 <div class="password-form">
-                    <h4>Đổi nhật mật khẩu</h4>
-                    <form action="">
-                        <div class="row">
-                            <div class="form-group">
-                                <label>Mật khẩu hiện tại:</label>
-                                <input type="text" placeholder="Đào Nhật Minh">
-                            </div>
+                    <h4>Đổi mật khẩu</h4>
+                    <div v-if="passwordSuccess" style="color: #155724; background-color: #d4edda; padding: .75rem 1.25rem; margin-bottom: 1rem; border-radius: .5rem; font-size: 14px; font-weight: 500;">
+                        Cập nhật mật khẩu thành công!
+                    </div>
+                    <form @submit.prevent="showOtpStep ? updatePassword() : requestOtp()">
+                        <!-- Các trường mật khẩu -->
+                        <div v-show="!showOtpStep">
+                            <div class="row" style="margin-bottom: 20px;">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Mật khẩu hiện tại:</label>
+                                    <input v-model="passwordForm.current_password" type="password" placeholder="••••••••">
+                                    <span v-if="passwordForm.errors.current_password" style="color: #ef4444; font-size: 12px; display: block; margin-top: 5px;">{{ passwordForm.errors.current_password }}</span>
+                                </div>
 
-                            <div class="form-group">
-                                <label>Mật khẩu mới:</label>
-                                <input type="text" placeholder="098xxxxxxx">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Mật khẩu mới:</label>
+                                    <input v-model="passwordForm.password" type="password" placeholder="••••••••">
+                                    <span v-if="passwordForm.errors.password" style="color: #ef4444; font-size: 12px; display: block; margin-top: 5px;">{{ passwordForm.errors.password }}</span>
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom: 20px;">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Xác nhận mật khẩu mới:</label>
+                                    <input v-model="passwordForm.password_confirmation" type="password" placeholder="••••••••">
+                                </div>
+                                <div class="form-group" style="flex: 1; visibility: hidden;">
+                                    <!-- Empty block to keep flex layout balanced -->
+                                </div>
                             </div>
                         </div>
-                        <button class="btn_save" type="submit">
-                            Cập nhật mật khẩu
+
+                        <!-- Trường OTP -->
+                        <div v-if="showOtpStep" style="margin-bottom: 20px; background-color: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <div style="margin-bottom: 15px;">
+                                <h5 style="color: #0f172a; font-weight: 600; margin-bottom: 5px;">Nhập mã xác minh</h5>
+                                <p style="color: #64748b; font-size: 13px; line-height: 1.5;">Hệ thống đã gửi 1 mã OTP gồm 6 số về email của bạn. Vui lòng kiểm tra và nhập mã để hoàn tất việc đổi mật khẩu.</p>
+                            </div>
+                            <div class="form-group" style="width: 100%; max-width: 300px;">
+                                <input v-model="passwordForm.otp" type="text" placeholder="Nhập mã 6 số" style="letter-spacing: 5px; font-weight: bold; font-size: 18px; text-align: center;">
+                                <span v-if="passwordForm.errors.otp" style="color: #ef4444; font-size: 12px; display: block; margin-top: 5px;">{{ passwordForm.errors.otp }}</span>
+                            </div>
+                            <button type="button" @click="showOtpStep = false" style="background: none; border: none; color: #00628c; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 10px; padding: 0;">&larr; Quay lại sửa mật khẩu</button>
+                        </div>
+
+                        <button class="btn_save" type="submit" :disabled="passwordForm.processing" :style="passwordForm.processing ? 'opacity: 0.7; cursor: not-allowed;' : ''">
+                            <span v-if="!showOtpStep">{{ passwordForm.processing ? 'Đang gửi mã...' : 'Tiếp tục' }}</span>
+                            <span v-else>{{ passwordForm.processing ? 'Đang cập nhật...' : 'Xác nhận & Cập nhật' }}</span>
                         </button>
                     </form>
                 </div>

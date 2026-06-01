@@ -1,19 +1,28 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const month = ref('2026-05')
 
-const invoices = ref([
+const DEFAULT_INVOICES = [
     { id: 'HD001', room: 'Phòng 101', tenant: 'Nguyễn Văn A', phone: '0912 345 678', rent: 2800000, elec: 490000, water: 105000, other: 0, status: 'paid',    dueDate: '2026-05-10' },
     { id: 'HD002', room: 'Phòng 102', tenant: 'Trần Thị B',   phone: '0987 654 321', rent: 2800000, elec: 420000, water: 75000,  other: 0, status: 'pending', dueDate: '2026-05-10' },
     { id: 'HD003', room: 'Phòng 201', tenant: 'Lê Minh C',    phone: '0901 111 222', rent: 3200000, elec: 665000, water: 165000, other: 50000, status: 'overdue', dueDate: '2026-05-05' },
     { id: 'HD004', room: 'Phòng 202', tenant: 'Phạm Thị D',   phone: '0933 444 555', rent: 3200000, elec: 490000, water: 105000, other: 0, status: 'pending', dueDate: '2026-05-10' },
     { id: 'HD005', room: 'Phòng 301', tenant: 'Hoàng Văn E',  phone: '0966 777 888', rent: 3500000, elec: 315000, water: 60000,  other: 0, status: 'paid',    dueDate: '2026-05-10' },
-])
+]
 
-const showCreateModal = ref(false)
-const newInvoice = ref({ room: '', rent: 0, elecStart: 0, elecEnd: 0, waterStart: 0, waterEnd: 0, elecPrice: 3500, waterPrice: 15000 })
+const invoices = ref([])
+if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('landlord_invoices')
+    invoices.value = saved ? JSON.parse(saved) : DEFAULT_INVOICES
+} else {
+    invoices.value = DEFAULT_INVOICES
+}
+
+watch(invoices, (val) => {
+    localStorage.setItem('landlord_invoices', JSON.stringify(val))
+}, { deep: true })
 
 const totalInvoice   = (inv) => inv.rent + inv.elec + inv.water + inv.other
 const totalRevenue   = computed(() => invoices.value.reduce((s, i) => s + totalInvoice(i), 0))
@@ -26,11 +35,26 @@ const statusMap = {
     overdue: { label: 'Quá Hạn',        cls: 'st-overdue' },
 }
 
-const markPaid    = (inv) => { inv.status = 'paid' }
+const markPaid = (inv) => {
+    inv.status = 'paid'
+    
+    // Also update the room status in the landlord_rooms state
+    let savedRooms = []
+    if (typeof window !== 'undefined') {
+        const data = localStorage.getItem('landlord_rooms')
+        savedRooms = data ? JSON.parse(data) : []
+    }
+    
+    const roomIndex = savedRooms.findIndex(r => r.name === inv.room)
+    if (roomIndex !== -1) {
+        savedRooms[roomIndex].status = 'paid'
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('landlord_rooms', JSON.stringify(savedRooms))
+        }
+    }
+}
+
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ'
-const calcNewElec  = computed(() => (newInvoice.value.elecEnd - newInvoice.value.elecStart) * newInvoice.value.elecPrice)
-const calcNewWater = computed(() => (newInvoice.value.waterEnd - newInvoice.value.waterStart) * newInvoice.value.waterPrice)
-const calcNewTotal = computed(() => newInvoice.value.rent + calcNewElec.value + calcNewWater.value)
 </script>
 
 <template>
@@ -61,7 +85,6 @@ const calcNewTotal = computed(() => newInvoice.value.rent + calcNewElec.value + 
                         <input type="month" v-model="month" class="month-input" />
                     </div>
                     <div class="inv-actions">
-                        <button class="btn-create" @click="showCreateModal = true"><i class="bi bi-plus-circle"></i> Tạo Hoá Đơn</button>
                         <button class="btn-send"><i class="bi bi-send"></i> Gửi Tất Cả</button>
                     </div>
                 </div>
@@ -103,60 +126,6 @@ const calcNewTotal = computed(() => newInvoice.value.rent + calcNewElec.value + 
                 </div>
             </div>
         </div>
-
-        <Teleport to="body">
-            <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
-                <div class="modal-box">
-                    <div class="modal-head">
-                        <h3>Tạo Hoá Đơn Mới</h3>
-                        <button @click="showCreateModal = false" class="modal-close"><i class="bi bi-x-lg"></i></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Phòng</label>
-                                <input v-model="newInvoice.room" class="form-input" placeholder="VD: Phòng 101" />
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Tiền phòng (đ)</label>
-                                <input type="number" v-model.number="newInvoice.rent" class="form-input" />
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Điện đầu kỳ (kWh)</label>
-                                <input type="number" v-model.number="newInvoice.elecStart" class="form-input" />
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Điện cuối kỳ (kWh)</label>
-                                <input type="number" v-model.number="newInvoice.elecEnd" class="form-input" />
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Nước đầu kỳ (m³)</label>
-                                <input type="number" v-model.number="newInvoice.waterStart" class="form-input" />
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Nước cuối kỳ (m³)</label>
-                                <input type="number" v-model.number="newInvoice.waterEnd" class="form-input" />
-                            </div>
-                        </div>
-                        <div class="preview-box">
-                            <div class="prev-row"><span>Tiền phòng:</span><span>{{ formatMoney(newInvoice.rent) }}</span></div>
-                            <div class="prev-row"><span>Tiền điện ({{ newInvoice.elecEnd - newInvoice.elecStart }} kWh × {{ formatMoney(newInvoice.elecPrice) }}):</span><span>{{ formatMoney(calcNewElec) }}</span></div>
-                            <div class="prev-row"><span>Tiền nước ({{ newInvoice.waterEnd - newInvoice.waterStart }} m³ × {{ formatMoney(newInvoice.waterPrice) }}):</span><span>{{ formatMoney(calcNewWater) }}</span></div>
-                            <div class="prev-total"><span>TỔNG CỘNG:</span><span class="prev-num">{{ formatMoney(calcNewTotal) }}</span></div>
-                        </div>
-                    </div>
-                    <div class="modal-foot">
-                        <button class="btn-outline" @click="showCreateModal = false">Hủy</button>
-                        <button class="btn-send-inv"><i class="bi bi-send"></i> Tạo & Gửi</button>
-                        <button class="btn-primary">Tạo Hoá Đơn</button>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
     </LandlordLayout>
 </template>
 
