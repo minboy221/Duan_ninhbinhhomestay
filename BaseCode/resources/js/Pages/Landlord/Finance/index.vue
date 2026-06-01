@@ -1,15 +1,28 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
+import { Link } from '@inertiajs/vue3'
 
-// Mock rooms for input
-const rooms = ref([
+// Default mock rooms for input
+const DEFAULT_ROOMS = [
     { id: 'P101', name: 'Phòng 101', tenants: 2, rent: 2800000, elecStart: 1210, elecEnd: 1350, waterStart: 45, waterEnd: 52, elecPrice: 3500, waterPrice: 15000, status: 'paid' },
     { id: 'P102', name: 'Phòng 102', tenants: 1, rent: 2800000, elecStart: 890, elecEnd: 1010, waterStart: 30, waterEnd: 35, elecPrice: 3500, waterPrice: 15000, status: 'pending' },
     { id: 'P103', name: 'Phòng 201', tenants: 3, rent: 3200000, elecStart: 2100, elecEnd: 2290, waterStart: 60, waterEnd: 71, elecPrice: 3500, waterPrice: 15000, status: 'overdue' },
     { id: 'P104', name: 'Phòng 202', tenants: 2, rent: 3200000, elecStart: 1540, elecEnd: 1680, waterStart: 44, waterEnd: 51, elecPrice: 3500, waterPrice: 15000, status: 'pending' },
     { id: 'P105', name: 'Phòng 301', tenants: 1, rent: 3500000, elecStart: 720, elecEnd: 810, waterStart: 22, waterEnd: 26, elecPrice: 3500, waterPrice: 15000, status: 'paid' },
-])
+]
+
+const rooms = ref([])
+if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('landlord_rooms')
+    rooms.value = saved ? JSON.parse(saved) : DEFAULT_ROOMS
+} else {
+    rooms.value = DEFAULT_ROOMS
+}
+
+watch(rooms, (val) => {
+    localStorage.setItem('landlord_rooms', JSON.stringify(val))
+}, { deep: true })
 
 const month = ref('2026-05')
 
@@ -32,6 +45,110 @@ const statusMap = {
 
 const markPaid = (room) => { room.status = 'paid' }
 const debtRooms = computed(() => rooms.value.filter(r => r.status !== 'paid'))
+
+const createInvoiceForRoom = (room) => {
+    if (room.status !== 'paid') {
+        room.status = 'pending'
+    }
+
+    const DEFAULT_INVOICES = [
+        { id: 'HD001', room: 'Phòng 101', tenant: 'Nguyễn Văn A', phone: '0912 345 678', rent: 2800000, elec: 490000, water: 105000, other: 0, status: 'paid',    dueDate: '2026-05-10' },
+        { id: 'HD002', room: 'Phòng 102', tenant: 'Trần Thị B',   phone: '0987 654 321', rent: 2800000, elec: 420000, water: 75000,  other: 0, status: 'pending', dueDate: '2026-05-10' },
+        { id: 'HD003', room: 'Phòng 201', tenant: 'Lê Minh C',    phone: '0901 111 222', rent: 3200000, elec: 665000, water: 165000, other: 50000, status: 'overdue', dueDate: '2026-05-05' },
+        { id: 'HD004', room: 'Phòng 202', tenant: 'Phạm Thị D',   phone: '0933 444 555', rent: 3200000, elec: 490000, water: 105000, other: 0, status: 'pending', dueDate: '2026-05-10' },
+        { id: 'HD005', room: 'Phòng 301', tenant: 'Hoàng Văn E',  phone: '0966 777 888', rent: 3500000, elec: 315000, water: 60000,  other: 0, status: 'paid',    dueDate: '2026-05-10' },
+    ]
+
+    let savedInvoices = []
+    if (typeof window !== 'undefined') {
+        const data = localStorage.getItem('landlord_invoices')
+        savedInvoices = data ? JSON.parse(data) : DEFAULT_INVOICES
+    }
+
+    const tenantMap = {
+        'Phòng 101': { tenant: 'Nguyễn Văn A', phone: '0912 345 678' },
+        'Phòng 102': { tenant: 'Trần Thị B',   phone: '0987 654 321' },
+        'Phòng 201': { tenant: 'Lê Minh C',    phone: '0901 111 222' },
+        'Phòng 202': { tenant: 'Phạm Thị D',   phone: '0933 444 555' },
+        'Phòng 301': { tenant: 'Hoàng Văn E',  phone: '0966 777 888' },
+    }
+    const info = tenantMap[room.name] || { tenant: 'Khách Thuê', phone: 'Chưa có' }
+
+    const existingIndex = savedInvoices.findIndex(inv => inv.room === room.name && inv.status !== 'paid')
+
+    const elecBill = calcElec(room)
+    const waterBill = calcWater(room)
+
+    const newInv = {
+        id: existingIndex !== -1 ? savedInvoices[existingIndex].id : 'HD' + String(savedInvoices.length + 1).padStart(3, '0'),
+        room: room.name,
+        tenant: info.tenant,
+        phone: info.phone,
+        rent: room.rent,
+        elec: elecBill,
+        water: waterBill,
+        other: existingIndex !== -1 ? savedInvoices[existingIndex].other : 0,
+        status: room.status,
+        dueDate: existingIndex !== -1 ? savedInvoices[existingIndex].dueDate : '2026-06-10'
+    }
+
+    if (existingIndex !== -1) {
+        savedInvoices[existingIndex] = newInv
+    } else {
+        savedInvoices.push(newInv)
+    }
+
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('landlord_invoices', JSON.stringify(savedInvoices))
+    }
+
+    alert(`Đã xuất hóa đơn cho ${room.name} thành công!`)
+}
+
+// ── Popup Nhập Số Liệu ────────────────────────────────────
+const showInputModal = ref(false)
+const selectedRoomId = ref(rooms.value[0]?.id || '')
+const inputForm = reactive({
+    elecStart: 0,
+    elecEnd: 0,
+    waterStart: 0,
+    waterEnd: 0,
+})
+
+const selectedRoom = computed(() => rooms.value.find(r => r.id === selectedRoomId.value))
+
+const openInputModal = () => {
+    if (selectedRoom.value) {
+        inputForm.elecStart = selectedRoom.value.elecStart
+        inputForm.elecEnd = selectedRoom.value.elecEnd
+        inputForm.waterStart = selectedRoom.value.waterStart
+        inputForm.waterEnd = selectedRoom.value.waterEnd
+    }
+    showInputModal.value = true
+}
+
+const closeInputModal = () => { showInputModal.value = false }
+
+watch(selectedRoomId, (newId) => {
+    const room = rooms.value.find(r => r.id === newId)
+    if (room) {
+        inputForm.elecStart = room.elecStart
+        inputForm.elecEnd = room.elecEnd
+        inputForm.waterStart = room.waterStart
+        inputForm.waterEnd = room.waterEnd
+    }
+})
+
+const saveInputData = () => {
+    const room = rooms.value.find(r => r.id === selectedRoomId.value)
+    if (room) {
+        room.elecStart = inputForm.elecStart
+        room.elecEnd = inputForm.elecEnd
+        room.waterStart = inputForm.waterStart
+        room.waterEnd = inputForm.waterEnd
+    }
+    closeInputModal()
+}
 
 // ── Ảnh đồng hồ ──────────────────────────────────────────
 const showMeterModal = ref(false)
@@ -94,7 +211,10 @@ const photoCount = (roomId) => {
             <div class="fin-card">
                 <div class="fin-card-head">
                     <h3 class="fin-title"><i class="bi bi-table"></i> Nhập Chỉ Số Điện / Nước & Tính Tiền</h3>
-                    <button class="btn-export"><i class="bi bi-file-earmark-pdf"></i> Xuất Báo Cáo</button>
+                    <div class="fin-card-actions">
+                        <button class="btn-input-data" @click="openInputModal"><i class="bi bi-pencil-square"></i> Nhập Số Liệu</button>
+                        <button class="btn-export"><i class="bi bi-file-earmark-pdf"></i> Xuất Báo Cáo</button>
+                    </div>
                 </div>
 
                 <div class="table-scroll">
@@ -104,22 +224,20 @@ const photoCount = (roomId) => {
                                 <th>Phòng</th>
                                 <th>Số người</th>
                                 <th>Tiền phòng</th>
-                                <th colspan="2">Điện (kWh)</th>
+                                <th colspan="3">Điện (kWh)</th>
                                 <th>Tiền điện</th>
-                                <th colspan="2">Nước (m³)</th>
+                                <th colspan="3">Nước (m³)</th>
                                 <th>Tiền nước</th>
                                 <th>Tổng</th>
-                                <th>/Người</th>
-                                <th>Trạng thái</th>
                                 <th>Ảnh ĐH</th>
                                 <th>Hành động</th>
                             </tr>
                             <tr class="thead-sub">
                                 <th></th><th></th><th></th>
-                                <th>Đầu kỳ</th><th>Cuối kỳ</th>
+                                <th>Số cũ</th><th>Số mới</th><th>Tiêu thụ</th>
                                 <th></th>
-                                <th>Đầu kỳ</th><th>Cuối kỳ</th>
-                                <th></th><th></th><th></th><th></th><th></th><th></th>
+                                <th>Số cũ</th><th>Số mới</th><th>Tiêu thụ</th>
+                                <th></th><th></th><th></th><th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -129,27 +247,20 @@ const photoCount = (roomId) => {
                                 :class="{ 'row-overdue': room.status === 'overdue', 'row-paid': room.status === 'paid' }"
                             >
                                 <td class="td-room">{{ room.name }}</td>
-                                <td class="td-center">
-                                    <input type="number" v-model.number="room.tenants" class="num-input" min="1" />
-                                </td>
+                                <td class="td-center">{{ room.tenants }}</td>
                                 <td class="td-money">{{ formatMoney(room.rent) }}</td>
                                 <!-- Điện -->
-                                <td><input type="number" v-model.number="room.elecStart" class="num-input" /></td>
-                                <td><input type="number" v-model.number="room.elecEnd" class="num-input" /></td>
+                                <td class="td-center">{{ room.elecStart }}</td>
+                                <td class="td-center">{{ room.elecEnd }}</td>
+                                <td class="consume-val">{{ room.elecEnd - room.elecStart }}</td>
                                 <td class="td-money calc-val">{{ formatMoney(calcElec(room)) }}</td>
                                 <!-- Nước -->
-                                <td><input type="number" v-model.number="room.waterStart" class="num-input" /></td>
-                                <td><input type="number" v-model.number="room.waterEnd" class="num-input" /></td>
+                                <td class="td-center">{{ room.waterStart }}</td>
+                                <td class="td-center">{{ room.waterEnd }}</td>
+                                <td class="consume-val">{{ room.waterEnd - room.waterStart }}</td>
                                 <td class="td-money calc-val">{{ formatMoney(calcWater(room)) }}</td>
                                 <!-- Total -->
                                 <td class="td-money td-total">{{ formatMoney(calcTotal(room)) }}</td>
-                                <td class="td-money td-perperson">{{ formatMoney(calcPerPerson(room)) }}</td>
-                                <!-- Status -->
-                                <td>
-                                    <span :class="['status-pill', statusMap[room.status].cls]">
-                                        {{ statusMap[room.status].label }}
-                                    </span>
-                                </td>
                                 <!-- Meter photos -->
                                 <td class="td-center">
                                     <button class="btn-meter" @click="openMeterModal(room)">
@@ -160,20 +271,20 @@ const photoCount = (roomId) => {
                                 <td>
                                     <button
                                         v-if="room.status !== 'paid'"
-                                        class="btn-confirm-pay"
-                                        @click="markPaid(room)"
+                                        class="btn-create-inv"
+                                        @click="createInvoiceForRoom(room)"
                                     >
-                                        <i class="bi bi-check-circle"></i> Xác Nhận Thu
+                                        <i class="bi bi-receipt"></i> Tạo Hóa Đơn
                                     </button>
-                                    <span v-else class="txt-done"><i class="bi bi-check-all"></i> Đã xong</span>
+                                    <span v-else class="txt-done"><i class="bi bi-check-all"></i> Đã thanh toán</span>
                                 </td>
                             </tr>
                         </tbody>
                         <tfoot>
                             <tr class="tfoot-row">
-                                <td colspan="9" class="tfoot-label">TỔNG CỘNG</td>
+                                <td colspan="11" class="tfoot-label">TỔNG CỘNG</td>
                                 <td class="tfoot-total">{{ formatMoney(totalRevenue) }}</td>
-                                <td colspan="4"></td>
+                                <td colspan="2"></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -187,10 +298,9 @@ const photoCount = (roomId) => {
                     <div v-for="room in debtRooms" :key="room.id" class="debt-item">
                         <div class="debt-room">{{ room.name }}</div>
                         <div class="debt-amount">{{ formatMoney(calcTotal(room)) }}</div>
-                        <span :class="['status-pill', statusMap[room.status].cls]">{{ statusMap[room.status].label }}</span>
-                        <button class="btn-confirm-pay" @click="markPaid(room)">
-                            <i class="bi bi-check-circle"></i> Xác Nhận Thu
-                        </button>
+                        <Link href="/landlord/invoices" class="btn-confirm-pay btn-link-inv">
+                            <i class="bi bi-receipt"></i> Xem Hóa Đơn
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -212,6 +322,96 @@ const photoCount = (roomId) => {
             </div>
         </div>
 
+        <!-- ── Modal Nhập Số Liệu ── -->
+        <Teleport to="body">
+            <div v-if="showInputModal" class="modal-overlay" @click.self="closeInputModal">
+                <div class="input-modal">
+                    <div class="input-modal-head">
+                        <div>
+                            <h3>📝 Nhập Chỉ Số Điện / Nước</h3>
+                            <p class="input-modal-sub">Chọn phòng và nhập chỉ số đồng hồ điện, nước</p>
+                        </div>
+                        <button class="modal-close" @click="closeInputModal"><i class="bi bi-x-lg"></i></button>
+                    </div>
+
+                    <div class="input-modal-body">
+                        <!-- Select phòng -->
+                        <div class="input-field">
+                            <label><i class="bi bi-door-open"></i> Chọn phòng</label>
+                            <select v-model="selectedRoomId" class="input-select">
+                                <option v-for="room in rooms" :key="room.id" :value="room.id">{{ room.name }}</option>
+                            </select>
+                        </div>
+
+                        <!-- Điện -->
+                        <div class="input-section">
+                            <div class="input-sec-title elec-title">
+                                <span>⚡</span> Chỉ số điện (kWh)
+                            </div>
+                            <div class="input-row">
+                                <div class="input-field">
+                                    <label>Số cũ</label>
+                                    <input type="number" v-model.number="inputForm.elecStart" class="input-number" />
+                                </div>
+                                <div class="input-field">
+                                    <label>Số mới</label>
+                                    <input type="number" v-model.number="inputForm.elecEnd" class="input-number" />
+                                </div>
+                                <div class="input-result">
+                                    <span class="input-result-label">Tiêu thụ</span>
+                                    <span class="input-result-val elec-val">{{ inputForm.elecEnd - inputForm.elecStart }} kWh</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Nước -->
+                        <div class="input-section">
+                            <div class="input-sec-title water-title">
+                                <span>💧</span> Chỉ số nước (m³)
+                            </div>
+                            <div class="input-row">
+                                <div class="input-field">
+                                    <label>Số cũ</label>
+                                    <input type="number" v-model.number="inputForm.waterStart" class="input-number" />
+                                </div>
+                                <div class="input-field">
+                                    <label>Số mới</label>
+                                    <input type="number" v-model.number="inputForm.waterEnd" class="input-number" />
+                                </div>
+                                <div class="input-result">
+                                    <span class="input-result-label">Tiêu thụ</span>
+                                    <span class="input-result-val water-val">{{ inputForm.waterEnd - inputForm.waterStart }} m³</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preview tổng tiền -->
+                        <div class="input-preview" v-if="selectedRoom">
+                            <div class="input-preview-row">
+                                <span>Tiền điện:</span>
+                                <strong>{{ formatMoney((inputForm.elecEnd - inputForm.elecStart) * selectedRoom.elecPrice) }}</strong>
+                            </div>
+                            <div class="input-preview-row">
+                                <span>Tiền nước:</span>
+                                <strong>{{ formatMoney((inputForm.waterEnd - inputForm.waterStart) * selectedRoom.waterPrice) }}</strong>
+                            </div>
+                            <div class="input-preview-row input-preview-total">
+                                <span>Tổng (bao gồm tiền phòng):</span>
+                                <strong>{{ formatMoney(selectedRoom.rent + (inputForm.elecEnd - inputForm.elecStart) * selectedRoom.elecPrice + (inputForm.waterEnd - inputForm.waterStart) * selectedRoom.waterPrice) }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-modal-foot">
+                        <button class="btn-outline" @click="closeInputModal">Hủy</button>
+                        <button class="btn-save-input" @click="saveInputData">
+                            <i class="bi bi-check-lg"></i> Lưu Số Liệu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
         <!-- ── Modal Ảnh Đồng Hồ ── -->
         <Teleport to="body">
             <div v-if="showMeterModal && meterRoom" class="modal-overlay" @click.self="closeMeterModal">
@@ -219,7 +419,7 @@ const photoCount = (roomId) => {
                     <div class="meter-head">
                         <div>
                             <h3>📷 Ảnh Đồng Hồ — {{ meterRoom.name }}</h3>
-                            <p class="meter-sub">Chụp ảnh số đồng hồ đầu kỳ &amp; cuối kỳ để gửi minh bạch cho người thuê</p>
+                            <p class="meter-sub">Chụp ảnh số đồng hồ cũ &amp; mới để gửi minh bạch cho người thuê</p>
                         </div>
                         <button class="modal-close" @click="closeMeterModal"><i class="bi bi-x-lg"></i></button>
                     </div>
@@ -233,7 +433,7 @@ const photoCount = (roomId) => {
                             </div>
                             <div class="meter-photo-row">
                                 <div class="meter-photo-box">
-                                    <div class="mph-label">Đầu kỳ — {{ meterRoom.elecStart }} kWh</div>
+                                    <div class="mph-label">Số cũ — {{ meterRoom.elecStart }} kWh</div>
                                     <label class="mph-upload" :class="{ 'mph-done': meterPhotos[meterRoom.id]?.elecStart }">
                                         <input type="file" accept="image/*" @change="handleMeterPhoto(meterRoom.id, 'elecStart', $event)" style="display:none" />
                                         <img v-if="meterPhotos[meterRoom.id]?.elecStart" :src="meterPhotos[meterRoom.id].elecStart" class="mph-img" />
@@ -245,7 +445,7 @@ const photoCount = (roomId) => {
                                 </div>
                                 <div class="meter-arrow"><i class="bi bi-arrow-right"></i></div>
                                 <div class="meter-photo-box">
-                                    <div class="mph-label">Cuối kỳ — {{ meterRoom.elecEnd }} kWh</div>
+                                    <div class="mph-label">Số mới — {{ meterRoom.elecEnd }} kWh</div>
                                     <label class="mph-upload" :class="{ 'mph-done': meterPhotos[meterRoom.id]?.elecEnd }">
                                         <input type="file" accept="image/*" @change="handleMeterPhoto(meterRoom.id, 'elecEnd', $event)" style="display:none" />
                                         <img v-if="meterPhotos[meterRoom.id]?.elecEnd" :src="meterPhotos[meterRoom.id].elecEnd" class="mph-img" />
@@ -270,7 +470,7 @@ const photoCount = (roomId) => {
                             </div>
                             <div class="meter-photo-row">
                                 <div class="meter-photo-box">
-                                    <div class="mph-label">Đầu kỳ — {{ meterRoom.waterStart }} m³</div>
+                                    <div class="mph-label">Số cũ — {{ meterRoom.waterStart }} m³</div>
                                     <label class="mph-upload" :class="{ 'mph-done': meterPhotos[meterRoom.id]?.waterStart }">
                                         <input type="file" accept="image/*" @change="handleMeterPhoto(meterRoom.id, 'waterStart', $event)" style="display:none" />
                                         <img v-if="meterPhotos[meterRoom.id]?.waterStart" :src="meterPhotos[meterRoom.id].waterStart" class="mph-img" />
@@ -282,7 +482,7 @@ const photoCount = (roomId) => {
                                 </div>
                                 <div class="meter-arrow"><i class="bi bi-arrow-right"></i></div>
                                 <div class="meter-photo-box">
-                                    <div class="mph-label">Cuối kỳ — {{ meterRoom.waterEnd }} m³</div>
+                                    <div class="mph-label">Số mới — {{ meterRoom.waterEnd }} m³</div>
                                     <label class="mph-upload" :class="{ 'mph-done': meterPhotos[meterRoom.id]?.waterEnd }">
                                         <input type="file" accept="image/*" @change="handleMeterPhoto(meterRoom.id, 'waterEnd', $event)" style="display:none" />
                                         <img v-if="meterPhotos[meterRoom.id]?.waterEnd" :src="meterPhotos[meterRoom.id].waterEnd" class="mph-img" />
@@ -357,7 +557,7 @@ const photoCount = (roomId) => {
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     border: 1px solid #f0fdf4;
 }
-.fin-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.fin-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
 .fin-title { font-size: 15px; font-weight: 700; color: #064e3b; margin: 0; display: flex; align-items: center; gap: 7px; }
 .mb { margin-bottom: 14px !important; }
 
@@ -369,11 +569,103 @@ const photoCount = (roomId) => {
 }
 .btn-export:hover { background: #b91c1c; }
 
+/* Button nhập số liệu */
+.fin-card-actions { display: flex; align-items: center; gap: 10px; }
+.btn-input-data {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 16px; background: #0f766e; color: #fff;
+    border: none; border-radius: 9px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+}
+.btn-input-data:hover { background: #0d9488; }
+
+/* ── Input Modal ── */
+.input-modal {
+    background: #fff; border-radius: 20px;
+    width: 560px; max-width: 96vw; max-height: 90vh;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+    overflow: hidden; display: flex; flex-direction: column;
+}
+.input-modal-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 20px 24px; border-bottom: 1px solid #f0fdf4;
+    background: linear-gradient(135deg, #f0fdf4, #d1fae5);
+}
+.input-modal-head h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: #064e3b; }
+.input-modal-sub { margin: 0; font-size: 12px; color: #6b7280; }
+
+.input-modal-body { padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+
+.input-field { display: flex; flex-direction: column; gap: 6px; }
+.input-field label { font-size: 13px; font-weight: 600; color: #374151; display: flex; align-items: center; gap: 5px; }
+.input-select {
+    padding: 10px 14px; border: 1.5px solid #d1fae5;
+    border-radius: 10px; font-size: 14px; font-weight: 600;
+    outline: none; color: #064e3b; background: #f0fdf4;
+    cursor: pointer;
+}
+.input-select:focus { border-color: #0f766e; }
+
+.input-section { background: #f8fafc; border-radius: 12px; padding: 14px 16px; }
+.input-sec-title {
+    font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 12px;
+}
+.input-sec-title.elec-title { color: #b45309; }
+.input-sec-title.water-title { color: #1d4ed8; }
+
+.input-row { display: flex; align-items: flex-end; gap: 14px; }
+.input-number {
+    width: 100%; padding: 9px 12px;
+    border: 1.5px solid #e2e8f0; border-radius: 8px;
+    font-size: 14px; text-align: center; outline: none;
+}
+.input-number:focus { border-color: #0f766e; }
+
+.input-result { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 90px; }
+.input-result-label { font-size: 11px; color: #6b7280; font-weight: 600; }
+.input-result-val { font-size: 15px; font-weight: 800; }
+.elec-val { color: #b45309; }
+.water-val { color: #1d4ed8; }
+
+.input-preview {
+    background: #f0fdf4; border-radius: 12px; padding: 14px 16px;
+    border: 1.5px solid #d1fae5;
+}
+.input-preview-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0; font-size: 13px; color: #374151;
+}
+.input-preview-total {
+    border-top: 1.5px solid #d1fae5; margin-top: 6px; padding-top: 10px;
+    font-size: 15px; color: #064e3b;
+}
+
+.input-modal-foot {
+    display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    padding: 16px 24px; border-top: 1px solid #f0fdf4;
+}
+.btn-outline {
+    padding: 9px 18px; background: #fff; color: #374151;
+    border: 1.5px solid #e2e8f0; border-radius: 9px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-outline:hover { border-color: #0f766e; color: #0f766e; }
+.btn-save-input {
+    display: flex; align-items: center; gap: 6px;
+    padding: 9px 20px; background: #0f766e; color: #fff;
+    border: none; border-radius: 9px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+}
+.btn-save-input:hover { background: #0d9488; }
+
 /* Table */
 .table-scroll { overflow-x: auto; }
 .fin-table {
     width: 100%; border-collapse: collapse;
-    font-size: 13px; min-width: 900px;
+    font-size: 13px; min-width: 1100px;
 }
 .fin-table th {
     background: #f0fdf4; color: #065f46;
@@ -383,6 +675,7 @@ const photoCount = (roomId) => {
 }
 .thead-sub th { background: #f8fffe; font-size: 11px; color: #6b7280; padding: 5px 8px; }
 .fin-table td { padding: 10px 8px; border-bottom: 1px solid #f0fdf4; vertical-align: middle; }
+.consume-val { font-weight: 700; color: #0d9488; text-align: center; font-size: 13px; }
 
 .td-room    { font-weight: 700; color: #064e3b; white-space: nowrap; }
 .td-center  { text-align: center; }
@@ -413,8 +706,24 @@ const photoCount = (roomId) => {
     border: none; border-radius: 7px; font-size: 12px; font-weight: 600;
     cursor: pointer; white-space: nowrap;
     transition: background 0.15s;
+    text-decoration: none;
 }
 .btn-confirm-pay:hover { background: #0d9488; }
+
+.btn-create-inv {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 12px; background: #0284c7; color: #fff;
+    border: none; border-radius: 7px; font-size: 12px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.15s;
+}
+.btn-create-inv:hover { background: #0369a1; }
+
+.btn-link-inv {
+    background: #0284c7 !important;
+}
+.btn-link-inv:hover { background: #0369a1 !important; }
+
 .txt-done { color: #16a34a; font-size: 12px; font-weight: 600; }
 
 /* Tfoot */
@@ -568,11 +877,12 @@ const photoCount = (roomId) => {
 @media (max-width: 768px) {
     .fin-topbar         { flex-direction: column; align-items: stretch; }
     .fin-summary-chips  { justify-content: flex-start; }
-    .fin-card-head      { flex-direction: column; align-items: flex-start; gap: 10px; }
-    .btn-export         { width: 100%; justify-content: center; }
+    .fin-card-head      { flex-direction: column; align-items: stretch; gap: 10px; }
+    .fin-card-actions   { flex-direction: row; width: 100%; }
+    .btn-input-data     { flex: 1; justify-content: center; padding: 10px 12px; font-size: 12px; }
+    .btn-export         { flex: 1; justify-content: center; padding: 10px 12px; font-size: 12px; }
     .table-scroll       { -webkit-overflow-scrolling: touch; }
-    .fin-table          { font-size: 12px; min-width: 860px; }
-    .num-input          { width: 60px; font-size: 12px; }
+    .fin-table          { font-size: 12px; min-width: 1000px; }
     .debt-item          { flex-wrap: wrap; gap: 8px; }
     .price-inputs       { flex-direction: column; }
     .price-input        { width: 100%; }
@@ -581,5 +891,9 @@ const photoCount = (roomId) => {
     .meter-photo-row    { flex-wrap: wrap; }
     .meter-arrow        { display: none; }
     .meter-result       { width: 100%; }
+    .input-modal        { width: 96vw; border-radius: 16px; }
+    .input-row          { flex-wrap: wrap; gap: 10px; }
+    .input-row .input-field { flex: 1; min-width: 100px; }
+    .input-result       { width: 100%; flex-direction: row; justify-content: center; gap: 8px; margin-top: 4px; }
 }
 </style>
