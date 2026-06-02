@@ -110,10 +110,48 @@ const navGroups = [
                 </div>
                 <div class="header-right">
                     <!-- Bell -->
-                    <button class="header-btn" @click="notifOpen = !notifOpen">
-                        <i class="bi bi-bell"></i>
-                        <span class="notif-dot"></span>
-                    </button>
+                    <div class="relative">
+                        <button class="header-btn" @click="notifOpen = !notifOpen">
+                            <i class="bi bi-bell"></i>
+                            <span v-if="page.props.unreadNotificationsCount > 0" class="notif-dot">
+                                {{ page.props.unreadNotificationsCount > 9 ? '9+' : page.props.unreadNotificationsCount }}
+                            </span>
+                        </button>
+                        
+                        <!-- Notification Dropdown -->
+                        <div v-if="notifOpen" 
+                             class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                            <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                <h3 class="text-sm font-semibold text-gray-800">Thông báo</h3>
+                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                    {{ page.props.unreadNotificationsCount }} mới
+                                </span>
+                            </div>
+                            <div class="max-h-[320px] overflow-y-auto">
+                                <div v-if="page.props.unreadNotifications?.length > 0">
+                                    <Link v-for="notification in page.props.unreadNotifications" :key="notification.id"
+                                          :href="notification.data.url"
+                                          class="block px-4 py-3 hover:bg-gray-50 border-b border-gray-50 transition-colors">
+                                        <div class="flex gap-3">
+                                            <div class="flex-shrink-0 mt-1">
+                                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                                    <i class="bi bi-file-earmark-person-fill"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-800 mb-0.5">{{ notification.data.title }}</p>
+                                                <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed">{{ notification.data.message }}</p>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                </div>
+                                <div v-else class="px-4 py-8 text-center flex flex-col items-center justify-center gap-2">
+                                    <i class="bi bi-bell-slash text-gray-300 text-3xl"></i>
+                                    <p class="text-sm text-gray-500">Bạn không có thông báo mới nào</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <!-- View site -->
                     <Link href="/" class="header-btn" title="Xem trang web">
                         <i class="bi bi-box-arrow-up-right"></i>
@@ -278,10 +316,13 @@ const navGroups = [
 }
 .header-btn:hover { background: #f1f5f9; color: #334155; }
 .notif-dot {
-    position: absolute; top: 8px; right: 8px;
-    width: 7px; height: 7px;
-    background: #ef4444; border-radius: 50%;
+    position: absolute; top: -4px; right: -4px;
+    min-width: 18px; height: 18px;
+    background: #ef4444; border-radius: 9px;
     border: 1.5px solid #fff;
+    color: white; font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px;
 }
 
 .header-admin { display: flex; align-items: center; gap: 10px; padding-left: 12px; border-left: 1px solid #e2e8f0; }

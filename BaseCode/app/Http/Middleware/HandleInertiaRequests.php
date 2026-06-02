@@ -35,6 +35,7 @@ class HandleInertiaRequests extends Middleware
                 //phần kiểm tra user có dữ liệu trong bảng user_verifications
                 'has_submitted_verification' => $request->user()
                     ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $request->user()->id)->exists() : false,
+                'notifications' => $request->user() ? $request->user()->unreadNotifications : [],
             ],
         ]);
     }

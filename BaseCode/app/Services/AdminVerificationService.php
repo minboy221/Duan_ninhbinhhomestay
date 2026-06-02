@@ -13,7 +13,12 @@ class AdminVerificationService
     //lấy danh sách hồ sơ của người dùng đăng ký chủ trọ
     public function getVerificationsList()
     {
-        return User::whereHas('verification')->with('verification')->paginate(10);
+        return User::where('role', 'user')
+            ->whereHas('verification', function ($query) {
+                $query->where('kyc_status', '!=', 'approved');
+            })
+            ->with('verification')
+            ->paginate(10);
     }
     //lấy thông tin chi tiết hồ sơ
     public function getVerificationDetail($userId)
@@ -33,17 +38,29 @@ class AdminVerificationService
         try {
             if ($action === 'approve') {
                 //1.Nâng cấp tài khoản thành chủ trọ
-                User::where('id', $userId)->update(['role' => 'landlord']);
+                $userToApprove = User::find($userId);
+                $userToApprove->update(['role' => 'landlord']);
                 //Kích hoạt nhà trọ
-                BoardingHouse::where('user_id', $userId)->update(['status' => 'active']);
+                BoardingHouse::where('user_id', $userId)->update(['status' => 'approved']);
                 //Phần đánh dấu hồ sơ Kyc đã được admin  duyệt
-                UserVerification::where('user_id', '$userId')->update(['admin_status' => 'approved']);
+                UserVerification::where('user_id', $userId)->update(['kyc_status' => 'approved']);
+                
+                // Gửi thông báo
+                $userToApprove->notify(new \App\Notifications\LandlordApproved());
+
                 $message = 'Đã duyệt hồ sơ và cấp quyền Chủ trọ thành công';
             } else {
                 //từ chối nhà trọ
                 BoardingHouse::where('user_id', $userId)->update(['status' => 'rejected']);
                 //(tuỳ chọn) lưu lý do từ chối vào bảng verifications để hiện thị cho user
-                UserVerification::where('user_id', $userId)->update(['admin_status' => 'rejected', 'reject_reason' => $reason]);
+                UserVerification::where('user_id', $userId)->update(['kyc_status' => 'rejected', 'kyc_notes' => $reason]);
+                
+                // Gửi thông báo từ chối
+                $userToReject = User::find($userId);
+                if ($userToReject) {
+                    $userToReject->notify(new \App\Notifications\LandlordRejected($reason));
+                }
+
                 $message = 'Đã từ chối hồ sơ xác minh';
             }
             DB::commit();
