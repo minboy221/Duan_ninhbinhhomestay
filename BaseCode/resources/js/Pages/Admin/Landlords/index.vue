@@ -1,20 +1,19 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { Head } from '@inertiajs/vue3'
+import { Head, Link } from '@inertiajs/vue3'
 import { ref } from 'vue'
 
-const landlords = ref([
-    { id:1, name:'Trần Văn Hùng', email:'vanhung@gmail.com', phone:'0912345678', cccd:'123456789012', rooms:5, plan:'Trả phí', verified:true,  joined:'10/01/2026' },
-    { id:2, name:'Lê Thị Nga',    email:'thinga@gmail.com',  phone:'0987654321', cccd:'987654321012', rooms:3, plan:'Miễn phí', verified:false, joined:'15/02/2026' },
-    { id:3, name:'Nguyễn Văn Bá', email:'vanba@gmail.com',   phone:'0909090909', cccd:'111222333444', rooms:8, plan:'Trả phí', verified:true,  joined:'01/03/2026' },
-    { id:4, name:'Phạm Thị Mai',  email:'thimai@gmail.com',  phone:'0933111222', cccd:'555666777888', rooms:2, plan:'Miễn phí', verified:false, joined:'20/04/2026' },
-])
+const props = defineProps({
+    landlords: {
+        type: Array,
+        default: () => []
+    }
+})
 
 const showDetail = ref(false)
 const selected   = ref(null)
 
 function open(l) { selected.value = l; showDetail.value = true }
-function approve(l) { l.verified = true; showDetail.value = false }
 </script>
 
 <template>
@@ -23,14 +22,13 @@ function approve(l) { l.verified = true; showDetail.value = false }
         <template #header-title>
             <div>
                 <h1 class="page-title">Quản Lý Tài Khoản Chủ Trọ</h1>
-                <p class="page-sub">Kiểm tra thông tin và duyệt xác minh chủ trọ</p>
+                <p class="page-sub">Danh sách các tài khoản chủ trọ đã được kiểm duyệt</p>
             </div>
         </template>
 
         <div class="stats-row">
             <div class="scard"><i class="bi bi-house-check-fill" style="color:#7c3aed"></i><div><p class="snum">{{ landlords.length }}</p><p class="slbl">Tổng chủ trọ</p></div></div>
-            <div class="scard"><i class="bi bi-patch-check-fill" style="color:#22c55e"></i><div><p class="snum">{{ landlords.filter(l=>l.verified).length }}</p><p class="slbl">Đã xác minh</p></div></div>
-            <div class="scard"><i class="bi bi-clock-fill" style="color:#f97316"></i><div><p class="snum">{{ landlords.filter(l=>!l.verified).length }}</p><p class="slbl">Chờ xác minh</p></div></div>
+            <div class="scard"><i class="bi bi-patch-check-fill" style="color:#22c55e"></i><div><p class="snum">{{ landlords.length }}</p><p class="slbl">Đã xác minh</p></div></div>
         </div>
 
         <div class="table-card">
@@ -39,11 +37,16 @@ function approve(l) { l.verified = true; showDetail.value = false }
                     <tr><th>#</th><th>Chủ trọ</th><th>Số điện thoại</th><th>Số phòng</th><th>Gói dịch vụ</th><th>Xác minh</th><th style="text-align:center">Hành động</th></tr>
                 </thead>
                 <tbody>
+                    <tr v-if="landlords.length === 0">
+                        <td colspan="7" style="text-align:center; padding:30px; color:#94a3b8">
+                            Không có chủ trọ nào. <Link :href="route('admin.verifications.index')" class="text-blue-600 hover:underline">Đến trang duyệt hồ sơ</Link>
+                        </td>
+                    </tr>
                     <tr v-for="(l, i) in landlords" :key="l.id" class="trow">
                         <td class="idx">{{ i+1 }}</td>
                         <td>
                             <div class="user-cell">
-                                <div class="ava" :style="`background:hsl(${l.id*80}deg,60%,55%)`">{{ l.name[0] }}</div>
+                                <div class="ava" :style="`background:hsl(${l.id*80}deg,60%,55%)`">{{ l.name[0]?.toUpperCase() }}</div>
                                 <div><p class="fw">{{ l.name }}</p><p class="sm">{{ l.email }}</p></div>
                             </div>
                         </td>
@@ -51,9 +54,8 @@ function approve(l) { l.verified = true; showDetail.value = false }
                         <td><span class="room-badge">{{ l.rooms }} phòng</span></td>
                         <td><span :class="['plan-badge', l.plan==='Trả phí' ? 'plan-paid' : 'plan-free']">{{ l.plan }}</span></td>
                         <td>
-                            <span :class="['ver-badge', l.verified ? 'ver-ok' : 'ver-pending']">
-                                <i :class="['bi', l.verified ? 'bi-patch-check-fill' : 'bi-hourglass-split']"></i>
-                                {{ l.verified ? 'Đã xác minh' : 'Chờ duyệt' }}
+                            <span class="ver-badge ver-ok">
+                                <i class="bi bi-patch-check-fill"></i> Đã xác minh
                             </span>
                         </td>
                         <td style="text-align:center">
@@ -74,7 +76,7 @@ function approve(l) { l.verified = true; showDetail.value = false }
                         <button @click="showDetail=false" class="modal-close"><i class="bi bi-x-lg"></i></button>
                     </div>
                     <div class="modal-body">
-                        <div class="ll-avatar">{{ selected?.name[0] }}</div>
+                        <div class="ll-avatar">{{ selected?.name[0]?.toUpperCase() }}</div>
                         <h4 class="ll-name">{{ selected?.name }}</h4>
                         <p class="ll-email">{{ selected?.email }}</p>
                         <div class="info-block">
@@ -84,17 +86,14 @@ function approve(l) { l.verified = true; showDetail.value = false }
                             <div class="ib-row"><span class="ib-l">Gói</span><span class="ib-v">{{ selected?.plan }}</span></div>
                             <div class="ib-row"><span class="ib-l">Tham gia</span><span class="ib-v">{{ selected?.joined }}</span></div>
                         </div>
-                        <div class="cccd-preview">
+                        <div class="cccd-preview" v-if="!selected?.verification_images?.front">
                             <i class="bi bi-card-image"></i>
-                            <span>Ảnh CCCD chưa có</span>
+                            <span>Hồ sơ đã duyệt</span>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button @click="showDetail=false" class="btn-cancel">Đóng</button>
-                        <button v-if="!selected?.verified" @click="approve(selected)" class="btn-approve">
-                            <i class="bi bi-patch-check-fill"></i> Xác Minh
-                        </button>
-                        <span v-else class="approved-label"><i class="bi bi-patch-check-fill"></i> Đã xác minh</span>
+                        <span class="approved-label"><i class="bi bi-patch-check-fill"></i> Đã xác minh</span>
                     </div>
                 </div>
             </div>

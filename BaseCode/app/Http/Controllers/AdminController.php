@@ -53,7 +53,34 @@ class AdminController extends Controller
 
     public function landlords()
     {
-        return Inertia::render('Admin/Landlords/index');
+        $landlords = User::where('role', 'landlord')
+            ->with(['verification', 'boardingHouse'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($user) {
+                $roomCount = 0;
+                if ($user->boardingHouse) {
+                    $roomCount = \Illuminate\Support\Facades\DB::table('rooms')
+                        ->where('property_id', $user->boardingHouse->id)
+                        ->count();
+                }
+
+                return [
+                    'id'       => $user->id,
+                    'name'     => $user->name,
+                    'email'    => $user->email,
+                    'phone'    => $user->phone ?? 'Chưa cập nhật',
+                    'cccd'     => $user->cccd_number ?? ($user->verification->id_card_number ?? 'Chưa cập nhật'),
+                    'rooms'    => $roomCount,
+                    'plan'     => 'Miễn phí', // Logic gói dịch vụ có thể mở rộng sau
+                    'verified' => true,       // Vì role=landlord nên chắc chắn đã xác minh
+                    'joined'   => $user->created_at->format('d/m/Y'),
+                ];
+            });
+
+        return Inertia::render('Admin/Landlords/index', [
+            'landlords' => $landlords
+        ]);
     }
 
     public function approval()

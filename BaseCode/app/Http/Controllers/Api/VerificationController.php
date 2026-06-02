@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\VerificationService;
 use App\Http\Requests\VerifyLandlordRequest;
+use App\Models\User;
+use App\Notifications\NewLandlordApplication;
+use Illuminate\Support\Facades\Notification;
 
 class VerificationController extends Controller
 {
@@ -32,6 +35,11 @@ class VerificationController extends Controller
             $user->id,
             $request->validated() //lấy dữ liệu đã qua validate
         );
+
+        // Gửi thông báo cho toàn bộ Admin
+        $admins = User::where('role', 'admin')->get();
+        Notification::send($admins, new NewLandlordApplication($user));
+
         //gửi request đến inertia
         if ($request->inertia()) {
             return redirect('/')->with('success', 'đã tải lên thông tin xác minh thành công. đang xử lý');
