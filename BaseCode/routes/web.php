@@ -145,6 +145,18 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/dashboard', [LandlordController::class, 'dashboard'])->name('landlord.dashboard');
     Route::get('/profile', [LandlordController::class, 'profile'])->name('landlord.profile');
     Route::get('/rooms', [LandlordController::class, 'rooms'])->name('landlord.rooms');
+
+    // CRUD routes cho Tầng
+    Route::post('/floors',              [LandlordController::class, 'storeFloor'])->name('landlord.floors.store');
+    Route::put('/floors/{id}',          [LandlordController::class, 'updateFloor'])->name('landlord.floors.update');
+    Route::delete('/floors/{id}',       [LandlordController::class, 'deleteFloor'])->name('landlord.floors.delete');
+
+    // CRUD routes cho Phòng trọ
+    Route::post('/rooms',                   [LandlordController::class, 'storeRoom'])->name('landlord.rooms.store');
+    Route::post('/rooms/{id}',              [LandlordController::class, 'updateRoom'])->name('landlord.rooms.update');
+    Route::patch('/rooms/{id}/status',      [LandlordController::class, 'changeRoomStatus'])->name('landlord.rooms.status');
+    Route::delete('/rooms/{id}',            [LandlordController::class, 'deleteRoom'])->name('landlord.rooms.delete');
+
     Route::get('/listings', [LandlordController::class, 'listings'])->name('landlord.listings');
     Route::get('/listings/create', [LandlordController::class, 'listingCreate'])->name('landlord.listings.create');
     Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.appointments');
