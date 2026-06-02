@@ -3,7 +3,9 @@
 use App\Http\Controllers\AdminVerificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\LandlordController;
+use App\Services\CategoryService;
 use App\Http\Controllers\AuthController;
 use Illuminate\Foundation\Application;
 //Phần xác minh thông tin chủ trọ
@@ -24,13 +26,17 @@ use Inertia\Inertia;
 */
 
 // Route phần clien
-Route::get('/', function () {
+Route::get('/', function (CategoryService $categoryService) {
+    $categoryData = $categoryService->getActiveData();
     return Inertia::render('Client/Index', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('signup'),
         'canVerfyEmail' => Route::has('canverfyemail'),
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
+        'categories' => $categoryData['types'],
+        'areas'      => $categoryData['areas'],
+        'amenities'  => $categoryData['amenities'],
     ]);
 })->name('home');
 
@@ -40,8 +46,13 @@ Route::get('/about', function () {
 })->name('about');
 
 // Route cho Trang Tìm trọ
-Route::get('/timtro', function () {
-    return Inertia::render('Client/timtro'); // Trỏ đến file Pages/Client/About.vue
+Route::get('/timtro', function (CategoryService $categoryService) {
+    $categoryData = $categoryService->getActiveData();
+    return Inertia::render('Client/timtro', [
+        'categories' => $categoryData['types'],
+        'areas'      => $categoryData['areas'],
+        'amenities'  => $categoryData['amenities'],
+    ]);
 })->name('timtro');
 
 // Route cho Trang Tin tức
@@ -83,6 +94,37 @@ Route::middleware('auth')->group(function () {
 
 // ROUTER cho admin
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/dashboard',  [AdminController::class, 'index'])->name('admin.dashboard');
+    Route::get('/users',      [AdminController::class, 'users'])->name('admin.users');
+    Route::get('/landlords',  [AdminController::class, 'landlords'])->name('admin.landlords');
+    Route::get('/approval',   [AdminController::class, 'approval'])->name('admin.approval');
+    Route::get('/categories', [CategoryController::class, 'index'])->name('admin.categories');
+
+    // CRUD routes cho Danh mục (Loại phòng)
+    Route::post('/categories/types',           [CategoryController::class, 'storeCategory'])->name('admin.categories.types.store');
+    Route::put('/categories/types/{id}',       [CategoryController::class, 'updateCategory'])->name('admin.categories.types.update');
+    Route::delete('/categories/types/{id}',    [CategoryController::class, 'deleteCategory'])->name('admin.categories.types.delete');
+    Route::patch('/categories/types/{id}/toggle', [CategoryController::class, 'toggleCategory'])->name('admin.categories.types.toggle');
+
+    // CRUD routes cho Khu vực
+    Route::post('/categories/areas',           [CategoryController::class, 'storeArea'])->name('admin.categories.areas.store');
+    Route::put('/categories/areas/{id}',       [CategoryController::class, 'updateArea'])->name('admin.categories.areas.update');
+    Route::delete('/categories/areas/{id}',    [CategoryController::class, 'deleteArea'])->name('admin.categories.areas.delete');
+    Route::patch('/categories/areas/{id}/toggle', [CategoryController::class, 'toggleArea'])->name('admin.categories.areas.toggle');
+
+    // CRUD routes cho Tiện ích
+    Route::post('/categories/amenities',           [CategoryController::class, 'storeAmenity'])->name('admin.categories.amenities.store');
+    Route::put('/categories/amenities/{id}',       [CategoryController::class, 'updateAmenity'])->name('admin.categories.amenities.update');
+    Route::delete('/categories/amenities/{id}',    [CategoryController::class, 'deleteAmenity'])->name('admin.categories.amenities.delete');
+    Route::patch('/categories/amenities/{id}/toggle', [CategoryController::class, 'toggleAmenity'])->name('admin.categories.amenities.toggle');
+
+    Route::get('/reports',    [AdminController::class, 'reports'])->name('admin.reports');
+    Route::get('/reviews',    [AdminController::class, 'reviews'])->name('admin.reviews');
+    Route::get('/revenue',    [AdminController::class, 'revenue'])->name('admin.revenue');
+    Route::get('/roles',      [AdminController::class, 'roles'])->name('admin.roles');
+    Route::get('/auditlog',   [AdminController::class, 'auditlog'])->name('admin.auditlog');
+    Route::get('/website',    [AdminController::class, 'website'])->name('admin.website');
+    Route::get('/ads',        [AdminController::class, 'ads'])->name('admin.ads');
     Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     //Phần route để xác minh thông tin chủ trọ
     Route::get('/verifications', [AdminVerificationController::class, 'index'])->name('admin.verifications.index');
@@ -93,17 +135,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     //Route Đặc biệt: để admin xem được ảnh lưu trong thư mục private
     Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
         ->name('admin.files.private');
-    Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
-    Route::get('/landlords', [AdminController::class, 'landlords'])->name('admin.landlords');
-    Route::get('/approval', [AdminController::class, 'approval'])->name('admin.approval');
-    Route::get('/categories', [AdminController::class, 'categories'])->name('admin.categories');
-    Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
-    Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
-    Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
-    Route::get('/roles', [AdminController::class, 'roles'])->name('admin.roles');
-    Route::get('/auditlog', [AdminController::class, 'auditlog'])->name('admin.auditlog');
-    Route::get('/website', [AdminController::class, 'website'])->name('admin.website');
-    Route::get('/ads', [AdminController::class, 'ads'])->name('admin.ads');
+    // Các route trên đã định nghĩa đầy đủ
 });
 
 // ROUTER cho landlord (chủ trọ)

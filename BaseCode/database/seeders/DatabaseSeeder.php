@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             LandlordSeeder::class,
             UserSeeder::class,
+            CategorySeeder::class,
             
         ]);
     }

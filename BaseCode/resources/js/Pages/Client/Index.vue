@@ -4,6 +4,18 @@ import MainLayout from '@/Layouts/MainLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import HomePopup from '@/Components/HomePopup.vue';
 
+// Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Route → Inertia)
+const props = defineProps({
+    canLogin: Boolean,
+    canRegister: Boolean,
+    canVerfyEmail: Boolean,
+    laravelVersion: String,
+    phpVersion: String,
+    categories: { type: Array, default: () => [] },
+    areas:      { type: Array, default: () => [] },
+    amenities:  { type: Array, default: () => [] },
+})
+
 // Slider Phòng Trọ
 const currentPtSlide = ref(0);
 const totalPtSlides = 3;
@@ -58,19 +70,27 @@ const scrollReview = (direction) => {
         <div class="boloc">
             <div class="search">
                 <div class="location">
-                    <label for="">Địa Chỉ:</label>
-                    <input type="text" placeholder="Nhập nơi bạn muốn tìm?">
+                    <label for="">Khu Vực:</label>
+                    <select>
+                        <option value="">--Chọn khu vực--</option>
+                        <option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</option>
+                    </select>
                 </div>
                 <div class="price_select">
                     <label for="">Chọn Mức Giá:</label>
                     <select name="" id="">
-                        <option value="1">--Chọn Giá--</option>
+                        <option value="">--Chọn Giá--</option>
+                        <option value="1">Dưới 1 triệu</option>
+                        <option value="2">1 - 2 triệu</option>
+                        <option value="3">2 - 3 triệu</option>
+                        <option value="4">Trên 3 triệu</option>
                     </select>
                 </div>
                 <div class="roomtype_select">
                     <label for="">Chọn Loại Phòng:</label>
-                    <select name="" id="">
-                        <option value="1">--Chọn Loại Phòng--</option>
+                    <select>
+                        <option value="">--Chọn Loại Phòng--</option>
+                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                     </select>
                 </div>
                 <button class="login-btn"><i class="bi bi-search"></i> <span>Tìm Kiếm</span></button>
