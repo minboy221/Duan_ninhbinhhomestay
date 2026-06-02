@@ -96,6 +96,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/dashboard',  [AdminController::class, 'index'])->name('admin.dashboard');
     Route::get('/users',      [AdminController::class, 'users'])->name('admin.users');
+    Route::patch('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus'])->name('admin.users.toggle-status');
+    Route::delete('/users/{id}', [AdminController::class, 'deleteUser'])->name('admin.users.delete');
     Route::get('/landlords',  [AdminController::class, 'landlords'])->name('admin.landlords');
     Route::get('/approval',   [AdminController::class, 'approval'])->name('admin.approval');
     Route::get('/categories', [CategoryController::class, 'index'])->name('admin.categories');
