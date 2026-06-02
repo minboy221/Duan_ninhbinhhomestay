@@ -1,6 +1,6 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { Head } from '@inertiajs/vue3'
+import { Head, router } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
 
 const props = defineProps({
@@ -13,22 +13,8 @@ const statusFilter = ref('all')
 const currentPage  = ref(1)
 const perPage = 10
 
-// Mock users khi chưa có dữ liệu thực
-const mockUsers = [
-    { id:1, name:'Nguyễn Văn An',   email:'vanan@gmail.com',    role:'user',     status:'active', created_at:'2026-05-19' },
-    { id:2, name:'Trần Thị Bình',   email:'thibinh@gmail.com',  role:'landlord', status:'active', created_at:'2026-05-18' },
-    { id:3, name:'Lê Văn Cường',    email:'vancuong@gmail.com', role:'user',     status:'locked', created_at:'2026-05-17' },
-    { id:4, name:'Phạm Thị Dung',   email:'thidung@gmail.com',  role:'landlord', status:'active', created_at:'2026-05-16' },
-    { id:5, name:'Hoàng Văn Em',    email:'vanem@gmail.com',    role:'user',     status:'active', created_at:'2026-05-15' },
-    { id:6, name:'Đặng Thị Fang',   email:'thifang@gmail.com',  role:'staff',    status:'active', created_at:'2026-05-14' },
-    { id:7, name:'Bùi Văn Giang',   email:'vangiang@gmail.com', role:'user',     status:'active', created_at:'2026-05-13' },
-    { id:8, name:'Ngô Thị Hà',      email:'thiha@gmail.com',    role:'user',     status:'locked', created_at:'2026-05-12' },
-]
-
-const allUsers = computed(() => props.users.length ? props.users : mockUsers)
-
 const filtered = computed(() => {
-    return allUsers.value.filter(u => {
+    return props.users.filter(u => {
         const q = search.value.toLowerCase()
         const matchSearch = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
         const matchRole   = roleFilter.value === 'all' || u.role === roleFilter.value
@@ -58,11 +44,21 @@ function openAction(user, action) {
 }
 
 function confirmAction() {
-    // TODO: gọi API
     if (modalAction.value === 'toggle') {
-        modalUser.value.status = modalUser.value.status === 'active' ? 'locked' : 'active'
+        router.patch(route('admin.users.toggle-status', modalUser.value.id), {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                showModal.value = false;
+            }
+        });
+    } else if (modalAction.value === 'delete') {
+        router.delete(route('admin.users.delete', modalUser.value.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                showModal.value = false;
+            }
+        });
     }
-    showModal.value = false
 }
 
 function resetFilters() {
@@ -152,7 +148,7 @@ function resetFilters() {
                             </span>
                         </td>
                         <td>
-                            <div class="action-btns">
+                            <div class="action-btns" v-if="u.role !== 'admin'">
                                 <button class="act-btn act-view" title="Xem chi tiết">
                                     <i class="bi bi-eye"></i>
                                 </button>

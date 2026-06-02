@@ -22,10 +22,33 @@ class AdminController extends Controller
 
     public function users()
     {
-        $users = User::orderBy('created_at', 'desc')->get();
+        $users = User::where('role', '!=', 'admin')->orderBy('created_at', 'desc')->get();
         return Inertia::render('Admin/Users/index', [
             'users' => $users
         ]);
+    }
+
+    public function toggleUserStatus($id)
+    {
+        $user = User::findOrFail($id);
+        $user->status = $user->status === 'active' ? 'locked' : 'active';
+        $user->save();
+
+        return redirect()->back()->with('success', 'Đã cập nhật trạng thái người dùng thành công.');
+    }
+
+    public function deleteUser($id)
+    {
+        $user = User::findOrFail($id);
+        
+        // Cấm xóa admin để tránh lỗi hệ thống (tùy chọn nhưng nên có)
+        if ($user->role === 'admin' && User::where('role', 'admin')->count() <= 1) {
+            return redirect()->back()->with('error', 'Không thể xóa Admin duy nhất của hệ thống.');
+        }
+
+        $user->delete();
+
+        return redirect()->back()->with('success', 'Đã xóa người dùng thành công.');
     }
 
     public function landlords()
