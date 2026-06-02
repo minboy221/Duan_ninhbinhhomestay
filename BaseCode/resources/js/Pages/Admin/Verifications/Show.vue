@@ -1,260 +1,312 @@
 <script setup>
-import { router } from "@inertiajs/vue3";
+import { Head, router } from "@inertiajs/vue3";
 import { ref } from "vue";
+import AdminLayout from '@/Layouts/AdminLayout.vue';
 
-// Nhận dữ liệu từ AdminVerificationController truyền sang
 const props = defineProps({
     user: Object,
     verification: Object,
     boardingHouse: Object,
 });
 
-console.log("Dữ liệu thực tế Vue nhận được từ Laravel:", props);
-
-// Hàm quan trọng: Cắt chuỗi đường dẫn từ DB để lấy Tên File và gọi qua Route xem ảnh Private
+// Hàm lấy URL ảnh private
 const getPrivateImageUrl = (path, type) => {
     if (!path) return "https://placehold.co/400x300?text=No+Image";
-
-    // ĐÃ CHỈNH SỬA: Chuyển toàn bộ dấu \ thành / trước khi cắt chuỗi lấy tên file
     const filename = path.replace(/\\/g, "/").split("/").pop();
-
     return route("admin.files.private", { type: type, filename: filename });
 };
 
-// Hàm xử lý nút Duyệt / Từ chối
-const updateStatus = (action) => {
-    let reason = "";
+// --- QUẢN LÝ MODAL ---
+const showRejectModal = ref(false);
+const showApproveModal = ref(false);
+const showImageModal = ref(false);
+const currentImageUrl = ref("");
+const rejectReason = ref("");
+const isProcessing = ref(false);
 
-    if (action === "reject") {
-        reason = prompt(
-            "Vui lòng nhập lý do từ chối hồ sơ này (Thông báo này sẽ gửi tới chủ trọ):",
-        );
-        if (reason === null) return; // Bấm Cancel thì hủy thao tác
-        if (reason.trim() === "") {
-            alert("Bạn phải nhập lý do từ chối!");
-            return;
-        }
-    } else {
-        if (
-            !confirm(
-                "Bạn có chắc chắn muốn DUYỆT và CẤP QUYỀN Chủ trọ cho tài khoản này?",
-            )
-        )
-            return;
+const openImage = (url) => {
+    currentImageUrl.value = url;
+    showImageModal.value = true;
+};
+
+// Xử lý gửi request
+const submitAction = (action) => {
+    if (action === 'reject' && !rejectReason.value.trim()) {
+        alert("Vui lòng nhập lý do từ chối!");
+        return;
     }
 
-    // Gửi request lên Controller của Admin
+    isProcessing.value = true;
+
     router.post(
         route("admin.verifications.update-status", props.user.id),
         {
             action: action,
-            reason: reason,
+            reason: action === 'reject' ? rejectReason.value : "",
         },
         {
             preserveScroll: true,
             onSuccess: () => {
-                alert(
-                    action === "approve"
-                        ? "Đã phê duyệt chủ trọ thành công!"
-                        : "Đã từ chối hồ sơ.",
-                );
+                showRejectModal.value = false;
+                showApproveModal.value = false;
+                isProcessing.value = false;
+                alert(action === "approve" ? "Đã phê duyệt chủ trọ thành công!" : "Đã từ chối hồ sơ.");
             },
+            onError: () => {
+                isProcessing.value = false;
+            }
         },
     );
 };
 </script>
 
 <template>
-    <div class="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6 gap-4">
+    <Head title="Admin - Chi tiết Hồ sơ Phê duyệt" />
+    <AdminLayout>
+        <template #header-title>
             <div>
-                <h2 class="text-2xl font-bold text-gray-800">
-                    Chi tiết Hồ sơ Phê duyệt
-                </h2>
-                <p class="text-sm text-gray-500">
-                    Đối chiếu thông tin đăng ký hệ thống Ninh Bình StayWork
-                </p>
+                <h1 class="text-xl font-bold text-gray-900">Chi tiết Hồ sơ Phê duyệt</h1>
+                <p class="text-sm text-gray-500 mt-1">Đối chiếu thông tin đăng ký hệ thống Ninh Bình StayWork của <span class="font-bold text-gray-700">{{ user?.name }}</span>.</p>
+            </div>
+        </template>
+
+        <div class="mt-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-200 pb-5 mb-6 gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-lg font-bold shadow-sm border border-blue-200">
+                    {{ user?.name.charAt(0).toUpperCase() }}
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">{{ user?.name }}</h2>
+                    <p class="text-sm text-gray-500"><i class="bi bi-envelope-fill mr-1 text-gray-400"></i>{{ user?.email }}</p>
+                </div>
             </div>
 
             <div class="flex space-x-3 w-full md:w-auto justify-end">
-                <button @click="updateStatus('reject')"
-                    class="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow transition duration-200">
-                    Từ chối Hồ sơ
+                <button @click="showRejectModal = true"
+                    class="flex items-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 px-5 py-2.5 rounded-lg font-semibold shadow-sm transition duration-200">
+                    <i class="bi bi-x-circle-fill"></i> Từ chối Hồ sơ
                 </button>
-                <button @click="updateStatus('approve')"
-                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-semibold shadow transition duration-200">
-                    Duyệt Cấp Quyền
+                <button @click="showApproveModal = true"
+                    class="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md transition duration-200 hover:shadow-lg">
+                    <i class="bi bi-check-circle-fill"></i> Duyệt Cấp Quyền
                 </button>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- CỘT 1: KYC -->
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
-                <h3 class="text-lg font-bold text-blue-700 flex items-center border-b pb-2">
-                    <span class="w-2 h-5 bg-blue-700 rounded mr-2 inline-block"></span>
-                    1. Xác minh Danh tính (KYC)
-                </h3>
+                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                            <i class="bi bi-person-vcard-fill text-lg"></i>
+                        </div>
+                        1. Xác minh Danh tính (KYC)
+                    </h3>
+                </div>
 
-                <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg text-sm">
+                <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl text-sm border border-gray-100">
                     <div>
-                        <span class="text-gray-500 block text-xs uppercase">Họ và tên</span>
-                        <span class="font-bold text-gray-800 text-base">{{
-                            user?.name
-                            }}</span>
+                        <span class="text-gray-500 block text-[11px] font-bold uppercase tracking-wider mb-1">Số điện thoại</span>
+                        <span class="font-bold text-gray-900 text-base flex items-center gap-1.5">
+                            <i class="bi bi-telephone-fill text-blue-500"></i> {{ user?.phone || "Chưa có" }}
+                        </span>
                     </div>
                     <div>
-                        <span class="text-gray-500 block text-xs uppercase">Số điện thoại</span>
-                        <span class="font-bold text-gray-800 text-base text-blue-600">{{ user?.phone || "Chưa có"
-                            }}</span>
-                    </div>
-                    <div class="col-span-2 border-t pt-2 mt-1">
-                        <span class="text-gray-500 block text-xs uppercase">Địa chỉ Email</span>
-                        <span class="text-gray-700 font-medium">{{
-                            user?.email
-                            }}</span>
-                    </div>
-                    <div class="col-span-2 border-t pt-2 mt-1">
-                        <span class="text-gray-500 block text-xs uppercase">Số CCCD / Định danh</span>
-                        <span class="font-bold text-gray-800 text-base tracking-wider">{{
-                            verification?.id_card_number || "Chưa cập nhật"
-                        }}</span>
+                        <span class="text-gray-500 block text-[11px] font-bold uppercase tracking-wider mb-1">Số CCCD / Định danh</span>
+                        <span class="font-bold text-gray-900 text-base tracking-wider">{{ verification?.id_card_number || "Chưa cập nhật" }}</span>
                     </div>
                 </div>
 
-                <div class="p-4 rounded-lg flex items-center justify-between" :class="verification?.kyc_status === 'approved'
-                        ? 'bg-green-50 border border-green-200'
-                        : 'bg-red-50 border border-red-200'
-                    ">
-                    <div>
-                        <div class="font-bold" :class="verification?.kyc_status === 'approved'
-                                ? 'text-green-800'
-                                : 'text-red-800'
-                            ">
-                            Kết quả đối sánh khuôn mặt từ AI
+                <div class="p-4 rounded-xl flex items-center justify-between shadow-sm" 
+                    :class="verification?.kyc_status === 'approved' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                             :class="verification?.kyc_status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'">
+                             <i class="bi" :class="verification?.kyc_status === 'approved' ? 'bi-shield-fill-check' : 'bi-shield-fill-exclamation'"></i>
                         </div>
-                        <p class="text-xs text-gray-600 mt-0.5">
-                            Hệ thống Face-API quét tự động ở Bước 3
-                        </p>
+                        <div>
+                            <div class="font-bold text-sm" :class="verification?.kyc_status === 'approved' ? 'text-green-800' : 'text-red-800'">
+                                Kết quả đối sánh khuôn mặt (Face-API)
+                            </div>
+                            <p class="text-xs mt-0.5" :class="verification?.kyc_status === 'approved' ? 'text-green-600' : 'text-red-600'">
+                                {{ verification?.kyc_status === 'approved' ? 'Hệ thống tự động đã xác nhận trùng khớp' : 'Hệ thống cảnh báo rủi ro, cần kiểm tra kỹ' }}
+                            </p>
+                        </div>
                     </div>
-                    <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider" :class="verification?.kyc_status === 'approved'
-                            ? 'bg-green-200 text-green-800'
-                            : 'bg-red-200 text-red-800'
-                        ">
-                        {{
-                            verification?.kyc_status === "approved"
-                                ? "Khớp 100%"
-                                : "Không khớp"
-                        }}
+                    <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-sm" 
+                        :class="verification?.kyc_status === 'approved' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'">
+                        {{ verification?.kyc_status === "approved" ? "Khớp 100%" : "Không khớp" }}
                     </span>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-4 pt-2">
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="text-center">
-                            <span class="text-xs font-semibold text-gray-500 block mb-1">CCCD MẶT TRƯỚC</span>
-                            <a :href="getPrivateImageUrl(
-                                verification?.id_card_front,
-                                'id_cards',
-                            )
-                                " target="_blank" title="Bấm để xem ảnh lớn">
-                                <img :src="getPrivateImageUrl(
-                                    verification?.id_card_front,
-                                    'id_cards',
-                                )
-                                    "
-                                    class="w-full h-40 object-cover rounded-lg border shadow-sm hover:opacity-90 transition" />
-                            </a>
+                        <div class="text-center group">
+                            <span class="text-[11px] font-bold text-gray-500 block mb-2 uppercase tracking-wider">CCCD MẶT TRƯỚC</span>
+                            <div class="relative overflow-hidden rounded-xl border border-gray-200 shadow-sm cursor-pointer"
+                                 @click="openImage(getPrivateImageUrl(verification?.id_card_front, 'id_cards'))">
+                                <img :src="getPrivateImageUrl(verification?.id_card_front, 'id_cards')"
+                                    class="w-full h-40 object-cover group-hover:scale-105 transition duration-300" />
+                                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition duration-300 flex items-center justify-center">
+                                    <i class="bi bi-zoom-in text-white text-2xl opacity-0 group-hover:opacity-100 transition duration-300"></i>
+                                </div>
+                            </div>
                         </div>
-                        <div class="text-center">
-                            <span class="text-xs font-semibold text-gray-500 block mb-1">CCCD MẶT SAU</span>
-                            <a :href="getPrivateImageUrl(
-                                verification?.id_card_back,
-                                'id_cards',
-                            )
-                                " target="_blank" title="Bấm để xem ảnh lớn">
-                                <img :src="getPrivateImageUrl(
-                                    verification?.id_card_back,
-                                    'id_cards',
-                                )
-                                    "
-                                    class="w-full h-40 object-cover rounded-lg border shadow-sm hover:opacity-90 transition" />
-                            </a>
+                        <div class="text-center group">
+                            <span class="text-[11px] font-bold text-gray-500 block mb-2 uppercase tracking-wider">CCCD MẶT SAU</span>
+                            <div class="relative overflow-hidden rounded-xl border border-gray-200 shadow-sm cursor-pointer"
+                                 @click="openImage(getPrivateImageUrl(verification?.id_card_back, 'id_cards'))">
+                                <img :src="getPrivateImageUrl(verification?.id_card_back, 'id_cards')"
+                                    class="w-full h-40 object-cover group-hover:scale-105 transition duration-300" />
+                                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition duration-300 flex items-center justify-center">
+                                    <i class="bi bi-zoom-in text-white text-2xl opacity-0 group-hover:opacity-100 transition duration-300"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="text-center border-t pt-4">
-                        <span class="text-xs font-semibold text-gray-500 block mb-1">ẢNH CHỤP CAMERA THỰC TẾ (BƯỚC
-                            3)</span>
-                        <img :src="getPrivateImageUrl(
-                            verification?.face_auth_image,
-                            'faces',
-                        )
-                            "
-                            class="w-40 h-40 object-cover rounded-full border-4 border-gray-200 shadow-md mx-auto hover:scale-105 transition" />
+                    
+                    <div class="text-center border-t border-gray-100 pt-6 mt-4 relative">
+                        <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider">ẢNH CHỤP THỰC TẾ</span>
+                        <div class="relative inline-block group cursor-pointer"
+                             @click="openImage(getPrivateImageUrl(verification?.face_auth_image, 'faces'))">
+                            <img :src="getPrivateImageUrl(verification?.face_auth_image, 'faces')"
+                                class="w-36 h-36 object-cover rounded-full border-4 border-indigo-100 shadow-md group-hover:scale-105 transition duration-300" />
+                            <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition duration-300 flex items-center justify-center">
+                                <i class="bi bi-zoom-in text-white text-2xl opacity-0 group-hover:opacity-100 transition duration-300"></i>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- CỘT 2: THÔNG TIN TRỌ -->
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
-                <h3 class="text-lg font-bold text-blue-700 flex items-center border-b pb-2">
-                    <span class="w-2 h-5 bg-blue-700 rounded mr-2 inline-block"></span>
-                    2. Hồ sơ Cơ sở Kinh doanh Trọ
-                </h3>
+                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                            <i class="bi bi-house-door-fill text-lg"></i>
+                        </div>
+                        2. Cơ sở Kinh doanh Trọ
+                    </h3>
+                </div>
 
-                <div class="space-y-3 bg-gray-50 p-4 rounded-lg text-sm">
+                <div class="space-y-4 bg-gray-50 p-5 rounded-xl text-sm border border-gray-100">
                     <div>
-                        <span class="text-gray-500 block text-xs uppercase">Tên cơ sở trọ / Homestay</span>
-                        <span class="font-bold text-gray-800 text-base">{{
-                            boardingHouse?.name || "Chưa cập nhật"
-                            }}</span>
+                        <span class="text-gray-500 block text-[11px] font-bold uppercase tracking-wider mb-1">Tên cơ sở trọ / Homestay</span>
+                        <span class="font-bold text-gray-900 text-base">{{ boardingHouse?.name || "Chưa cập nhật" }}</span>
                     </div>
-                    <div class="border-t pt-2">
-                        <span class="text-gray-500 block text-xs uppercase">Khu vực hành chính (Quận/Huyện)</span>
-                        <span class="text-gray-700 font-medium">{{
-                            boardingHouse?.district || "Chưa cập nhật"
-                            }}</span>
+                    <div class="border-t border-gray-200 pt-3">
+                        <span class="text-gray-500 block text-[11px] font-bold uppercase tracking-wider mb-1">Khu vực hành chính</span>
+                        <span class="text-gray-800 font-medium">{{ boardingHouse?.district || "Chưa cập nhật" }}</span>
                     </div>
-                    <div class="border-t pt-2">
-                        <span class="text-gray-500 block text-xs uppercase">Địa chỉ chi tiết</span>
-                        <span class="text-gray-700 font-medium">{{
-                            boardingHouse?.address_detail || "Chưa cập nhật"
-                            }}</span>
+                    <div class="border-t border-gray-200 pt-3">
+                        <span class="text-gray-500 block text-[11px] font-bold uppercase tracking-wider mb-1">Địa chỉ chi tiết</span>
+                        <span class="text-gray-800">{{ boardingHouse?.address_detail || "Chưa cập nhật" }}</span>
                     </div>
                 </div>
 
-                <div class="space-y-2">
-                    <h4 class="text-sm font-bold text-gray-700 flex items-center">
-                        📁 Giấy tờ pháp lý / Ảnh hợp đồng mẫu:
+                <div class="space-y-3">
+                    <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                        <i class="bi bi-file-earmark-text-fill text-gray-400"></i> Giấy tờ pháp lý / Hợp đồng:
                     </h4>
-                    <div class="grid grid-cols-3 gap-2" v-if="boardingHouse?.contract_images?.length">
-                        <div v-for="(
-path, index
-                            ) in boardingHouse.contract_images" :key="'contract-' + index"
-                            class="relative group overflow-hidden rounded-lg border">
-                            <img :src="getPrivateImageUrl(path, 'contracts')"
-                                class="w-full h-24 object-cover group-hover:scale-110 transition duration-200 cursor-pointer" />
+                    <div class="grid grid-cols-3 gap-3" v-if="boardingHouse?.contract_images?.length">
+                        <div v-for="(path, index) in boardingHouse.contract_images" :key="'contract-' + index"
+                            class="relative group overflow-hidden rounded-lg border shadow-sm cursor-pointer aspect-[4/3]"
+                            @click="openImage(getPrivateImageUrl(path, 'contracts'))">
+                            <img :src="getPrivateImageUrl(path, 'contracts')" class="w-full h-full object-cover group-hover:scale-110 transition duration-300" />
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition duration-300 flex items-center justify-center">
+                                <i class="bi bi-zoom-in text-white text-xl opacity-0 group-hover:opacity-100"></i>
+                            </div>
                         </div>
                     </div>
-                    <p v-else class="text-xs text-gray-400 italic">
-                        Không có ảnh hợp đồng nào được tải lên.
-                    </p>
+                    <p v-else class="text-sm text-gray-400 italic bg-gray-50 p-4 rounded-lg border border-dashed text-center">Không có ảnh hợp đồng nào.</p>
                 </div>
 
-                <div class="space-y-2 border-t pt-4">
-                    <h4 class="text-sm font-bold text-gray-700 flex items-center">
-                        🖼️ Hình ảnh không gian trọ thực tế:
+                <div class="space-y-3 border-t border-gray-100 pt-5">
+                    <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                        <i class="bi bi-images text-gray-400"></i> Hình ảnh không gian thực tế:
                     </h4>
-                    <div class="grid grid-cols-3 gap-2" v-if="boardingHouse?.room_images?.length">
+                    <div class="grid grid-cols-3 gap-3" v-if="boardingHouse?.room_images?.length">
                         <div v-for="(path, index) in boardingHouse.room_images" :key="'room-' + index"
-                            class="relative group overflow-hidden rounded-lg border">
-                            <img :src="getPrivateImageUrl(path, 'rooms')"
-                                class="w-full h-24 object-cover group-hover:scale-110 transition duration-200 cursor-pointer" />
+                            class="relative group overflow-hidden rounded-lg border shadow-sm cursor-pointer aspect-square"
+                            @click="openImage(getPrivateImageUrl(path, 'rooms'))">
+                            <img :src="getPrivateImageUrl(path, 'rooms')" class="w-full h-full object-cover group-hover:scale-110 transition duration-300" />
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition duration-300 flex items-center justify-center">
+                                <i class="bi bi-zoom-in text-white text-xl opacity-0 group-hover:opacity-100"></i>
+                            </div>
                         </div>
                     </div>
-                    <p v-else class="text-xs text-gray-400 italic">
-                        Không có ảnh không gian trọ nào được tải lên.
-                    </p>
+                    <p v-else class="text-sm text-gray-400 italic bg-gray-50 p-4 rounded-lg border border-dashed text-center">Không có ảnh không gian trọ nào.</p>
                 </div>
             </div>
         </div>
-    </div>
+
+        <!-- ================= MODAL XEM ẢNH TÓ ================= -->
+        <div v-if="showImageModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" @click.self="showImageModal = false">
+            <div class="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
+                <button @click="showImageModal = false" class="absolute -top-10 right-0 text-white hover:text-gray-300 text-3xl font-bold">&times;</button>
+                <img :src="currentImageUrl" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+            </div>
+        </div>
+
+        <!-- ================= MODAL TỪ CHỐI ================= -->
+        <div v-if="showRejectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+                <div class="p-6">
+                    <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                        <i class="bi bi-exclamation-triangle-fill text-red-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-center text-gray-900 mb-2">Từ chối hồ sơ</h3>
+                    <p class="text-sm text-center text-gray-500 mb-6">Bạn đang chuẩn bị từ chối hồ sơ của <span class="font-bold">{{ user?.name }}</span>. Vui lòng cung cấp lý do để gửi cho chủ trọ.</p>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Lý do từ chối <span class="text-red-500">*</span></label>
+                        <textarea v-model="rejectReason" rows="3" 
+                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm p-3" 
+                            placeholder="Ví dụ: Ảnh CCCD bị mờ, không khớp khuôn mặt..."></textarea>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t">
+                    <button @click="showRejectModal = false" :disabled="isProcessing"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Hủy bỏ
+                    </button>
+                    <button @click="submitAction('reject')" :disabled="isProcessing"
+                        class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 flex items-center gap-2">
+                        <i v-if="isProcessing" class="bi bi-arrow-repeat animate-spin"></i>
+                        Xác nhận Từ chối
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MODAL PHÊ DUYỆT ================= -->
+        <div v-if="showApproveModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+                <div class="p-6">
+                    <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                        <i class="bi bi-check-lg text-green-600 text-2xl font-bold"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-center text-gray-900 mb-2">Duyệt & Cấp Quyền Chủ Trọ</h3>
+                    <p class="text-sm text-center text-gray-500 mb-2">Bạn có chắc chắn muốn phê duyệt hồ sơ này?</p>
+                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 text-center mt-4">
+                        Tài khoản <strong>{{ user?.name }}</strong> sẽ được cấp quyền truy cập vào <strong>Landlord Dashboard</strong>.
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t">
+                    <button @click="showApproveModal = false" :disabled="isProcessing"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Hủy bỏ
+                    </button>
+                    <button @click="submitAction('approve')" :disabled="isProcessing"
+                        class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-lg hover:bg-green-700 flex items-center gap-2">
+                        <i v-if="isProcessing" class="bi bi-arrow-repeat animate-spin"></i>
+                        Xác nhận Duyệt
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </AdminLayout>
 </template>

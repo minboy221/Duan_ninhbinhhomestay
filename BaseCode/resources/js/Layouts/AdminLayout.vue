@@ -23,6 +23,7 @@ const navGroups = [
         items: [
             { label: 'Người Dùng', path: '/admin/users', icon: 'bi-people-fill' },
             { label: 'Chủ Trọ', path: '/admin/landlords', icon: 'bi-house-check-fill' },
+            { label: 'Duyệt Hồ Sơ', path: '/admin/verifications', icon: 'bi-person-badge-fill' },
             { label: 'Phê Duyệt Tin', path: '/admin/approval', icon: 'bi-check-circle-fill' },
             { label: 'Danh Mục', path: '/admin/categories', icon: 'bi-tags-fill' },
         ]
