@@ -13,8 +13,17 @@ use App\Providers\RouteServiceProvider;
 use Inertia\Inertia;
 use Inertia\Response;
 
+use App\Services\AuthService;
+
 class RegisteredUserController extends Controller
 {
+    protected $authService;
+
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
+
     /**
      * Display the registration view.
      */
@@ -30,15 +39,7 @@ class RegisteredUserController extends Controller
      */
     public function store(RegisterRequest $request): RedirectResponse
     {
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-
-        event(new Registered($user));
-
-        Auth::login($user);
+        $this->authService->registerAccount($request->only('name', 'email', 'password'));
 
         return redirect()->route('verification.notice');
     }

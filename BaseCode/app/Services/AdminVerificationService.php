@@ -14,8 +14,8 @@ class AdminVerificationService
     public function getVerificationsList()
     {
         return User::where('role', 'user')
-            ->whereHas('verification', function ($query) {
-                $query->where('kyc_status', '!=', 'approved');
+            ->whereHas('boardingHouse', function ($query) {
+                $query->where('status', 'pending');
             })
             ->with('verification')
             ->paginate(10);

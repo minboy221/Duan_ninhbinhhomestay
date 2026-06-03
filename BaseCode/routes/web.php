@@ -147,6 +147,18 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/dashboard', [LandlordController::class, 'dashboard'])->name('landlord.dashboard');
     Route::get('/profile', [LandlordController::class, 'profile'])->name('landlord.profile');
     Route::get('/rooms', [LandlordController::class, 'rooms'])->name('landlord.rooms');
+
+    // CRUD routes cho Tầng
+    Route::post('/floors',              [LandlordController::class, 'storeFloor'])->name('landlord.floors.store');
+    Route::put('/floors/{id}',          [LandlordController::class, 'updateFloor'])->name('landlord.floors.update');
+    Route::delete('/floors/{id}',       [LandlordController::class, 'deleteFloor'])->name('landlord.floors.delete');
+
+    // CRUD routes cho Phòng trọ
+    Route::post('/rooms',                   [LandlordController::class, 'storeRoom'])->name('landlord.rooms.store');
+    Route::post('/rooms/{id}',              [LandlordController::class, 'updateRoom'])->name('landlord.rooms.update');
+    Route::patch('/rooms/{id}/status',      [LandlordController::class, 'changeRoomStatus'])->name('landlord.rooms.status');
+    Route::delete('/rooms/{id}',            [LandlordController::class, 'deleteRoom'])->name('landlord.rooms.delete');
+
     Route::get('/listings', [LandlordController::class, 'listings'])->name('landlord.listings');
     Route::get('/listings/create', [LandlordController::class, 'listingCreate'])->name('landlord.listings.create');
     Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.appointments');
@@ -155,24 +167,22 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::get('/finance', [LandlordController::class, 'finance'])->name('landlord.finance');
 });
-Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-Route::post('/register', [AuthController::class, 'register']);
-
-Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
-
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-// Routes cho Google
-Route::get('/auth/google', [AuthController::class, 'redirectToGoogle'])->name('google.login');
-Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
-// Route cho phần xác minh đăng ký chủ trọ
+// Route cho phần xác minh đăng ký chủ trọ và thông báo
 Route::middleware(['auth'])->group(function () {
     //route hiển thị giao diện 
     Route::get('/landlord/verify', [VerificationController::class, 'create'])
         ->name('landlord.verify.create');
     Route::post('landlord/verify', [VerificationController::class, 'verify'])
         ->name('landlord.verify.store');
+
+    // Route đánh dấu thông báo đã đọc
+    Route::post('/notifications/{id}/read', function ($id) {
+        $notification = auth()->user()->notifications()->find($id);
+        if ($notification) {
+            $notification->markAsRead();
+        }
+        return back();
+    })->name('notifications.read');
 });
 require __DIR__ . '/auth.php';
 

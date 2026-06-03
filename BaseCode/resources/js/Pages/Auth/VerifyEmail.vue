@@ -137,10 +137,15 @@ const handleKeydown = (index, event) => {
                                         </div>
                                     </form>
 
-                                <!-- Help link -->
-                                <div class="pt-4 border-t border-gray-200 text-center">
+                                <!-- Help link & Logout -->
+                                <div class="pt-4 border-t border-gray-200 text-center flex justify-between items-center px-2">
                                     <a class="text-gray-500 text-xs uppercase tracking-widest hover:text-[#00628c] transition-colors"
                                         href="#">Trung tâm hỗ trợ</a>
+                                    
+                                    <button type="button" @click="router.post(route('logout'))"
+                                        class="text-gray-500 text-xs uppercase tracking-widest hover:text-red-600 transition-colors flex items-center gap-1">
+                                        <i class="bi bi-box-arrow-right"></i> Đăng xuất
+                                    </button>
                                 </div>
                         </div>
                         <!-- Social Login -->

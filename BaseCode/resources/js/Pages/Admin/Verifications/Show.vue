@@ -24,6 +24,9 @@ const currentImageUrl = ref("");
 const rejectReason = ref("");
 const isProcessing = ref(false);
 
+const showSuccessPopup = ref(false);
+const successMessage = ref("");
+
 const openImage = (url) => {
     currentImageUrl.value = url;
     showImageModal.value = true;
@@ -50,7 +53,15 @@ const submitAction = (action) => {
                 showRejectModal.value = false;
                 showApproveModal.value = false;
                 isProcessing.value = false;
-                alert(action === "approve" ? "Đã phê duyệt chủ trọ thành công!" : "Đã từ chối hồ sơ.");
+                
+                // Hiển thị popup đẹp
+                successMessage.value = action === "approve" ? "Đã phê duyệt chủ trọ thành công!" : "Đã từ chối hồ sơ thành công!";
+                showSuccessPopup.value = true;
+                
+                // Tự động tắt popup sau 2.5s
+                setTimeout(() => {
+                    showSuccessPopup.value = false;
+                }, 2500);
             },
             onError: () => {
                 isProcessing.value = false;
@@ -307,6 +318,20 @@ const submitAction = (action) => {
                 </div>
             </div>
         </div>
+
+        <!-- ================= POPUP THÔNG BÁO THÀNH CÔNG THAY THẾ ALERT ================= -->
+        <Teleport to="body">
+            <div v-if="showSuccessPopup" class="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center backdrop-blur-[2px] transition-all duration-300">
+                <div class="bg-white rounded-2xl p-8 max-w-[320px] w-full mx-4 text-center shadow-2xl transform scale-100 transition-transform animate-[pop_0.3s_ease-out]">
+                    <div class="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-green-500/30 mb-5 relative">
+                        <i class="bi bi-check2 text-white text-5xl absolute"></i>
+                        <div class="absolute inset-0 rounded-full border-4 border-green-200 animate-ping opacity-20"></div>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 font-headline">Thành công!</h3>
+                    <p class="text-gray-600 font-medium text-sm">{{ successMessage }}</p>
+                </div>
+            </div>
+        </Teleport>
 
     </AdminLayout>
 </template>

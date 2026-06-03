@@ -93,11 +93,17 @@ const closePopup = () => {
                     <div id="notificationBox" class="notification-box" :class="{ show: showNotification }" @click.stop>
                         <p class="title">Thông báo</p>
                         <ul v-if="auth.notifications && auth.notifications.length > 0">
-                            <li v-for="notif in auth.notifications" :key="notif.id" style="padding: 12px; border-bottom: 1px solid #eee;">
-                                <Link :href="notif.data.url" style="display: flex; flex-direction: column; color: inherit; text-decoration: none;">
-                                    <strong style="color: #0f172a; font-size: 14px;">{{ notif.data.title }}</strong>
-                                    <span style="font-size: 12px; margin-top: 4px; color: #64748b; line-height: 1.4;">{{ notif.data.message }}</span>
+                            <li v-for="notif in auth.notifications" :key="notif.id" class="group relative" style="padding: 12px; border-bottom: 1px solid #eee;">
+                                <Link :href="notif.data.url" style="display: flex; flex-direction: column; color: inherit; text-decoration: none; padding-right: 24px;">
+                                    <strong style="color: #0f172a; font-size: 14px; margin-bottom: 4px;">{{ notif.data.title }}</strong>
+                                    <span style="font-size: 12px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{ notif.data.message }}</span>
                                 </Link>
+                                <button type="button" @click.stop="router.post(route('notifications.read', notif.id), {}, {preserveScroll: true})" 
+                                    class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 rounded flex items-center justify-center"
+                                    style="width: 24px; height: 24px; border: none; cursor: pointer;"
+                                    title="Đánh dấu đã đọc">
+                                    <i class="bi bi-check2"></i>
+                                </button>
                             </li>
                         </ul>
                         <ul v-else style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;">
