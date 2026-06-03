@@ -130,7 +130,7 @@ const onVideoPlay = async () => {
         return;
     }
 
-    const faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.5);
+    const faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.4);
 
     const displaySize = {
         width: videoRef.value.videoWidth,
@@ -162,7 +162,7 @@ const onVideoPlay = async () => {
 
         ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
 
-        faceapi.draw.drawDetections(canvasRef.value, resized);
+        // faceapi.draw.drawDetections(canvasRef.value, resized);
 
         if (resized.length === 0) {
             statusMsg.value = "Không tìm thấy khuôn mặt";
@@ -370,7 +370,8 @@ onUnmounted(() => {
                     <button
                         type="button"
                         @click="emit('prev')"
-                        class="w-full h-14 rounded-full border-2 border-sky-700 text-sky-700 font-bold hover:bg-sky-50 transition-all flex items-center justify-center gap-2">
+                        class="w-full h-14 rounded-full border-2 border-sky-700 text-sky-700 font-bold hover:bg-sky-50 transition-all flex items-center justify-center gap-2"
+                    >
                         <span class="material-symbols-outlined">
                             arrow_back
                         </span>
