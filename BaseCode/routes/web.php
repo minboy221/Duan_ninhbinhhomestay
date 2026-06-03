@@ -176,13 +176,22 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // Routes cho Google
 Route::get('/auth/google', [AuthController::class, 'redirectToGoogle'])->name('google.login');
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
-// Route cho phần xác minh đăng ký chủ trọ
+// Route cho phần xác minh đăng ký chủ trọ và thông báo
 Route::middleware(['auth'])->group(function () {
     //route hiển thị giao diện 
     Route::get('/landlord/verify', [VerificationController::class, 'create'])
         ->name('landlord.verify.create');
     Route::post('landlord/verify', [VerificationController::class, 'verify'])
         ->name('landlord.verify.store');
+
+    // Route đánh dấu thông báo đã đọc
+    Route::post('/notifications/{id}/read', function ($id) {
+        $notification = auth()->user()->notifications()->find($id);
+        if ($notification) {
+            $notification->markAsRead();
+        }
+        return back();
+    })->name('notifications.read');
 });
 require __DIR__ . '/auth.php';
 

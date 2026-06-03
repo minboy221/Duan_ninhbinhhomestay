@@ -113,8 +113,8 @@ const navGroups = [
                     <div class="relative">
                         <button class="header-btn" @click="notifOpen = !notifOpen">
                             <i class="bi bi-bell"></i>
-                            <span v-if="page.props.unreadNotificationsCount > 0" class="notif-dot">
-                                {{ page.props.unreadNotificationsCount > 9 ? '9+' : page.props.unreadNotificationsCount }}
+                            <span v-if="page.props.auth?.notifications?.length > 0" class="notif-dot">
+                                {{ page.props.auth.notifications.length > 9 ? '9+' : page.props.auth.notifications.length }}
                             </span>
                         </button>
                         
@@ -124,26 +124,30 @@ const navGroups = [
                             <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                                 <h3 class="text-sm font-semibold text-gray-800">Thông báo</h3>
                                 <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                                    {{ page.props.unreadNotificationsCount }} mới
+                                    {{ page.props.auth?.notifications?.length || 0 }} mới
                                 </span>
                             </div>
                             <div class="max-h-[320px] overflow-y-auto">
-                                <div v-if="page.props.unreadNotifications?.length > 0">
-                                    <Link v-for="notification in page.props.unreadNotifications" :key="notification.id"
-                                          :href="notification.data.url"
-                                          class="block px-4 py-3 hover:bg-gray-50 border-b border-gray-50 transition-colors">
-                                        <div class="flex gap-3">
+                                <div v-if="page.props.auth?.notifications?.length > 0">
+                                    <div v-for="notification in page.props.auth.notifications" :key="notification.id"
+                                          class="block px-4 py-3 hover:bg-gray-50 border-b border-gray-50 transition-colors relative group">
+                                        <div class="flex gap-3 items-start">
                                             <div class="flex-shrink-0 mt-1">
                                                 <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                                                     <i class="bi bi-file-earmark-person-fill"></i>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <p class="text-sm font-medium text-gray-800 mb-0.5">{{ notification.data.title }}</p>
+                                            <Link :href="notification.data.url" class="flex-1 text-left block">
+                                                <p class="text-sm font-medium text-gray-800 mb-0.5 hover:text-blue-600 transition-colors">{{ notification.data.title }}</p>
                                                 <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed">{{ notification.data.message }}</p>
-                                            </div>
+                                            </Link>
+                                            <button type="button" @click.stop="router.post(route('notifications.read', notification.id), {}, {preserveScroll: true})" 
+                                                class="opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 px-2 py-1 rounded font-medium absolute right-2 top-3 z-10 shadow-sm"
+                                                title="Đánh dấu đã đọc">
+                                                <i class="bi bi-check2"></i> Đã đọc
+                                            </button>
                                         </div>
-                                    </Link>
+                                    </div>
                                 </div>
                                 <div v-else class="px-4 py-8 text-center flex flex-col items-center justify-center gap-2">
                                     <i class="bi bi-bell-slash text-gray-300 text-3xl"></i>
