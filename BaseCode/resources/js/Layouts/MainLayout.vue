@@ -85,8 +85,9 @@ const closePopup = () => {
                             {{ auth.notifications.length }}
                         </span>
                     </button>
-                    <button id="userBtn" class="user-btn" @click.stop="toggleDropdown">
-                        <i class="bi bi-person"></i>
+                    <button id="userBtn" class="user-btn" @click.stop="toggleDropdown" :style="user.avatar ? 'padding: 0; overflow: hidden; background: transparent;' : ''">
+                        <img v-if="user.avatar" :src="'/storage/' + user.avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;" alt="">
+                        <i v-else class="bi bi-person"></i>
                     </button>
 
                     <div id="notificationBox" class="notification-box" :class="{ show: showNotification }" @click.stop>
@@ -115,7 +116,7 @@ const closePopup = () => {
                         <!-- PROFILE -->
                         <div class="dropdown-header">
                             <Link :href="route('tranguser')" class="profile-card">
-                                <img src="/anh/banner.png" class="avatar" alt="">
+                                <img :src="user.avatar ? '/storage/' + user.avatar : '/anh/banner.png'" class="avatar" alt="">
                                 <div class="info">
                                     <p class="name">{{ user.name }}</p>
                                     <p class="status">

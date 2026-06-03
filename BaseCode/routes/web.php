@@ -84,6 +84,8 @@ Route::get('/chitietdieukhoan', function () {
 //PHẦN NÀY ĐỂ LÀM LOGIC ĐĂNG NHẬP SAU
 Route::middleware('auth')->group(function () {
     Route::get('/tranguser', [ProfileController::class, 'index'])->name('tranguser');
+    Route::post('/tranguser', [ProfileController::class, 'updateProfile'])->name('tranguser.update');
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
     Route::get('/quanlynoio', [ProfileController::class, 'quanlynoio'])->name('quanlynoio');
     Route::get('/lichsuthanhtoan', [ProfileController::class, 'lichsuthanhtoan'])->name('lichsuthanhtoan');
     Route::get('/caidatuser', [ProfileController::class, 'caidatuser'])->name('caidatuser');

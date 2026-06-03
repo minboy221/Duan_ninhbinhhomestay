@@ -20,7 +20,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'System Admin',
                 'password' => Hash::make('12345678'), // Mật khẩu mặc định
-                'role' => 1, // 1 là Admin như chúng ta đã quy ước
+                'role' => 'admin', // Gán role dạng chuỗi
                 'email_verified_at' => now(),
             ]
         );
@@ -31,7 +31,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Demo User',
                 'password' => Hash::make('12345678'),
-                'role' => 0, // User thường
+                'role' => 'user', // Gán role dạng chuỗi
                 'email_verified_at' => now(),
             ]
         );

@@ -1,10 +1,23 @@
 <script setup>
-import { Link, usePage } from '@inertiajs/vue3'
+import { Link, usePage, useForm } from '@inertiajs/vue3'
 import { computed } from 'vue'
 import MainLayout from '@/Layouts/MainLayout.vue';
 
 const { props } = usePage()
 const user = computed(() => props.auth.user);
+
+const avatarForm = useForm({
+    avatar: null,
+});
+
+const uploadAvatar = (e) => {
+    if (e.target.files[0]) {
+        avatarForm.avatar = e.target.files[0];
+        avatarForm.post(route('profile.avatar.update'), {
+            preserveScroll: true,
+        });
+    }
+};
 </script>
 
 <template>
@@ -13,10 +26,10 @@ const user = computed(() => props.auth.user);
             <div class="left_section">
                 <div class="bao-user">
                     <div class="img_user">
-                        <img id="avatarPreview" src="/anh/banner.png" alt="">
+                        <img id="avatarPreview" :src="user.avatar ? '/storage/' + user.avatar : '/anh/banner.png'" alt="">
 
                         <!-- input ẩn -->
-                        <input type="file" id="avatarInput" accept="image/*" hidden>
+                        <input type="file" @change="uploadAvatar" id="avatarInput" accept="image/*" hidden>
 
                         <!-- nút camera -->
                         <label for="avatarInput" class="change-avatar">
