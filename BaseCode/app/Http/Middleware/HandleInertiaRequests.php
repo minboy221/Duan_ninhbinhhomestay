@@ -37,6 +37,10 @@ class HandleInertiaRequests extends Middleware
                     ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $request->user()->id)->exists() : false,
                 'notifications' => $request->user() ? $request->user()->unreadNotifications : [],
             ],
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
+            ],
         ]);
     }
 }

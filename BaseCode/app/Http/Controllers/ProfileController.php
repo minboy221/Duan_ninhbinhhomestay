@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Http\Requests\UserUpdateProfileRequest;
+use App\Services\ProfileService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,14 +15,29 @@ use Inertia\Response;
 
 class ProfileController extends Controller
 {
+    protected $profileService;
+
+    /**
+     * Constructor injection for ProfileService
+     */
+    public function __construct(ProfileService $profileService)
+    {
+        $this->profileService = $profileService;
+    }
+
     /**
      * Display the user's profile form.
      */
     public function index(Request $request): Response
     {
+        $user = $request->user();
+        $profileData = $this->profileService->getProfileData($user);
+
         return Inertia::render('Profile/tranguser', [
-            'user' => $request->user(),
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            'user' => $user,
+            'rentalStatus' => $profileData['rentalStatus'],
+            'accountStatus' => $profileData['accountStatus'],
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
         ]);
     }
@@ -48,6 +65,7 @@ class ProfileController extends Controller
             'user' => $request->user(),
         ]);
     }
+
     public function edit(Request $request): Response
     {
         return Inertia::render('Profile/Edit', [
@@ -91,5 +109,36 @@ class ProfileController extends Controller
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
+    }
+
+    /**
+     * Update user profile from tranguser page
+     */
+    public function updateProfile(UserUpdateProfileRequest $request): RedirectResponse
+    {
+        $this->profileService->updateProfile($request->user(), $request->validated());
+
+        return Redirect::back()->with('status', 'profile-updated')->with('success', 'Cập nhật hồ sơ thành công.');
+    }
+
+    /**
+     * Update user avatar
+     */
+    public function updateAvatar(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+        ], [
+            'avatar.required' => 'Vui lòng chọn một file ảnh.',
+            'avatar.image' => 'File tải lên phải là ảnh.',
+            'avatar.mimes' => 'Ảnh phải có định dạng: jpeg, png, jpg, gif.',
+            'avatar.max' => 'Dung lượng ảnh không được vượt quá 2MB.',
+        ]);
+
+        if ($request->hasFile('avatar')) {
+            $this->profileService->updateAvatar($request->user(), $request->file('avatar'));
+        }
+
+        return Redirect::back()->with('success', 'Cập nhật ảnh đại diện thành công.');
     }
 }

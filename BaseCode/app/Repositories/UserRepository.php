@@ -50,4 +50,12 @@ class UserRepository implements UserRepositoryInterface
         }
         return null;
     }
+
+    public function isUserRenting(int $userId): bool
+    {
+        return \Illuminate\Support\Facades\DB::table('contracts')
+            ->where('tenant_id', $userId)
+            ->where('status', 'signed')
+            ->exists();
+    }
 }
