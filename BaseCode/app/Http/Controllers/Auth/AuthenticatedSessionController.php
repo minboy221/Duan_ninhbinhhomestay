@@ -12,8 +12,17 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
 
+use App\Services\AuthService;
+
 class AuthenticatedSessionController extends Controller
 {
+    protected $authService;
+
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
+
     /**
      * Display the login view.
      */
@@ -30,7 +39,17 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        // Check rate limits and throw exception if necessary
+        $request->ensureIsNotRateLimited();
+
+        if (!$this->authService->loginAccount($request->only('email', 'password', 'captcha'), $request->boolean('remember'))) {
+            \Illuminate\Support\Facades\RateLimiter::hit($request->throttleKey());
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => trans('auth.failed'),
+            ]);
+        }
+
+        \Illuminate\Support\Facades\RateLimiter::clear($request->throttleKey());
 
         $request->session()->regenerate();
 
@@ -50,7 +69,7 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
+        $this->authService->logoutAccount();
 
         $request->session()->invalidate();
 
