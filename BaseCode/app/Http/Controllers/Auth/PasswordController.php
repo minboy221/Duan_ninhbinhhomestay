@@ -12,8 +12,17 @@ use App\Mail\ChangePasswordOTP;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
+use App\Services\AuthService;
+
 class PasswordController extends Controller
 {
+    protected $authService;
+
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
+
     /**
      * Request OTP before updating password
      */
@@ -24,18 +33,7 @@ class PasswordController extends Controller
             'password' => ['required', Password::defaults(), 'confirmed'],
         ]);
 
-        $user = $request->user();
-        
-        // Generate a 6-digit OTP
-        $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-        
-        // Save to database with 15 minutes expiration
-        $user->otp_code = $otp;
-        $user->otp_expires_at = Carbon::now()->addMinutes(15);
-        $user->save();
-
-        // Send Email
-        Mail::to($user->email)->send(new ChangePasswordOTP($otp));
+        $this->authService->requestPasswordOtp($request->user());
 
         return back()->with('status', 'otp-sent');
     }
@@ -51,20 +49,12 @@ class PasswordController extends Controller
             'otp' => ['required', 'string', 'size:6'],
         ]);
 
-        $user = $request->user();
+        $success = $this->authService->updatePassword($request->user(), $validated['password'], $validated['otp']);
 
-        // Verify OTP
-        if (!$user->otp_code || $user->otp_code !== $validated['otp'] || Carbon::now()->greaterThan($user->otp_expires_at)) {
+        if (!$success) {
             return back()->withErrors(['otp' => 'Mã OTP không hợp lệ hoặc đã hết hạn.']);
         }
 
-        // Update password and clear OTP
-        $user->update([
-            'password' => Hash::make($validated['password']),
-            'otp_code' => null,
-            'otp_expires_at' => null,
-        ]);
-
-        return back();
+        return back()->with('status', 'password-updated');
     }
 }
