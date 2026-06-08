@@ -23,7 +23,6 @@ const reloadCaptcha = () => {
 const loginForm = useForm({
     email: '',
     password: '',
-    captcha: '',
     remember: false,
 })
 
@@ -45,8 +44,7 @@ const forgotForm = useForm({
 const submitLogin = () => {
     loginForm.post(route('login'), {
         onFinish: () => {
-            loginForm.reset('password', 'captcha');
-            reloadCaptcha();
+            loginForm.reset('password');
         },
     })
 }
@@ -163,25 +161,6 @@ const submitForgot = () => {
                                 </div>
                                 <p v-if="loginForm.errors.password" class="text-red-500 text-xs mt-1 ml-4">
                                     {{ loginForm.errors.password }}
-                                </p>
-                            </div>
-
-                            <div class="space-y-2">
-                                <label class="block text-xs font-bold uppercase tracking-wider text-[#595c5e] ml-4">
-                                    Mã xác nhận
-                                </label>
-                                <div class="flex flex-col gap-3">
-                                    <input v-model="loginForm.captcha" type="text" placeholder="Nhập mã xác nhận"
-                                        class="w-full px-6 py-4 bg-white border-none rounded-xl focus:ring-4 focus:ring-[#57baf6]/30 transition-all outline-none text-[#2c2f31]" />
-                                    <div class="flex items-center gap-3">
-                                        <img :src="captchaUrl" alt="captcha" class="rounded-xl h-[56px] cursor-pointer border border-gray-200" @click="reloadCaptcha" title="Bấm vào để đổi mã" />
-                                        <button type="button" @click="reloadCaptcha" class="flex items-center justify-center w-[56px] h-[56px] bg-white rounded-xl shadow-sm text-[#595c5e] hover:text-[#00628c] hover:bg-[#f0f8ff] transition-all focus:outline-none" title="Tải lại mã">
-                                            <span class="material-symbols-outlined text-[24px]">refresh</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <p v-if="loginForm.errors.captcha" class="text-red-500 text-xs mt-1 ml-4">
-                                    {{ loginForm.errors.captcha }}
                                 </p>
                             </div>
 

@@ -132,12 +132,22 @@ const closePopup = () => {
                         <ul>
                             <li v-if="user.role === 'admin'">
                                 <Link :href="route('admin.dashboard')"> <i class="bi bi-speedometer2"></i>
-                                    <span>Trang Quản Trị</span>
+                                    <span>Trang Admin</span>
                                 </Link>
                             </li>
                             <li v-if="user.role === 'landlord'">
                                 <Link :href="route('landlord.dashboard')"> <i class="bi bi-house-gear"></i>
                                     <span>Trang Chủ Trọ</span>
+                                </Link>
+                            </li>
+                            <li v-if="user.role === 'user' && !auth.has_submitted_verification">
+                                <Link :href="route('landlord.verify.create')"> <i class="bi bi-house-add"></i>
+                                    <span>Đăng ký làm Chủ Trọ</span>
+                                </Link>
+                            </li>
+                            <li v-if="user.role === 'user' && auth.has_submitted_verification">
+                                <Link :href="route('landlord.verify.create')"> <i class="bi bi-hourglass-split"></i>
+                                    <span>Hồ sơ Chủ Trọ (Chờ duyệt)</span>
                                 </Link>
                             </li>
                             <li>

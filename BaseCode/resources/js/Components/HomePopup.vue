@@ -11,18 +11,22 @@ const props = defineProps({
 
 const isVisible = ref(false);
 
+const getStorageKey = () => {
+    return user.value ? `ninhbinh_welcome_seen_${user.value.id}` : 'ninhbinh_welcome_seen_guest';
+}
+
 const closePopup = () => {
     isVisible.value = false;
-    // Store in session storage so it doesn't show again in the same session
-    sessionStorage.setItem("home_popup_seen", "true");
+    // Tự động lưu vào localStorage để không BAO GIỜ hiện lại cho tài khoản này nữa
+    localStorage.setItem(getStorageKey(), "true");
 };
 
 const { props: pageProps } = usePage();
 const user = computed(() => pageProps.auth.user);
 
 onMounted(() => {
-    const hasSeen = sessionStorage.getItem("home_popup_seen");
-    // Only show for registered users (user is logged in)
+    const hasSeen = localStorage.getItem(getStorageKey());
+    // Only show for registered users (user is logged in) and haven't seen it
     if (user.value && !hasSeen && props.showInitially) {
         setTimeout(() => {
             isVisible.value = true;
