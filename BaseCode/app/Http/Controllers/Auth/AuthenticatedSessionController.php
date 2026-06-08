@@ -42,7 +42,7 @@ class AuthenticatedSessionController extends Controller
         // Check rate limits and throw exception if necessary
         $request->ensureIsNotRateLimited();
 
-        if (!$this->authService->loginAccount($request->only('email', 'password', 'captcha'), $request->boolean('remember'))) {
+        if (!$this->authService->loginAccount($request->only('email', 'password'), $request->boolean('remember'))) {
             \Illuminate\Support\Facades\RateLimiter::hit($request->throttleKey());
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'email' => trans('auth.failed'),
