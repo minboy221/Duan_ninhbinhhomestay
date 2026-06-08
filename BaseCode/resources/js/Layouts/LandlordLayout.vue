@@ -6,341 +6,316 @@ const page = usePage()
 const user = computed(() => page.props.auth?.user)
 const sidebarOpen = ref(true)
 const drawerOpen  = ref(false)   // mobile drawer
+const propertyDropdownOpen = ref(false)
 
 const logout = () => router.post(route('logout'))
-const isActive = (path) => page.url === path || page.url.startsWith(path + '/')
+const isActive = (path) => {
+    if (path === '#') return false
+    return page.url === path || page.url.startsWith(path + '/')
+}
 const closeDrawer = () => { drawerOpen.value = false }
+
+// Mock properties list for the dropdown
+const properties = ref([
+    { id: 1, name: 'Nhà Trọ Thanh Hóa' },
+    { id: 2, name: 'Homestay Hoa Lư View' }
+])
+const selectedProperty = ref(properties.value[0])
+
+const selectProperty = (prop) => {
+    selectedProperty.value = prop
+    propertyDropdownOpen.value = false
+    // You can fire an event or redirect to reload rooms under this property
+}
 
 const navGroups = [
     {
-        label: null,
+        label: 'NGHIỆP VỤ',
         items: [
-            { label: 'Tổng Quan', path: '/landlord/dashboard', icon: 'bi-speedometer2' },
+            { label: 'Tổng Quan', path: '/landlord/dashboard', icon: 'bi-grid-1x2-fill' },
+            { label: 'Hóa Đơn', path: '/landlord/invoices', icon: 'bi-receipt' },
+            { label: 'Tin Đăng', path: '/landlord/listings', icon: 'bi-megaphone' },
+            { label: 'Lịch Hẹn', path: '/landlord/appointments', icon: 'bi-calendar-event' },
         ]
     },
     {
-        label: 'Quản Lý',
+        label: 'DỮ LIỆU',
         items: [
-            { label: 'Quản Lý Trọ',   path: '/landlord/rooms',        icon: 'bi-building' },
-            { label: 'Tin Đăng',       path: '/landlord/listings',     icon: 'bi-megaphone-fill' },
-            { label: 'Lịch Hẹn',      path: '/landlord/appointments', icon: 'bi-calendar-check-fill' },
+            { label: 'Nhà & Phòng', path: '/landlord/rooms', icon: 'bi-house' },
+            { label: 'Dịch Vụ', path: '/landlord/services', icon: 'bi-tools' },
+            { label: 'Khách Hàng', path: '/landlord/tenants', icon: 'bi-people' },
+            { label: 'Hợp Đồng', path: '/landlord/contracts', icon: 'bi-file-earmark-text' },
         ]
     },
     {
-        label: 'Người Thuê',
+        label: 'NHÀ CỦA TÔI',
         items: [
-            { label: 'Người Thuê Trọ', path: '/landlord/tenants',   icon: 'bi-people-fill' },
-            { label: 'Hợp Đồng',       path: '/landlord/contracts', icon: 'bi-file-earmark-text-fill' },
+            { label: 'Thông Tin CĐT', path: '/landlord/profile', icon: 'bi-person-gear' },
+            { label: 'Xác Minh KYC', path: '/landlord/verify', icon: 'bi-shield-check' },
         ]
-    },
-    {
-        label: 'Tài Chính',
-        items: [
-            { label: 'Hoá Đơn',  path: '/landlord/invoices', icon: 'bi-receipt' },
-            { label: 'Tài Chính', path: '/landlord/finance',  icon: 'bi-cash-coin' },
-        ]
-    },
-    {
-        label: 'Tài Khoản',
-        items: [
-            { label: 'Thông Tin CĐT', path: '/landlord/profile', icon: 'bi-person-badge-fill' },
-        ]
-    },
+    }
 ]
 
-// Bottom tab bar mobile — 5 mục quan trọng nhất
+// Bottom tab bar mobile
 const bottomTabs = [
-    { label: 'Tổng Quan', path: '/landlord/dashboard',  icon: 'bi-speedometer2' },
-    { label: 'Phòng',     path: '/landlord/rooms',       icon: 'bi-building' },
+    { label: 'Tổng Quan', path: '/landlord/dashboard',  icon: 'bi-grid-1x2-fill' },
+    { label: 'Nhà',     path: '/landlord/rooms',       icon: 'bi-house' },
     { label: 'Hoá Đơn',  path: '/landlord/invoices',    icon: 'bi-receipt' },
-    { label: 'Hợp Đồng', path: '/landlord/contracts',   icon: 'bi-file-earmark-text-fill' },
+    { label: 'Hợp Đồng', path: '/landlord/contracts',   icon: 'bi-file-earmark-text' },
     { label: 'Menu',      path: null,                    icon: 'bi-list', action: () => { drawerOpen.value = true } },
 ]
 </script>
 
 <template>
-    <div class="ll-shell">
+    <div class="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
         <!-- Sidebar (desktop only) -->
-        <aside :class="sidebarOpen ? 'll-expanded' : 'll-collapsed'" class="ll-sidebar ll-sidebar-desktop">
-            <div class="ll-brand">
-                <div class="ll-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
-                <div v-if="sidebarOpen" class="ll-brand-text">
-                    <span class="ll-brand-name">Ninh Bình</span>
-                    <span class="ll-brand-sub">HomeStay · Chủ Trọ</span>
+        <aside 
+            :class="sidebarOpen ? 'w-64' : 'w-20'" 
+            class="hidden md:flex flex-col flex-shrink-0 bg-white border-r border-slate-100 transition-all duration-300 z-20"
+        >
+            <!-- Brand logo -->
+            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100 h-16 flex-shrink-0">
+                <div class="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center font-bold text-2xl shadow-sm shadow-emerald-200">
+                    R
+                </div>
+                <div v-if="sidebarOpen" class="flex flex-col overflow-hidden">
+                    <span class="font-bold text-slate-800 text-sm leading-tight whitespace-nowrap">Ninh Bình Stay</span>
+                    <span class="text-emerald-500 text-xs font-semibold whitespace-nowrap">Chủ Trọ Dashboard</span>
                 </div>
             </div>
 
-            <nav class="ll-nav">
-                <template v-for="group in navGroups" :key="group.label">
-                    <p v-if="group.label && sidebarOpen" class="ll-nav-label">{{ group.label }}</p>
-                    <div v-else-if="group.label && !sidebarOpen" class="ll-nav-divider"></div>
-                    <Link
-                        v-for="item in group.items"
-                        :key="item.path"
-                        :href="item.path"
-                        :class="['ll-nav-item', isActive(item.path) ? 'll-active' : '']"
-                        :title="!sidebarOpen ? item.label : ''"
-                    >
-                        <i :class="['bi', item.icon, 'll-nav-icon']"></i>
-                        <span v-if="sidebarOpen" class="ll-nav-text">{{ item.label }}</span>
-                    </Link>
-                </template>
+            <!-- Navigation Links -->
+            <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-100">
+                <div v-for="group in navGroups" :key="group.label" class="space-y-1">
+                    <p v-if="group.label && sidebarOpen" class="px-3 text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+                        {{ group.label }}
+                    </p>
+                    <div v-else-if="group.label && !sidebarOpen" class="h-px bg-slate-100 my-4"></div>
+                    
+                    <div class="space-y-1">
+                        <component 
+                            :is="item.path === '#' ? 'div' : Link"
+                            v-for="item in group.items"
+                            :key="item.label"
+                            :href="item.path !== '#' ? item.path : undefined"
+                            :class="[
+                                'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative',
+                                item.path === '#' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer',
+                                isActive(item.path) 
+                                    ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm' 
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                            ]"
+                            :title="!sidebarOpen ? item.label : ''"
+                        >
+                            <i :class="['bi', item.icon, 'text-lg', isActive(item.path) ? 'text-emerald-500' : 'text-slate-400 group-hover:text-slate-600']"></i>
+                            <span v-if="sidebarOpen" class="text-sm truncate">{{ item.label }}</span>
+                            
+                            <!-- Pro badge -->
+                            <span 
+                                v-if="item.isPro && sidebarOpen" 
+                                class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 rounded uppercase"
+                            >
+                                PRO
+                            </span>
+
+                            <!-- Tooltip when collapsed -->
+                            <div v-if="!sidebarOpen" class="absolute left-16 bg-slate-800 text-white text-xs px-2.5 py-1.5 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                                {{ item.label }} <span v-if="item.isPro" class="text-[9px] text-amber-400 ml-1">(PRO)</span>
+                            </div>
+                        </component>
+                    </div>
+                </div>
             </nav>
 
-            <div class="ll-bottom">
-                <button @click="logout" class="ll-nav-item ll-logout">
-                    <i class="bi bi-box-arrow-right ll-nav-icon"></i>
-                    <span v-if="sidebarOpen" class="ll-nav-text">Đăng Xuất</span>
+            <!-- Sidebar Footer -->
+            <div class="p-4 border-t border-slate-100 flex flex-col gap-1.5">
+                <button 
+                    @click="logout" 
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 w-100 transition-all font-medium text-sm"
+                >
+                    <i class="bi bi-box-arrow-right text-lg"></i>
+                    <span v-if="sidebarOpen">Đăng Xuất</span>
                 </button>
-                <button @click="sidebarOpen = !sidebarOpen" class="ll-nav-item ll-toggle">
-                    <i :class="['bi', sidebarOpen ? 'bi-arrow-bar-left' : 'bi-arrow-bar-right', 'll-nav-icon']"></i>
-                    <span v-if="sidebarOpen" class="ll-nav-text">Thu gọn</span>
+                <button 
+                    @click="sidebarOpen = !sidebarOpen" 
+                    class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all text-xs"
+                >
+                    <i :class="['bi', sidebarOpen ? 'bi-arrow-bar-left' : 'bi-arrow-bar-right', 'text-lg']"></i>
+                    <span v-if="sidebarOpen">Thu gọn menu</span>
                 </button>
             </div>
         </aside>
 
-        <!-- Main -->
-        <div class="ll-main">
-            <header class="ll-header">
-                <div class="ll-header-left">
-                    <!-- Hamburger (mobile only) -->
-                    <button class="ll-hamburger" @click="drawerOpen = true">
-                        <i class="bi bi-list"></i>
+        <!-- Main content container -->
+        <div class="flex flex-col flex-1 overflow-hidden min-w-0">
+            <!-- Header -->
+            <header class="bg-white border-b border-slate-100 h-16 flex items-center justify-between px-6 flex-shrink-0 z-10">
+                <div class="flex items-center gap-4">
+                    <!-- Hamburger menu (mobile only) -->
+                    <button class="md:hidden text-slate-500 hover:bg-slate-50 p-2 rounded-lg" @click="drawerOpen = true">
+                        <i class="bi bi-list text-2xl"></i>
                     </button>
-                    <slot name="header-title">
-                        <h1 class="ll-header-title">Dashboard</h1>
-                    </slot>
+                    
+                    <!-- Search input (fake) -->
+                    <div class="hidden md:flex items-center bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5 w-64 text-slate-400 gap-2">
+                        <i class="bi bi-search text-sm"></i>
+                        <span class="text-xs">Tìm kiếm...</span>
+                        <kbd class="ml-auto bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[9px] font-mono text-slate-400 shadow-sm">⌘K</kbd>
+                    </div>
                 </div>
-                <div class="ll-header-right">
-                    <button class="ll-hbtn">
-                        <i class="bi bi-bell"></i>
-                        <span class="ll-notif-dot"></span>
+
+                <!-- Right header tools -->
+                <div class="flex items-center gap-4">
+                    <!-- Property selector Dropdown -->
+                    <div class="relative">
+                        <button 
+                            @click="propertyDropdownOpen = !propertyDropdownOpen"
+                            class="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white transition-all shadow-sm"
+                        >
+                            <i class="bi bi-building text-emerald-500"></i>
+                            <span>{{ selectedProperty.name }}</span>
+                            <i class="bi bi-chevron-down text-[10px] text-slate-400 ml-1"></i>
+                        </button>
+                        
+                        <!-- Dropdown menu -->
+                        <div 
+                            v-if="propertyDropdownOpen" 
+                            class="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-xl shadow-lg py-1.5 z-50"
+                        >
+                            <div class="px-3.5 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                Chọn Cơ Sở
+                            </div>
+                            <button 
+                                v-for="prop in properties" 
+                                :key="prop.id"
+                                @click="selectProperty(prop)"
+                                class="flex items-center w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                            >
+                                <i class="bi bi-geo-alt text-emerald-500 mr-2"></i>
+                                {{ prop.name }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Language and guides -->
+                    <div class="hidden sm:flex items-center gap-3">
+                        <span class="text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer">Hướng dẫn</span>
+                        <div class="w-6 h-4 bg-red-600 rounded overflow-hidden flex items-center justify-center shadow-sm relative">
+                            <!-- Vietnam Flag Star (simplified) -->
+                            <div class="absolute w-2 h-2 bg-yellow-400 rotate-45"></div>
+                            <div class="absolute w-2 h-2 bg-yellow-400 rotate-12"></div>
+                        </div>
+                    </div>
+
+                    <!-- Notifications -->
+                    <button class="relative w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500 hover:bg-slate-100 transition-colors">
+                        <i class="bi bi-bell text-base"></i>
+                        <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
                     </button>
-                    <Link href="/" class="ll-hbtn ll-hbtn-hide-sm" title="Xem trang web">
-                        <i class="bi bi-box-arrow-up-right"></i>
-                    </Link>
-                    <div class="ll-user-info">
-                        <div class="ll-avatar"><i class="bi bi-person-fill"></i></div>
-                        <div class="ll-udetail ll-udetail-hide-sm">
-                            <span class="ll-uname">{{ user?.name }}</span>
-                            <span class="ll-urole">Chủ Trọ</span>
+
+                    <!-- User Profile info -->
+                    <div class="flex items-center gap-3 pl-3 border-l border-slate-100">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold shadow-sm shadow-emerald-200">
+                            {{ user?.name ? user.name.charAt(0).toUpperCase() : 'L' }}
+                        </div>
+                        <div class="hidden lg:flex flex-col">
+                            <span class="text-xs font-bold text-slate-800 leading-none">{{ user?.name || 'Chủ trọ' }}</span>
+                            <span class="text-[10px] font-semibold text-emerald-500 mt-1">Chủ Trọ</span>
                         </div>
                     </div>
                 </div>
             </header>
 
-            <main class="ll-content">
+            <!-- Main view screen -->
+            <main class="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50">
                 <slot />
             </main>
         </div>
     </div>
 
-    <!-- ── Mobile Drawer Overlay ── -->
+    <!-- Mobile Navigation Drawer -->
     <Teleport to="body">
-        <div v-if="drawerOpen" class="ll-drawer-overlay" @click.self="closeDrawer">
-            <div class="ll-drawer">
-                <!-- Drawer header -->
-                <div class="ll-drawer-head">
-                    <div class="ll-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
-                    <div class="ll-brand-text">
-                        <span class="ll-brand-name">Ninh Bình HomeStay</span>
-                        <span class="ll-brand-sub">Chủ Trọ</span>
+        <div v-if="drawerOpen" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex" @click.self="closeDrawer">
+            <div class="w-72 h-full bg-white flex flex-col shadow-2xl animate-slide-in">
+                <!-- Drawer Head -->
+                <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100 h-16 flex-shrink-0">
+                    <div class="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center font-bold text-2xl">
+                        R
                     </div>
-                    <button class="ll-drawer-close" @click="closeDrawer">
-                        <i class="bi bi-x-lg"></i>
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-800 text-sm">Ninh Bình Stay</span>
+                        <span class="text-emerald-500 text-xs font-semibold">Chủ Trọ Panel</span>
+                    </div>
+                    <button class="ml-auto text-slate-400 hover:text-slate-600 p-2" @click="closeDrawer">
+                        <i class="bi bi-x-lg text-lg"></i>
                     </button>
                 </div>
 
-                <!-- Drawer nav -->
-                <nav class="ll-drawer-nav">
-                    <template v-for="group in navGroups" :key="group.label">
-                        <p v-if="group.label" class="ll-nav-label">{{ group.label }}</p>
-                        <Link
-                            v-for="item in group.items"
-                            :key="item.path"
-                            :href="item.path"
-                            :class="['ll-nav-item', isActive(item.path) ? 'll-active' : '']"
-                            @click="closeDrawer"
-                        >
-                            <i :class="['bi', item.icon, 'll-nav-icon']"></i>
-                            <span class="ll-nav-text">{{ item.label }}</span>
-                        </Link>
-                    </template>
+                <!-- Drawer Navigation -->
+                <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+                    <div v-for="group in navGroups" :key="group.label" class="space-y-1">
+                        <p v-if="group.label" class="px-3 text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+                            {{ group.label }}
+                        </p>
+                        <div class="space-y-0.5">
+                            <component 
+                                :is="item.path === '#' ? 'div' : Link"
+                                v-for="item in group.items"
+                                :key="item.label"
+                                :href="item.path !== '#' ? item.path : undefined"
+                                :class="[
+                                    'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
+                                    item.path === '#' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer',
+                                    isActive(item.path) 
+                                        ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm' 
+                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                ]"
+                                @click="closeDrawer"
+                            >
+                                <i :class="['bi', item.icon, 'text-lg', isActive(item.path) ? 'text-emerald-500' : 'text-slate-400']"></i>
+                                <span class="text-sm">{{ item.label }}</span>
+                                <span v-if="item.isPro" class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 rounded uppercase">PRO</span>
+                            </component>
+                        </div>
+                    </div>
                 </nav>
 
-                <!-- Drawer footer -->
-                <div class="ll-drawer-foot">
-                    <button @click="logout" class="ll-nav-item ll-logout" style="width:100%">
-                        <i class="bi bi-box-arrow-right ll-nav-icon"></i>
-                        <span class="ll-nav-text">Đăng Xuất</span>
+                <!-- Drawer Footer -->
+                <div class="p-4 border-t border-slate-100">
+                    <button @click="logout" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 w-full transition-all font-medium text-sm">
+                        <i class="bi bi-box-arrow-right text-lg"></i>
+                        <span>Đăng Xuất</span>
                     </button>
                 </div>
             </div>
         </div>
     </Teleport>
 
-    <!-- ── Mobile Bottom Tab Bar ── -->
-    <nav class="ll-bottom-tabs">
+    <!-- Mobile Bottom Tab Bar -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-100 flex items-center justify-around z-30 pb-safe shadow-lg">
         <template v-for="tab in bottomTabs" :key="tab.label">
-            <button v-if="tab.action" class="ll-tab-item" @click="tab.action()">
-                <i :class="['bi', tab.icon, 'll-tab-icon']"></i>
-                <span class="ll-tab-label">{{ tab.label }}</span>
+            <button v-if="tab.action" class="flex flex-col items-center gap-1 text-slate-400 hover:text-emerald-500 bg-none border-none p-2" @click="tab.action()">
+                <i :class="['bi', tab.icon, 'text-xl']"></i>
+                <span class="text-[9px] font-bold uppercase tracking-wider">{{ tab.label }}</span>
             </button>
-            <Link v-else :href="tab.path" :class="['ll-tab-item', isActive(tab.path) ? 'll-tab-active' : '']">
-                <i :class="['bi', tab.icon, 'll-tab-icon']"></i>
-                <span class="ll-tab-label">{{ tab.label }}</span>
+            <Link v-else :href="tab.path" class="flex flex-col items-center gap-1 p-2" :class="isActive(tab.path) ? 'text-emerald-500' : 'text-slate-400 hover:text-slate-800'">
+                <i :class="['bi', tab.icon, 'text-xl']"></i>
+                <span class="text-[9px] font-bold uppercase tracking-wider">{{ tab.label }}</span>
             </Link>
         </template>
     </nav>
 </template>
 
 <style scoped>
-/* ── Shell ── */
-.ll-shell {
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-    background: #f1f5f9;
-    font-family: 'Inter', sans-serif;
+.pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
 }
-
-/* ── Sidebar (desktop) ── */
-.ll-sidebar {
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    background: linear-gradient(180deg, #071828 0%, #0a2d47 100%);
-    transition: width 0.3s cubic-bezier(.4,0,.2,1);
-    overflow: hidden;
+@keyframes slideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
 }
-.ll-expanded  { width: 240px; }
-.ll-collapsed { width: 64px; }
-
-.ll-brand { display: flex; align-items: center; gap: 12px; padding: 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; }
-.ll-brand-icon { width: 36px; height: 36px; background: #166ea9; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; flex-shrink: 0; }
-.ll-brand-text { display: flex; flex-direction: column; overflow: hidden; }
-.ll-brand-name { color: #fff; font-weight: 700; font-size: 13px; line-height: 1.2; white-space: nowrap; }
-.ll-brand-sub  { color: #7ab8d9; font-size: 10px; white-space: nowrap; }
-
-.ll-nav { flex: 1; overflow-y: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; scrollbar-width: none; }
-.ll-nav::-webkit-scrollbar { display: none; }
-
-.ll-nav-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; padding: 12px 10px 6px; white-space: nowrap; }
-.ll-nav-divider { border-top: 1px solid rgba(255,255,255,0.05); margin: 8px 0; }
-
-.ll-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; color: #94a3b8; text-decoration: none; cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: background 0.15s, color 0.15s; white-space: nowrap; font-size: 13.5px; font-weight: 500; }
-.ll-nav-item:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
-.ll-active { background: #166ea9 !important; color: #fff !important; box-shadow: 0 4px 14px rgba(22,110,169,0.45); }
-.ll-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
-.ll-nav-text { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.ll-logout:hover { background: rgba(239,68,68,0.12); color: #f87171; }
-.ll-toggle { color: #475569; }
-.ll-toggle:hover { background: rgba(255,255,255,0.04); color: #64748b; }
-
-.ll-bottom { flex-shrink: 0; padding: 10px; border-top: 1px solid rgba(255,255,255,0.07); display: flex; flex-direction: column; gap: 2px; }
-
-/* ── Header ── */
-.ll-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.ll-header { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); z-index: 10; }
-.ll-header-left { display: flex; align-items: center; gap: 12px; }
-.ll-header-title { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-.ll-header-right { display: flex; align-items: center; gap: 8px; }
-
-.ll-hamburger { display: none; width: 38px; height: 38px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 10px; align-items: center; justify-content: center; font-size: 20px; color: #334155; cursor: pointer; }
-
-.ll-hbtn { width: 38px; height: 38px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; color: #64748b; cursor: pointer; position: relative; transition: background 0.15s; text-decoration: none; font-size: 15px; }
-.ll-hbtn:hover { background: #f1f5f9; color: #334155; }
-.ll-notif-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; background: #ef4444; border-radius: 50%; border: 1.5px solid #fff; }
-
-.ll-user-info { display: flex; align-items: center; gap: 10px; padding-left: 12px; border-left: 1px solid #e2e8f0; }
-.ll-avatar { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #166ea9, #0e4f7a); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; }
-.ll-udetail { display: flex; flex-direction: column; }
-.ll-uname { font-size: 13px; font-weight: 600; color: #0f172a; line-height: 1.2; }
-.ll-urole { font-size: 11px; color: #94a3b8; }
-
-/* ── Content ── */
-.ll-content { flex: 1; overflow-y: auto; padding: 24px; background: #f1f5f9; }
-
-/* ── Mobile Drawer ── */
-.ll-drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: flex; }
-.ll-drawer {
-    width: 280px;
-    height: 100%;
-    background: linear-gradient(180deg, #071828 0%, #0a2d47 100%);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    animation: slideIn 0.25s ease;
-}
-@keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-
-.ll-drawer-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 18px 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    flex-shrink: 0;
-}
-.ll-drawer-close { margin-left: auto; background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; padding: 4px; }
-.ll-drawer-close:hover { color: #fff; }
-.ll-drawer-nav  { flex: 1; overflow-y: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; scrollbar-width: none; }
-.ll-drawer-nav::-webkit-scrollbar { display: none; }
-.ll-drawer-foot { padding: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
-
-/* ── Mobile Bottom Tab Bar ── */
-.ll-bottom-tabs {
-    display: none;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: 60px;
-    background: #fff;
-    border-top: 1px solid #e2e8f0;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
-    z-index: 100;
-}
-.ll-tab-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    text-decoration: none;
-    color: #94a3b8;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
-    transition: color 0.15s;
-    padding: 6px 2px;
-}
-.ll-tab-item:hover { color: #166ea9; }
-.ll-tab-active { color: #166ea9 !important; }
-.ll-tab-active .ll-tab-icon { color: #166ea9; }
-.ll-tab-icon  { font-size: 20px; }
-.ll-tab-label { font-size: 10px; font-weight: 600; white-space: nowrap; }
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-    /* Ẩn sidebar desktop */
-    .ll-sidebar-desktop { display: none; }
-
-    /* Hiện hamburger */
-    .ll-hamburger { display: flex; }
-
-    /* Ẩn bớt header items */
-    .ll-hbtn-hide-sm { display: none; }
-    .ll-udetail-hide-sm { display: none; }
-
-    /* Header nhỏ hơn */
-    .ll-header { padding: 12px 16px; }
-    .ll-header-title { font-size: 16px; }
-
-    /* Content padding nhỏ + chừa chỗ tab bar */
-    .ll-content { padding: 16px 12px; padding-bottom: 72px; }
-
-    /* Hiện bottom tab bar */
-    .ll-bottom-tabs { display: flex; }
+.animate-slide-in {
+    animation: slideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 </style>
+

@@ -48,13 +48,12 @@ const nextStep = () => {
 const prevStep = () => {
     if (currentStep.value > 1) currentStep.value--;
 };
-form.post(route("landlord.verify.store"), {});
+
 //hàm xử lý AI và submit ở bước cuối cùng
 const submitVerification = () => {
     form.post(route("landlord.verify.store"), {
         preserveScroll: true,
         onSuccess: (page) => {
-            // Chỉ báo thành công nếu KHÔNG CÓ LỖI CHÍNH TẢ/VALIDATE nào
             if (Object.keys(form.errors).length === 0) {
                 alert("Hoàn tất! Đã gửi hồ sơ xác minh.");
             }
@@ -71,25 +70,25 @@ const submitVerification = () => {
 </script>
 
 <template>
-    <div class="max-w-5xl mx-auto px-4 py-10">
+    <div class="max-w-4xl mx-auto px-4 py-12">
         <!-- STEP UI -->
-        <div class="mb-16">
+        <div class="mb-12">
             <div class="flex items-start justify-between relative">
                 <!-- line -->
-                <div class="absolute top-7 left-[7%] right-[7%] h-[3px] bg-gray-300 z-0"></div>
+                <div class="absolute top-7 left-[10%] right-[10%] h-[2px] bg-slate-100 z-0"></div>
 
                 <!-- Step 1 -->
                 <div class="flex flex-col items-center relative z-10">
-                    <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all duration-300"
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
                         :class="currentStep >= 1
-                                ? 'bg-[#005F87] text-white shadow-md'
-                                : 'bg-[#D9D9D9] text-gray-700'
+                                ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/10'
+                                : 'bg-white text-slate-400 border-slate-200'
                             ">
                         1
                     </div>
-                    <p class="mt-4 text-lg" :class="currentStep >= 1
-                            ? 'text-[#005F87] font-semibold'
-                            : 'text-gray-700 font-medium'
+                    <p class="mt-3 text-xs font-bold" :class="currentStep >= 1
+                            ? 'text-emerald-600'
+                            : 'text-slate-400'
                         ">
                         Xác minh
                     </p>
@@ -97,16 +96,16 @@ const submitVerification = () => {
 
                 <!-- Step 2 -->
                 <div class="flex flex-col items-center relative z-10">
-                    <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all duration-300"
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
                         :class="currentStep >= 2
-                                ? 'bg-[#005F87] text-white shadow-md'
-                                : 'bg-[#D9D9D9] text-gray-700'
+                                ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/10'
+                                : 'bg-white text-slate-400 border-slate-200'
                             ">
                         2
                     </div>
-                    <p class="mt-4 text-lg" :class="currentStep >= 2
-                            ? 'text-[#005F87] font-semibold'
-                            : 'text-gray-700 font-medium'
+                    <p class="mt-3 text-xs font-bold" :class="currentStep >= 2
+                            ? 'text-emerald-600'
+                            : 'text-slate-400'
                         ">
                         Thông tin trọ
                     </p>
@@ -114,16 +113,16 @@ const submitVerification = () => {
 
                 <!-- Step 3 -->
                 <div class="flex flex-col items-center relative z-10">
-                    <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all duration-300"
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
                         :class="currentStep >= 3
-                                ? 'bg-[#005F87] text-white shadow-md'
-                                : 'bg-[#D9D9D9] text-gray-700'
+                                ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/10'
+                                : 'bg-white text-slate-400 border-slate-200'
                             ">
                         3
                     </div>
-                    <p class="mt-4 text-lg" :class="currentStep >= 3
-                            ? 'text-[#005F87] font-semibold'
-                            : 'text-gray-700 font-medium'
+                    <p class="mt-3 text-xs font-bold" :class="currentStep >= 3
+                            ? 'text-emerald-600'
+                            : 'text-slate-400'
                         ">
                         Khuôn mặt
                     </p>

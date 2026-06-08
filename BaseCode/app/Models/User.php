@@ -33,6 +33,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'google_id',
         'otp_code',
         'otp_expires_at',
+        'last_profile_update_at',
     ];
 
     /**
@@ -67,6 +68,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'last_profile_update_at' => 'datetime',
     ];
 
     /**
