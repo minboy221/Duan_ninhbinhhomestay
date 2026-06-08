@@ -13,9 +13,24 @@ const props = defineProps({
 const showDropdown = ref(false)
 const selectedArea = ref(null)
 
+// Đối tượng lưu trữ các giá trị lọc
+const form = ref({
+    area_id: null,
+    price: null,
+    dientich: null,
+    categories: [],
+    amenities: []
+})
+
 function selectArea(area) {
     selectedArea.value = area
+    form.value.area_id = area.id
     showDropdown.value = false
+}
+
+function submitSearch() {
+    console.log('Dữ liệu tìm kiếm:', form.value);
+    // TODO: Gửi request tìm kiếm phòng trọ sau này
 }
 </script>
 
@@ -49,7 +64,7 @@ function selectArea(area) {
                             <span class="arrow"><i class="bi bi-caret-down"></i></span>
                         </div>
 
-                        <div class="dropdown" v-show="showDropdown">
+                        <div class="dropdown" :class="{ show: showDropdown }">
                             <div class="dropdown-header">
                                 <span>Khu vực:</span>
                             </div>
@@ -68,20 +83,20 @@ function selectArea(area) {
                     <div class="select_option">
                         <h3>Khoảng giá:</h3>
                         <div class="price_list">
-                            <label><input type="radio" name="price"> Dưới 1 triệu</label>
-                            <label><input type="radio" name="price"> 1 - 2 triệu</label>
-                            <label><input type="radio" name="price"> 2 - 3 triệu</label>
-                            <label><input type="radio" name="price"> Trên 3 triệu</label>
+                            <label><input type="radio" name="price" value="duoi-1-trieu" v-model="form.price"> Dưới 1 triệu</label>
+                            <label><input type="radio" name="price" value="1-2-trieu" v-model="form.price"> 1 - 2 triệu</label>
+                            <label><input type="radio" name="price" value="2-3-trieu" v-model="form.price"> 2 - 3 triệu</label>
+                            <label><input type="radio" name="price" value="tren-3-trieu" v-model="form.price"> Trên 3 triệu</label>
                         </div>
                     </div>
                     <!-- Diện tích -->
                     <div class="select_option">
                         <h3>Diện Tích:</h3>
                         <div class="price_list">
-                            <label><input type="radio" name="dientich">Dưới 20m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich">20 - 30m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich">30 - 50m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich">Trên 50m<sup>2</sup></label>
+                            <label><input type="radio" name="dientich" value="duoi-20" v-model="form.dientich">Dưới 20m<sup>2</sup></label>
+                            <label><input type="radio" name="dientich" value="20-30" v-model="form.dientich">20 - 30m<sup>2</sup></label>
+                            <label><input type="radio" name="dientich" value="30-50" v-model="form.dientich">30 - 50m<sup>2</sup></label>
+                            <label><input type="radio" name="dientich" value="tren-50" v-model="form.dientich">Trên 50m<sup>2</sup></label>
                         </div>
                     </div>
                     <!-- Loại phòng (Dữ liệu từ DB) -->
@@ -89,7 +104,7 @@ function selectArea(area) {
                         <h3>Loại phòng:</h3>
                         <div class="feature_list">
                             <label v-for="cat in categories" :key="cat.id">
-                                <input type="checkbox" :value="cat.id"> <i :class="['bi', cat.icon]"></i> {{ cat.name }}
+                                <input type="checkbox" :value="cat.id" v-model="form.categories"> <i :class="['bi', cat.icon]"></i> {{ cat.name }}
                             </label>
                         </div>
                     </div>
@@ -98,7 +113,7 @@ function selectArea(area) {
                         <h3>Tiện ích:</h3>
                         <div class="feature_list">
                             <label v-for="amenity in amenities" :key="amenity.id">
-                                <input type="checkbox" :value="amenity.id"> <i :class="['bi', amenity.icon]"></i> {{ amenity.name }}
+                                <input type="checkbox" :value="amenity.id" v-model="form.amenities"> <i :class="['bi', amenity.icon]"></i> {{ amenity.name }}
                             </label>
                         </div>
                     </div>
@@ -110,7 +125,7 @@ function selectArea(area) {
                     </div>
 
                     <div class="bao_btn">
-                        <button class="btn_filter">Tìm kiếm</button>
+                        <button class="btn_filter" @click="submitSearch">Tìm kiếm</button>
                         <button class="btn_filter_mic"><i class="bi bi-mic"></i>
                         </button>
                     </div>
