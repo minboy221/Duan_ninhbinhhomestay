@@ -31,7 +31,6 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:8'],
-            'captcha' => 'required|captcha',
         ];
     }
 
@@ -44,8 +43,6 @@ class LoginRequest extends FormRequest
             'password.required' => 'Mật khẩu không được để trống.',
             'password.string' => 'Mật khẩu phải là chuỗi ký tự.',
             'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự.',
-            'captcha.required' => 'Vui lòng nhập mã xác nhận.',
-            'captcha.captcha' => 'Mã xác nhận không đúng.',
         ];
     }
 
@@ -55,7 +52,6 @@ class LoginRequest extends FormRequest
         return [
             'email' => 'email',
             'password' => 'mật khẩu',
-            'captcha' => 'mã xác nhận',
         ];
     }
 

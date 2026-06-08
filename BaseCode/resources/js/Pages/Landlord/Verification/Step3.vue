@@ -113,6 +113,8 @@ const onVideoPlay = async () => {
     }
 
     const faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.4);
+
+
     const displaySize = {
         width: videoRef.value.videoWidth,
         height: videoRef.value.videoHeight,
@@ -138,6 +140,7 @@ const onVideoPlay = async () => {
         const resized = faceapi.resizeResults(detections, displaySize);
         const ctx = canvasRef.value.getContext("2d");
         ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
+
         // faceapi.draw.drawDetections(canvasRef.value, resized);
 
         if (resized.length === 0) {
@@ -270,7 +273,7 @@ onUnmounted(() => {
                     <button
                         type="button"
                         @click="emit('prev')"
-                        class="w-full h-14 rounded-full border-2 border-sky-700 text-sky-700 font-bold hover:bg-sky-50 transition-all flex items-center justify-center gap-2"
+                        class="w-full px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1"
                     >
                         <span class="material-symbols-outlined">
                             arrow_back
