@@ -166,6 +166,21 @@ class LandlordController extends Controller
 
     public function finance()
     {
-        return Inertia::render('Landlord/Finance/index');
+        return redirect()->route('landlord.invoices');
+    }
+
+    public function services()
+    {
+        return Inertia::render('Landlord/Services/index');
+    }
+
+    public function pricingSheets()
+    {
+        return redirect()->route('landlord.services');
+    }
+
+    public function pricingSheetsCreate()
+    {
+        return redirect()->route('landlord.services');
     }
 }

@@ -11,15 +11,16 @@ const contracts = ref([
 ])
 
 const showModal      = ref(false)
+const showAddModal   = ref(false)
 const selectedContract = ref(null)
 const showDeleteConfirm = ref(false)
 const deleteTarget   = ref(null)
 
 const daysLeft  = (endDate) => Math.ceil((new Date(endDate) - new Date()) / (1000 * 60 * 60 * 24))
 const statusMap = {
-    active:   { label: 'Đang Hiệu Lực', cls: 'st-active' },
-    expiring: { label: 'Sắp Hết Hạn',   cls: 'st-expiring' },
-    expired:  { label: 'Đã Hết Hạn',    cls: 'st-expired' },
+    active:   { label: 'Đang Hiệu Lực', cls: 'bg-emerald-50 text-emerald-600 border-emerald-150', dot: 'bg-emerald-500' },
+    expiring: { label: 'Sắp Hết Hạn',   cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
+    expired:  { label: 'Đã Hết Hạn',    cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
 }
 
 const expiringCount = computed(() => contracts.value.filter(c => c.status === 'expiring').length)
@@ -29,62 +30,175 @@ const askDelete     = (c) => { deleteTarget.value = c; showDeleteConfirm.value =
 const confirmDelete = () => { contracts.value = contracts.value.filter(c => c.id !== deleteTarget.value.id); showDeleteConfirm.value = false }
 const formatMoney   = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ'
 const formatDate    = (d) => new Date(d).toLocaleDateString('vi-VN')
+
+// Multi-step create contract state
+const activeStep = ref(1) // 1: Room & Price, 2: Tenant Info, 3: Terms & Services
+const addForm = ref({
+    room: '',
+    rent: 3000000,
+    deposit: 3000000,
+    tenant_name: '',
+    tenant_phone: '',
+    tenant_cccd: '',
+    start_date: '',
+    end_date: '',
+    billing_cycle: 1, // month
+    depositPaid: true
+})
+
+const openAddContract = () => {
+    activeStep.value = 1
+    addForm.value = {
+        room: '',
+        rent: 3000000,
+        deposit: 3000000,
+        tenant_name: '',
+        tenant_phone: '',
+        tenant_cccd: '',
+        start_date: '',
+        end_date: '',
+        billing_cycle: 1,
+        depositPaid: true
+    }
+    showAddModal.value = true
+}
+
+const submitAddContract = () => {
+    if(!addForm.value.room || !addForm.value.tenant_name || !addForm.value.start_date || !addForm.value.end_date) {
+        alert('Vui lòng hoàn thành toàn bộ thông tin hợp đồng.')
+        return
+    }
+
+    const nextId = 'HD' + String(contracts.value.length + 1).padStart(3, '0')
+    contracts.value.push({
+        id: nextId,
+        room: addForm.value.room,
+        tenant: addForm.value.tenant_name,
+        phone: addForm.value.tenant_phone,
+        start: addForm.value.start_date,
+        end: addForm.value.end_date,
+        rent: addForm.value.rent,
+        deposit: addForm.value.deposit,
+        depositPaid: addForm.value.depositPaid,
+        status: 'active'
+    })
+    showAddModal.value = false
+}
 </script>
 
 <template>
     <LandlordLayout>
-        <template #header-title><h1 class="ll-header-title">Quản Lý Hợp Đồng</h1></template>
-
-        <div class="ct-wrap">
-            <!-- Alert -->
-            <div v-if="expiringCount > 0" class="ct-alert">
-                <i class="bi bi-clock-history"></i>
-                <span>Có <strong>{{ expiringCount }}</strong> hợp đồng sắp hết hạn trong vòng 30 ngày. Vui lòng gia hạn hoặc kết thúc hợp đồng.</span>
+        <div class="space-y-6">
+            <!-- Breadcrumbs -->
+            <div class="flex items-center gap-2 text-xs text-slate-400 font-semibold">
+                <span>Bảng điều khiển</span>
+                <i class="bi bi-chevron-right text-[9px]"></i>
+                <span class="text-slate-600">Hợp đồng</span>
             </div>
 
-            <!-- Stats -->
-            <div class="ct-stats">
-                <div class="ct-stat ct-active"><i class="bi bi-file-check"></i><div><div class="ct-num">{{ contracts.filter(c=>c.status==='active').length }}</div><div class="ct-lbl">Đang Hiệu Lực</div></div></div>
-                <div class="ct-stat ct-expiring"><i class="bi bi-clock"></i><div><div class="ct-num">{{ expiringCount }}</div><div class="ct-lbl">Sắp Hết Hạn</div></div></div>
-                <div class="ct-stat ct-expired"><i class="bi bi-file-x"></i><div><div class="ct-num">{{ contracts.filter(c=>c.status==='expired').length }}</div><div class="ct-lbl">Đã Hết Hạn</div></div></div>
-            </div>
-
-            <!-- Table -->
-            <div class="ct-card">
-                <div class="ct-head">
-                    <h3 class="ct-title"><i class="bi bi-file-earmark-text-fill"></i> Danh Sách Hợp Đồng</h3>
-                    <button class="btn-new"><i class="bi bi-plus-circle"></i> Tạo Hợp Đồng Mới</button>
+            <!-- Page Title -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="space-y-1">
+                    <h2 class="text-lg font-bold text-slate-800">Quản lý Hợp đồng</h2>
+                    <p class="text-xs text-slate-400">Danh sách hợp đồng thuê phòng và hồ sơ pháp lý đính kèm</p>
                 </div>
-                <div class="table-scroll">
-                    <table class="ct-table">
+                <button @click="openAddContract" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5">
+                    <i class="bi bi-file-earmark-plus"></i> Tạo hợp đồng mới
+                </button>
+            </div>
+
+            <!-- Expiry Warning Alert -->
+            <div v-if="expiringCount > 0" class="p-4 bg-amber-50/70 border border-amber-250 rounded-2xl flex items-center gap-3 text-xs text-amber-800 font-semibold shadow-sm">
+                <i class="bi bi-clock-history text-lg text-amber-500"></i>
+                <p>
+                    Hiện đang có <strong class="text-amber-950">{{ expiringCount }}</strong> hợp đồng chuẩn bị hết hạn trong vòng 30 ngày tới. Vui lòng liên hệ khách để thống nhất gia hạn.
+                </p>
+            </div>
+
+            <!-- Stats Deck -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div class="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between shadow-sm">
+                    <div class="space-y-1">
+                        <p class="text-xs font-bold text-slate-400">Hợp đồng đang chạy</p>
+                        <h3 class="text-2xl font-extrabold text-slate-800">{{ contracts.filter(c=>c.status==='active').length }}</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                        <i class="bi bi-file-check-fill"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between shadow-sm">
+                    <div class="space-y-1">
+                        <p class="text-xs font-bold text-slate-400">Sắp hết hiệu lực</p>
+                        <h3 class="text-2xl font-extrabold text-slate-800">{{ expiringCount }}</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
+                        <i class="bi bi-clock"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between shadow-sm">
+                    <div class="space-y-1">
+                        <p class="text-xs font-bold text-slate-400">Đã hết hạn</p>
+                        <h3 class="text-2xl font-extrabold text-slate-800">{{ contracts.filter(c=>c.status==='expired').length }}</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center text-lg">
+                        <i class="bi bi-file-x-fill"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contracts Table -->
+            <div class="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[900px]">
                         <thead>
-                            <tr>
-                                <th>Mã HĐ</th><th>Phòng</th><th>Người thuê</th><th>SĐT</th>
-                                <th>Ngày bắt đầu</th><th>Ngày kết thúc</th><th>Còn lại</th>
-                                <th>Tiền thuê</th><th>Đặt cọc</th><th>Trạng thái</th><th>Hành động</th>
+                            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="py-3.5 px-6">Mã HĐ</th>
+                                <th class="py-3.5 px-4">Phòng</th>
+                                <th class="py-3.5 px-4">Đại diện thuê</th>
+                                <th class="py-3.5 px-4">Ngày hiệu lực</th>
+                                <th class="py-3.5 px-4">Ngày kết thúc</th>
+                                <th class="py-3.5 px-4">Đặt cọc</th>
+                                <th class="py-3.5 px-4">Trạng thái</th>
+                                <th class="py-3.5 px-6 text-right font-bold">Thao tác</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr v-for="c in contracts" :key="c.id" :class="{ 'row-expiring': c.status === 'expiring', 'row-expired': c.status === 'expired' }">
-                                <td class="td-code">{{ c.id }}</td>
-                                <td class="td-room">{{ c.room }}</td>
-                                <td class="td-name">{{ c.tenant }}</td>
-                                <td>{{ c.phone }}</td>
-                                <td>{{ formatDate(c.start) }}</td>
-                                <td :class="{ 'td-warn': c.status === 'expiring' }">{{ formatDate(c.end) }}</td>
-                                <td>
-                                    <span v-if="c.status !== 'expired'" :class="['days-badge', daysLeft(c.end) <= 30 ? 'days-red' : 'days-ok']">{{ daysLeft(c.end) }} ngày</span>
-                                    <span v-else class="days-badge days-expired">Hết hạn</span>
+                        <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
+                            <tr v-for="c in contracts" :key="c.id" :class="[
+                                'hover:bg-slate-50/40 cursor-pointer',
+                                c.status === 'expiring' ? 'bg-amber-50/10' : '',
+                                c.status === 'expired' ? 'bg-slate-50/30 opacity-75' : ''
+                            ]" @click="openContract(c)">
+                                <td class="py-4 px-6 font-bold text-slate-800">{{ c.id }}</td>
+                                <td class="py-4 px-4 font-bold text-emerald-600">{{ c.room }}</td>
+                                <td class="py-4 px-4">
+                                    <div class="flex flex-col">
+                                        <span>{{ c.tenant }}</span>
+                                        <span class="text-[10px] text-slate-400 font-semibold">{{ c.phone }}</span>
+                                    </div>
                                 </td>
-                                <td class="td-money">{{ formatMoney(c.rent) }}</td>
-                                <td><span :class="['dep-pill', c.depositPaid ? 'dep-paid' : 'dep-no']">{{ c.depositPaid ? 'Đã cọc' : 'Chưa cọc' }}</span></td>
-                                <td><span :class="['status-pill', statusMap[c.status].cls]">{{ statusMap[c.status].label }}</span></td>
-                                <td>
-                                    <div class="action-btns">
-                                        <button class="abtn abtn-view" @click="openContract(c)" title="Xem chi tiết"><i class="bi bi-eye"></i></button>
-                                        <button class="abtn abtn-pdf" title="Xuất PDF"><i class="bi bi-file-earmark-pdf"></i></button>
-                                        <button class="abtn abtn-edit" title="Chỉnh sửa"><i class="bi bi-pencil"></i></button>
-                                        <button class="abtn abtn-del" @click="askDelete(c)" title="Xoá"><i class="bi bi-trash3"></i></button>
+                                <td class="py-4 px-4 text-slate-500">{{ formatDate(c.start) }}</td>
+                                <td class="py-4 px-4 text-slate-500" :class="{ 'text-amber-600 font-bold': c.status === 'expiring' }">{{ formatDate(c.end) }}</td>
+                                <td class="py-4 px-4">
+                                    <span :class="[
+                                        'px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider',
+                                        c.depositPaid ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'
+                                    ]">
+                                        {{ c.depositPaid ? 'Đã cọc' : 'Chưa cọc' }}
+                                    </span>
+                                </td>
+                                <td class="py-4 px-4">
+                                    <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', statusMap[c.status].cls]">
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[c.status].dot"></span>
+                                        {{ statusMap[c.status].label }}
+                                    </span>
+                                </td>
+                                <td class="py-4 px-6 text-right" @click.stop>
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        <button @click="openContract(c)" class="w-7 h-7 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-eye"></i></button>
+                                        <button class="w-7 h-7 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-file-earmark-pdf"></i></button>
+                                        <button @click="askDelete(c)" class="w-7 h-7 bg-slate-50 hover:bg-rose-100 text-rose-500 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-trash"></i></button>
                                     </div>
                                 </td>
                             </tr>
@@ -94,144 +208,196 @@ const formatDate    = (d) => new Date(d).toLocaleDateString('vi-VN')
             </div>
         </div>
 
+        <!-- Modals -->
         <Teleport to="body">
-            <!-- Detail modal -->
-            <div v-if="showModal && selectedContract" class="modal-overlay" @click.self="closeModal">
-                <div class="modal-box">
-                    <div class="modal-head">
-                        <div>
-                            <h3>{{ selectedContract.id }} — {{ selectedContract.room }}</h3>
-                            <span :class="['status-pill', statusMap[selectedContract.status].cls]">{{ statusMap[selectedContract.status].label }}</span>
-                        </div>
-                        <button @click="closeModal" class="modal-close"><i class="bi bi-x-lg"></i></button>
+            <!-- Details Modal -->
+            <div v-if="showModal && selectedContract" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="closeModal">
+                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                        <h3 class="text-sm font-bold text-slate-800">Chi tiết hợp đồng {{ selectedContract.id }}</h3>
+                        <button @click="closeModal" class="text-slate-400 hover:text-slate-600 p-1">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
                     </div>
-                    <div class="modal-body">
-                        <div class="info-grid">
-                            <div class="info-item"><span class="info-label">Người thuê</span><span>{{ selectedContract.tenant }}</span></div>
-                            <div class="info-item"><span class="info-label">Số điện thoại</span><span>{{ selectedContract.phone }}</span></div>
-                            <div class="info-item"><span class="info-label">Bắt đầu</span><span>{{ formatDate(selectedContract.start) }}</span></div>
-                            <div class="info-item"><span class="info-label">Kết thúc</span><span>{{ formatDate(selectedContract.end) }}</span></div>
-                            <div class="info-item"><span class="info-label">Tiền thuê</span><span class="txt-green">{{ formatMoney(selectedContract.rent) }}/tháng</span></div>
-                            <div class="info-item"><span class="info-label">Tiền cọc</span><span>{{ formatMoney(selectedContract.deposit) }}</span></div>
-                            <div class="info-item"><span class="info-label">Đặt cọc</span><span :class="selectedContract.depositPaid ? 'txt-green' : 'txt-red'">{{ selectedContract.depositPaid ? '✅ Đã đặt cọc' : '❌ Chưa đặt cọc' }}</span></div>
-                            <div class="info-item" v-if="selectedContract.status !== 'expired'"><span class="info-label">Còn lại</span><span :class="daysLeft(selectedContract.end) <= 30 ? 'txt-red' : 'txt-green'">{{ daysLeft(selectedContract.end) }} ngày</span></div>
+
+                    <div class="p-6 space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phòng</span>
+                                <p class="text-xs font-bold text-emerald-600">{{ selectedContract.room }}</p>
+                            </div>
+                            <div class="space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Người đại diện thuê</span>
+                                <p class="text-xs font-bold text-slate-800">{{ selectedContract.tenant }}</p>
+                            </div>
+                            <div class="space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hiệu lực từ</span>
+                                <p class="text-xs font-bold text-slate-800">{{ formatDate(selectedContract.start) }}</p>
+                            </div>
+                            <div class="space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hết hạn vào</span>
+                                <p class="text-xs font-bold text-slate-800">{{ formatDate(selectedContract.end) }}</p>
+                            </div>
+                            <div class="space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tiền thuê</span>
+                                <p class="text-xs font-bold text-slate-800">{{ formatMoney(selectedContract.rent) }}/tháng</p>
+                            </div>
+                            <div class="space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Số tiền cọc</span>
+                                <p class="text-xs font-bold text-slate-800">{{ formatMoney(selectedContract.deposit) }}</p>
+                            </div>
                         </div>
-                        <div class="audit-note"><i class="bi bi-info-circle"></i> Mọi thao tác xuất/sửa hợp đồng sẽ được ghi vào Audit Log hệ thống.</div>
+
+                        <!-- Status Alert info -->
+                        <div class="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-2 text-slate-600 font-semibold">
+                                <i class="bi bi-info-circle text-emerald-500"></i>
+                                <span>Thao tác chỉnh sửa sẽ lưu lại lịch sử Audit Log.</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="modal-foot">
-                        <button class="btn-outline" @click="closeModal">Đóng</button>
-                        <button class="btn-pdf"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
-                        <button class="btn-primary">Gia Hạn HĐ</button>
+
+                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
+                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="closeModal">Đóng</button>
+                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors">Gia hạn hợp đồng</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Confirm delete -->
-            <div v-if="showDeleteConfirm" class="modal-overlay">
-                <div class="modal-box modal-sm">
-                    <div class="modal-head"><h3>Xác Nhận Xoá</h3></div>
-                    <div class="modal-body" style="text-align:center">
-                        <i class="bi bi-exclamation-triangle-fill" style="font-size:40px;color:#dc2626;display:block;margin-bottom:10px"></i>
-                        <p style="font-size:14px;color:#374151;margin:0">Bạn có chắc muốn xoá hợp đồng <strong>{{ deleteTarget?.room }}</strong> không?</p>
-                        <p style="font-size:13px;color:#94a3b8;margin-top:6px">Thao tác này không thể hoàn tác.</p>
+            <!-- Multi-step Add Contract Modal -->
+            <div v-if="showAddModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showAddModal = false">
+                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <!-- Head -->
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                        <div class="space-y-0.5">
+                            <h3 class="text-sm font-bold text-slate-800">Tạo hợp đồng thuê mới</h3>
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Bước {{ activeStep }} / 3</span>
+                        </div>
+                        <button @click="showAddModal=false" class="text-slate-400 hover:text-slate-600 p-1">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
                     </div>
-                    <div class="modal-foot">
-                        <button class="btn-outline" @click="showDeleteConfirm = false">Huỷ</button>
-                        <button class="btn-delete" @click="confirmDelete"><i class="bi bi-trash3"></i> Xác Nhận Xoá</button>
+
+                    <!-- Step Indicators -->
+                    <div class="px-6 py-3 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center text-[10px] font-bold text-slate-400">
+                        <span :class="activeStep >= 1 ? 'text-emerald-500' : ''">1. Phòng & Giá</span>
+                        <i class="bi bi-chevron-right"></i>
+                        <span :class="activeStep >= 2 ? 'text-emerald-500' : ''">2. Khách thuê</span>
+                        <i class="bi bi-chevron-right"></i>
+                        <span :class="activeStep >= 3 ? 'text-emerald-500' : ''">3. Hợp đồng</span>
+                    </div>
+
+                    <!-- Form Body -->
+                    <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                        <!-- Step 1: Room & Price -->
+                        <div v-if="activeStep === 1" class="space-y-4">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Số phòng thuê <span class="text-rose-500">*</span></label>
+                                <input v-model="addForm.room" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: Phòng 101"/>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Tiền thuê (đ/tháng)</label>
+                                    <input v-model.number="addForm.rent" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Tiền cọc (đ)</label>
+                                    <input v-model.number="addForm.deposit" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 pt-2">
+                                <button @click="addForm.depositPaid = !addForm.depositPaid" :class="['w-11 h-6 rounded-full transition-all relative flex items-center p-0.5', addForm.depositPaid ? 'bg-emerald-500' : 'bg-slate-200']">
+                                    <span :class="['w-5 h-5 rounded-full bg-white shadow-sm transition-all transform', addForm.depositPaid ? 'translate-x-5' : 'translate-x-0']"></span>
+                                </button>
+                                <span class="text-xs font-bold text-slate-600">Đã thanh toán tiền đặt cọc</span>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Tenant Info -->
+                        <div v-if="activeStep === 2" class="space-y-4">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Họ và tên khách thuê <span class="text-rose-500">*</span></label>
+                                <input v-model="addForm.tenant_name" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: Nguyễn Văn A"/>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Số điện thoại <span class="text-rose-500">*</span></label>
+                                <input v-model="addForm.tenant_phone" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: 0912345678"/>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Căn cước công dân (CCCD)</label>
+                                <input v-model="addForm.tenant_cccd" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: 036091234567"/>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Terms & Services -->
+                        <div v-if="activeStep === 3" class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Ngày hiệu lực <span class="text-rose-500">*</span></label>
+                                    <input v-model="addForm.start_date" type="date" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Ngày hết hạn <span class="text-rose-500">*</span></label>
+                                    <input v-model="addForm.end_date" type="date" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                                </div>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Chu kỳ đóng tiền (tháng/lần)</label>
+                                <input v-model.number="addForm.billing_cycle" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Foot -->
+                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        <button 
+                            v-if="activeStep > 1"
+                            class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" 
+                            @click="activeStep--"
+                        >
+                            Quay lại
+                        </button>
+                        <div v-else></div>
+
+                        <div class="flex items-center gap-2">
+                            <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showAddModal = false">Hủy</button>
+                            <button 
+                                v-if="activeStep < 3"
+                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors"
+                                @click="activeStep++"
+                            >
+                                Tiếp tục
+                            </button>
+                            <button 
+                                v-else
+                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors"
+                                @click="submitAddContract"
+                            >
+                                Ký hợp đồng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Confirm delete modal -->
+            <div v-if="showDeleteConfirm" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+                    <div class="p-6 text-center space-y-4">
+                        <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center text-xl mx-auto">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                        </div>
+                        <div class="space-y-1">
+                            <h4 class="text-sm font-bold text-slate-800">Xác nhận xóa hợp đồng</h4>
+                            <p class="text-xs text-slate-400">Bạn có chắc chắn muốn xóa hợp đồng phòng {{ deleteTarget?.room }}? Hành động này không thể hoàn tác.</p>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
+                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showDeleteConfirm = false">Hủy</button>
+                        <button class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/10 transition-colors" @click="confirmDelete">Xóa</button>
                     </div>
                 </div>
             </div>
         </Teleport>
     </LandlordLayout>
 </template>
-
-<style scoped>
-.ct-wrap { display: flex; flex-direction: column; gap: 20px; }
-
-.ct-alert { display: flex; align-items: center; gap: 10px; background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 12px; padding: 12px 18px; color: #92400e; font-size: 14px; }
-.ct-alert i { font-size: 18px; color: #d97706; }
-
-.ct-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.ct-stat  { border-radius: 14px; padding: 18px 20px; display: flex; align-items: center; gap: 14px; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.ct-stat i{ font-size: 28px; opacity: 0.85; }
-.ct-num  { font-size: 28px; font-weight: 800; line-height: 1; }
-.ct-lbl  { font-size: 12px; opacity: 0.85; margin-top: 3px; }
-.ct-active   { background: linear-gradient(135deg, #0f766e, #0d9488); }
-.ct-expiring { background: linear-gradient(135deg, #b45309, #d97706); }
-.ct-expired  { background: linear-gradient(135deg, #6b7280, #9ca3af); }
-
-.ct-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-.ct-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.ct-title{ font-size: 15px; font-weight: 700; color: #064e3b; margin: 0; display: flex; align-items: center; gap: 7px; }
-.btn-new { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: #0f766e; color: #fff; border: none; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }
-.btn-new:hover { background: #0d9488; }
-
-.table-scroll { overflow-x: auto; }
-.ct-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
-.ct-table th { background: #f0fdf4; color: #065f46; padding: 10px 12px; text-align: left; font-weight: 700; border-bottom: 2px solid #d1fae5; white-space: nowrap; }
-.ct-table td { padding: 12px; border-bottom: 1px solid #f0fdf4; vertical-align: middle; }
-.td-code  { font-weight: 700; color: #0f766e; }
-.td-room  { font-weight: 600; color: #0f172a; }
-.td-name  { font-weight: 500; }
-.td-money { font-weight: 700; color: #0f766e; }
-.td-warn  { color: #d97706; font-weight: 600; }
-.row-expiring td { background: #fffbeb; }
-.row-expired  td { background: #f9fafb; color: #9ca3af; }
-
-.days-badge   { padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; }
-.days-ok      { background: #dcfce7; color: #15803d; }
-.days-red     { background: #fee2e2; color: #b91c1c; }
-.days-expired { background: #f3f4f6; color: #9ca3af; }
-.dep-pill     { padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; }
-.dep-paid     { background: #dcfce7; color: #15803d; }
-.dep-no       { background: #fee2e2; color: #b91c1c; }
-.status-pill  { padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.st-active    { background: #d1fae5; color: #065f46; }
-.st-expiring  { background: #fef3c7; color: #92400e; }
-.st-expired   { background: #f3f4f6; color: #6b7280; }
-
-.action-btns { display: flex; gap: 4px; }
-.abtn { width: 28px; height: 28px; border-radius: 7px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; }
-.abtn-view { background: #dbeafe; color: #1d4ed8; }
-.abtn-pdf  { background: #fee2e2; color: #b91c1c; }
-.abtn-edit { background: #f0fdf4; color: #0f766e; }
-.abtn-del  { background: #fef2f2; color: #dc2626; }
-
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
-.modal-box  { background: #fff; border-radius: 18px; width: 520px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.2); overflow: hidden; }
-.modal-sm   { width: 380px; }
-.modal-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid #f0fdf4; background: #f8fffe; }
-.modal-head h3 { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #064e3b; }
-.modal-close{ background: none; border: none; font-size: 16px; cursor: pointer; color: #6b7280; }
-.modal-body { padding: 20px; }
-.modal-foot { padding: 16px 20px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 10px; }
-
-.info-grid  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 16px; }
-.info-item  { display: flex; flex-direction: column; gap: 3px; }
-.info-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
-.info-item span:last-child { font-size: 14px; font-weight: 600; color: #0f172a; }
-.txt-green  { color: #059669 !important; }
-.txt-red    { color: #dc2626 !important; }
-.audit-note { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #065f46; display: flex; align-items: center; gap: 7px; }
-
-.btn-primary { padding: 9px 20px; background: #0f766e; color: #fff; border: none; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; }
-.btn-pdf     { padding: 9px 20px; background: #dc2626; color: #fff; border: none; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.btn-outline { padding: 9px 20px; background: #fff; color: #374151; border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; }
-.btn-delete  { padding: 9px 20px; background: #dc2626; color: #fff; border: none; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-
-@media (max-width: 768px) {
-    .ct-stats   { grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .ct-num     { font-size: 22px; }
-    .ct-lbl     { font-size: 11px; }
-    .ct-stat    { padding: 12px; gap: 10px; flex-direction: column; text-align: center; }
-    .ct-stat i  { font-size: 22px; }
-    .table-scroll { -webkit-overflow-scrolling: touch; }
-    .ct-table   { font-size: 12px; min-width: 800px; }
-    .ct-table th, .ct-table td { padding: 8px; }
-    .action-btns { gap: 3px; }
-    .modal-box  { width: 96vw; }
-    .info-grid  { grid-template-columns: 1fr; }
-    .ct-head    { flex-direction: column; align-items: flex-start; gap: 10px; }
-    .btn-new    { width: 100%; justify-content: center; }
-}
-</style>

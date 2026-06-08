@@ -37,6 +37,8 @@ class ProfileController extends Controller
             'user' => $user,
             'rentalStatus' => $profileData['rentalStatus'],
             'accountStatus' => $profileData['accountStatus'],
+            'canUpdateProfile' => $profileData['canUpdateProfile'] ?? true,
+            'daysUntilNextUpdate' => $profileData['daysUntilNextUpdate'] ?? 0,
             'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
         ]);

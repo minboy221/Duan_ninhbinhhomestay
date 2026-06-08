@@ -8,38 +8,58 @@ const props = defineProps({ floors: { type: Array, default: () => [] }, statusCo
 const floors = computed(() => props.floors)
 
 const statusConfig = {
-    available:       { label:'Còn Trống',     icon:'bi-door-open',         cls:'st-blue',   dot:'dot-blue' },
-    rented:          { label:'Đã Thuê',       icon:'bi-person-check-fill', cls:'st-green',  dot:'dot-green' },
-    maintenance:     { label:'Bảo Trì',       icon:'bi-wrench-adjustable', cls:'st-yellow', dot:'dot-yellow' },
-    deposited:       { label:'Đã Đặt Cọc',   icon:'bi-cash-stack',        cls:'st-purple', dot:'dot-purple' },
-    expiring_soon:   { label:'Sắp Hết HĐ',   icon:'bi-clock-history',     cls:'st-orange', dot:'dot-orange' },
-    pending_renewal: { label:'Chờ Gia Hạn',   icon:'bi-hourglass-split',   cls:'st-cyan',   dot:'dot-cyan' },
-    suspended:       { label:'Tạm Ngưng',     icon:'bi-pause-circle',      cls:'st-red',    dot:'dot-red' },
-    under_construction: { label:'Đang Xây Dựng', icon:'bi-tools',            cls:'st-cyan',   dot:'dot-cyan' },
+    available:       { label:'Còn Trống',     icon:'bi-door-open',         cls:'bg-emerald-50 text-emerald-600 border-emerald-250',   dot:'bg-emerald-500' },
+    rented:          { label:'Đã Thuê',       icon:'bi-person-check-fill', cls:'bg-blue-50 text-blue-600 border-blue-250',  dot:'bg-blue-500' },
+    maintenance:     { label:'Bảo Trì',       icon:'bi-wrench-adjustable', cls:'bg-amber-50 text-amber-600 border-amber-250', dot:'bg-amber-500' },
+    deposited:       { label:'Đã Đặt Cọc',   icon:'bi-cash-stack',        cls:'bg-purple-50 text-purple-600 border-purple-250', dot:'bg-purple-500' },
+    expiring_soon:   { label:'Sắp Hết HĐ',   icon:'bi-clock-history',     cls:'bg-orange-50 text-orange-600 border-orange-250', dot:'bg-orange-500' },
+    pending_renewal: { label:'Chờ Gia Hạn',   icon:'bi-hourglass-split',   cls:'bg-cyan-50 text-cyan-600 border-cyan-250',   dot:'bg-cyan-500' },
+    suspended:       { label:'Tạm Ngưng',     icon:'bi-pause-circle',      cls:'bg-rose-50 text-rose-600 border-rose-250',    dot:'bg-rose-500' },
+    under_construction: { label:'Đang Xây Dựng', icon:'bi-tools',            cls:'bg-slate-50 text-slate-600 border-slate-250',   dot:'bg-slate-500' },
 }
 
-const totalRooms = computed(() => floors.value.reduce((s,f) => s + f.rooms.length, 0))
-const countSt = (st) => floors.value.reduce((s,f) => s + f.rooms.filter(r=>r.status===st).length, 0)
 const fmtMoney = (n) => new Intl.NumberFormat('vi-VN').format(n)+'đ'
 
+const activeTab = ref('all') // 'all' | 'active' | 'inactive'
 const searchQuery = ref('')
-const statusFilter = ref('')
 const floorFilter = ref('')
+const statusFilter = ref('')
 
-const filteredFloors = computed(() => {
-    return floors.value.map(f => {
-        if (floorFilter.value && f.id !== floorFilter.value) return null
-        let r = f.rooms
-        if (statusFilter.value) r = r.filter(x => x.status === statusFilter.value)
-        if (searchQuery.value) {
-            const q = searchQuery.value.toLowerCase()
-            r = r.filter(x => x.name.toLowerCase().includes(q))
-        }
-        return { ...f, rooms: r }
-    }).filter(f => f !== null && (f.rooms.length > 0 || (!searchQuery.value && !statusFilter.value && !floorFilter.value)))
+const isRoomActive = (status) => {
+    return ['available', 'rented', 'deposited', 'expiring_soon', 'pending_renewal'].includes(status)
+}
+
+const allFilteredRooms = computed(() => {
+    let result = []
+    floors.value.forEach(f => {
+        f.rooms.forEach(r => {
+            // Apply Tab filter
+            if (activeTab.value === 'active' && !isRoomActive(r.status)) return
+            if (activeTab.value === 'inactive' && isRoomActive(r.status)) return
+
+            // Apply Floor filter
+            if (floorFilter.value && f.id !== parseInt(floorFilter.value)) return
+
+            // Apply Status filter
+            if (statusFilter.value && r.status !== statusFilter.value) return
+
+            // Apply Search Query
+            if (searchQuery.value) {
+                const q = searchQuery.value.toLowerCase()
+                if (!r.name.toLowerCase().includes(q)) return
+            }
+
+            result.push({
+                ...r,
+                floor_name: f.name,
+                floor_id: f.id
+            })
+        })
+    })
+    return result
 })
 
-// Quy tắc chuyển trạng thái: từ trạng thái hiện tại -> được phép chuyển sang
+// Transitions rules
 const statusTransitions = {
     available:       ['deposited', 'maintenance'],
     deposited:       ['rented', 'available'],
@@ -52,26 +72,18 @@ const statusTransitions = {
 }
 const getAllowedStatuses = (current) => statusTransitions[current] || []
 
-// Floor modals
+// Floor Modals
 const showFloorModal = ref(false)
 const editingFloor = ref(null)
 const floorName = ref('')
 const floorError = ref('')
-
-const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 
 const openAddFloor = () => { editingFloor.value=null; floorName.value=''; floorError.value=''; showFloorModal.value=true }
 const openEditFloor = (f) => { editingFloor.value=f; floorName.value=f.name; floorError.value=''; showFloorModal.value=true }
 const submitFloor = () => {
     floorError.value = ''
     if(!floorName.value.trim()) { floorError.value = 'Vui lòng nhập tên tầng'; return }
-    const name = capitalize(floorName.value.trim())
-    floorName.value = name
-    const isDup = floors.value.some(f => {
-        if(editingFloor.value && f.id === editingFloor.value.id) return false
-        return f.name.toLowerCase() === name.toLowerCase()
-    })
-    if(isDup) { floorError.value = `Tên "${name}" đã tồn tại`; return }
+    const name = floorName.value.trim()
     
     if(editingFloor.value) {
         router.put(route('landlord.floors.update', editingFloor.value.id), {name}, {onSuccess:()=>showFloorModal.value=false})
@@ -79,26 +91,49 @@ const submitFloor = () => {
         router.post(route('landlord.floors.store'), {name}, {onSuccess:()=>showFloorModal.value=false})
     }
 }
-const delFloor = (f) => { if(confirm('Xóa tầng "'+f.name+'" và toàn bộ phòng?')) router.delete(route('landlord.floors.delete', f.id)) }
+const delFloor = (f) => { if(confirm(`Xóa tầng "${f.name}" và toàn bộ phòng thuộc tầng?`)) router.delete(route('landlord.floors.delete', f.id)) }
 
-// Room detail
+// Room Actions
 const showDetail = ref(false)
 const selRoom = ref(null)
 const selFloorId = ref(null)
-const openDetail = (room,fid) => { selRoom.value={...room}; selFloorId.value=fid; showDetail.value=true }
+
+const openDetail = (room) => {
+    selRoom.value = { ...room }
+    selFloorId.value = room.floor_id
+    showDetail.value = true
+}
+
 const quickSt = (st) => {
     router.patch(route('landlord.rooms.status', selRoom.value.id), {status:st}, {onSuccess:()=>{selRoom.value.status=st}})
 }
 
-// Room form
+// Room Form Modals
 const showForm = ref(false)
 const isEditing = ref(false)
 const formFloorId = ref(null)
 const currentFloor = computed(() => floors.value.find(fl => fl.id === formFloorId.value))
 const currentFloorRooms = computed(() => currentFloor.value ? currentFloor.value.rooms : [])
 const currentFloorName = computed(() => currentFloor.value ? currentFloor.value.name : '')
-const openAddRoom = (fid) => { isEditing.value=false; formFloorId.value=fid; selRoom.value=null; showDetail.value=false; showForm.value=true }
-const openEditRoom = () => { isEditing.value=true; formFloorId.value=selFloorId.value; showDetail.value=false; showForm.value=true }
+
+const openAddRoom = () => {
+    if (floors.value.length === 0) {
+        alert('Vui lòng thêm tầng trước!')
+        return
+    }
+    isEditing.value = false
+    formFloorId.value = floorFilter.value ? parseInt(floorFilter.value) : floors.value[0].id
+    selRoom.value = null
+    showForm.value = true
+}
+
+const openEditRoom = () => {
+    isEditing.value = true
+    formFloorId.value = selFloorId.value
+    showDetail.value = false
+    showForm.value = true
+}
+
 const submitRoom = (fd) => {
     if(isEditing.value && selRoom.value) {
         router.post(route('landlord.rooms.update', selRoom.value.id), fd, {onSuccess:()=>showForm.value=false, forceFormData:true})
@@ -106,174 +141,263 @@ const submitRoom = (fd) => {
         router.post(route('landlord.rooms.store'), fd, {onSuccess:()=>showForm.value=false, forceFormData:true})
     }
 }
+
+const delRoom = (room) => {
+    if(confirm(`Xóa phòng "${room.name}"?`)) {
+        router.delete(route('landlord.rooms.delete', room.id), {onSuccess:()=>showDetail.value=false})
+    }
+}
 </script>
 
 <template>
-<LandlordLayout>
-    <template #header-title><h1 class="ll-header-title">Quản Lý Trọ</h1></template>
-    <div class="wrap">
-        <!-- Stats -->
-        <div class="stats">
-            <div class="st-item st-total"><i class="bi bi-building"></i> {{ totalRooms }} phòng</div>
-            <div v-for="(cfg,key) in statusConfig" :key="key" class="st-item"><span :class="['dot',cfg.dot]"></span>{{ countSt(key) }} {{ cfg.label }}</div>
-            <button class="btn-add-floor" @click="openAddFloor"><i class="bi bi-plus-circle"></i> Thêm tầng</button>
-        </div>
+    <LandlordLayout>
+        <div class="space-y-6">
+            <!-- Breadcrumbs -->
+            <div class="flex items-center gap-2 text-xs text-slate-400 font-semibold">
+                <span>Bảng điều khiển</span>
+                <i class="bi bi-chevron-right text-[9px]"></i>
+                <span class="text-slate-600">Nhà & Phòng</span>
+            </div>
 
-        <div v-if="floors.length===0" class="empty-msg">
-            <i class="bi bi-inbox" style="font-size:48px;color:#94a3b8"></i>
-            <p>Chưa có tầng nào. Bấm <strong>"Thêm tầng"</strong> để bắt đầu.</p>
-        </div>
-
-        <!-- Filters -->
-        <div class="filters" v-if="floors.length > 0">
-            <div class="f-search"><i class="bi bi-search"></i><input v-model="searchQuery" @input="searchQuery = $event.target.value.replace(/\D/g, '')" placeholder="Tìm số phòng..."/></div>
-            <select v-model="floorFilter" class="f-sel">
-                <option value="">Tất cả tầng</option>
-                <option v-for="f in floors" :key="f.id" :value="f.id">{{ f.name }}</option>
-            </select>
-            <select v-model="statusFilter" class="f-sel">
-                <option value="">Tất cả trạng thái</option>
-                <option v-for="(cfg,key) in statusConfig" :key="key" :value="key">{{ cfg.label }}</option>
-            </select>
-        </div>
-
-        <!-- Floors -->
-        <div v-for="floor in filteredFloors" :key="floor.id" class="floor-block">
-            <div class="floor-head">
-                <h3 class="floor-name"><i class="bi bi-layers-fill"></i> {{ floor.name }}</h3>
-                <div class="floor-actions">
-                    <button class="btn-sm btn-edit" @click="openEditFloor(floor)"><i class="bi bi-pencil"></i></button>
-                    <button class="btn-sm btn-del" @click="delFloor(floor)"><i class="bi bi-trash3"></i></button>
-                    <button class="btn-add-room" @click="openAddRoom(floor.id)"><i class="bi bi-plus"></i> Thêm phòng</button>
+            <!-- Page Title -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="space-y-1">
+                    <h2 class="text-lg font-bold text-slate-800">Quản lý Phòng trọ</h2>
+                    <p class="text-xs text-slate-400">Danh sách các tầng và các phòng cho thuê hiện tại</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button class="px-4 py-2 border border-emerald-200 hover:bg-emerald-50 text-emerald-600 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 bg-white" @click="openAddFloor">
+                        <i class="bi bi-plus-lg"></i> Thêm tầng
+                    </button>
+                    <button class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5" @click="openAddRoom">
+                        <i class="bi bi-plus-lg"></i> Thêm phòng
+                    </button>
                 </div>
             </div>
-            <div class="floor-rooms">
-                <div v-for="room in floor.rooms" :key="room.id" :class="['room-cell', statusConfig[room.status]?.cls]" @click="openDetail(room,floor.id)">
-                    <div class="room-num">{{ room.name }}</div>
-                    <div :class="['room-badge', (statusConfig[room.status]?.cls||'')+ '-badge']">
-                        <i :class="['bi', statusConfig[room.status]?.icon]"></i> {{ statusConfig[room.status]?.label }}
-                    </div>
-                    <div class="room-price">{{ fmtMoney(room.price) }}/th</div>
-                </div>
-                <div v-if="floor.rooms.length===0" class="floor-empty">Chưa có phòng</div>
-            </div>
-        </div>
-    </div>
 
-    <Teleport to="body">
-        <!-- Floor Modal -->
-        <div v-if="showFloorModal" class="mo" @click.self="showFloorModal=false">
-            <div class="mo-box mo-sm">
-                <div class="mo-head"><h3>{{ editingFloor?'Sửa Tầng':'Thêm Tầng' }}</h3><button @click="showFloorModal=false" class="mo-x"><i class="bi bi-x-lg"></i></button></div>
-                <div class="mo-body">
-                    <div class="fg">
-                        <label class="fl">Tên tầng</label>
-                        <input v-model="floorName" :class="['fi', floorError?'fi-err':'']" placeholder="VD: Tầng 1" @input="floorError=''" @keyup.enter="submitFloor"/>
-                        <span v-if="floorError" class="err-msg"><i class="bi bi-exclamation-circle"></i> {{ floorError }}</span>
-                    </div>
-                </div>
-                <div class="mo-foot"><button class="btn-outline" @click="showFloorModal=false">Hủy</button><button class="btn-primary" @click="submitFloor">{{ editingFloor?'Lưu':'Thêm' }}</button></div>
+            <!-- Tab Filters -->
+            <div class="border-b border-slate-100 flex gap-6 text-xs font-bold text-slate-400">
+                <button 
+                    @click="activeTab = 'all'"
+                    :class="[
+                        'pb-3 border-b-2 transition-colors',
+                        activeTab === 'all' ? 'border-emerald-500 text-emerald-600' : 'border-transparent hover:text-slate-600'
+                    ]"
+                >
+                    Tất cả ({{ floors.reduce((s,f) => s + f.rooms.length, 0) }})
+                </button>
+                <button 
+                    @click="activeTab = 'active'"
+                    :class="[
+                        'pb-3 border-b-2 transition-colors',
+                        activeTab === 'active' ? 'border-emerald-500 text-emerald-600' : 'border-transparent hover:text-slate-600'
+                    ]"
+                >
+                    Đang hoạt động ({{ floors.reduce((s,f) => s + f.rooms.filter(r => isRoomActive(r.status)).length, 0) }})
+                </button>
+                <button 
+                    @click="activeTab = 'inactive'"
+                    :class="[
+                        'pb-3 border-b-2 transition-colors',
+                        activeTab === 'inactive' ? 'border-emerald-500 text-emerald-600' : 'border-transparent hover:text-slate-600'
+                    ]"
+                >
+                    Không hoạt động ({{ floors.reduce((s,f) => s + f.rooms.filter(r => !isRoomActive(r.status)).length, 0) }})
+                </button>
             </div>
-        </div>
 
-        <!-- Detail Modal -->
-        <div v-if="showDetail&&selRoom" class="mo" @click.self="showDetail=false">
-            <div class="mo-box">
-                <div class="mo-head"><h3>Phòng {{ selRoom.name }}</h3><button @click="showDetail=false" class="mo-x"><i class="bi bi-x-lg"></i></button></div>
-                <div class="mo-body">
-                    <div class="dr"><span class="dl">Trạng thái:</span><span :class="['stag',(statusConfig[selRoom.status]?.cls||'')+'-badge']"><i :class="['bi',statusConfig[selRoom.status]?.icon]"></i> {{ statusConfig[selRoom.status]?.label }}</span></div>
-                    <div class="dr"><span class="dl">Giá:</span><span>{{ fmtMoney(selRoom.price) }}/th</span></div>
-                    <div class="dr"><span class="dl">Địa chỉ:</span><span>{{ selRoom.address || 'Chưa cập nhật' }}</span></div>
-                    <div class="dr"><span class="dl">Diện tích:</span><span>{{ selRoom.area }} m²</span></div>
-                    <div class="st-section">
-                        <p class="dl" style="margin-bottom:8px">Đổi trạng thái:</p>
-                        <div class="st-btns">
-                            <button v-for="(cfg,key) in statusConfig" :key="key" v-show="getAllowedStatuses(selRoom.status).includes(key)" :class="['sbtn',cfg.cls+'-btn']" @click="quickSt(key)">
-                                <i :class="['bi',cfg.icon]"></i> {{ cfg.label }}
-                            </button>
+            <!-- Filter Controls -->
+            <div class="bg-white border border-slate-100 rounded-2xl p-4 flex flex-wrap items-center gap-3 shadow-sm">
+                <!-- Search -->
+                <div class="flex items-center bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-slate-400 gap-2 flex-1 min-w-[200px]">
+                    <i class="bi bi-search text-xs"></i>
+                    <input v-model="searchQuery" class="bg-transparent border-none outline-none text-xs text-slate-700 w-full placeholder-slate-400" placeholder="Tìm số phòng..."/>
+                </div>
+
+                <!-- Tầng filter -->
+                <select v-model="floorFilter" class="text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-150 rounded-xl px-3 py-2 outline-none cursor-pointer min-w-[150px]">
+                    <option value="">Tất cả tầng</option>
+                    <option v-for="f in floors" :key="f.id" :value="f.id">{{ f.name }}</option>
+                </select>
+
+                <!-- Trạng thái filter -->
+                <select v-model="statusFilter" class="text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-150 rounded-xl px-3 py-2 outline-none cursor-pointer min-w-[150px]">
+                    <option value="">Tất cả trạng thái</option>
+                    <option v-for="(cfg,key) in statusConfig" :key="key" :value="key">{{ cfg.label }}</option>
+                </select>
+            </div>
+
+            <!-- Rooms Table -->
+            <div class="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+                <div v-if="allFilteredRooms.length === 0" class="p-8 text-center text-slate-400 text-xs font-medium space-y-2">
+                    <i class="bi bi-inbox text-3xl text-slate-300 block"></i>
+                    <span>Không tìm thấy phòng nào phù hợp bộ lọc.</span>
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="py-3.5 px-6">Mã phòng</th>
+                                <th class="py-3.5 px-4">Tầng</th>
+                                <th class="py-3.5 px-4">Diện tích</th>
+                                <th class="py-3.5 px-4">Đơn giá</th>
+                                <th class="py-3.5 px-4">Tình trạng</th>
+                                <th class="py-3.5 px-4">Trạng thái</th>
+                                <th class="py-3.5 px-6 text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
+                            <tr v-for="room in allFilteredRooms" :key="room.id" class="hover:bg-slate-50/40 cursor-pointer" @click="openDetail(room)">
+                                <td class="py-4 px-6 font-bold text-slate-800 flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-sm">
+                                        P
+                                    </div>
+                                    <span>{{ room.name }}</span>
+                                </td>
+                                <td class="py-4 px-4">{{ room.floor_name }}</td>
+                                <td class="py-4 px-4">{{ room.area }} m²</td>
+                                <td class="py-4 px-4 text-slate-800">{{ fmtMoney(room.price) }}/tháng</td>
+                                <td class="py-4 px-4">
+                                    <span :class="[
+                                        'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
+                                        statusConfig[room.status]?.cls || 'bg-slate-50 text-slate-600 border-slate-200'
+                                    ]">
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusConfig[room.status]?.dot"></span>
+                                        {{ statusConfig[room.status]?.label || 'Không rõ' }}
+                                    </span>
+                                </td>
+                                <td class="py-4 px-4">
+                                    <span :class="[
+                                        'px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider',
+                                        isRoomActive(room.status) ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-100'
+                                    ]">
+                                        {{ isRoomActive(room.status) ? 'Đang hoạt động' : 'Tạm ngưng' }}
+                                    </span>
+                                </td>
+                                <td class="py-4 px-6 text-right" @click.stop>
+                                    <button @click="openDetail(room)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-500 inline-flex items-center justify-center transition-colors">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Floor List Settings at bottom -->
+            <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cấu trúc các tầng</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div v-for="fl in floors" :key="fl.id" class="p-4 bg-slate-50/50 border border-slate-100 rounded-2xl flex items-center justify-between">
+                        <div class="space-y-1">
+                            <h4 class="text-xs font-bold text-slate-800">{{ fl.name }}</h4>
+                            <p class="text-[10px] text-slate-400 font-semibold">{{ fl.rooms.length }} phòng</p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button @click="openEditFloor(fl)" class="w-7 h-7 hover:bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
+                            <button @click="delFloor(fl)" class="w-7 h-7 hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center"><i class="bi bi-trash"></i></button>
                         </div>
                     </div>
                 </div>
-                <div class="mo-foot">
-                    <button v-if="['under_construction', 'available', 'maintenance'].includes(selRoom.status)" class="btn-lock" @click="quickSt('suspended')"><i class="bi bi-lock-fill"></i> Khóa phòng</button>
-                    <button class="btn-outline" @click="showDetail=false">Đóng</button>
-                    <button class="btn-primary" @click="openEditRoom"><i class="bi bi-pencil-square"></i> Sửa</button>
-                </div>
             </div>
         </div>
 
-        <RoomFormModal :show="showForm" :isEdit="isEditing" :room="selRoom" :floorId="formFloorId" :floorName="currentFloorName" :statusConfig="statusConfig" :existingRooms="currentFloorRooms" @close="showForm=false" @submitted="submitRoom"/>
-    </Teleport>
-</LandlordLayout>
-</template>
+        <!-- Modals -->
+        <Teleport to="body">
+            <!-- Floor Add/Edit Modal -->
+            <div v-if="showFloorModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showFloorModal=false">
+                <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                        <h3 class="text-sm font-bold text-slate-800">{{ editingFloor ? 'Sửa Tầng' : 'Thêm Tầng Mới' }}</h3>
+                        <button @click="showFloorModal=false" class="text-slate-400 hover:text-slate-600 p-1">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500">Tên tầng <span class="text-rose-500">*</span></label>
+                            <input v-model="floorName" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: Tầng 1" @keyup.enter="submitFloor"/>
+                            <span v-if="floorError" class="text-[10px] text-rose-500 font-semibold block mt-1"><i class="bi bi-exclamation-circle"></i> {{ floorError }}</span>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
+                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showFloorModal=false">Hủy</button>
+                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors" @click="submitFloor">{{ editingFloor ? 'Cập nhật' : 'Thêm' }}</button>
+                    </div>
+                </div>
+            </div>
 
-<style scoped>
-.wrap{display:flex;flex-direction:column;gap:20px}
-.stats{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:14px 20px;box-shadow:0 2px 8px rgba(0,0,0,.05);border:1px solid #f0fdf4;flex-wrap:wrap}
-.st-item{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#374151}
-.st-total{color:#0f766e;font-size:15px;margin-right:6px}
-.dot{width:9px;height:9px;border-radius:50%}
-.dot-green{background:#16a34a}.dot-blue{background:#2563eb}.dot-yellow{background:#d97706}.dot-purple{background:#7c3aed}.dot-orange{background:#ea580c}.dot-cyan{background:#0891b2}.dot-red{background:#dc2626}
-.btn-add-floor{margin-left:auto;display:flex;align-items:center;gap:6px;padding:8px 16px;background:#0f766e;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
-.btn-add-floor:hover{background:#0d9488}
-.empty-msg{text-align:center;padding:60px 20px;color:#64748b;font-size:15px}
-.floor-block{background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.05);border:1px solid #f0fdf4}
-.floor-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.floor-name{font-size:15px;font-weight:700;color:#064e3b;display:flex;align-items:center;gap:7px;margin:0}
-.floor-actions{display:flex;align-items:center;gap:6px}
-.btn-sm{width:32px;height:32px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s}
-.btn-edit{color:#0f766e}.btn-edit:hover{background:#d1fae5}
-.btn-del{color:#dc2626}.btn-del:hover{background:#fee2e2}
-.btn-add-room{display:flex;align-items:center;gap:5px;padding:6px 14px;background:#f0fdf4;color:#0f766e;border:1px solid #bbf7d0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
-.btn-add-room:hover{background:#d1fae5}
-.floor-rooms{display:flex;flex-wrap:wrap;gap:12px}
-.floor-empty{color:#94a3b8;font-size:14px;padding:20px 0}
-.room-cell{width:165px;border-radius:12px;padding:16px 14px;cursor:pointer;transition:transform .15s,box-shadow .15s;border:2px solid transparent;border-left-width:5px}
-.room-cell:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.12)}
-.st-green{background:#f0fdf4;border-color:#86efac;border-left-color:#16a34a}
-.st-blue{background:#eff6ff;border-color:#93c5fd;border-left-color:#2563eb}
-.st-yellow{background:#fffbeb;border-color:#fcd34d;border-left-color:#d97706}
-.st-purple{background:#faf5ff;border-color:#c4b5fd;border-left-color:#7c3aed}
-.st-orange{background:#fff7ed;border-color:#fdba74;border-left-color:#ea580c}
-.st-cyan{background:#ecfeff;border-color:#67e8f9;border-left-color:#0891b2}
-.st-red{background:#fef2f2;border-color:#fca5a5;border-left-color:#dc2626}
-.room-num{font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px}
-.room-badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:100px;display:inline-flex;align-items:center;gap:4px;margin-bottom:8px}
-.st-green-badge{background:#dcfce7;color:#15803d}.st-blue-badge{background:#dbeafe;color:#1d4ed8}.st-yellow-badge{background:#fef3c7;color:#b45309}.st-purple-badge{background:#ede9fe;color:#6d28d9}.st-orange-badge{background:#ffedd5;color:#c2410c}.st-cyan-badge{background:#cffafe;color:#0e7490}.st-red-badge{background:#fee2e2;color:#b91c1c}
-.room-price{font-size:11px;color:#4b5563;font-weight:600}
-/* Modals */
-.mo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px)}
-.mo-box{background:#fff;border-radius:18px;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto}
-.mo-sm{width:340px}
-.mo-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #f0fdf4;background:#f8fffe;position:sticky;top:0;z-index:1}
-.mo-head h3{margin:0;font-size:16px;font-weight:700;color:#064e3b}
-.mo-x{background:none;border:none;font-size:16px;cursor:pointer;color:#6b7280}
-.mo-body{padding:20px;display:flex;flex-direction:column;gap:14px}
-.mo-foot{padding:16px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:#fff}
-.btn-lock{padding:9px 16px;background:#fee2e2;color:#b91c1c;border:none;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-right:auto}
-.btn-lock:hover{background:#fca5a5}
-.fl{font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:4px}
-.fi{width:100%;padding:9px 12px;border:1.5px solid #d1fae5;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box}
-.fi:focus{border-color:#0f766e}
-.fi-err{border-color:#dc2626;background:#fef2f2}
-.fi-err:focus{border-color:#dc2626}
-.err-msg{font-size:12px;color:#dc2626;font-weight:500;display:flex;align-items:center;gap:4px;margin-top:4px}
-.dr{display:flex;align-items:center;gap:10px;font-size:14px;color:#374151}
-.dl{font-weight:600;color:#6b7280;min-width:90px}
-.stag{padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
-.st-section{margin-top:6px;padding-top:14px;border-top:1px solid #f1f5f9}
-.st-btns{display:flex;flex-wrap:wrap;gap:6px}
-.sbtn{padding:6px 10px;border-radius:8px;font-size:11px;font-weight:600;border:1.5px solid transparent;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s}
-.sbtn-active{box-shadow:0 0 0 2px rgba(15,118,110,.3);transform:scale(1.05)}
-.st-green-btn{background:#dcfce7;color:#15803d;border-color:#86efac}.st-blue-btn{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}.st-yellow-btn{background:#fef3c7;color:#b45309;border-color:#fcd34d}.st-purple-btn{background:#ede9fe;color:#6d28d9;border-color:#c4b5fd}.st-orange-btn{background:#ffedd5;color:#c2410c;border-color:#fdba74}.st-cyan-btn{background:#cffafe;color:#0e7490;border-color:#67e8f9}.st-red-btn{background:#fee2e2;color:#b91c1c;border-color:#fca5a5}
-.btn-primary{padding:9px 20px;background:#0f766e;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.btn-primary:hover{background:#0d9488}
-.btn-outline{padding:9px 20px;background:#fff;color:#374151;border:1.5px solid #e2e8f0;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer}
-.filters{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,.05);border:1px solid #f0fdf4;flex-wrap:wrap;margin-bottom:-6px}
-.f-search{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;flex:1;min-width:200px}
-.f-search i{color:#94a3b8}
-.f-search input{border:none;background:transparent;outline:none;font-size:14px;width:100%}
-.f-sel{padding:7px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;color:#374151;outline:none;background:#f8fafc;min-width:160px;cursor:pointer}
-.f-sel:focus{border-color:#0f766e}
-@media(max-width:640px){.stats{gap:8px;padding:12px 14px}.btn-add-floor{width:100%;justify-content:center;margin-left:0}.room-cell{width:calc(50% - 6px)}.mo-box{width:96vw}.lb-arrow{width:36px;height:36px;font-size:16px}.f-sel{width:100%}}
-</style>
+            <!-- Detail Modal -->
+            <div v-if="showDetail && selRoom" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showDetail=false">
+                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                        <h3 class="text-sm font-bold text-slate-800">Chi tiết phòng {{ selRoom.name }}</h3>
+                        <button @click="showDetail=false" class="text-slate-400 hover:text-slate-600 p-1">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 space-y-4 overflow-y-auto">
+                        <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
+                            <span class="text-xs font-bold text-slate-400">Trạng thái:</span>
+                            <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5', statusConfig[selRoom.status]?.cls]">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="statusConfig[selRoom.status]?.dot"></span>
+                                {{ statusConfig[selRoom.status]?.label }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
+                            <span class="text-xs font-bold text-slate-400">Giá thuê:</span>
+                            <span class="text-xs font-bold text-slate-800">{{ fmtMoney(selRoom.price) }}/tháng</span>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
+                            <span class="text-xs font-bold text-slate-400">Địa chỉ:</span>
+                            <span class="text-xs font-bold text-slate-800">{{ selRoom.address || 'Chưa cập nhật' }}</span>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
+                            <span class="text-xs font-bold text-slate-400">Diện tích:</span>
+                            <span class="text-xs font-bold text-slate-800">{{ selRoom.area }} m²</span>
+                        </div>
+
+                        <!-- Status transitions buttons -->
+                        <div class="space-y-2 pt-2">
+                            <p class="text-xs font-bold text-slate-400">Chuyển đổi trạng thái nhanh:</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button 
+                                    v-for="(cfg,key) in statusConfig" 
+                                    :key="key"
+                                    v-show="getAllowedStatuses(selRoom.status).includes(key)"
+                                    :class="['px-3 py-2 rounded-xl text-[10px] font-bold border cursor-pointer hover:shadow-sm transition-all', cfg.cls]"
+                                    @click="quickSt(key)"
+                                >
+                                    <i :class="['bi mr-1', cfg.icon]"></i> {{ cfg.label }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        <button class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl transition-colors" @click="delRoom(selRoom)">
+                            <i class="bi bi-trash mr-1"></i> Xóa phòng
+                        </button>
+                        <div class="flex items-center gap-2">
+                            <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showDetail=false">Đóng</button>
+                            <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors" @click="openEditRoom">Sửa thông tin</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add/Edit Room Modal Form -->
+            <RoomFormModal 
+                :show="showForm" 
+                :isEdit="isEditing" 
+                :room="selRoom" 
+                :floorId="formFloorId" 
+                :floorName="currentFloorName" 
+                :statusConfig="statusConfig" 
+                :existingRooms="currentFloorRooms" 
+                @close="showForm=false" 
+                @submitted="submitRoom"
+            />
+        </Teleport>
+    </LandlordLayout>
+</template>

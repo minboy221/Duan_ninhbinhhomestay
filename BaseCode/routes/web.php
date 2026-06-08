@@ -166,6 +166,9 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::get('/finance', [LandlordController::class, 'finance'])->name('landlord.finance');
+    Route::get('/services', [LandlordController::class, 'services'])->name('landlord.services');
+    Route::get('/pricing-sheets', [LandlordController::class, 'pricingSheets'])->name('landlord.pricing-sheets');
+    Route::get('/pricing-sheets/create', [LandlordController::class, 'pricingSheetsCreate'])->name('landlord.pricing-sheets.create');
 });
 // Route cho phần xác minh đăng ký chủ trọ và thông báo
 Route::middleware(['auth'])->group(function () {
