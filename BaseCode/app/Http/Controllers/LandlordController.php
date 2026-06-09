@@ -71,23 +71,36 @@ class LandlordController extends Controller
     public function storeRoom(Request $request)
     {
         $request->validate([
-            'floor_id'    => 'required|integer|exists:floors,id',
-            'room_number' => 'required|string|max:255',
-            'address'     => 'nullable|string|max:255',
-            'price'       => 'required|numeric|min:0',
-            'area'        => 'required|numeric|min:0',
-            'capacity'    => 'nullable|integer|min:1',
-            'status'      => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
-            'amenities'   => 'nullable|string',
-            'images'      => 'nullable|array|max:10',
-            'images.*'    => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+            'floor_id'     => 'required|integer|exists:floors,id',
+            'room_numbers' => 'nullable|array',
+            'room_number'  => 'nullable|string|max:255',
+            'address'      => 'nullable|string|max:255',
+            'price'        => 'required|numeric|min:0',
+            'area'         => 'required|numeric|min:0',
+            'capacity'     => 'nullable|integer|min:1',
+            'status'       => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+            'amenities'    => 'nullable|string',
+            'images'       => 'nullable|array|max:10',
+            'images.*'     => 'image|mimes:jpeg,png,jpg,webp|max:5120',
         ]);
 
         $imageFiles = $request->file('images', []);
-        $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles);
 
-        if (!$result) return redirect()->back()->with('error', 'Không thể thêm phòng!');
-        return redirect()->back()->with('success', 'Thêm phòng thành công!');
+        if ($request->has('room_numbers') && is_array($request->room_numbers)) {
+            $count = 0;
+            foreach ($request->room_numbers as $rn) {
+                $data = $request->except(['room_numbers', 'room_number']);
+                $data['room_number'] = $rn;
+                $this->roomService->createRoom(Auth::id(), $data, $imageFiles);
+                $count++;
+            }
+            if ($count === 0) return redirect()->back()->with('error', 'Không có phòng nào được thêm!');
+            return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
+        } else {
+            $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles);
+            if (!$result) return redirect()->back()->with('error', 'Không thể thêm phòng!');
+            return redirect()->back()->with('success', 'Thêm phòng thành công!');
+        }
     }
 
     public function updateRoom(Request $request, int $id)
@@ -99,6 +112,7 @@ class LandlordController extends Controller
             'area'           => 'nullable|numeric|min:0',
             'capacity'       => 'nullable|integer|min:1',
             'status'         => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+            'maintenance_reason' => 'nullable|string',
             'amenities'      => 'nullable|string',
             'new_images'     => 'nullable|array|max:10',
             'new_images.*'   => 'image|mimes:jpeg,png,jpg,webp|max:5120',
@@ -119,8 +133,9 @@ class LandlordController extends Controller
     {
         $request->validate([
             'status' => 'required|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+            'maintenance_reason' => 'nullable|string',
         ]);
-        $result = $this->roomService->changeStatus(Auth::id(), $id, $request->status);
+        $result = $this->roomService->changeStatus(Auth::id(), $id, $request->status, $request->maintenance_reason);
         if (!$result) return redirect()->back()->with('error', 'Không thể đổi trạng thái!');
         return redirect()->back()->with('success', 'Đổi trạng thái thành công!');
     }

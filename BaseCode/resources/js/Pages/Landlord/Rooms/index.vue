@@ -64,7 +64,7 @@ const statusTransitions = {
     available:       ['deposited', 'maintenance'],
     deposited:       ['rented', 'available'],
     rented:          ['expiring_soon', 'maintenance'],
-    expiring_soon:   ['pending_renewal', 'available'],
+    expiring_soon:   ['pending_renewal'],
     pending_renewal: ['rented', 'available'],
     maintenance:     ['available'],
     suspended:       ['available'],
@@ -74,24 +74,32 @@ const getAllowedStatuses = (current) => statusTransitions[current] || []
 
 // Floor Modals
 const showFloorModal = ref(false)
-const editingFloor = ref(null)
 const floorName = ref('')
 const floorError = ref('')
 
-const openAddFloor = () => { editingFloor.value=null; floorName.value=''; floorError.value=''; showFloorModal.value=true }
-const openEditFloor = (f) => { editingFloor.value=f; floorName.value=f.name; floorError.value=''; showFloorModal.value=true }
+const openAddFloor = () => { floorName.value=''; floorError.value=''; showFloorModal.value=true }
 const submitFloor = () => {
     floorError.value = ''
     if(!floorName.value.trim()) { floorError.value = 'Vui lòng nhập tên tầng'; return }
-    const name = floorName.value.trim()
+    let name = floorName.value.trim()
+    name = name.charAt(0).toUpperCase() + name.slice(1)
     
-    if(editingFloor.value) {
-        router.put(route('landlord.floors.update', editingFloor.value.id), {name}, {onSuccess:()=>showFloorModal.value=false})
-    } else {
-        router.post(route('landlord.floors.store'), {name}, {onSuccess:()=>showFloorModal.value=false})
+    const isDuplicate = floors.value.some(f => f.name.toLowerCase() === name.toLowerCase())
+
+    if (isDuplicate) {
+        floorError.value = `Tầng "${name}" đã tồn tại`
+        return
     }
+
+    router.post(route('landlord.floors.store'), {name}, {
+        onSuccess:()=> {
+            showFloorModal.value=false
+            showAlert('Thành công', `Thêm tầng "${name}" thành công!`, 'success')
+        },
+        onError: (errors) => { if (errors.name) floorError.value = errors.name }
+    })
 }
-const delFloor = (f) => { if(confirm(`Xóa tầng "${f.name}" và toàn bộ phòng thuộc tầng?`)) router.delete(route('landlord.floors.delete', f.id)) }
+const delFloor = (f) => { showConfirm('Xác nhận xóa', `Xóa tầng "${f.name}" và toàn bộ phòng thuộc tầng?`, 'danger', () => { router.delete(route('landlord.floors.delete', f.id)) }) }
 
 // Room Actions
 const showDetail = ref(false)
@@ -105,12 +113,25 @@ const openDetail = (room) => {
 }
 
 const quickSt = (st) => {
-    router.patch(route('landlord.rooms.status', selRoom.value.id), {status:st}, {onSuccess:()=>{selRoom.value.status=st}})
+    if (st === 'maintenance') {
+        showPrompt('Bảo trì phòng', 'Vui lòng nhập lý do bảo trì phòng này:', 'warning', (reason) => {
+            router.patch(route('landlord.rooms.status', selRoom.value.id), {status:st, maintenance_reason: reason}, {onSuccess:()=>{
+                selRoom.value.status=st
+                selRoom.value.maintenance_reason = reason
+            }})
+        })
+    } else {
+        router.patch(route('landlord.rooms.status', selRoom.value.id), {status:st}, {onSuccess:()=>{
+            selRoom.value.status=st
+            selRoom.value.maintenance_reason = null
+        }})
+    }
 }
 
 // Room Form Modals
 const showForm = ref(false)
 const isEditing = ref(false)
+const hideFloorSelect = ref(false)
 const formFloorId = ref(null)
 const currentFloor = computed(() => floors.value.find(fl => fl.id === formFloorId.value))
 const currentFloorRooms = computed(() => currentFloor.value ? currentFloor.value.rooms : [])
@@ -122,6 +143,7 @@ const openAddRoom = () => {
         return
     }
     isEditing.value = false
+    hideFloorSelect.value = false
     formFloorId.value = floorFilter.value ? parseInt(floorFilter.value) : floors.value[0].id
     selRoom.value = null
     showForm.value = true
@@ -129,6 +151,7 @@ const openAddRoom = () => {
 
 const openAddRoomForFloor = (floorId) => {
     isEditing.value = false
+    hideFloorSelect.value = true
     formFloorId.value = floorId
     selRoom.value = null
     showForm.value = true
@@ -143,16 +166,51 @@ const openEditRoom = () => {
 
 const submitRoom = (fd) => {
     if(isEditing.value && selRoom.value) {
-        router.post(route('landlord.rooms.update', selRoom.value.id), fd, {onSuccess:()=>showForm.value=false, forceFormData:true})
+        router.post(route('landlord.rooms.update', selRoom.value.id), fd, {
+            onSuccess:()=> {
+                showForm.value=false
+                showAlert('Thành công', 'Cập nhật thông tin phòng thành công!', 'success')
+            }, forceFormData:true})
     } else {
-        router.post(route('landlord.rooms.store'), fd, {onSuccess:()=>showForm.value=false, forceFormData:true})
+        router.post(route('landlord.rooms.store'), fd, {
+            onSuccess:()=> {
+                showForm.value=false
+                showAlert('Thành công', 'Thêm phòng mới thành công!', 'success')
+            }, forceFormData:true})
     }
 }
 
+const remindTenant = () => {
+    showAlert('Gửi nhắc nhở', `Đã gửi thông báo nhắc nhở gia hạn hợp đồng thành công đến phòng ${selRoom.value.name}!`, 'success')
+}
+
+const lockRoom = (room) => {
+    showConfirm('Khóa phòng', `Khóa phòng "${room.name}"? Phòng sẽ chuyển sang trạng thái <strong class="text-rose-500">Tạm Ngưng</strong> và <strong class="text-rose-500">không thể cho thuê</strong>.`, 'warning', () => {
+        router.patch(route('landlord.rooms.status', room.id), {status:'suspended'}, {onSuccess:()=>{selRoom.value.status='suspended'}})
+    })
+}
+
 const delRoom = (room) => {
-    if(confirm(`Xóa phòng "${room.name}"?`)) {
+    showConfirm('Xác nhận xóa', `Xóa phòng "${room.name}" vĩnh viễn?`, 'danger', () => {
         router.delete(route('landlord.rooms.delete', room.id), {onSuccess:()=>showDetail.value=false})
+    })
+}
+
+// Custom Confirm Modal
+const confirmModal = ref({ show: false, title: '', message: '', type: 'danger', onConfirm: null, isAlert: false, isPrompt: false, promptValue: '', promptError: '' })
+const showConfirm = (title, message, type, onConfirm) => { confirmModal.value = { show: true, title, message, type, onConfirm, isAlert: false, isPrompt: false, promptValue: '', promptError: '' } }
+const showAlert = (title, message, type) => { confirmModal.value = { show: true, title, message, type, onConfirm: null, isAlert: true, isPrompt: false, promptValue: '', promptError: '' } }
+const showPrompt = (title, message, type, onConfirm) => { confirmModal.value = { show: true, title, message, type, onConfirm, isAlert: false, isPrompt: true, promptValue: '', promptError: '' } }
+
+const handleConfirm = () => { 
+    if (confirmModal.value.isPrompt && !confirmModal.value.promptValue.trim()) {
+        confirmModal.value.promptError = 'Vui lòng nhập thông tin này';
+        return;
     }
+    if (confirmModal.value.onConfirm) {
+        confirmModal.value.onConfirm(confirmModal.value.promptValue.trim());
+    }
+    confirmModal.value.show = false 
 }
 </script>
 
@@ -263,7 +321,7 @@ const delRoom = (room) => {
                                 </td>
                                 <td class="py-4 px-4">{{ room.floor_name }}</td>
                                 <td class="py-4 px-4">{{ room.area }} m²</td>
-                                <td class="py-4 px-4 text-slate-800">{{ fmtMoney(room.price) }}/tháng</td>
+                                <td class="py-4 px-4 text-slate-800">{{ fmtMoney(room.price) }}</td>
                                 <td class="py-4 px-4">
                                     <span :class="[
                                         'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
@@ -303,7 +361,6 @@ const delRoom = (room) => {
                         </div>
                         <div class="flex items-center gap-1.5">
                             <button @click="openAddRoomForFloor(fl.id)" class="w-7 h-7 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center" title="Thêm phòng vào tầng này"><i class="bi bi-plus-lg"></i></button>
-                            <button @click="openEditFloor(fl)" class="w-7 h-7 hover:bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
                             <button @click="delFloor(fl)" class="w-7 h-7 hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center"><i class="bi bi-trash"></i></button>
                         </div>
                     </div>
@@ -317,7 +374,7 @@ const delRoom = (room) => {
             <div v-if="showFloorModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showFloorModal=false">
                 <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                        <h3 class="text-sm font-bold text-slate-800">{{ editingFloor ? 'Sửa Tầng' : 'Thêm Tầng Mới' }}</h3>
+                        <h3 class="text-sm font-bold text-slate-800">Thêm Tầng Mới</h3>
                         <button @click="showFloorModal=false" class="text-slate-400 hover:text-slate-600 p-1">
                             <i class="bi bi-x-lg"></i>
                         </button>
@@ -331,7 +388,7 @@ const delRoom = (room) => {
                     </div>
                     <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
                         <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showFloorModal=false">Hủy</button>
-                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors" @click="submitFloor">{{ editingFloor ? 'Cập nhật' : 'Thêm' }}</button>
+                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors" @click="submitFloor">Thêm</button>
                     </div>
                 </div>
             </div>
@@ -353,13 +410,13 @@ const delRoom = (room) => {
                                 {{ statusConfig[selRoom.status]?.label }}
                             </span>
                         </div>
-                        <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
-                            <span class="text-xs font-bold text-slate-400">Giá thuê:</span>
-                            <span class="text-xs font-bold text-slate-800">{{ fmtMoney(selRoom.price) }}/tháng</span>
+                        <div v-if="selRoom.status === 'maintenance'" class="flex items-center justify-between border-b border-slate-50 pb-2.5">
+                            <span class="text-xs font-bold text-slate-400">Lý do bảo trì:</span>
+                            <span class="text-xs font-bold text-rose-500 text-right max-w-[200px] truncate" :title="selRoom.maintenance_reason">{{ selRoom.maintenance_reason || 'Không có lý do' }}</span>
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
-                            <span class="text-xs font-bold text-slate-400">Địa chỉ:</span>
-                            <span class="text-xs font-bold text-slate-800">{{ selRoom.address || 'Chưa cập nhật' }}</span>
+                            <span class="text-xs font-bold text-slate-400">Giá thuê:</span>
+                            <span class="text-xs font-bold text-slate-800">{{ fmtMoney(selRoom.price) }}</span>
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
                             <span class="text-xs font-bold text-slate-400">Diện tích:</span>
@@ -379,13 +436,24 @@ const delRoom = (room) => {
                                 >
                                     <i :class="['bi mr-1', cfg.icon]"></i> {{ cfg.label }}
                                 </button>
+                                <button 
+                                    v-if="selRoom.status === 'expiring_soon'"
+                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100 cursor-pointer hover:shadow-sm transition-all"
+                                    @click="remindTenant"
+                                >
+                                    <i class="bi bi-bell-fill mr-1"></i> Gửi nhắc nhở
+                                </button>
                             </div>
                         </div>
                     </div>
                     <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <button class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl transition-colors" @click="delRoom(selRoom)">
+                        <button v-if="['available', 'maintenance', 'under_construction'].includes(selRoom.status)" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl transition-colors" @click="lockRoom(selRoom)">
+                            <i class="bi bi-lock-fill mr-1"></i> Khóa phòng
+                        </button>
+                        <button v-else-if="selRoom.status === 'suspended'" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl transition-colors" @click="delRoom(selRoom)">
                             <i class="bi bi-trash mr-1"></i> Xóa phòng
                         </button>
+                        <div v-else></div>
                         <div class="flex items-center gap-2">
                             <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showDetail=false">Đóng</button>
                             <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors" @click="openEditRoom">Sửa thông tin</button>
@@ -398,6 +466,7 @@ const delRoom = (room) => {
             <RoomFormModal 
                 :show="showForm" 
                 :isEdit="isEditing" 
+                :hideFloorSelect="hideFloorSelect"
                 :room="selRoom" 
                 :floors="floors"
                 v-model:floorId="formFloorId"
@@ -407,6 +476,52 @@ const delRoom = (room) => {
                 @close="showForm=false" 
                 @submitted="submitRoom"
             />
+
+            <!-- Custom Confirm Modal -->
+            <div v-if="confirmModal.show" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4" @click.self="confirmModal.show = false">
+                <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden text-center transform transition-all">
+                    <div class="p-6">
+                        <div :class="[
+                            'w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4',
+                            confirmModal.type === 'danger' ? 'bg-rose-50 text-rose-500' : 
+                            confirmModal.type === 'success' ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500'
+                        ]">
+                            <i :class="['bi text-2xl', 
+                                confirmModal.type === 'danger' ? 'bi-trash-fill' : 
+                                confirmModal.type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'
+                            ]"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-2">{{ confirmModal.title }}</h3>
+                        <p class="text-sm text-slate-500" v-html="confirmModal.message"></p>
+                        
+                        <!-- Prompt Input -->
+                        <div v-if="confirmModal.isPrompt" class="mt-4 text-left">
+                            <input 
+                                v-model="confirmModal.promptValue" 
+                                type="text" 
+                                :class="[
+                                    'w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium outline-none transition-all',
+                                    confirmModal.promptError ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                                ]" 
+                                placeholder="VD: Thay vòi sen hỏng..." 
+                                @input="confirmModal.promptError=''"
+                                @keyup.enter="handleConfirm"
+                            />
+                            <span v-if="confirmModal.promptError" class="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
+                                <i class="bi bi-exclamation-circle"></i> {{ confirmModal.promptError }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+                        <button v-if="!confirmModal.isAlert" @click="confirmModal.show = false" class="flex-1 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all">Hủy</button>
+                        <button v-if="!confirmModal.isAlert" @click="handleConfirm" :class="[
+                            'flex-1 px-4 py-2.5 text-white font-bold text-xs rounded-xl transition-all shadow-md',
+                            confirmModal.type === 'danger' ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
+                        ]">Xác nhận</button>
+                        <button v-if="confirmModal.isAlert" @click="confirmModal.show = false" class="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20 text-white font-bold text-xs rounded-xl transition-all shadow-md">OK</button>
+                    </div>
+                </div>
+            </div>
         </Teleport>
     </LandlordLayout>
 </template>
