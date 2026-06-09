@@ -214,6 +214,12 @@ class RoomService
             'amenities'   => $data['amenities'] ?? null,
         ], fn($v) => $v !== null);
 
+        if (array_key_exists('maintenance_reason', $data)) {
+            $updateData['maintenance_reason'] = ($data['status'] ?? $room->status) === 'maintenance' ? $data['maintenance_reason'] : null;
+        } else if (isset($data['status']) && $data['status'] !== 'maintenance') {
+            $updateData['maintenance_reason'] = null;
+        }
+
         $updateData['images'] = $allImages ?: null;
 
         return $this->roomRepo->update($room, $updateData);
@@ -222,12 +228,20 @@ class RoomService
     /**
      * Đổi trạng thái nhanh
      */
-    public function changeStatus(int $landlordId, int $roomId, string $status): bool
+    public function changeStatus(int $landlordId, int $roomId, string $status, ?string $reason = null): bool
     {
         if (!in_array($status, Room::STATUSES)) return false;
         $room = $this->roomRepo->findById($roomId);
         if (!$room || $room->property->landlord_id !== $landlordId) return false;
-        return $this->roomRepo->update($room, ['status' => $status]);
+        
+        $updateData = ['status' => $status];
+        if ($status === 'maintenance') {
+            $updateData['maintenance_reason'] = $reason;
+        } else {
+            $updateData['maintenance_reason'] = null;
+        }
+        
+        return $this->roomRepo->update($room, $updateData);
     }
 
     /**
@@ -250,6 +264,7 @@ class RoomService
             'name'      => $room->room_number,
             'address'   => $room->address,
             'status'    => $room->status,
+            'maintenance_reason' => $room->maintenance_reason,
             'price'     => (float) $room->price,
             'area'      => (float) $room->area,
             'capacity'  => $room->capacity,
