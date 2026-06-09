@@ -1,8 +1,8 @@
 <script setup>
 import { ref, watch } from 'vue'
 
-const props = defineProps({ show: Boolean, isEdit: Boolean, room: Object, floorId: [Number,String], floorName: String, statusConfig: Object, existingRooms: { type: Array, default: () => [] } })
-const emit = defineEmits(['close','submitted'])
+const props = defineProps({ show: Boolean, isEdit: Boolean, room: Object, floorId: [Number,String], floorName: String, statusConfig: Object, existingRooms: { type: Array, default: () => [] }, floors: { type: Array, default: () => [] } })
+const emit = defineEmits(['close','submitted','update:floorId'])
 
 const form = ref({ room_number:'', address:'', price:3000000, area:20, capacity:2, status:'available', amenities:'' })
 const submitting = ref(false)
@@ -109,6 +109,18 @@ const submit = () => {
 
             <!-- Body -->
             <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                <!-- Chọn Tầng (chỉ hiển thị khi thêm mới phòng) -->
+                <div v-if="!isEdit" class="space-y-1">
+                    <label class="text-xs font-bold text-slate-500">Tầng <span class="text-rose-500">*</span></label>
+                    <select 
+                        :value="floorId" 
+                        @change="emit('update:floorId', parseInt($event.target.value))"
+                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none transition-all cursor-pointer bg-white"
+                    >
+                        <option v-for="f in floors" :key="f.id" :value="f.id">{{ f.name }}</option>
+                    </select>
+                </div>
+
                 <!-- Room Number -->
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-slate-500">Số phòng <span class="text-rose-500">*</span></label>

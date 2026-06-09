@@ -127,6 +127,13 @@ const openAddRoom = () => {
     showForm.value = true
 }
 
+const openAddRoomForFloor = (floorId) => {
+    isEditing.value = false
+    formFloorId.value = floorId
+    selRoom.value = null
+    showForm.value = true
+}
+
 const openEditRoom = () => {
     isEditing.value = true
     formFloorId.value = selFloorId.value
@@ -295,6 +302,7 @@ const delRoom = (room) => {
                             <p class="text-[10px] text-slate-400 font-semibold">{{ fl.rooms.length }} phòng</p>
                         </div>
                         <div class="flex items-center gap-1.5">
+                            <button @click="openAddRoomForFloor(fl.id)" class="w-7 h-7 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center" title="Thêm phòng vào tầng này"><i class="bi bi-plus-lg"></i></button>
                             <button @click="openEditFloor(fl)" class="w-7 h-7 hover:bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
                             <button @click="delFloor(fl)" class="w-7 h-7 hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center"><i class="bi bi-trash"></i></button>
                         </div>
@@ -391,7 +399,8 @@ const delRoom = (room) => {
                 :show="showForm" 
                 :isEdit="isEditing" 
                 :room="selRoom" 
-                :floorId="formFloorId" 
+                :floors="floors"
+                v-model:floorId="formFloorId"
                 :floorName="currentFloorName" 
                 :statusConfig="statusConfig" 
                 :existingRooms="currentFloorRooms" 

@@ -67,30 +67,30 @@ const bottomTabs = [
 </script>
 
 <template>
-    <div class="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
+    <div class="flex h-screen overflow-hidden bg-[#fafbfe] font-sans text-slate-700 antialiased">
         <!-- Sidebar (desktop only) -->
         <aside 
             :class="sidebarOpen ? 'w-64' : 'w-20'" 
-            class="hidden md:flex flex-col flex-shrink-0 bg-white border-r border-slate-100 transition-all duration-300 z-20"
+            class="hidden md:flex flex-col flex-shrink-0 bg-white border-r border-slate-100/80 transition-all duration-300 ease-in-out z-20 shadow-[4px_0_24px_rgba(0,0,0,0.015)]"
         >
             <!-- Brand logo -->
-            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100 h-16 flex-shrink-0">
-                <div class="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center font-bold text-2xl shadow-sm shadow-emerald-200">
+            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100/60 h-16 flex-shrink-0">
+                <div class="w-10 h-10 bg-gradient-to-tr from-emerald-600 to-teal-400 text-white rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-emerald-500/10">
                     R
                 </div>
-                <div v-if="sidebarOpen" class="flex flex-col overflow-hidden">
-                    <span class="font-bold text-slate-800 text-sm leading-tight whitespace-nowrap">Ninh Bình Stay</span>
-                    <span class="text-emerald-500 text-xs font-semibold whitespace-nowrap">Chủ Trọ Dashboard</span>
+                <div v-if="sidebarOpen" class="flex flex-col overflow-hidden transition-all duration-300">
+                    <span class="font-extrabold text-slate-900 text-sm tracking-tight whitespace-nowrap">Ninh Bình Stay</span>
+                    <span class="text-emerald-600 text-[10px] font-extrabold tracking-wide uppercase whitespace-nowrap">Chủ Trọ Panel</span>
                 </div>
             </div>
 
             <!-- Navigation Links -->
-            <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-100">
-                <div v-for="group in navGroups" :key="group.label" class="space-y-1">
-                    <p v-if="group.label && sidebarOpen" class="px-3 text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+            <nav class="flex-1 overflow-y-auto px-4 py-6 space-y-7 scrollbar-thin scrollbar-thumb-slate-100">
+                <div v-for="group in navGroups" :key="group.label" class="space-y-2">
+                    <p v-if="group.label && sidebarOpen" class="px-3 text-[9px] font-bold text-slate-400/80 tracking-widest uppercase">
                         {{ group.label }}
                     </p>
-                    <div v-else-if="group.label && !sidebarOpen" class="h-px bg-slate-100 my-4"></div>
+                    <div v-else-if="group.label && !sidebarOpen" class="h-px bg-slate-100/80 my-4 mx-2"></div>
                     
                     <div class="space-y-1">
                         <component 
@@ -99,28 +99,28 @@ const bottomTabs = [
                             :key="item.label"
                             :href="item.path !== '#' ? item.path : undefined"
                             :class="[
-                                'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative',
-                                item.path === '#' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer',
+                                'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative',
+                                item.path === '#' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:translate-x-0.5',
                                 isActive(item.path) 
-                                    ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm' 
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                    ? 'bg-emerald-50/70 border border-emerald-100/50 text-emerald-700 font-bold shadow-[0_2px_12px_rgba(16,185,129,0.04)] before:absolute before:left-0 before:top-2.5 before:bottom-2.5 before:w-1 before:bg-emerald-500 before:rounded-full' 
+                                    : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-900'
                             ]"
                             :title="!sidebarOpen ? item.label : ''"
                         >
-                            <i :class="['bi', item.icon, 'text-lg', isActive(item.path) ? 'text-emerald-500' : 'text-slate-400 group-hover:text-slate-600']"></i>
-                            <span v-if="sidebarOpen" class="text-sm truncate">{{ item.label }}</span>
+                            <i :class="['bi', item.icon, 'text-lg transition-colors duration-300', isActive(item.path) ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-700']"></i>
+                            <span v-if="sidebarOpen" class="text-xs font-semibold tracking-tight truncate">{{ item.label }}</span>
                             
                             <!-- Pro badge -->
                             <span 
                                 v-if="item.isPro && sidebarOpen" 
-                                class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 rounded uppercase"
+                                class="ml-auto px-1.5 py-0.5 text-[8px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md uppercase"
                             >
                                 PRO
                             </span>
 
                             <!-- Tooltip when collapsed -->
-                            <div v-if="!sidebarOpen" class="absolute left-16 bg-slate-800 text-white text-xs px-2.5 py-1.5 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                                {{ item.label }} <span v-if="item.isPro" class="text-[9px] text-amber-400 ml-1">(PRO)</span>
+                            <div v-if="!sidebarOpen" class="absolute left-16 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                                {{ item.label }} <span v-if="item.isPro" class="text-[8px] text-amber-400 ml-1">(PRO)</span>
                             </div>
                         </component>
                     </div>
@@ -128,17 +128,25 @@ const bottomTabs = [
             </nav>
 
             <!-- Sidebar Footer -->
-            <div class="p-4 border-t border-slate-100 flex flex-col gap-1.5">
+            <div class="p-4 border-t border-slate-100/80 flex flex-col gap-1.5">
+                <Link 
+                    href="/" 
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 w-full transition-all duration-300 font-bold text-xs"
+                    title="Về trang chủ"
+                >
+                    <i class="bi bi-globe text-lg text-slate-400"></i>
+                    <span v-if="sidebarOpen">Về Trang Chủ</span>
+                </Link>
                 <button 
                     @click="logout" 
-                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 w-100 transition-all font-medium text-sm"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50/50 w-full transition-all duration-300 font-bold text-xs"
                 >
                     <i class="bi bi-box-arrow-right text-lg"></i>
                     <span v-if="sidebarOpen">Đăng Xuất</span>
                 </button>
                 <button 
                     @click="sidebarOpen = !sidebarOpen" 
-                    class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all text-xs"
+                    class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-slate-700 rounded-xl transition-all duration-300 text-xs font-semibold"
                 >
                     <i :class="['bi', sidebarOpen ? 'bi-arrow-bar-left' : 'bi-arrow-bar-right', 'text-lg']"></i>
                     <span v-if="sidebarOpen">Thu gọn menu</span>
@@ -149,18 +157,18 @@ const bottomTabs = [
         <!-- Main content container -->
         <div class="flex flex-col flex-1 overflow-hidden min-w-0">
             <!-- Header -->
-            <header class="bg-white border-b border-slate-100 h-16 flex items-center justify-between px-6 flex-shrink-0 z-10">
+            <header class="bg-white border-b border-slate-100/80 h-16 flex items-center justify-between px-6 flex-shrink-0 z-10 shadow-[0_2px_12px_rgba(0,0,0,0.005)]">
                 <div class="flex items-center gap-4">
                     <!-- Hamburger menu (mobile only) -->
-                    <button class="md:hidden text-slate-500 hover:bg-slate-50 p-2 rounded-lg" @click="drawerOpen = true">
+                    <button class="md:hidden text-slate-500 hover:bg-slate-50 p-2 rounded-xl" @click="drawerOpen = true">
                         <i class="bi bi-list text-2xl"></i>
                     </button>
                     
                     <!-- Search input (fake) -->
-                    <div class="hidden md:flex items-center bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5 w-64 text-slate-400 gap-2">
-                        <i class="bi bi-search text-sm"></i>
-                        <span class="text-xs">Tìm kiếm...</span>
-                        <kbd class="ml-auto bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[9px] font-mono text-slate-400 shadow-sm">⌘K</kbd>
+                    <div class="hidden md:flex items-center bg-slate-50/60 border border-slate-100/80 rounded-xl px-3 py-1.5 w-64 text-slate-400 gap-2 hover:bg-slate-50 transition-colors duration-300">
+                        <i class="bi bi-search text-xs"></i>
+                        <span class="text-xs font-medium text-slate-400">Tìm kiếm...</span>
+                        <kbd class="ml-auto bg-white border border-slate-200/60 rounded px-1.5 py-0.5 text-[9px] font-mono text-slate-400/80 shadow-sm">⌘K</kbd>
                     </div>
                 </div>
 
@@ -170,36 +178,40 @@ const bottomTabs = [
                     <div class="relative">
                         <button 
                             @click="propertyDropdownOpen = !propertyDropdownOpen"
-                            class="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white transition-all shadow-sm"
+                            class="flex items-center gap-2 border border-slate-200/80 hover:bg-slate-50/60 rounded-xl px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-white transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.015)]"
                         >
                             <i class="bi bi-building text-emerald-500"></i>
                             <span>{{ selectedProperty.name }}</span>
-                            <i class="bi bi-chevron-down text-[10px] text-slate-400 ml-1"></i>
+                            <i class="bi bi-chevron-down text-[9px] text-slate-400 ml-1"></i>
                         </button>
                         
                         <!-- Dropdown menu -->
                         <div 
                             v-if="propertyDropdownOpen" 
-                            class="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-xl shadow-lg py-1.5 z-50"
+                            class="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-fade-in"
                         >
-                            <div class="px-3.5 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            <div class="px-4 py-1.5 text-[9px] font-bold text-slate-400/80 tracking-widest uppercase">
                                 Chọn Cơ Sở
                             </div>
                             <button 
                                 v-for="prop in properties" 
                                 :key="prop.id"
                                 @click="selectProperty(prop)"
-                                class="flex items-center w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                                class="flex items-center w-full px-4 py-2 text-left text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                             >
-                                <i class="bi bi-geo-alt text-emerald-500 mr-2"></i>
+                                <i class="bi bi-geo-alt-fill text-emerald-500 mr-2"></i>
                                 {{ prop.name }}
                             </button>
                         </div>
                     </div>
 
                     <!-- Language and guides -->
-                    <div class="hidden sm:flex items-center gap-3">
-                        <span class="text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer">Hướng dẫn</span>
+                    <div class="hidden sm:flex items-center gap-4">
+                        <Link href="/" class="text-xs font-bold text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1.5">
+                            <i class="bi bi-globe text-sm"></i>
+                            <span>Xem trang chủ</span>
+                        </Link>
+                        <span class="text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer transition-colors">Hướng dẫn</span>
                         <div class="w-6 h-4 bg-red-600 rounded overflow-hidden flex items-center justify-center shadow-sm relative">
                             <!-- Vietnam Flag Star (simplified) -->
                             <div class="absolute w-2 h-2 bg-yellow-400 rotate-45"></div>
@@ -208,26 +220,26 @@ const bottomTabs = [
                     </div>
 
                     <!-- Notifications -->
-                    <button class="relative w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500 hover:bg-slate-100 transition-colors">
-                        <i class="bi bi-bell text-base"></i>
-                        <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
+                    <button class="relative w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500 hover:bg-slate-100/80 hover:text-slate-800 transition-all shadow-[0_2px_6px_rgba(0,0,0,0.005)]">
+                        <i class="bi bi-bell text-sm"></i>
+                        <span class="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-white"></span>
                     </button>
 
                     <!-- User Profile info -->
                     <div class="flex items-center gap-3 pl-3 border-l border-slate-100">
-                        <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold shadow-sm shadow-emerald-200">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-extrabold shadow-md shadow-emerald-500/10">
                             {{ user?.name ? user.name.charAt(0).toUpperCase() : 'L' }}
                         </div>
                         <div class="hidden lg:flex flex-col">
-                            <span class="text-xs font-bold text-slate-800 leading-none">{{ user?.name || 'Chủ trọ' }}</span>
-                            <span class="text-[10px] font-semibold text-emerald-500 mt-1">Chủ Trọ</span>
+                            <span class="text-xs font-bold text-slate-900 leading-none">{{ user?.name || 'Chủ trọ' }}</span>
+                            <span class="text-[9px] font-extrabold text-emerald-600 mt-1 uppercase tracking-wide">Chủ Trọ</span>
                         </div>
                     </div>
                 </div>
             </header>
 
             <!-- Main view screen -->
-            <main class="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50">
+            <main class="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8fafc]">
                 <slot />
             </main>
         </div>
@@ -281,7 +293,11 @@ const bottomTabs = [
                 </nav>
 
                 <!-- Drawer Footer -->
-                <div class="p-4 border-t border-slate-100">
+                <div class="p-4 border-t border-slate-100 flex flex-col gap-1">
+                    <Link href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 w-full transition-all font-medium text-sm">
+                        <i class="bi bi-globe text-lg text-slate-400"></i>
+                        <span>Về Trang Chủ</span>
+                    </Link>
                     <button @click="logout" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 w-full transition-all font-medium text-sm">
                         <i class="bi bi-box-arrow-right text-lg"></i>
                         <span>Đăng Xuất</span>

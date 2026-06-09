@@ -114,6 +114,7 @@ const onVideoPlay = async () => {
 
     const faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.4);
 
+
     const displaySize = {
         width: videoRef.value.videoWidth,
         height: videoRef.value.videoHeight,
@@ -273,7 +274,6 @@ onUnmounted(() => {
                         type="button"
                         @click="emit('prev')"
                         class="w-full px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1"
-                        class="w-full h-14 rounded-full border-2 border-sky-700 text-sky-700 font-bold hover:bg-sky-50 transition-all flex items-center justify-center gap-2"
                     >
                         <span class="material-symbols-outlined">
                             arrow_back
@@ -282,12 +282,6 @@ onUnmounted(() => {
                         Quay lại
                     </button>
 
-                    <button
-                        disabled
-                        class="w-full h-14 rounded-full bg-slate-200 text-slate-500 font-semibold mt-4"
-                    >
-                        <i class="bi bi-arrow-left"></i> Quay lại
-                    </button>
                     <button disabled class="w-full px-4 py-2.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl cursor-not-allowed">
                         Tự động nộp hồ sơ khi khớp ảnh
                     </button>
