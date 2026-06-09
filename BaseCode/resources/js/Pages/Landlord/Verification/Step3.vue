@@ -282,12 +282,6 @@ onUnmounted(() => {
                         Quay lại
                     </button>
 
-                    <button
-                        disabled
-                        class="w-full h-14 rounded-full bg-slate-200 text-slate-500 font-semibold mt-4"
-                    >
-                        <i class="bi bi-arrow-left"></i> Quay lại
-                    </button>
                     <button disabled class="w-full px-4 py-2.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl cursor-not-allowed">
                         Tự động nộp hồ sơ khi khớp ảnh
                     </button>
