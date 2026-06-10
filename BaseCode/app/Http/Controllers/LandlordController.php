@@ -61,9 +61,13 @@ class LandlordController extends Controller
 
     public function deleteFloor(int $id)
     {
-        $result = $this->roomService->deleteFloor(Auth::id(), $id);
-        if (!$result) return redirect()->back()->with('error', 'Không thể xóa tầng!');
-        return redirect()->back()->with('success', 'Xóa tầng thành công!');
+        try {
+            $result = $this->roomService->deleteFloor(Auth::id(), $id);
+            if (!$result) return redirect()->back()->with('error', 'Không thể xóa tầng!');
+            return redirect()->back()->with('success', 'Xóa tầng thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     // ========== ROOM CRUD ==========
