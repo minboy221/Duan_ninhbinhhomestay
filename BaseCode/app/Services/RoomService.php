@@ -121,6 +121,13 @@ class RoomService
         $floor = $this->floorRepo->findById($floorId);
         if (!$floor || $floor->property->landlord_id !== $landlordId) return false;
 
+        $restrictedStatuses = ['rented', 'deposited', 'expiring_soon', 'pending_renewal'];
+        foreach ($floor->rooms as $room) {
+            if (in_array($room->status, $restrictedStatuses)) {
+                throw new \Exception('Tầng này có phòng đang trong trạng thái Đã thuê, Đã đặt cọc, Sắp hết hạn HĐ hoặc Chờ gia hạn. Không thể xóa!');
+            }
+        }
+
         // Xóa ảnh của tất cả phòng trong tầng
         foreach ($floor->rooms as $room) {
             $this->deleteRoomImages($room);

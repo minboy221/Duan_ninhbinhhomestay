@@ -99,7 +99,17 @@ const submitFloor = () => {
         onError: (errors) => { if (errors.name) floorError.value = errors.name }
     })
 }
-const delFloor = (f) => { showConfirm('Xác nhận xóa', `Xóa tầng "${f.name}" và toàn bộ phòng thuộc tầng?`, 'danger', () => { router.delete(route('landlord.floors.delete', f.id)) }) }
+const delFloor = (f) => { 
+    const restrictedStatuses = ['rented', 'deposited', 'expiring_soon', 'pending_renewal'];
+    const hasRestrictedRoom = f.rooms.some(r => restrictedStatuses.includes(r.status));
+    
+    if (hasRestrictedRoom) {
+        showAlert('Không thể xóa', 'Tầng này có phòng đang trong trạng thái Đã thuê, Đã đặt cọc, Sắp hết hạn HĐ hoặc Chờ gia hạn. Không thể xóa!', 'warning');
+        return;
+    }
+
+    showConfirm('Xác nhận xóa', `Xóa tầng "${f.name}" và toàn bộ phòng thuộc tầng?`, 'danger', () => { router.delete(route('landlord.floors.delete', f.id)) }) 
+}
 
 // Room Actions
 const showDetail = ref(false)
