@@ -2,10 +2,14 @@
 namespace App\Repositories;
 use App\Models\BoardingHouse;
 
-class BoardingHouseRepository{
+class BoardingHouseRepository
+{
     public function createBoardingHouse(array $data)
     {
-        return BoardingHouse::create($data);
+        return BoardingHouse::updateOrCreate(
+            ['user_id' => $data['user_id']],
+            $data                           
+        );
     }
 }
 

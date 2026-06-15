@@ -102,7 +102,10 @@ const onVideoPlay = async () => {
 
     const idImg = await faceapi.bufferToImage(props.form.id_card_front);
     const idDetection = await faceapi
-        .detectSingleFace(idImg, new faceapi.TinyFaceDetectorOptions())
+        .detectSingleFace(
+            idImg,
+            new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }),
+        )
         .withFaceLandmarks()
         .withFaceDescriptor();
 
@@ -113,7 +116,6 @@ const onVideoPlay = async () => {
     }
 
     const faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.4);
-
 
     const displaySize = {
         width: videoRef.value.videoWidth,
@@ -132,7 +134,10 @@ const onVideoPlay = async () => {
         const detections = await faceapi
             .detectAllFaces(
                 videoRef.value,
-                new faceapi.TinyFaceDetectorOptions(),
+                new faceapi.TinyFaceDetectorOptions({
+                    inputSize: 320,
+                    scoreThreshold: 0.5,
+                }),
             )
             .withFaceLandmarks()
             .withFaceDescriptors();
@@ -174,6 +179,15 @@ watch(
     () => props.currentStep,
     (step) => {
         if (step === 3) {
+            //reset toàn bộ trạng thái AI về ban đầu
+            isMatched.value = false;
+            statusMsg.value = "Vui lòng đưa khuôn mặt vào khung hình";
+            statusColor.value = "bg-blue-500";
+            // 2. XÓA DỮ LIỆU CŨ TRONG FORM (Để tránh gửi nhầm ảnh của lần quét hỏng trước đó)
+            if (props.form) {
+                props.form.is_face_matched = false;
+                props.form.face_auth_image = null;
+            }
             startCamera();
         } else {
             stopCamera();
@@ -206,13 +220,21 @@ onUnmounted(() => {
         <!-- Header -->
         <div class="text-center space-y-2">
             <h1 class="text-lg font-bold text-slate-800">Xác minh khuôn mặt</h1>
-            <p class="text-xs text-slate-400">Đưa khuôn mặt của bạn đối chiếu song song với hình ảnh trên CCCD</p>
+            <p class="text-xs text-slate-400">
+                Đưa khuôn mặt của bạn đối chiếu song song với hình ảnh trên CCCD
+            </p>
         </div>
 
-        <div class="bg-white rounded-3xl border border-slate-100 overflow-hidden grid grid-cols-1 md:grid-cols-12 shadow-sm">
+        <div
+            class="bg-white rounded-3xl border border-slate-100 overflow-hidden grid grid-cols-1 md:grid-cols-12 shadow-sm"
+        >
             <!-- Left Camera Stream -->
-            <div class="md:col-span-8 p-6 flex flex-col items-center justify-center space-y-4">
-                <div class="relative w-full max-w-[420px] aspect-[4/5] bg-black rounded-2xl overflow-hidden shadow-inner">
+            <div
+                class="md:col-span-8 p-6 flex flex-col items-center justify-center space-y-4"
+            >
+                <div
+                    class="relative w-full max-w-[420px] aspect-[4/5] bg-black rounded-2xl overflow-hidden shadow-inner"
+                >
                     <!-- camera tag -->
                     <video
                         ref="videoRef"
@@ -229,42 +251,68 @@ onUnmounted(() => {
                     />
 
                     <!-- Face scanning guide overlay -->
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div class="relative w-[200px] h-[260px] rounded-full border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                    <div
+                        class="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    >
+                        <div
+                            class="relative w-[200px] h-[260px] rounded-full border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                        >
                             <!-- corner indicators -->
-                            <div class="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg"></div>
-                            <div class="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg"></div>
-                            <div class="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg"></div>
-                            <div class="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg"></div>
-                            
+                            <div
+                                class="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg"
+                            ></div>
+                            <div
+                                class="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg"
+                            ></div>
+                            <div
+                                class="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg"
+                            ></div>
+                            <div
+                                class="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg"
+                            ></div>
+
                             <!-- scanning line -->
-                            <div class="absolute left-0 right-0 h-[1.5px] bg-emerald-400 animate-scan"></div>
+                            <div
+                                class="absolute left-0 right-0 h-[1.5px] bg-emerald-400 animate-scan"
+                            ></div>
                         </div>
                     </div>
                 </div>
 
                 <!-- status notifier -->
-                <div :class="[statusColor, 'px-4 py-2.5 rounded-xl text-white font-bold text-xs text-center w-full max-w-[420px] transition-all']">
+                <div
+                    :class="[
+                        statusColor,
+                        'px-4 py-2.5 rounded-xl text-white font-bold text-xs text-center w-full max-w-[420px] transition-all',
+                    ]"
+                >
                     {{ statusMsg }}
                 </div>
             </div>
 
             <!-- Right Notice Column -->
-            <div class="md:col-span-4 bg-slate-50/50 p-6 flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-100">
+            <div
+                class="md:col-span-4 bg-slate-50/50 p-6 flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-100"
+            >
                 <div class="space-y-4">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2 flex items-center gap-1">
+                    <h3
+                        class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2 flex items-center gap-1"
+                    >
                         <i class="bi bi-info-circle text-emerald-500"></i>
                         Lưu ý quan trọng
                     </h3>
                     <ul class="space-y-3 text-xs text-slate-500 font-semibold">
                         <li class="flex items-center gap-2">
-                            <i class="bi bi-check-circle text-emerald-500"></i> Không đeo kính, khẩu trang
+                            <i class="bi bi-check-circle text-emerald-500"></i>
+                            Không đeo kính, khẩu trang
                         </li>
                         <li class="flex items-center gap-2">
-                            <i class="bi bi-check-circle text-emerald-500"></i> Đảm bảo môi trường đủ sáng
+                            <i class="bi bi-check-circle text-emerald-500"></i>
+                            Đảm bảo môi trường đủ sáng
                         </li>
                         <li class="flex items-center gap-2">
-                            <i class="bi bi-check-circle text-emerald-500"></i> Giữ điện thoại cố định
+                            <i class="bi bi-check-circle text-emerald-500"></i>
+                            Giữ điện thoại cố định
                         </li>
                     </ul>
                 </div>
@@ -282,7 +330,10 @@ onUnmounted(() => {
                         Quay lại
                     </button>
 
-                    <button disabled class="w-full px-4 py-2.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl cursor-not-allowed">
+                    <button
+                        disabled
+                        class="w-full px-4 py-2.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl cursor-not-allowed"
+                    >
                         Tự động nộp hồ sơ khi khớp ảnh
                     </button>
                 </div>
@@ -293,9 +344,17 @@ onUnmounted(() => {
 
 <style scoped>
 @keyframes scan {
-    0% { top: 10%; opacity: 0; }
-    50% { opacity: 1; }
-    100% { top: 90%; opacity: 0; }
+    0% {
+        top: 10%;
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        top: 90%;
+        opacity: 0;
+    }
 }
 .animate-scan {
     animation: scan 2.5s infinite ease-in-out;

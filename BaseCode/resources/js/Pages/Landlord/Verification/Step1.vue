@@ -29,7 +29,7 @@ const validate = () => {
 
     if (!props.form.phone) {
         errors.value.phone = "Vui lòng nhập số điện thoại";
-    } else if (!/^\d{10,11}$/.test(props.form.phone)) {
+    } else if (!/^\d{10}$/.test(props.form.phone)) {
         errors.value.phone = "Số điện thoại không hợp lệ";
     }
 

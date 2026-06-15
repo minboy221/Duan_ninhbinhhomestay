@@ -13,11 +13,13 @@ class AdminVerificationService
     //lấy danh sách hồ sơ của người dùng đăng ký chủ trọ
     public function getVerificationsList()
     {
-        return User::where('role', 'user')
-            ->whereHas('boardingHouse', function ($query) {
-                $query->where('status', 'pending');
+        return User::query()
+            ->where(function ($query) {
+                $query->whereHas('verification')
+                ->orWhereHas('boardingHouse');
             })
-            ->with('verification')
+            ->with(['verification','boardingHouse'])
+            ->orderBy('id','desc') //đưa các hồ sơ mới nhất lên đầu
             ->paginate(10);
     }
     //lấy thông tin chi tiết hồ sơ

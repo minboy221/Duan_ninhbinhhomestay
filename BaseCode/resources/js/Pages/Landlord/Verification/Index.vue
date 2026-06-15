@@ -37,6 +37,8 @@ const form = useForm({
     contract_detail: "",
     contract_images: [],
     room_images: [],
+    latitude: null,
+    longitude: null,
     face_auth_image: null,
     is_face_matched: false,
 });
@@ -75,55 +77,78 @@ const submitVerification = () => {
         <div class="mb-12">
             <div class="flex items-start justify-between relative">
                 <!-- line -->
-                <div class="absolute top-7 left-[10%] right-[10%] h-[2px] bg-slate-100 z-0"></div>
+                <div
+                    class="absolute top-7 left-[10%] right-[10%] h-[2px] bg-slate-100 z-0"
+                ></div>
 
                 <!-- Step 1 -->
                 <div class="flex flex-col items-center relative z-10">
-                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
-                        :class="currentStep >= 1
+                    <div
+                        class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
+                        :class="
+                            currentStep >= 1
                                 ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/10'
                                 : 'bg-white text-slate-400 border-slate-200'
-                            ">
+                        "
+                    >
                         1
                     </div>
-                    <p class="mt-3 text-xs font-bold" :class="currentStep >= 1
-                            ? 'text-emerald-600'
-                            : 'text-slate-400'
-                        ">
+                    <p
+                        class="mt-3 text-xs font-bold"
+                        :class="
+                            currentStep >= 1
+                                ? 'text-emerald-600'
+                                : 'text-slate-400'
+                        "
+                    >
                         Xác minh
                     </p>
                 </div>
 
                 <!-- Step 2 -->
                 <div class="flex flex-col items-center relative z-10">
-                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
-                        :class="currentStep >= 2
+                    <div
+                        class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
+                        :class="
+                            currentStep >= 2
                                 ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/10'
                                 : 'bg-white text-slate-400 border-slate-200'
-                            ">
+                        "
+                    >
                         2
                     </div>
-                    <p class="mt-3 text-xs font-bold" :class="currentStep >= 2
-                            ? 'text-emerald-600'
-                            : 'text-slate-400'
-                        ">
+                    <p
+                        class="mt-3 text-xs font-bold"
+                        :class="
+                            currentStep >= 2
+                                ? 'text-emerald-600'
+                                : 'text-slate-400'
+                        "
+                    >
                         Thông tin trọ
                     </p>
                 </div>
 
                 <!-- Step 3 -->
                 <div class="flex flex-col items-center relative z-10">
-                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
-                        :class="currentStep >= 3
+                    <div
+                        class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border"
+                        :class="
+                            currentStep >= 3
                                 ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/10'
                                 : 'bg-white text-slate-400 border-slate-200'
-                            ">
+                        "
+                    >
                         3
                     </div>
-                    <p class="mt-3 text-xs font-bold" :class="currentStep >= 3
-                            ? 'text-emerald-600'
-                            : 'text-slate-400'
-                        ">
+                    <p
+                        class="mt-3 text-xs font-bold"
+                        :class="
+                            currentStep >= 3
+                                ? 'text-emerald-600'
+                                : 'text-slate-400'
+                        "
+                    >
                         Khuôn mặt
                     </p>
                 </div>
@@ -134,10 +159,21 @@ const submitVerification = () => {
         <Step1 v-show="currentStep === 1" :form="form" @next="nextStep" />
 
         <!-- STEP 2 -->
-        <Step2 v-show="currentStep === 2" :form="form" @next="nextStep" @prev="prevStep" />
+        <Step2
+            v-show="currentStep === 2"
+            :form="form"
+            @next="nextStep"
+            @prev="prevStep"
+        />
 
         <!-- STEP 3 -->
-        <Step3 v-show="currentStep === 3" :form="form" :isModelsLoaded="isModelsLoaded" :currentStep="currentStep"
-            @prev="prevStep" @submit="submitVerification" />
+        <Step3
+            v-show="currentStep === 3"
+            :form="form"
+            :isModelsLoaded="isModelsLoaded"
+            :currentStep="currentStep"
+            @prev="prevStep"
+            @submit="submitVerification"
+        />
     </div>
 </template>

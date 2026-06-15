@@ -34,7 +34,9 @@ class VerifyLandlordRequest extends FormRequest
             'contract_images' => 'required|array',
             'contract_images.*' => 'image|mimes:jpeg,png,jpg|max:5120',
             'room_images' => 'required|array',
-            'room_images.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+            'room_images.*' => 'file|mimes:jpeg,png,jpg,webp,mp4,mov,avi|max:20480',
+            'latitude' => 'nullable',
+            'longitude' => 'nullable',
         ];
     }
 }

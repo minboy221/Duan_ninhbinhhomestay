@@ -17,6 +17,8 @@ class BoardingHouse extends Model
         'contract_images',
         'room_images',
         'status',
+        'latitude',
+        'longitude',
     ];
     protected $casts = [
         'contract_images' => 'array',

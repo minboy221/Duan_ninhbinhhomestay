@@ -9,6 +9,7 @@ use App\Http\Requests\VerifyLandlordRequest;
 use App\Models\User;
 use App\Notifications\NewLandlordApplication;
 use Illuminate\Support\Facades\Notification;
+use App\Services\AdminVerificationService;
 
 class VerificationController extends Controller
 {
@@ -19,6 +20,15 @@ class VerificationController extends Controller
     {
         $this->verificationService = $verificationService;
     }
+    public function index()
+    {
+        $users = $this->adminVerificationService->getVerificationsList();
+
+        return \Inertia\Inertia::render('Admin/Verifications/Index', [
+            'users' => $users
+        ]);
+    }
+
     //phần hiển thị giao diện form 
     public function create()
     {
@@ -41,7 +51,7 @@ class VerificationController extends Controller
         Notification::send($admins, new NewLandlordApplication($user));
 
         //gửi request đến inertia
-        if ($request->inertia()) {
+        if ($request->header('X-Inertia')) {
             return redirect('/')->with('success', 'đã tải lên thông tin xác minh thành công. đang xử lý');
         }
         //trả kết quả ra json

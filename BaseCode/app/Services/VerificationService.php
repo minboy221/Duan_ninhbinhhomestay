@@ -35,7 +35,7 @@ class VerificationService
 
             //Ảnh mặt sau
             $extBack = $data['id_card_back']->getClientOriginalExtension();
-            $backName = "user_{$userId}_cccd_sau_{$timestamp}.{$extFront}";
+            $backName = "user_{$userId}_cccd_sau_{$timestamp}.{$extBack}";
             $backPath = $data['id_card_back']->storeAs('private/kyc/id_cards', $backName, 'local');
 
             //Ảnh khuôn mặt
@@ -60,6 +60,8 @@ class VerificationService
             //PHẦN XỬ LÝ BƯỚC 2 lưu thông tin trọ
             $contractPaths = [];
             $roomPaths = [];
+            $finalLat = null;
+            $finalLng = null;
 
             //vòng lặp lưu từng ảnh hợp đồng
             if (isset($data['contract_images'])) {
@@ -71,12 +73,25 @@ class VerificationService
             }
             // Lưu mảng ảnh không gian trọ
             if (isset($data['room_images'])) {
-                foreach ($data['room_images'] as $index => $image) {
-                    $ext = $image->getClientOriginalExtension();
+                foreach ($data['room_images'] as $index => $file) {
+                    $ext = $file->getClientOriginalExtension();
+
+                    //chỉ quét GPS nếu là ảnh JPG/JPEG vid video hoặc PNG không có EXIF GPS
+                    if (in_array(strtolower($ext), ['jpg', 'jpeg']) && !$finalLat) {
+                        //thêm ký tự @ để bỏ qua cảnh báo nếu ảnh bị mất dữ liệu
+                        $exif = @exif_read_data($file->getRealPath());
+                        if ($exif !== false) {
+                            $gps = $this->getGpsFromExif($exif);
+                            if ($gps) {
+                                $finalLat = $gps['lat'];
+                                $finalLng = $gps['lng'];
+                            }
+                        }
+                    }
                     $name = "user_{$userId}_phong_tro_{$index}_{$timestamp}.{$ext}";
-                    $roomPaths[] = $image->storeAs('private/properties/rooms', $name, 'local');
+                    $roomPaths[] = $file->storeAs('private/properties/rooms', $name, 'local');
                 }
-            }
+            };
             $boardingHouseData = [
                 'user_id' => $userId,
                 'name' => $data['property_name'],
@@ -84,6 +99,8 @@ class VerificationService
                 'address_detail' => $data['address_detail'],
                 'contract_images' => $contractPaths,
                 'room_images' => $roomPaths,
+                'latitude' => $data['latitude'] ?? $finalLat,
+                'longitude' => $data['longitude'] ?? $finalLng,
                 'status' => 'pending',
             ];
 
@@ -96,6 +113,44 @@ class VerificationService
             DB::rollBack();
             throw $e;
         }
+    }
+    // Phần lấy toạ độ địa chỉ map khi xác minh
+    private function gpsToDecimal($coordinate, $hemisphere)
+    {
+        $degrees = count($coordinate) > 0 ? $this->evalFraction($coordinate[0]) : 0;
+        $minutes = count($coordinate) > 1 ? $this->evalFraction($coordinate[1]) : 0;
+        $seconds = count($coordinate) > 2 ? $this->evalFraction($coordinate[2]) : 0;
+
+        $flip = ($hemisphere == 'W' || $hemisphere == 'S') ? -1 : 1;
+        return $flip * ($degrees + $minutes / 60 + $seconds / 3600);
+    }
+
+    private function evalFraction($fraction)
+    {
+        $parts = explode('/', $fraction);
+
+        // Chống lỗi Division by zero (Chia cho 0)
+        if (count($parts) == 2) {
+            return $parts[1] != 0 ? $parts[0] / $parts[1] : 0;
+        }
+
+        return (float) $parts[0];
+    }
+    // phần lấy toạ độ
+    private function getGpsFromExif($exif)
+    {
+        //lấy vĩ độ và kinh độ
+        if (isset($exif['GPSLatitude']) && isset($exif['GPSLongitude'])) {
+            //set mặc định ở Việt Nam
+            $latRef = isset($exif['GPSLatitudeRef']) ? $exif['GPSLatitudeRef'] : 'N'; //bán cầu Bắc
+            $lngRef = isset($exif['GPSLongitudeRef']) ? $exif['GPSLongitudeRef'] : 'E';  //bán cầu Đông
+
+            $lat = $this->gpsToDecimal($exif['GPSLatitude'], $latRef);
+            $lng = $this->gpsToDecimal($exif['GPSLongitude'], $lngRef);
+
+            return ['lat' => $lat, 'lng' => $lng];
+        }
+        return null;
     }
 }
 ?>
