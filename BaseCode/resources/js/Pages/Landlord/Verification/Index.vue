@@ -51,20 +51,48 @@ const prevStep = () => {
     if (currentStep.value > 1) currentStep.value--;
 };
 
+// Custom Popup State
+const popup = ref({
+    show: false,
+    type: 'success', // 'success' or 'error'
+    title: '',
+    message: ''
+});
+
+const closePopup = () => {
+    popup.value.show = false;
+};
+
 //hàm xử lý AI và submit ở bước cuối cùng
 const submitVerification = () => {
     form.post(route("landlord.verify.store"), {
         preserveScroll: true,
         onSuccess: (page) => {
             if (Object.keys(form.errors).length === 0) {
-                alert("Hoàn tất! Đã gửi hồ sơ xác minh.");
+                popup.value = {
+                    show: true,
+                    type: 'success',
+                    title: 'Thành Công!',
+                    message: 'Hoàn tất! Đã gửi hồ sơ xác minh. Vui lòng chờ Admin phê duyệt.'
+                };
             }
         },
         onError: (errors) => {
             console.error("LỖI DỮ LIỆU TỪ LARAVEL:", errors);
-            alert(
-                "Dữ liệu chưa hợp lệ! Vui lòng bấm F12 (tab Console) để xem chi tiết.",
-            );
+            
+            // Lấy lỗi đầu tiên để hiển thị cho user
+            let errorMessage = "Dữ liệu chưa hợp lệ! Vui lòng kiểm tra lại thông tin bạn đã nhập.";
+            const firstErrorKey = Object.keys(errors)[0];
+            if (firstErrorKey) {
+                errorMessage = errors[firstErrorKey];
+            }
+
+            popup.value = {
+                show: true,
+                type: 'error',
+                title: 'Lỗi Xác Minh!',
+                message: errorMessage
+            };
             form.processing = false;
         },
     });
@@ -175,5 +203,35 @@ const submitVerification = () => {
             @prev="prevStep"
             @submit="submitVerification"
         />
+        
+        <!-- Popup Thông Báo (Success / Error) -->
+        <Teleport to="body">
+            <div v-if="popup.show" class="modal-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);" @click.self="closePopup">
+                <div style="background: white; border-radius: 16px; padding: 40px 30px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); animation: popupIn 0.3s ease-out;">
+                    <!-- Icon Trạng Thái -->
+                    <div :style="popup.type === 'error' ? 'width: 80px; height: 80px; background: linear-gradient(135deg, #ef4444, #dc2626); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 25px; box-shadow: 0 10px 15px -3px rgba(239,68,68,0.3);' : 'width: 80px; height: 80px; background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 25px; box-shadow: 0 10px 15px -3px rgba(34,197,94,0.3);'">
+                        <i :class="popup.type === 'error' ? 'bi bi-x-circle' : 'bi bi-check2-circle'" style="color: white; font-size: 40px;"></i>
+                    </div>
+                    
+                    <!-- Tiêu đề & Nội dung -->
+                    <h3 style="font-size: 24px; font-weight: 800; color: #1e293b; margin-bottom: 12px; font-family: 'Inter', sans-serif;">{{ popup.title }}</h3>
+                    <p style="font-size: 15px; color: #64748b; margin-bottom: 30px; line-height: 1.6;">{{ popup.message }}</p>
+                    
+                    <!-- Nút Đóng -->
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button @click="closePopup" :style="popup.type === 'error' ? 'flex: 1; padding: 12px 0; border-radius: 10px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; font-weight: 600; cursor: pointer; transition: all 0.2s;' : 'flex: 1; padding: 12px 0; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-weight: 600; cursor: pointer; transition: all 0.2s;'">
+                            Đóng Lại
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
+
+<style scoped>
+@keyframes popupIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+</style>
