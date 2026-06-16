@@ -123,6 +123,11 @@ const openDetail = (room) => {
 }
 
 const quickSt = (st) => {
+    if (['pending_renewal', 'deposited'].includes(selRoom.value.status) && st === 'rented' && selRoom.value.current_people === 0) {
+        showAlert('Không hợp lệ', 'Không thể chuyển sang trạng thái Đã Thuê khi phòng đang có 0 người!', 'warning')
+        return
+    }
+
     if (st === 'maintenance') {
         showPrompt('Bảo trì phòng', 'Vui lòng nhập lý do bảo trì phòng này:', 'warning', (reason) => {
             router.patch(route('landlord.rooms.status', selRoom.value.id), {status:st, maintenance_reason: reason}, {onSuccess:()=>{
@@ -203,6 +208,43 @@ const lockRoom = (room) => {
 const delRoom = (room) => {
     showConfirm('Xác nhận xóa', `Xóa phòng "${room.name}" vĩnh viễn?`, 'danger', () => {
         router.delete(route('landlord.rooms.delete', room.id), {onSuccess:()=>showDetail.value=false})
+    })
+}
+
+const addPerson = (room) => {
+    const allowedStatuses = ['deposited', 'rented', 'expiring_soon', 'pending_renewal'];
+    if (!allowedStatuses.includes(room.status)) {
+        showAlert('Không hợp lệ', 'Trạng thái phòng không cho phép thêm người!', 'warning')
+        return
+    }
+    if (room.current_people >= room.capacity) {
+        showAlert('Không thể thêm', 'Phòng đã đủ số lượng người tối đa.', 'warning')
+        return
+    }
+    router.patch(route('landlord.rooms.add_person', room.id), {}, {
+        onSuccess: () => {
+            if (selRoom.value && selRoom.value.id === room.id) {
+                selRoom.value.current_people++
+            }
+        }
+    })
+}
+
+const removePerson = (room) => {
+    if (!['pending_renewal', 'expiring_soon'].includes(room.status)) {
+        showAlert('Không hợp lệ', 'Chỉ có thể bớt người ở trạng thái sắp hết hạn HĐ hoặc chờ gia hạn!', 'warning')
+        return
+    }
+    if (room.current_people <= 0) {
+        showAlert('Không thể bớt', 'Phòng hiện không có người.', 'warning')
+        return
+    }
+    router.patch(route('landlord.rooms.remove_person', room.id), {}, {
+        onSuccess: () => {
+            if (selRoom.value && selRoom.value.id === room.id) {
+                selRoom.value.current_people--
+            }
+        }
     })
 }
 
@@ -316,6 +358,7 @@ const handleConfirm = () => {
                                 <th class="py-3.5 px-4">Tầng</th>
                                 <th class="py-3.5 px-4">Diện tích</th>
                                 <th class="py-3.5 px-4">Đơn giá</th>
+                                <th class="py-3.5 px-4">Số người</th>
                                 <th class="py-3.5 px-4">Tình trạng</th>
                                 <th class="py-3.5 px-4">Trạng thái</th>
                                 <th class="py-3.5 px-6 text-right">Thao tác</th>
@@ -332,6 +375,17 @@ const handleConfirm = () => {
                                 <td class="py-4 px-4">{{ room.floor_name }}</td>
                                 <td class="py-4 px-4">{{ room.area }} m²</td>
                                 <td class="py-4 px-4 text-slate-800">{{ fmtMoney(room.price) }}</td>
+                                <td class="py-4 px-4">
+                                    <span v-if="room.current_people === 0" class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-emerald-50 text-emerald-600 border-emerald-200">
+                                        {{ room.current_people }}/{{ room.capacity }} người - Còn trống
+                                    </span>
+                                    <span v-else-if="room.current_people < room.capacity" class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-blue-50 text-blue-600 border-blue-200">
+                                        {{ room.current_people }}/{{ room.capacity }} người - Còn chỗ
+                                    </span>
+                                    <span v-else class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-rose-50 text-rose-600 border-rose-200">
+                                        {{ room.current_people }}/{{ room.capacity }} người - Đã đầy
+                                    </span>
+                                </td>
                                 <td class="py-4 px-4">
                                     <span :class="[
                                         'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
@@ -432,6 +486,14 @@ const handleConfirm = () => {
                             <span class="text-xs font-bold text-slate-400">Diện tích:</span>
                             <span class="text-xs font-bold text-slate-800">{{ selRoom.area }} m²</span>
                         </div>
+                        <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
+                            <span class="text-xs font-bold text-slate-400">Số người:</span>
+                            <span class="text-xs font-bold text-slate-800">{{ selRoom.current_people }}/{{ selRoom.capacity }} người</span>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
+                            <span class="text-xs font-bold text-slate-400">Còn trống:</span>
+                            <span class="text-xs font-bold text-emerald-600">{{ Math.max(0, selRoom.capacity - selRoom.current_people) }} chỗ</span>
+                        </div>
 
                         <!-- Status transitions buttons -->
                         <div class="space-y-2 pt-2">
@@ -452,6 +514,20 @@ const handleConfirm = () => {
                                     @click="remindTenant"
                                 >
                                     <i class="bi bi-bell-fill mr-1"></i> Gửi nhắc nhở
+                                </button>
+                                <button 
+                                    v-if="['deposited', 'rented', 'expiring_soon', 'pending_renewal'].includes(selRoom.status)"
+                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer hover:shadow-sm transition-all"
+                                    @click="addPerson(selRoom)"
+                                >
+                                    <i class="bi bi-person-plus-fill mr-1"></i> Thêm người
+                                </button>
+                                <button 
+                                    v-if="['pending_renewal', 'expiring_soon'].includes(selRoom.status)"
+                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer hover:shadow-sm transition-all"
+                                    @click="removePerson(selRoom)"
+                                >
+                                    <i class="bi bi-person-dash-fill mr-1"></i> Bớt người
                                 </button>
                             </div>
                         </div>

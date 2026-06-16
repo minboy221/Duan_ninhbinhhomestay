@@ -140,8 +140,27 @@ class LandlordController extends Controller
             'maintenance_reason' => 'nullable|string',
         ]);
         $result = $this->roomService->changeStatus(Auth::id(), $id, $request->status, $request->maintenance_reason);
+        if ($result === 'empty_people') return redirect()->back()->with('error', 'Không thể chuyển sang Đã Thuê vì phòng đang có 0 người!');
         if (!$result) return redirect()->back()->with('error', 'Không thể đổi trạng thái!');
         return redirect()->back()->with('success', 'Đổi trạng thái thành công!');
+    }
+
+    public function addPerson(int $id)
+    {
+        $result = $this->roomService->addPerson(Auth::id(), $id);
+        if ($result === 'invalid_status') return redirect()->back()->with('error', 'Trạng thái phòng không cho phép thêm người!');
+        if ($result === 'full') return redirect()->back()->with('error', 'Phòng đã đủ số lượng người tối đa.');
+        if (!$result) return redirect()->back()->with('error', 'Không thể thêm người!');
+        return redirect()->back()->with('success', 'Thêm người thành công!');
+    }
+
+    public function removePerson(int $id)
+    {
+        $result = $this->roomService->removePerson(Auth::id(), $id);
+        if ($result === 'invalid_status') return redirect()->back()->with('error', 'Chỉ có thể bớt người ở trạng thái sắp hết hạn HĐ hoặc chờ gia hạn!');
+        if ($result === 'empty') return redirect()->back()->with('error', 'Phòng hiện không có ai để bớt.');
+        if (!$result) return redirect()->back()->with('error', 'Không thể bớt người!');
+        return redirect()->back()->with('success', 'Bớt người thành công!');
     }
 
     public function deleteRoom(int $id)

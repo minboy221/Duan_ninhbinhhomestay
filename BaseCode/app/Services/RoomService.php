@@ -235,12 +235,16 @@ class RoomService
     /**
      * Đổi trạng thái nhanh
      */
-    public function changeStatus(int $landlordId, int $roomId, string $status, ?string $reason = null): bool
+    public function changeStatus(int $landlordId, int $roomId, string $status, ?string $reason = null)
     {
         if (!in_array($status, Room::STATUSES)) return false;
         $room = $this->roomRepo->findById($roomId);
         if (!$room || $room->property->landlord_id !== $landlordId) return false;
         
+        if (in_array($room->status, ['pending_renewal', 'deposited']) && $status === 'rented' && $room->current_people <= 0) {
+            return 'empty_people';
+        }
+
         $updateData = ['status' => $status];
         if ($status === 'maintenance') {
             $updateData['maintenance_reason'] = $reason;
@@ -249,6 +253,45 @@ class RoomService
         }
         
         return $this->roomRepo->update($room, $updateData);
+    }
+
+    /**
+     * Thêm người vào phòng
+     */
+    public function addPerson(int $landlordId, int $roomId)
+    {
+        $room = $this->roomRepo->findById($roomId);
+        if (!$room || $room->property->landlord_id !== $landlordId) return false;
+        
+        $allowedStatuses = ['deposited', 'rented', 'expiring_soon', 'pending_renewal'];
+        if (!in_array($room->status, $allowedStatuses)) {
+            return 'invalid_status';
+        }
+
+        if ($room->current_people >= $room->capacity) {
+            return 'full';
+        }
+        
+        return $this->roomRepo->update($room, ['current_people' => $room->current_people + 1]);
+    }
+
+    /**
+     * Bớt người khỏi phòng
+     */
+    public function removePerson(int $landlordId, int $roomId)
+    {
+        $room = $this->roomRepo->findById($roomId);
+        if (!$room || $room->property->landlord_id !== $landlordId) return false;
+
+        if (!in_array($room->status, ['pending_renewal', 'expiring_soon'])) {
+            return 'invalid_status';
+        }
+
+        if ($room->current_people <= 0) {
+            return 'empty';
+        }
+
+        return $this->roomRepo->update($room, ['current_people' => $room->current_people - 1]);
     }
 
     /**
@@ -275,6 +318,7 @@ class RoomService
             'price'     => (float) $room->price,
             'area'      => (float) $room->area,
             'capacity'  => $room->capacity,
+            'current_people' => $room->current_people,
             'amenities' => $room->amenities,
             'images'    => $room->images ?? [],
         ];
