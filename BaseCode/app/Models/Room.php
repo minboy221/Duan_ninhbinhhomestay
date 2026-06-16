@@ -17,6 +17,7 @@ class Room extends Model
         'price',
         'area',
         'capacity',
+        'current_people',
         'status',
         'amenities',
         'images',

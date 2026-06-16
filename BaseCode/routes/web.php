@@ -157,6 +157,8 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::post('/rooms',                   [LandlordController::class, 'storeRoom'])->name('landlord.rooms.store');
     Route::post('/rooms/{id}',              [LandlordController::class, 'updateRoom'])->name('landlord.rooms.update');
     Route::patch('/rooms/{id}/status',      [LandlordController::class, 'changeRoomStatus'])->name('landlord.rooms.status');
+    Route::patch('/rooms/{id}/add-person',  [LandlordController::class, 'addPerson'])->name('landlord.rooms.add_person');
+    Route::patch('/rooms/{id}/remove-person', [LandlordController::class, 'removePerson'])->name('landlord.rooms.remove_person');
     Route::delete('/rooms/{id}',            [LandlordController::class, 'deleteRoom'])->name('landlord.rooms.delete');
 
     Route::get('/listings', [LandlordController::class, 'listings'])->name('landlord.listings');

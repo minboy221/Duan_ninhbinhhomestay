@@ -94,6 +94,7 @@ const validate = () => {
     }
     if (!form.value.price || form.value.price <= 0) { errors.value.price = 'Giá thuê phải lớn hơn 0'; return false }
     if (!form.value.area || form.value.area <= 0) { errors.value.area = 'Diện tích phải lớn hơn 0'; return false }
+    if (!form.value.capacity || form.value.capacity <= 0) { errors.value.capacity = 'Sức chứa phải lớn hơn 0'; return false }
     if (form.value.status === 'maintenance' && !form.value.maintenance_reason.trim()) { errors.value.maintenance_reason = 'Vui lòng nhập lý do bảo trì'; return false }
     return true
 }
@@ -231,9 +232,9 @@ const submit = () => {
                     <p class="text-[10px] text-slate-400 mt-1">Hệ thống sẽ tự động sinh tên phòng theo thứ tự tiếp theo của tầng này (VD: P.201, P.202...)</p>
                 </div>
 
-                <!-- Price and Area Row -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1">
+                <!-- Price, Area, and Capacity Row -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="flex flex-col justify-end space-y-1">
                         <label class="text-xs font-bold text-slate-500">Giá thuê (VNĐ/tháng) <span v-if="!isInfoLocked" class="text-rose-500">*</span></label>
                         <div v-if="isInfoLocked" class="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 rounded-xl text-xs font-bold text-slate-500 cursor-not-allowed">
                             {{ new Intl.NumberFormat('vi-VN').format(form.price) }} đ
@@ -255,7 +256,7 @@ const submit = () => {
                         </template>
                     </div>
 
-                    <div class="space-y-1">
+                    <div class="flex flex-col justify-end space-y-1">
                         <label class="text-xs font-bold text-slate-500">Diện tích (m²) <span v-if="!isEdit || form.status === 'maintenance'" class="text-rose-500">*</span></label>
                         
                         <div v-if="isEdit && form.status !== 'maintenance'" class="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 rounded-xl text-xs font-bold text-slate-500 cursor-not-allowed">
@@ -274,6 +275,30 @@ const submit = () => {
                             />
                             <span v-if="errors.area" class="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
                                 <i class="bi bi-exclamation-circle"></i> {{ errors.area }}
+                            </span>
+                        </template>
+                    </div>
+
+                    <div class="flex flex-col justify-end space-y-1">
+                        <label class="text-xs font-bold text-slate-500">Sức chứa (người) <span v-if="!isEdit || form.status === 'maintenance'" class="text-rose-500">*</span></label>
+                        
+                        <div v-if="isEdit && form.status !== 'maintenance'" class="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 rounded-xl text-xs font-bold text-slate-500 cursor-not-allowed">
+                            {{ form.capacity }} người
+                        </div>
+                        
+                        <template v-else>
+                            <input 
+                                v-model.number="form.capacity" 
+                                type="number"
+                                min="1"
+                                :class="[
+                                    'w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium outline-none transition-all',
+                                    errors.capacity ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                                ]" 
+                                @input="errors.capacity=''"
+                            />
+                            <span v-if="errors.capacity" class="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
+                                <i class="bi bi-exclamation-circle"></i> {{ errors.capacity }}
                             </span>
                         </template>
                     </div>
