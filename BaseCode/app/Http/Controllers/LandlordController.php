@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\RoomService;
+use App\Services\ServiceManagementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -10,10 +11,14 @@ use Inertia\Inertia;
 class LandlordController extends Controller
 {
     protected RoomService $roomService;
+    protected ServiceManagementService $serviceManagementService;
 
-    public function __construct(RoomService $roomService)
-    {
+    public function __construct(
+        RoomService $roomService, 
+        ServiceManagementService $serviceManagementService
+    ) {
         $this->roomService = $roomService;
+        $this->serviceManagementService = $serviceManagementService;
     }
 
     public function dashboard()
@@ -209,7 +214,57 @@ class LandlordController extends Controller
 
     public function services()
     {
-        return Inertia::render('Landlord/Services/index');
+        $services = $this->serviceManagementService->getServices(Auth::id());
+        return Inertia::render('Landlord/Services/index', [
+            'services' => $services
+        ]);
+    }
+
+    public function storeService(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'price' => 'required|numeric|min:0',
+            'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
+            'icon' => 'nullable|string|max:255',
+            'color' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+        
+        $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
+        if (!$result) return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
+        return redirect()->back()->with('success', 'Thêm dịch vụ thành công!');
+    }
+
+    public function updateService(Request $request, int $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'price' => 'required|numeric|min:0',
+            'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
+            'icon' => 'nullable|string|max:255',
+            'color' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+        
+        $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
+        if (!$result) return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
+        return redirect()->back()->with('success', 'Cập nhật dịch vụ thành công!');
+    }
+
+    public function deleteService(int $id)
+    {
+        $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
+        if (!$result) return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
+        return redirect()->back()->with('success', 'Xóa dịch vụ thành công!');
+    }
+
+    public function changeServiceStatus(Request $request, int $id)
+    {
+        $request->validate(['is_active' => 'required|boolean']);
+        $result = $this->serviceManagementService->changeStatus(Auth::id(), $id, $request->is_active);
+        if (!$result) return redirect()->back()->with('error', 'Không thể cập nhật trạng thái!');
+        return redirect()->back()->with('success', 'Cập nhật trạng thái thành công!');
     }
 
     public function pricingSheets()
