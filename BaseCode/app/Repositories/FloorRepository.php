@@ -10,14 +10,14 @@ class FloorRepository
     public function getByPropertyId(int $propertyId): Collection
     {
         return Floor::where('property_id', $propertyId)
-            ->with('rooms')
+            ->with('rooms.services')
             ->orderBy('sort_order')
             ->get();
     }
 
     public function findById(int $id): ?Floor
     {
-        return Floor::with(['rooms', 'property'])->find($id);
+        return Floor::with(['rooms.services', 'property'])->find($id);
     }
 
     public function create(array $data): Floor

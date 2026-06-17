@@ -52,4 +52,9 @@ class Room extends Model
     {
         return $this->belongsTo(Floor::class);
     }
+
+    public function services()
+    {
+        return $this->belongsToMany(Service::class);
+    }
 }

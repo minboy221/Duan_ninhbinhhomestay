@@ -39,10 +39,15 @@ class LandlordController extends Controller
         $landlordId   = Auth::id();
         $floors       = $this->roomService->getFloorsWithRooms($landlordId);
         $statusCounts = $this->roomService->getStatusCounts($landlordId);
+        
+        // Fetch active services
+        $allServices  = $this->serviceManagementService->getServices($landlordId);
+        $services     = $allServices->where('is_active', true)->values();
 
         return Inertia::render('Landlord/Rooms/index', [
             'floors'       => $floors,
             'statusCounts' => $statusCounts,
+            'services'     => $services,
         ]);
     }
 

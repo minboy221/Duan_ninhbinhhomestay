@@ -4,7 +4,7 @@ import RoomFormModal from './RoomFormModal.vue'
 import { ref, computed } from 'vue'
 import { router } from '@inertiajs/vue3'
 
-const props = defineProps({ floors: { type: Array, default: () => [] }, statusCounts: { type: Object, default: () => ({}) } })
+const props = defineProps({ floors: { type: Array, default: () => [] }, statusCounts: { type: Object, default: () => ({}) }, services: { type: Array, default: () => [] } })
 const floors = computed(() => props.floors)
 
 const statusConfig = {
@@ -14,8 +14,17 @@ const statusConfig = {
     deposited:       { label:'Đã Đặt Cọc',   icon:'bi-cash-stack',        cls:'bg-purple-50 text-purple-600 border-purple-250', dot:'bg-purple-500' },
     expiring_soon:   { label:'Sắp Hết HĐ',   icon:'bi-clock-history',     cls:'bg-orange-50 text-orange-600 border-orange-250', dot:'bg-orange-500' },
     pending_renewal: { label:'Chờ Gia Hạn',   icon:'bi-hourglass-split',   cls:'bg-cyan-50 text-cyan-600 border-cyan-250',   dot:'bg-cyan-500' },
-    suspended:       { label:'Tạm Ngưng',     icon:'bi-pause-circle',      cls:'bg-rose-50 text-rose-600 border-rose-250',    dot:'bg-rose-500' },
-    under_construction: { label:'Đang Xây Dựng', icon:'bi-tools',            cls:'bg-slate-50 text-slate-600 border-slate-250',   dot:'bg-slate-500' },
+    suspended:       { label:'Tạm Ngưng',     icon:'bi-dash-circle-fill',  cls:'bg-slate-50 text-slate-600 border-slate-250', dot:'bg-slate-500' },
+    under_construction: { label:'Đang Xây',   icon:'bi-cone-striped',      cls:'bg-rose-50 text-rose-600 border-rose-250',   dot:'bg-rose-500' },
+}
+
+const colorsConfig = {
+    amber: { text: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-200' },
+    blue: { text: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' },
+    cyan: { text: 'text-cyan-500', bg: 'bg-cyan-50', border: 'border-cyan-200' },
+    rose: { text: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-200' },
+    purple: { text: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-200' },
+    emerald: { text: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200' }
 }
 
 const fmtMoney = (n) => new Intl.NumberFormat('vi-VN').format(n)+'đ'
@@ -495,6 +504,25 @@ const handleConfirm = () => {
                             <span class="text-xs font-bold text-emerald-600">{{ Math.max(0, selRoom.capacity - selRoom.current_people) }} chỗ</span>
                         </div>
 
+                        <!-- Services List -->
+                        <div class="pt-2 border-t border-slate-50">
+                            <span class="text-xs font-bold text-slate-400 mb-2 block">Dịch vụ đang dùng:</span>
+                            <div v-if="selRoom.services && selRoom.services.length > 0" class="grid grid-cols-2 gap-2">
+                                <div v-for="srv in selRoom.services" :key="srv.id" class="flex items-center gap-2 p-2 border border-slate-100 rounded-xl bg-slate-50">
+                                    <div class="w-6 h-6 rounded-md flex items-center justify-center text-[10px]" :class="[colorsConfig[srv.color || 'emerald']?.bg, colorsConfig[srv.color || 'emerald']?.text]">
+                                        <i :class="['bi', srv.icon || 'bi-lightning-charge-fill']"></i>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] font-bold text-slate-700">{{ srv.name }}</span>
+                                        <span class="text-[9px] font-semibold text-slate-500">{{ fmtMoney(srv.price) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else class="text-xs font-semibold text-slate-400 italic bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                                Không có dịch vụ
+                            </div>
+                        </div>
+
                         <!-- Status transitions buttons -->
                         <div class="space-y-2 pt-2">
                             <p class="text-xs font-bold text-slate-400">Chuyển đổi trạng thái nhanh:</p>
@@ -559,6 +587,7 @@ const handleConfirm = () => {
                 :floorName="currentFloorName" 
                 :statusConfig="statusConfig" 
                 :existingRooms="currentFloorRooms" 
+                :services="services"
                 @close="showForm=false" 
                 @submitted="submitRoom"
             />

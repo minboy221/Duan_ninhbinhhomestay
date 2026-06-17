@@ -1,18 +1,27 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 
-const props = defineProps({ hideFloorSelect: Boolean, show: Boolean, isEdit: Boolean, room: Object, floorId: [Number,String], floorName: String, statusConfig: Object, existingRooms: { type: Array, default: () => [] }, floors: { type: Array, default: () => [] } })
+const props = defineProps({ hideFloorSelect: Boolean, show: Boolean, isEdit: Boolean, room: Object, floorId: [Number,String], floorName: String, statusConfig: Object, existingRooms: { type: Array, default: () => [] }, floors: { type: Array, default: () => [] }, services: { type: Array, default: () => [] } })
 const emit = defineEmits(['close','submitted','update:floorId'])
 
 const addMode = ref('single') // 'single' | 'multiple'
 const multipleCount = ref(1)
 
-const form = ref({ room_number:'', price:3000000, area:20, capacity:2, status:'available', amenities:'' })
+const form = ref({ room_number:'', price:3000000, area:20, capacity:2, status:'available', amenities:'', service_ids: [] })
 const submitting = ref(false)
 const originalStatus = ref('available')
 
 const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 const isInfoLocked = computed(() => props.isEdit && ['deposited', 'rented'].includes(originalStatus.value))
+
+const colorsConfig = {
+    amber: { text: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-200' },
+    blue: { text: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' },
+    cyan: { text: 'text-cyan-500', bg: 'bg-cyan-50', border: 'border-cyan-200' },
+    rose: { text: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-200' },
+    purple: { text: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-200' },
+    emerald: { text: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200' }
+}
 
 // Transitions for room statuses
 const statusTransitions = {
@@ -46,12 +55,13 @@ watch(() => props.show, (v) => {
             status: props.room.status||'available',
             maintenance_reason: props.room.maintenance_reason||'',
             amenities: props.room.amenities||'',
+            service_ids: props.room.services ? props.room.services.map(s => s.id) : [],
         }
         originalStatus.value = props.room.status||'available'
     } else {
         addMode.value = 'single'
         multipleCount.value = 1
-        form.value = { room_number:'', price:3000000, area:20, capacity:2, status:'available', maintenance_reason:'', amenities:'' }
+        form.value = { room_number:'', price:3000000, area:20, capacity:2, status:'available', maintenance_reason:'', amenities:'', service_ids: [] }
     }
 })
 
@@ -111,6 +121,10 @@ const submit = () => {
     fd.append('status', form.value.status)
     if (form.value.status === 'maintenance' && form.value.maintenance_reason) fd.append('maintenance_reason', form.value.maintenance_reason)
     if (form.value.amenities) fd.append('amenities', form.value.amenities)
+    
+    form.value.service_ids.forEach(id => {
+        fd.append('service_ids[]', id)
+    })
 
     if (addMode.value === 'single') {
         fd.append('room_number', `P.${form.value.room_number}`)
@@ -322,6 +336,30 @@ const submit = () => {
                             <input type="radio" :value="key" v-model="form.status" class="hidden"/>
                             <i :class="['bi', cfg.icon, form.status === key ? 'text-emerald-500' : 'text-slate-400']"></i>
                             <span>{{ cfg.label }}</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Services Checkbox Grid -->
+                <div v-if="services.length > 0" class="space-y-1">
+                    <label class="text-xs font-bold text-slate-500">Dịch vụ áp dụng <span class="text-slate-400 font-normal">(không bắt buộc)</span></label>
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                        <label 
+                            v-for="srv in services" 
+                            :key="srv.id"
+                            :class="[
+                                'flex items-center gap-2 p-2.5 border rounded-xl text-[11px] font-bold cursor-pointer transition-all',
+                                form.service_ids.includes(srv.id) 
+                                    ? [colorsConfig[srv.color || 'emerald']?.bg, colorsConfig[srv.color || 'emerald']?.border, colorsConfig[srv.color || 'emerald']?.text, 'shadow-sm', 'border-opacity-50'] 
+                                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ]"
+                        >
+                            <input type="checkbox" :value="srv.id" v-model="form.service_ids" class="hidden"/>
+                            <i :class="['bi', srv.icon || 'bi-lightning-charge-fill', form.service_ids.includes(srv.id) ? colorsConfig[srv.color || 'emerald']?.text : 'text-slate-400']"></i>
+                            <div class="flex flex-col">
+                                <span>{{ srv.name }}</span>
+                                <span :class="['text-[9px] font-normal', form.service_ids.includes(srv.id) ? colorsConfig[srv.color || 'emerald']?.text : 'text-slate-400']">{{ new Intl.NumberFormat('vi-VN').format(srv.price) }}đ</span>
+                            </div>
                         </label>
                     </div>
                 </div>
