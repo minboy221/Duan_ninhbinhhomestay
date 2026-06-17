@@ -167,7 +167,7 @@ class RoomService
             ->exists();
         if ($exists) return null;
 
-        return $this->roomRepo->create([
+        $room = $this->roomRepo->create([
             'property_id' => $floor->property_id,
             'floor_id'    => $data['floor_id'],
             'room_number' => $data['room_number'],
@@ -179,6 +179,12 @@ class RoomService
             'amenities'   => $data['amenities'] ?? null,
             'images'      => $imagePaths ?: null,
         ]);
+
+        if (isset($data['service_ids']) && is_array($data['service_ids'])) {
+            $room->services()->sync($data['service_ids']);
+        }
+
+        return $room;
     }
 
     /**
@@ -229,7 +235,13 @@ class RoomService
 
         $updateData['images'] = $allImages ?: null;
 
-        return $this->roomRepo->update($room, $updateData);
+        $updated = $this->roomRepo->update($room, $updateData);
+
+        if ($updated && isset($data['service_ids']) && is_array($data['service_ids'])) {
+            $room->services()->sync($data['service_ids']);
+        }
+
+        return $updated;
     }
 
     /**
@@ -321,6 +333,7 @@ class RoomService
             'current_people' => $room->current_people,
             'amenities' => $room->amenities,
             'images'    => $room->images ?? [],
+            'services'  => $room->relationLoaded('services') ? $room->services->toArray() : [],
         ];
     }
 

@@ -4,7 +4,7 @@ import RoomFormModal from './RoomFormModal.vue'
 import { ref, computed } from 'vue'
 import { router } from '@inertiajs/vue3'
 
-const props = defineProps({ floors: { type: Array, default: () => [] }, statusCounts: { type: Object, default: () => ({}) } })
+const props = defineProps({ floors: { type: Array, default: () => [] }, statusCounts: { type: Object, default: () => ({}) }, services: { type: Array, default: () => [] } })
 const floors = computed(() => props.floors)
 
 const statusConfig = {
@@ -14,8 +14,17 @@ const statusConfig = {
     deposited:       { label:'Đã Đặt Cọc',   icon:'bi-cash-stack',        cls:'bg-purple-50 text-purple-600 border-purple-250', dot:'bg-purple-500' },
     expiring_soon:   { label:'Sắp Hết HĐ',   icon:'bi-clock-history',     cls:'bg-orange-50 text-orange-600 border-orange-250', dot:'bg-orange-500' },
     pending_renewal: { label:'Chờ Gia Hạn',   icon:'bi-hourglass-split',   cls:'bg-cyan-50 text-cyan-600 border-cyan-250',   dot:'bg-cyan-500' },
-    suspended:       { label:'Tạm Ngưng',     icon:'bi-pause-circle',      cls:'bg-rose-50 text-rose-600 border-rose-250',    dot:'bg-rose-500' },
-    under_construction: { label:'Đang Xây Dựng', icon:'bi-tools',            cls:'bg-slate-50 text-slate-600 border-slate-250',   dot:'bg-slate-500' },
+    suspended:       { label:'Tạm Ngưng',     icon:'bi-dash-circle-fill',  cls:'bg-slate-50 text-slate-600 border-slate-250', dot:'bg-slate-500' },
+    under_construction: { label:'Đang Xây',   icon:'bi-cone-striped',      cls:'bg-rose-50 text-rose-600 border-rose-250',   dot:'bg-rose-500' },
+}
+
+const colorsConfig = {
+    amber: { text: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-200' },
+    blue: { text: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' },
+    cyan: { text: 'text-cyan-500', bg: 'bg-cyan-50', border: 'border-cyan-200' },
+    rose: { text: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-200' },
+    purple: { text: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-200' },
+    emerald: { text: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200' }
 }
 
 const fmtMoney = (n) => new Intl.NumberFormat('vi-VN').format(n)+'đ'
@@ -350,67 +359,67 @@ const handleConfirm = () => {
                     <i class="bi bi-inbox text-3xl text-slate-300 block"></i>
                     <span>Không tìm thấy phòng nào phù hợp bộ lọc.</span>
                 </div>
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                <th class="py-3.5 px-6">Mã phòng</th>
-                                <th class="py-3.5 px-4">Tầng</th>
-                                <th class="py-3.5 px-4">Diện tích</th>
-                                <th class="py-3.5 px-4">Đơn giá</th>
-                                <th class="py-3.5 px-4">Số người</th>
-                                <th class="py-3.5 px-4">Tình trạng</th>
-                                <th class="py-3.5 px-4">Trạng thái</th>
-                                <th class="py-3.5 px-6 text-right">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                            <tr v-for="room in allFilteredRooms" :key="room.id" class="hover:bg-slate-50/40 cursor-pointer" @click="openDetail(room)">
-                                <td class="py-4 px-6 font-bold text-slate-800 flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-sm">
+                <div v-else class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div v-for="room in allFilteredRooms" :key="room.id" class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200 cursor-pointer group" @click="openDetail(room)">
+                        <div class="space-y-4">
+                            <!-- Header: Tên phòng và Tầng -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-lg border border-emerald-100">
                                         P
                                     </div>
-                                    <span>{{ room.name }}</span>
-                                </td>
-                                <td class="py-4 px-4">{{ room.floor_name }}</td>
-                                <td class="py-4 px-4">{{ room.area }} m²</td>
-                                <td class="py-4 px-4 text-slate-800">{{ fmtMoney(room.price) }}</td>
-                                <td class="py-4 px-4">
-                                    <span v-if="room.current_people === 0" class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-emerald-50 text-emerald-600 border-emerald-200">
-                                        {{ room.current_people }}/{{ room.capacity }} người - Còn trống
-                                    </span>
-                                    <span v-else-if="room.current_people < room.capacity" class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-blue-50 text-blue-600 border-blue-200">
-                                        {{ room.current_people }}/{{ room.capacity }} người - Còn chỗ
-                                    </span>
-                                    <span v-else class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-rose-50 text-rose-600 border-rose-200">
-                                        {{ room.current_people }}/{{ room.capacity }} người - Đã đầy
-                                    </span>
-                                </td>
-                                <td class="py-4 px-4">
-                                    <span :class="[
-                                        'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
-                                        statusConfig[room.status]?.cls || 'bg-slate-50 text-slate-600 border-slate-200'
-                                    ]">
-                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusConfig[room.status]?.dot"></span>
-                                        {{ statusConfig[room.status]?.label || 'Không rõ' }}
-                                    </span>
-                                </td>
-                                <td class="py-4 px-4">
-                                    <span :class="[
-                                        'px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider',
-                                        isRoomActive(room.status) ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-100'
-                                    ]">
-                                        {{ isRoomActive(room.status) ? 'Đang hoạt động' : 'Tạm ngưng' }}
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6 text-right" @click.stop>
-                                    <button @click="openDetail(room)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-500 inline-flex items-center justify-center transition-colors">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <div class="space-y-0.5">
+                                        <h4 class="text-sm font-bold text-slate-800">{{ room.name }}</h4>
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{{ room.floor_name }}</span>
+                                    </div>
+                                </div>
+                                <button @click.stop="openDetail(room)" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                            </div>
+
+                            <!-- Trạng thái phòng -->
+                            <div class="flex items-center gap-2">
+                                <span :class="[
+                                    'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
+                                    statusConfig[room.status]?.cls || 'bg-slate-50 text-slate-600 border-slate-200'
+                                ]">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="statusConfig[room.status]?.dot"></span>
+                                    {{ statusConfig[room.status]?.label || 'Không rõ' }}
+                                </span>
+                                <span :class="[
+                                    'px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider',
+                                    isRoomActive(room.status) ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-100'
+                                ]">
+                                    {{ isRoomActive(room.status) ? 'Hoạt động' : 'Tạm ngưng' }}
+                                </span>
+                            </div>
+
+                            <!-- Giá và Diện tích -->
+                            <div class="bg-slate-50 rounded-2xl p-4 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-400"><i class="bi bi-cash-stack mr-1"></i> Giá thuê</span>
+                                    <span class="text-sm font-extrabold text-slate-800">{{ fmtMoney(room.price) }}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-400"><i class="bi bi-aspect-ratio mr-1"></i> Diện tích</span>
+                                    <span class="text-xs font-bold text-slate-800">{{ room.area }} m²</span>
+                                </div>
+                            </div>
+
+                            <!-- Người ở -->
+                            <div class="pt-2 border-t border-slate-50 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i class="bi bi-people-fill text-slate-400"></i>
+                                    <span class="text-xs font-bold text-slate-600">{{ room.current_people }}/{{ room.capacity }} người</span>
+                                </div>
+                                
+                                <span v-if="room.current_people === 0" class="text-[10px] font-bold text-emerald-500">Còn trống</span>
+                                <span v-else-if="room.current_people < room.capacity" class="text-[10px] font-bold text-blue-500">Còn chỗ</span>
+                                <span v-else class="text-[10px] font-bold text-rose-500">Đã đầy</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -495,6 +504,25 @@ const handleConfirm = () => {
                             <span class="text-xs font-bold text-emerald-600">{{ Math.max(0, selRoom.capacity - selRoom.current_people) }} chỗ</span>
                         </div>
 
+                        <!-- Services List -->
+                        <div class="pt-2 border-t border-slate-50">
+                            <span class="text-xs font-bold text-slate-400 mb-2 block">Dịch vụ đang dùng:</span>
+                            <div v-if="selRoom.services && selRoom.services.length > 0" class="grid grid-cols-2 gap-2">
+                                <div v-for="srv in selRoom.services" :key="srv.id" class="flex items-center gap-2 p-2 border border-slate-100 rounded-xl bg-slate-50">
+                                    <div class="w-6 h-6 rounded-md flex items-center justify-center text-[10px]" :class="[colorsConfig[srv.color || 'emerald']?.bg, colorsConfig[srv.color || 'emerald']?.text]">
+                                        <i :class="['bi', srv.icon || 'bi-lightning-charge-fill']"></i>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] font-bold text-slate-700">{{ srv.name }}</span>
+                                        <span class="text-[9px] font-semibold text-slate-500">{{ fmtMoney(srv.price) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else class="text-xs font-semibold text-slate-400 italic bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                                Không có dịch vụ
+                            </div>
+                        </div>
+
                         <!-- Status transitions buttons -->
                         <div class="space-y-2 pt-2">
                             <p class="text-xs font-bold text-slate-400">Chuyển đổi trạng thái nhanh:</p>
@@ -559,6 +587,7 @@ const handleConfirm = () => {
                 :floorName="currentFloorName" 
                 :statusConfig="statusConfig" 
                 :existingRooms="currentFloorRooms" 
+                :services="services"
                 @close="showForm=false" 
                 @submitted="submitRoom"
             />
