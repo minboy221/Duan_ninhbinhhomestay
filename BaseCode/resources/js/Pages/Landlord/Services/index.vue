@@ -1,18 +1,18 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref } from 'vue'
+import { useForm, router } from '@inertiajs/vue3'
+
+const props = defineProps({
+    services: {
+        type: Array,
+        default: () => []
+    }
+})
 
 const fmtMoney = (n) => new Intl.NumberFormat('vi-VN').format(n)+'đ'
 
 // --- SERVICES STATE & LOGIC ---
-const services = ref([
-    { id: 1, name: 'Điện sinh hoạt', price: 3500, type: 'per_kwh', icon: 'bi-lightning-charge-fill', color: 'amber', description: 'Đơn giá tính theo lượng tiêu thụ thực tế.' },
-    { id: 2, name: 'Nước sinh hoạt', price: 25000, type: 'per_m3', icon: 'bi-droplet-fill', color: 'blue', description: 'Đơn giá tính theo lượng tiêu thụ m³ thực tế.' },
-    { id: 3, name: 'Internet cáp quang', price: 100000, type: 'fixed', icon: 'bi-wifi', color: 'cyan', description: 'Tính cố định trên từng phòng hàng tháng.' },
-    { id: 4, name: 'Phí rác thải', price: 30000, type: 'fixed', icon: 'bi-trash-fill', color: 'rose', description: 'Tính cố định trên từng phòng hàng tháng.' },
-    { id: 5, name: 'Phí trông giữ xe', price: 50000, type: 'per_person', icon: 'bi-bicycle', color: 'purple', description: 'Tính theo đầu người đăng ký giữ xe.' },
-    { id: 6, name: 'Phí quản lý & An ninh', price: 50000, type: 'fixed', icon: 'bi-shield-lock-fill', color: 'emerald', description: 'Chi phí bảo vệ và duy trì camera giám sát.' }
-])
 
 const typeLabels = {
     per_kwh: 'Theo chỉ số điện (kWh)',
@@ -55,7 +55,7 @@ const showServiceModal = ref(false)
 const isEditService = ref(false)
 const selectedService = ref(null)
 
-const serviceForm = ref({
+const serviceForm = useForm({
     name: '',
     price: 0,
     type: 'fixed',
@@ -67,42 +67,71 @@ const serviceForm = ref({
 const openAddService = () => {
     isEditService.value = false
     selectedService.value = null
-    serviceForm.value = {
-        name: '',
-        price: 0,
-        type: 'fixed',
-        icon: 'bi-lightning-charge-fill',
-        color: 'emerald',
-        description: ''
-    }
+    serviceForm.reset()
+    serviceForm.clearErrors()
+    serviceForm.icon = 'bi-lightning-charge-fill'
+    serviceForm.color = 'emerald'
+    serviceForm.type = 'fixed'
     showServiceModal.value = true
 }
 
 const openEditService = (srv) => {
     isEditService.value = true
     selectedService.value = srv
-    serviceForm.value = { ...srv }
+    serviceForm.name = srv.name
+    serviceForm.price = srv.price
+    serviceForm.type = srv.type
+    serviceForm.icon = srv.icon || 'bi-lightning-charge-fill'
+    serviceForm.color = srv.color || 'emerald'
+    serviceForm.description = srv.description || ''
+    serviceForm.clearErrors()
     showServiceModal.value = true
 }
 
 const submitService = () => {
-    if(!serviceForm.value.name.trim()) { alert('Vui lòng điền tên dịch vụ'); return }
-    if(serviceForm.value.price < 0) { alert('Giá phải lớn hơn hoặc bằng 0'); return }
-    
     if(isEditService.value && selectedService.value) {
-        const idx = services.value.findIndex(s => s.id === selectedService.value.id)
-        if(idx !== -1) services.value[idx] = { ...selectedService.value, ...serviceForm.value }
+        serviceForm.put(route('landlord.services.update', selectedService.value.id), {
+            onSuccess: () => {
+                showServiceModal.value = false
+                showAlert('Thành công', 'Cập nhật thông tin dịch vụ thành công!', 'success')
+            }
+        })
     } else {
-        const nextId = services.value.length ? Math.max(...services.value.map(s => s.id)) + 1 : 1
-        services.value.push({ id: nextId, ...serviceForm.value })
+        serviceForm.post(route('landlord.services.store'), {
+            onSuccess: () => {
+                showServiceModal.value = false
+                showAlert('Thành công', 'Thêm dịch vụ mới thành công!', 'success')
+            }
+        })
     }
-    showServiceModal.value = false
 }
 
-const deleteService = (id) => {
-    if(confirm('Bạn có chắc muốn xóa dịch vụ này? Hành động này sẽ không thể hoàn tác.')) {
-        services.value = services.value.filter(s => s.id !== id)
+const deleteService = (srv) => {
+    showConfirm('Xác nhận xóa', `Xóa dịch vụ "<strong>${srv.name}</strong>"? Hành động này sẽ không thể hoàn tác.`, 'danger', () => {
+        router.delete(route('landlord.services.delete', srv.id))
+    })
+}
+
+const toggleStatus = (srv) => {
+    const action = srv.is_active ? 'khóa' : 'mở khóa'
+    const type = srv.is_active ? 'warning' : 'success'
+    showConfirm('Xác nhận', `Bạn có chắc muốn ${action} dịch vụ "<strong>${srv.name}</strong>"?`, type, () => {
+        router.patch(route('landlord.services.status', srv.id), {
+            is_active: !srv.is_active
+        })
+    })
+}
+
+// Custom Confirm Modal
+const confirmModal = ref({ show: false, title: '', message: '', type: 'danger', onConfirm: null, isAlert: false })
+const showConfirm = (title, message, type, onConfirm) => { confirmModal.value = { show: true, title, message, type, onConfirm, isAlert: false } }
+const showAlert = (title, message, type) => { confirmModal.value = { show: true, title, message, type, onConfirm: null, isAlert: true } }
+
+const handleConfirm = () => { 
+    if (confirmModal.value.onConfirm) {
+        confirmModal.value.onConfirm();
     }
+    confirmModal.value.show = false 
 }
 </script>
 
@@ -132,13 +161,18 @@ const deleteService = (id) => {
                 <div 
                     v-for="srv in services" 
                     :key="srv.id" 
-                    class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200"
+                    class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200 relative overflow-hidden"
                 >
-                    <div class="space-y-4">
+                    <!-- Status Banner -->
+                    <div v-if="!srv.is_active" class="absolute top-4 right-[-35px] bg-rose-500 text-white text-[10px] font-bold py-1 px-10 rotate-45 z-10 shadow-sm">
+                        ĐÃ KHÓA
+                    </div>
+
+                    <div class="space-y-4" :class="{ 'opacity-60': !srv.is_active }">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg border" :class="[colorsConfig[srv.color]?.bg, colorsConfig[srv.color]?.text, colorsConfig[srv.color]?.border]">
-                                    <i :class="['bi', srv.icon]"></i>
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg border" :class="[colorsConfig[srv.color || 'emerald']?.bg, colorsConfig[srv.color || 'emerald']?.text, colorsConfig[srv.color || 'emerald']?.border]">
+                                    <i :class="['bi', srv.icon || 'bi-lightning-charge-fill']"></i>
                                 </div>
                                 <div class="space-y-0.5">
                                     <h4 class="text-xs font-bold text-slate-800">{{ srv.name }}</h4>
@@ -162,14 +196,32 @@ const deleteService = (id) => {
                     </div>
 
                     <!-- Actions -->
-                    <div class="flex items-center gap-2 mt-6 pt-4 border-t border-slate-50">
+                    <div class="flex items-center gap-2 mt-6 pt-4 border-t border-slate-50 relative z-20">
                         <button @click="openEditService(srv)" class="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl transition-colors">
                             Chỉnh sửa
                         </button>
-                        <button @click="deleteService(srv.id)" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-xl transition-colors">
+                        <button @click="toggleStatus(srv)" :class="[
+                            'px-3 py-2 rounded-xl transition-colors',
+                            srv.is_active ? 'bg-amber-50 hover:bg-amber-100 text-amber-500' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-500'
+                        ]" :title="srv.is_active ? 'Khóa dịch vụ' : 'Mở khóa dịch vụ'">
+                            <i :class="['bi', srv.is_active ? 'bi-lock-fill' : 'bi-unlock-fill']"></i>
+                        </button>
+                        <button @click="deleteService(srv)" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-xl transition-colors">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
+                </div>
+                
+                <!-- Empty State -->
+                <div v-if="services.length === 0" class="col-span-full bg-white border border-slate-100 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center">
+                    <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 text-2xl mb-4">
+                        <i class="bi bi-inbox"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-slate-700 mb-1">Chưa có dịch vụ nào</h3>
+                    <p class="text-xs text-slate-400 max-w-sm mb-6">Bạn chưa thêm dịch vụ nào cho nhà trọ của mình. Hãy thêm các dịch vụ như điện, nước, internet để dễ dàng quản lý thu phí.</p>
+                    <button @click="openAddService" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-2">
+                        <i class="bi bi-plus-lg"></i> Thêm dịch vụ đầu tiên
+                    </button>
                 </div>
             </div>
         </div>
@@ -227,6 +279,7 @@ const deleteService = (id) => {
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500">Tên dịch vụ <span class="text-rose-500">*</span></label>
                             <input v-model="serviceForm.name" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: Điện tiêu dùng"/>
+                            <div v-if="serviceForm.errors.name" class="text-rose-500 text-[10px]">{{ serviceForm.errors.name }}</div>
                         </div>
 
                         <!-- Type Select -->
@@ -235,27 +288,61 @@ const deleteService = (id) => {
                             <select v-model="serviceForm.type" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all bg-white">
                                 <option v-for="(lbl, key) in typeLabels" :key="key" :value="key">{{ lbl }}</option>
                             </select>
+                            <div v-if="serviceForm.errors.type" class="text-rose-500 text-[10px]">{{ serviceForm.errors.type }}</div>
                         </div>
 
                         <!-- Price -->
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500">Đơn giá (đ) <span class="text-rose-500">*</span></label>
                             <input v-model.number="serviceForm.price" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                            <div v-if="serviceForm.errors.price" class="text-rose-500 text-[10px]">{{ serviceForm.errors.price }}</div>
                         </div>
 
                         <!-- Description -->
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500">Mô tả dịch vụ</label>
                             <textarea v-model="serviceForm.description" rows="3" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all resize-none" placeholder="Mô tả cách thức thu hoặc lưu ý cho khách thuê..."></textarea>
+                            <div v-if="serviceForm.errors.description" class="text-rose-500 text-[10px]">{{ serviceForm.errors.description }}</div>
                         </div>
                     </div>
 
                     <!-- Foot -->
                     <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
                         <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showServiceModal = false">Hủy</button>
-                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors" @click="submitService">
+                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors flex items-center gap-2" :disabled="serviceForm.processing" @click="submitService">
+                            <span v-if="serviceForm.processing" class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                             {{ isEditService ? 'Cập nhật' : 'Thêm mới' }}
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Confirm Modal -->
+            <div v-if="confirmModal.show" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4" @click.self="confirmModal.show = false">
+                <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden text-center transform transition-all">
+                    <div class="p-6">
+                        <div :class="[
+                            'w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4',
+                            confirmModal.type === 'danger' ? 'bg-rose-50 text-rose-500' : 
+                            confirmModal.type === 'success' ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500'
+                        ]">
+                            <i :class="['bi text-2xl', 
+                                confirmModal.type === 'danger' ? 'bi-trash-fill' : 
+                                confirmModal.type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'
+                            ]"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-2">{{ confirmModal.title }}</h3>
+                        <p class="text-sm text-slate-500" v-html="confirmModal.message"></p>
+                    </div>
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+                        <button v-if="!confirmModal.isAlert" @click="confirmModal.show = false" class="flex-1 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all">Hủy</button>
+                        <button v-if="!confirmModal.isAlert" @click="handleConfirm" :class="[
+                            'flex-1 px-4 py-2.5 text-white font-bold text-xs rounded-xl transition-all shadow-md',
+                            confirmModal.type === 'danger' ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' : 
+                            confirmModal.type === 'success' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20' : 
+                            'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
+                        ]">Xác nhận</button>
+                        <button v-if="confirmModal.isAlert" @click="confirmModal.show = false" class="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20 text-white font-bold text-xs rounded-xl transition-all shadow-md">OK</button>
                     </div>
                 </div>
             </div>

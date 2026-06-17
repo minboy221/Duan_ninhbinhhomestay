@@ -169,6 +169,10 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::get('/finance', [LandlordController::class, 'finance'])->name('landlord.finance');
     Route::get('/services', [LandlordController::class, 'services'])->name('landlord.services');
+    Route::post('/services', [LandlordController::class, 'storeService'])->name('landlord.services.store');
+    Route::put('/services/{id}', [LandlordController::class, 'updateService'])->name('landlord.services.update');
+    Route::delete('/services/{id}', [LandlordController::class, 'deleteService'])->name('landlord.services.delete');
+    Route::patch('/services/{id}/status', [LandlordController::class, 'changeServiceStatus'])->name('landlord.services.status');
     Route::get('/pricing-sheets', [LandlordController::class, 'pricingSheets'])->name('landlord.pricing-sheets');
     Route::get('/pricing-sheets/create', [LandlordController::class, 'pricingSheetsCreate'])->name('landlord.pricing-sheets.create');
 });
