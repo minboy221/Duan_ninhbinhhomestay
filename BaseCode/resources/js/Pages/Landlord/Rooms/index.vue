@@ -350,67 +350,67 @@ const handleConfirm = () => {
                     <i class="bi bi-inbox text-3xl text-slate-300 block"></i>
                     <span>Không tìm thấy phòng nào phù hợp bộ lọc.</span>
                 </div>
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                <th class="py-3.5 px-6">Mã phòng</th>
-                                <th class="py-3.5 px-4">Tầng</th>
-                                <th class="py-3.5 px-4">Diện tích</th>
-                                <th class="py-3.5 px-4">Đơn giá</th>
-                                <th class="py-3.5 px-4">Số người</th>
-                                <th class="py-3.5 px-4">Tình trạng</th>
-                                <th class="py-3.5 px-4">Trạng thái</th>
-                                <th class="py-3.5 px-6 text-right">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                            <tr v-for="room in allFilteredRooms" :key="room.id" class="hover:bg-slate-50/40 cursor-pointer" @click="openDetail(room)">
-                                <td class="py-4 px-6 font-bold text-slate-800 flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-sm">
+                <div v-else class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div v-for="room in allFilteredRooms" :key="room.id" class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200 cursor-pointer group" @click="openDetail(room)">
+                        <div class="space-y-4">
+                            <!-- Header: Tên phòng và Tầng -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-lg border border-emerald-100">
                                         P
                                     </div>
-                                    <span>{{ room.name }}</span>
-                                </td>
-                                <td class="py-4 px-4">{{ room.floor_name }}</td>
-                                <td class="py-4 px-4">{{ room.area }} m²</td>
-                                <td class="py-4 px-4 text-slate-800">{{ fmtMoney(room.price) }}</td>
-                                <td class="py-4 px-4">
-                                    <span v-if="room.current_people === 0" class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-emerald-50 text-emerald-600 border-emerald-200">
-                                        {{ room.current_people }}/{{ room.capacity }} người - Còn trống
-                                    </span>
-                                    <span v-else-if="room.current_people < room.capacity" class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-blue-50 text-blue-600 border-blue-200">
-                                        {{ room.current_people }}/{{ room.capacity }} người - Còn chỗ
-                                    </span>
-                                    <span v-else class="px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit bg-rose-50 text-rose-600 border-rose-200">
-                                        {{ room.current_people }}/{{ room.capacity }} người - Đã đầy
-                                    </span>
-                                </td>
-                                <td class="py-4 px-4">
-                                    <span :class="[
-                                        'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
-                                        statusConfig[room.status]?.cls || 'bg-slate-50 text-slate-600 border-slate-200'
-                                    ]">
-                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusConfig[room.status]?.dot"></span>
-                                        {{ statusConfig[room.status]?.label || 'Không rõ' }}
-                                    </span>
-                                </td>
-                                <td class="py-4 px-4">
-                                    <span :class="[
-                                        'px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider',
-                                        isRoomActive(room.status) ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-100'
-                                    ]">
-                                        {{ isRoomActive(room.status) ? 'Đang hoạt động' : 'Tạm ngưng' }}
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6 text-right" @click.stop>
-                                    <button @click="openDetail(room)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-500 inline-flex items-center justify-center transition-colors">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <div class="space-y-0.5">
+                                        <h4 class="text-sm font-bold text-slate-800">{{ room.name }}</h4>
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{{ room.floor_name }}</span>
+                                    </div>
+                                </div>
+                                <button @click.stop="openDetail(room)" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                            </div>
+
+                            <!-- Trạng thái phòng -->
+                            <div class="flex items-center gap-2">
+                                <span :class="[
+                                    'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
+                                    statusConfig[room.status]?.cls || 'bg-slate-50 text-slate-600 border-slate-200'
+                                ]">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="statusConfig[room.status]?.dot"></span>
+                                    {{ statusConfig[room.status]?.label || 'Không rõ' }}
+                                </span>
+                                <span :class="[
+                                    'px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider',
+                                    isRoomActive(room.status) ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-100'
+                                ]">
+                                    {{ isRoomActive(room.status) ? 'Hoạt động' : 'Tạm ngưng' }}
+                                </span>
+                            </div>
+
+                            <!-- Giá và Diện tích -->
+                            <div class="bg-slate-50 rounded-2xl p-4 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-400"><i class="bi bi-cash-stack mr-1"></i> Giá thuê</span>
+                                    <span class="text-sm font-extrabold text-slate-800">{{ fmtMoney(room.price) }}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-400"><i class="bi bi-aspect-ratio mr-1"></i> Diện tích</span>
+                                    <span class="text-xs font-bold text-slate-800">{{ room.area }} m²</span>
+                                </div>
+                            </div>
+
+                            <!-- Người ở -->
+                            <div class="pt-2 border-t border-slate-50 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i class="bi bi-people-fill text-slate-400"></i>
+                                    <span class="text-xs font-bold text-slate-600">{{ room.current_people }}/{{ room.capacity }} người</span>
+                                </div>
+                                
+                                <span v-if="room.current_people === 0" class="text-[10px] font-bold text-emerald-500">Còn trống</span>
+                                <span v-else-if="room.current_people < room.capacity" class="text-[10px] font-bold text-blue-500">Còn chỗ</span>
+                                <span v-else class="text-[10px] font-bold text-rose-500">Đã đầy</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
