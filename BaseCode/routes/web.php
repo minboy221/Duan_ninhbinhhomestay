@@ -92,6 +92,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Route chung để xem file private (CCCD, Hợp đồng...)
+    Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
+        ->name('files.private');
 });
 
 // ROUTER cho admin

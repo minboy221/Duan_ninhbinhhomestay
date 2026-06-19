@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from "vue";
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3";
 import * as faceapi from "face-api.js";
 
 //hiển thị 3 phần giao diện xác minh các bước cho chủ trọ
@@ -21,7 +21,7 @@ onMounted(async () => {
         ]);
         isModelsLoaded.value = true;
     } catch (error) {
-        console.error("lỗi khi tải model:", error);
+        console.error("Lỗi khi tải model:", error);
     }
 });
 
@@ -56,11 +56,15 @@ const popup = ref({
     show: false,
     type: 'success', // 'success' or 'error'
     title: '',
-    message: ''
+    message: '',
+    onClose: null
 });
 
 const closePopup = () => {
     popup.value.show = false;
+    if (popup.value.onClose) {
+        popup.value.onClose();
+    }
 };
 
 //hàm xử lý AI và submit ở bước cuối cùng
@@ -73,7 +77,10 @@ const submitVerification = () => {
                     show: true,
                     type: 'success',
                     title: 'Thành Công!',
-                    message: 'Hoàn tất! Đã gửi hồ sơ xác minh. Vui lòng chờ Admin phê duyệt.'
+                    message: 'Hoàn tất! Đã gửi hồ sơ xác minh. Vui lòng chờ Admin phê duyệt.',
+                    onClose: () => {
+                        router.visit(route('home'));
+                    }
                 };
             }
         },

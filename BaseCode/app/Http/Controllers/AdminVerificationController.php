@@ -54,6 +54,13 @@ class AdminVerificationController extends Controller
     //hàm đọc ảnh từ file private
     public function showPrivateFile($type, $filename)
     {
+        $user = auth()->user();
+        if ($user->role !== 'admin') {
+            if (!str_contains($filename, 'user_' . $user->id . '_')) {
+                abort(403, 'Không có quyền truy cập file này.');
+            }
+        }
+
         // 1. Phân loại thư mục
         $folder = '';
         if (in_array($type, ['id_cards', 'faces'])) {

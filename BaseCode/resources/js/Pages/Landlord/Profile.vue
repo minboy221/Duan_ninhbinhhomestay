@@ -1,20 +1,43 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 
-const verifyStatus = ref('unverified') // 'unverified' | 'pending' | 'verified'
+const props = defineProps({
+    userData: {
+        type: Object,
+        default: () => ({})
+    }
+});
+
+const verifyStatus = ref('verified') // Landlords are verified
+
+const getFileUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    const parts = path.split('/');
+    const filename = parts[parts.length - 1];
+    let type = '';
+    if (path.includes('/id_cards/')) type = 'id_cards';
+    else if (path.includes('/faces/')) type = 'faces';
+    else if (path.includes('/contracts/')) type = 'contracts';
+    else if (path.includes('/rooms/')) type = 'rooms';
+    
+    if (type && filename) return `/files/private/${type}/${filename}`;
+    return path;
+}
 
 const profile = reactive({
-    name: 'Nguyễn Văn Chủ',
-    phone: '0912 345 678',
-    email: 'chunha@example.com',
-    address: '15 Trần Hưng Đạo, P. Đông Thành, TP. Ninh Bình',
+    name: props.userData?.name || '',
+    phone: props.userData?.phone || '',
+    email: props.userData?.email || '',
+    address: props.userData?.boardingHouse?.address_detail || '',
     bio: '',
-    cccdFront: null,
-    cccdBack: null,
-    avatar: null,
-    businessLicense: null,
-    roomPhotos: [],
+    cccdFront: getFileUrl(props.userData?.verification?.id_card_front),
+    cccdBack: getFileUrl(props.userData?.verification?.id_card_back),
+    faceAuthImage: getFileUrl(props.userData?.verification?.face_auth_image),
+    avatar: props.userData?.avatar ? `/storage/${props.userData.avatar}` : null,
+    businessLicense: props.userData?.boardingHouse?.contract_images ? getFileUrl(props.userData.boardingHouse.contract_images[0]) : null,
+    roomPhotos: props.userData?.boardingHouse?.room_images ? props.userData.boardingHouse.room_images.map(img => getFileUrl(img)) : [],
 })
 
 const handleFile = (field, e) => {
@@ -24,17 +47,6 @@ const handleFile = (field, e) => {
     reader.onload = (ev) => profile[field] = ev.target.result
     reader.readAsDataURL(f)
 }
-
-const handleRoomPhotos = (e) => {
-    const files = Array.from(e.target.files)
-    files.forEach(f => {
-        const reader = new FileReader()
-        reader.onload = (ev) => profile.roomPhotos.push(ev.target.result)
-        reader.readAsDataURL(f)
-    })
-}
-
-const submitVerify = () => { verifyStatus.value = 'pending' }
 
 const statusConfig = {
     unverified: { label: 'Chưa Xác Minh', cls: 'vs-unverified', icon: 'bi-x-circle-fill',    desc: 'Vui lòng hoàn tất xác minh để đăng tin.' },
@@ -100,72 +112,48 @@ const statusConfig = {
                 <div class="prof-right">
                     <div class="prof-card">
                         <h3 class="sec-title"><i class="bi bi-shield-check"></i> Tài Liệu Xác Minh</h3>
-                        <p class="sec-desc">Vui lòng cung cấp đầy đủ các giấy tờ. Admin sẽ duyệt trong 1-2 ngày làm việc.</p>
+                        <p class="sec-desc">Giấy tờ tùy thân và tài liệu đã được xác minh trên hệ thống.</p>
 
                         <!-- CCCD -->
                         <div class="doc-section">
                             <div class="doc-label">CCCD / CMND</div>
                             <div class="doc-row">
-                                <label class="doc-upload" :class="{ 'doc-uploaded': profile.cccdFront }">
-                                    <input type="file" accept="image/*" @change="handleFile('cccdFront', $event)" style="display:none" />
+                                <div class="doc-upload" :class="{ 'doc-uploaded': profile.cccdFront }">
                                     <img v-if="profile.cccdFront" :src="profile.cccdFront" class="doc-img" />
                                     <div v-else class="doc-placeholder"><i class="bi bi-card-heading"></i><span>Mặt trước</span></div>
-                                </label>
-                                <label class="doc-upload" :class="{ 'doc-uploaded': profile.cccdBack }">
-                                    <input type="file" accept="image/*" @change="handleFile('cccdBack', $event)" style="display:none" />
+                                </div>
+                                <div class="doc-upload" :class="{ 'doc-uploaded': profile.cccdBack }">
                                     <img v-if="profile.cccdBack" :src="profile.cccdBack" class="doc-img" />
                                     <div v-else class="doc-placeholder"><i class="bi bi-card-heading"></i><span>Mặt sau</span></div>
-                                </label>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Portrait -->
                         <div class="doc-section">
                             <div class="doc-label">Ảnh chân dung</div>
-                            <label class="doc-upload doc-portrait" :class="{ 'doc-uploaded': profile.avatar }">
-                                <input type="file" accept="image/*" @change="handleFile('avatar', $event)" style="display:none" />
-                                <img v-if="profile.avatar" :src="profile.avatar" class="doc-img" />
+                            <div class="doc-upload doc-portrait" :class="{ 'doc-uploaded': profile.faceAuthImage }">
+                                <img v-if="profile.faceAuthImage" :src="profile.faceAuthImage" class="doc-img" />
                                 <div v-else class="doc-placeholder"><i class="bi bi-person-bounding-box"></i><span>Ảnh chân dung rõ mặt</span></div>
-                            </label>
+                            </div>
                         </div>
 
                         <!-- Business license -->
                         <div class="doc-section">
                             <div class="doc-label">Hợp đồng kinh doanh / Sổ đỏ</div>
-                            <label class="doc-upload doc-wide" :class="{ 'doc-uploaded': profile.businessLicense }">
-                                <input type="file" accept="image/*,application/pdf" @change="handleFile('businessLicense', $event)" style="display:none" />
+                            <div class="doc-upload doc-wide" :class="{ 'doc-uploaded': profile.businessLicense }">
                                 <img v-if="profile.businessLicense" :src="profile.businessLicense" class="doc-img" />
-                                <div v-else class="doc-placeholder"><i class="bi bi-file-earmark-text"></i><span>Upload file ảnh hoặc PDF</span></div>
-                            </label>
+                                <div v-else class="doc-placeholder"><i class="bi bi-file-earmark-text"></i><span>Chưa có file</span></div>
+                            </div>
                         </div>
 
                         <!-- Room photos -->
                         <div class="doc-section">
                             <div class="doc-label">Ảnh thực tế phòng trọ</div>
-                            <label class="doc-upload doc-wide">
-                                <input type="file" accept="image/*" multiple @change="handleRoomPhotos" style="display:none" />
-                                <div class="doc-placeholder"><i class="bi bi-images"></i><span>Thêm ảnh phòng trọ (nhiều ảnh)</span></div>
-                            </label>
                             <div class="room-photo-grid" v-if="profile.roomPhotos.length > 0">
                                 <img v-for="(src,i) in profile.roomPhotos" :key="i" :src="src" class="rp-img" />
                             </div>
-                        </div>
-
-                        <!-- Submit button -->
-                        <button
-                            v-if="verifyStatus === 'unverified'"
-                            class="btn-submit-verify"
-                            @click="submitVerify"
-                        >
-                            <i class="bi bi-send-fill"></i> Gửi Yêu Cầu Xác Minh
-                        </button>
-                        <div v-else-if="verifyStatus === 'pending'" class="pending-info">
-                            <i class="bi bi-hourglass-split"></i>
-                            Hồ sơ đã được gửi. Vui lòng chờ Admin duyệt.
-                        </div>
-                        <div v-else class="verified-info">
-                            <i class="bi bi-patch-check-fill"></i>
-                            Tài khoản đã được xác minh đầy đủ.
+                            <div v-else class="doc-placeholder mt-2" style="height: 100px;"><i class="bi bi-images"></i><span>Chưa có ảnh phòng</span></div>
                         </div>
                     </div>
                 </div>

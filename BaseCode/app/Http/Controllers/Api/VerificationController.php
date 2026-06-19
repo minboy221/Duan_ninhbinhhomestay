@@ -52,7 +52,7 @@ class VerificationController extends Controller
 
         //gửi request đến inertia
         if ($request->header('X-Inertia')) {
-            return redirect('/')->with('success', 'đã tải lên thông tin xác minh thành công. đang xử lý');
+            return redirect()->back()->with('success', 'đã tải lên thông tin xác minh thành công. đang xử lý');
         }
         //trả kết quả ra json
         return response()->json([
