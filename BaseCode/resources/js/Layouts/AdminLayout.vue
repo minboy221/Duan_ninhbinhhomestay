@@ -226,7 +226,7 @@ const navGroups = [
                                     mới
                                 </span>
                             </div>
-                            <div class="max-h-[320px] overflow-y-auto">
+                            <div style="max-height: 400px; overflow-y: auto;">
                                 <div
                                     v-if="
                                         page.props.auth?.notifications?.length >

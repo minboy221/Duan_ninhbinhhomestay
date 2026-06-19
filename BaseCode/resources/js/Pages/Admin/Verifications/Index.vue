@@ -146,11 +146,18 @@ defineProps({
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <Link :href="route(
-                                        'admin.verifications.show',
-                                        user.id,
-                                    )
-                                        "
+                                    <!-- Đã duyệt -->
+                                    <div v-if="user.role === 'landlord'" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg font-semibold border border-green-200">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                        Đã duyệt
+                                    </div>
+                                    <!-- Đã huỷ -->
+                                    <div v-else-if="user.boardingHouse?.status === 'rejected'" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-semibold border border-red-200">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                        Đã hủy
+                                    </div>
+                                    <!-- Đang chờ duyệt -->
+                                    <Link v-else :href="route('admin.verifications.show', user.id)"
                                         class="inline-flex items-center gap-1 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg font-semibold transition-all shadow-sm group-hover:shadow group-hover:-translate-y-0.5">
                                         <i class="bi bi-eye-fill"></i>
                                         Kiểm duyệt

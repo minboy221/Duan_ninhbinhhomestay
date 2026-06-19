@@ -23,7 +23,10 @@ class LandlordController extends Controller
 
     public function profile()
     {
-        return Inertia::render('Landlord/Profile');
+        $user = Auth::user()->load(['verification', 'boardingHouse']);
+        return Inertia::render('Landlord/Profile', [
+            'userData' => $user
+        ]);
     }
 
     /**
