@@ -13,7 +13,7 @@ return new class extends Migration {
     {
         Schema::create('maintenance_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('room_id')->constrained('rooms')->onDelete('cascade');
+            $table->unsignedBigInteger('room_id')->comment('Liên kết tới bảng rooms');
             $table->foreignId('tenant_id')->constrained('users')->onDelete('cascade');
             $table->string('title');
             $table->text('description');
