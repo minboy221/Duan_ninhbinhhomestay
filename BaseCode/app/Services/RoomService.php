@@ -207,6 +207,11 @@ class RoomService
         if (!$room || $room->boardingHouse->user_id !== $landlordId)
             return false;
 
+        //chặn người dùng chỉnh sửa nếu phòng đó đã có tin đăngg được hiển thị ở clien
+        if ($room->roomPosts()->where('status', 'approved')->exists()) {
+           throw new \Exception('Không thể chỉnh sửa thông tin phòng vì phòng này đã có tin được hiển thị');
+        }
+
         if (isset($data['status']) && !in_array($data['status'], Room::STATUSES))
             return false;
 
@@ -332,6 +337,10 @@ class RoomService
         $room = $this->roomRepo->findById($roomId);
         if (!$room || $room->boardingHouse->user_id !== $landlordId)
             return false;
+        //chặn xoá phòng nếu tin đó đã được hiển thị ở clien
+        if($room->roomPosts()->where('status','approved')->exists()){
+            throw new \Exception('Không thể xoá phòng vì phòng này đã có tin được hiển thị');
+        }
         $this->deleteRoomImages($room);
         return $this->roomRepo->delete($room);
     }
@@ -353,6 +362,8 @@ class RoomService
             'amenities' => $room->amenities,
             'images' => $room->images ?? [],
             'services' => $room->relationLoaded('services') ? $room->services->toArray() : [],
+            //kiểm tra phòng đã có tin đăng chưa
+            'has_approved_post' => $room->roomPosts()->where('status', 'approved')->exists(),
         ];
     }
 

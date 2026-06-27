@@ -49,7 +49,7 @@ class RoomListingController extends Controller
     {
         $room = Room::with('services')->findOrFail($id);
         if ($room->boardingHouse?->user_id !== auth()->id()) {
-            return response()->json(['messeage' => 'không có quyền truy cập'], 403);
+            return response()->json(['message' => 'không có quyền truy cập'], 403);
         }
         return response()->json($room);
     }

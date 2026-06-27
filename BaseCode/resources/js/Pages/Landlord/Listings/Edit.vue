@@ -197,9 +197,78 @@ const getCurrentPosition = () => {
     );
 };
 
-// Submit form sửa tin
 const submitForm = (actionType) => {
     form.action = actionType;
+    
+    // Xóa sạch lỗi cũ trước khi validate mới
+    form.clearErrors();
+    
+    let hasError = false;
+    
+    // Validate Tiêu đề
+    if (!form.title || form.title.trim() === "") {
+        form.setError("title", "Tiêu đề bài đăng không được để trống.");
+        hasError = true;
+    } else if (form.title.length < 10) {
+        form.setError("title", "Tiêu đề bài đăng phải từ 10 ký tự trở lên.");
+        hasError = true;
+    } else if (form.title.length > 255) {
+        form.setError("title", "Tiêu đề bài đăng không được vượt quá 255 ký tự.");
+        hasError = true;
+    }
+    
+    // Validate Phòng trọ
+    if (!form.room_id) {
+        form.setError("room_id", "Vui lòng chọn một căn phòng cụ thể.");
+        hasError = true;
+    }
+    
+    // Validate Mô tả
+    const cleanDesc = form.description ? form.description.replace(/<[^>]*>/g, '').trim() : "";
+    if (actionType === "publish") {
+        if (!cleanDesc || cleanDesc === "") {
+            form.setError("description", "Vui lòng nhập mô tả chi tiết cho phòng trọ.");
+            hasError = true;
+        } else if (cleanDesc.length < 20) {
+            form.setError("description", "Nội dung mô tả phòng trọ phải từ 20 ký tự trở lên.");
+            hasError = true;
+        }
+    } else {
+        if (cleanDesc && cleanDesc.length > 0 && cleanDesc.length < 20) {
+            form.setError("description", "Nội dung mô tả nếu nhập phải từ 20 ký tự trở lên.");
+            hasError = true;
+        }
+    }
+
+    // Validate Hình ảnh (Khi Đăng tin chính thức, tổng ảnh cũ và ảnh mới chọn thêm phải >= 1)
+    if (actionType === "publish") {
+        const totalImages = (form.existing_images ? form.existing_images.length : 0) + (form.images ? form.images.length : 0);
+        if (totalImages === 0) {
+            form.setError("images", "Bạn phải giữ lại hoặc tải lên ít nhất một tấm hình ảnh thực tế.");
+            hasError = true;
+        }
+    }
+    
+    // Validate kích thước ảnh mới chọn thêm (Tối đa 2MB mỗi file)
+    if (form.images && form.images.length > 0) {
+        const invalidSize = form.images.some(file => file.size > 2 * 1024 * 1024); // 2MB
+        if (invalidSize) {
+            form.setError("images", "Dung lượng mỗi ảnh mới chọn không được vượt quá 2MB.");
+            hasError = true;
+        }
+    }
+    
+    // Nếu có lỗi, cuộn màn hình đến phần tử lỗi đầu tiên
+    if (hasError) {
+        setTimeout(() => {
+            const firstErrorEl = document.querySelector(".text-red-500");
+            if (firstErrorEl) {
+                firstErrorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }, 100);
+        return;
+    }
+    
     // Phương pháp Spoofing PUT của Laravel vì có file đính kèm
     form.transform((data) => ({
         ...data,
@@ -390,6 +459,12 @@ const submitForm = (actionType) => {
                                     <i v-else class="bi bi-geo-alt"></i>
                                     {{ isLocating ? "Đang định vị..." : "GPS" }}
                                 </button>
+                            </div>
+                            <div
+                                v-if="form.errors.address"
+                                class="text-red-500 text-xs mt-1"
+                            >
+                                {{ form.errors.address }}
                             </div>
                         </div>
 
