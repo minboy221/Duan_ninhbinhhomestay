@@ -127,8 +127,21 @@ const removeExistingImage = (index) => {
 
 // Xử lý thêm ảnh mới
 const handleFileChange = (e) => {
-    form.images = Array.from(e.target.files);
+    const newFiles = Array.from(e.target.files);
+    form.images = [...form.images, ...newFiles];
 };
+
+const getObjectUrl = (file) => {
+    if (file instanceof File) {
+        if (!file.objectUrl) {
+            file.objectUrl = URL.createObjectURL(file);
+        }
+        return file.objectUrl;
+    }
+    return file;
+};
+
+// Xoá ảnh mới
 const removeNewImage = (index) => {
     form.images.splice(index, 1);
 };
@@ -516,7 +529,7 @@ const submitForm = (actionType) => {
                                     class="img-preview-item"
                                 >
                                     <img
-                                        :src="URL.createObjectURL(src)"
+                                        :src="getObjectUrl(src)"
                                         alt="Ảnh mới thêm"
                                     />
                                     <button

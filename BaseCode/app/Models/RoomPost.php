@@ -31,7 +31,7 @@ class RoomPost extends Model
 
     public function landlord()
     {
-        return $this->belongsTo(User::class, 'laldlord', 'id');
+        return $this->belongsTo(User::class, 'landlord_id', 'id');
     }
 
     public function room()

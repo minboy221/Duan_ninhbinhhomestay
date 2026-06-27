@@ -41,18 +41,19 @@ class RoomPostStatusNotification extends Notification
         if ($this->action === 'approved') {
             return [
                 'title' => 'Tin đăng của bạn đã được duyệt',
-                'content' => "Bài đăng \"{$this->post->title}\" của bạn đã được phê duyệt thành công và được hiển thị công khai",
+                'message' => "Bài đăng \"{$this->post->title}\" của bạn đã được phê duyệt thành công và được hiển thị công khai",
                 'type' => 'listing_approved',
-                'post_id' => $this->post->id
+                'post_id' => $this->post->id,
+                'url' => route('landlord.listings.index')
             ];
         }
         //trường hợp bị từ chối
         return [
-            'title' => 'Tin đăng bị từ chối',
-            'content' => "Bài Đăng \"{$this->post->title}\" không được phê duyệt",
-            'reject_reason' => $this->post->reject_reason,
+            'title' => 'Tin đăng của bạn bị từ chối',
+            'message' => "Bài đăng \"{$this->post->title}\" của bạn bị từ chối. Lý do: {$this->post->reject_reason}",
             'type' => 'listing_rejected',
-            'post_id' => $this->post->id
+            'post_id' => $this->post->id,
+            'url' => route('landlord.listings.edit', $this->post->id)
         ];
     }
 }

@@ -55,14 +55,7 @@ Route::get('/about', function () {
 })->name('about');
 
 // Route cho Trang Tìm trọ
-Route::get('/timtro', function (CategoryService $categoryService) {
-    $categoryData = $categoryService->getActiveData();
-    return Inertia::render('Client/timtro', [
-        'categories' => $categoryData['types'],
-        'areas' => $categoryData['areas'],
-        'amenities' => $categoryData['amenities'],
-    ]);
-})->name('timtro');
+Route::get('/timtro', [PublicListingController::class, 'index'])->name('timtro');
 
 // Route cho Trang Tin tức
 Route::get('/tintuc', function () {
@@ -75,9 +68,7 @@ Route::get('/lienhe', function () {
 })->name('lienhe');
 
 // Route cho Trang chi tiết trọ
-Route::get('/chitiettro', function () {
-    return Inertia::render('Client/chitiettro'); // Trỏ đến file Pages/Client/About.vue
-})->name('chitiettro');
+Route::get('/chitiettro', [PublicListingController::class, 'show'])->name('chitiettro');
 
 // Route cho Trang chi tiết tin tức
 Route::get('/chitiettintuc', function () {
@@ -189,7 +180,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     // Lấy dịch vụ tiện ích của các phòng
     Route::get('/rooms/{id}/services', [RoomListingController::class, 'getRoomServices']);
 
-    Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.listings.');
+    Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.appointments');
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
