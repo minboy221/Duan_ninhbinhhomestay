@@ -96,7 +96,20 @@ watch(
 
 //Phần xử lý tải ảnh lên
 const handleFileChange = (e) => {
-    form.images = Array.from(e.target.files);
+    // Thêm ảnh mới vào danh sách hiện tại thay vì ghi đè (tuỳ chọn, nhưng nếu cần sửa lỗi ko cho ảnh được thì sửa hàm này)
+    // Để giữ ảnh cũ nếu chọn thêm nhiều lần:
+    const newFiles = Array.from(e.target.files);
+    form.images = [...form.images, ...newFiles];
+};
+
+const getObjectUrl = (file) => {
+    if (file instanceof File) {
+        if (!file.objectUrl) {
+            file.objectUrl = URL.createObjectURL(file);
+        }
+        return file.objectUrl;
+    }
+    return file;
 };
 
 //Phần xoá bớt ảnh trong danh sách xem trước
@@ -512,11 +525,7 @@ const typeUnits = {
                                 class="img-preview-item"
                             >
                                 <img
-                                    :src="
-                                        src instanceof File
-                                            ? URL.createObjectURL(src)
-                                            : src
-                                    "
+                                    :src="getObjectUrl(src)"
                                     :alt="`Ảnh ${i + 1}`"
                                 />
                                 <button

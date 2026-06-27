@@ -1,6 +1,6 @@
 <script setup>
 import MainLayout from '@/Layouts/MainLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 // Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Controller → Inertia)
@@ -8,7 +8,17 @@ const props = defineProps({
     categories: { type: Array, default: () => [] },
     areas:      { type: Array, default: () => [] },
     amenities:  { type: Array, default: () => [] },
+    listings:   { type: Object, default: () => ({ data: [], links: [] }) },
 })
+
+const timeAgo = (date) => {
+    if (!date) return '';
+    const diff = Math.floor((new Date() - new Date(date)) / 1000);
+    if (diff < 60) return `${diff} giây trước`;
+    if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+    return `${Math.floor(diff / 86400)} ngày trước`;
+}
 
 const showDropdown = ref(false)
 const selectedArea = ref(null)
@@ -134,149 +144,49 @@ function submitSearch() {
             <!-- phần hiển thị phòng -->
             <section class="room">
                 <div class="baoroom">
-                    <div class="item_room">
-                        <img src="/anh/banner_tro.png" alt="">
-                        <div class="infor_room">
-                            <div class="title_room">
-                                <h2>Cho thuê trọ</h2>
-                            </div>
-                            <div class="infor">
-                                <p>2 triệu/tháng</p>
-                                <p>20m<sup>2</sup>
-                                </p>
-                                <p><span><i class="bi bi-geo-alt"></i></span>Duy Tiên, Hà Nam</p>
-                                <div class="about_room">
-                                    <p>Phòng xịn hẹ hẹ hẹ hẹ.</p>
-                                </div>
-                            </div>
-                            <div class="user_room">
-                                <img src="/anh/banner.png" alt="">
-                                <h4>Chủ trọ</h4>
-                                <p>cập nhật 2 giờ trước</p>
-                            </div>
-                        </div>
-                        <a class="btn" href="#">
-                            Xem chi tiết
-                        </a>
+                    <div v-if="listings.data.length === 0" style="text-align: center; padding: 50px 0; width: 100%; color: #64748b;">
+                        <i class="bi bi-house-x text-4xl mb-3 block"></i>
+                        <p>Không có phòng trọ nào phù hợp</p>
                     </div>
-                    <div class="item_room">
-                        <img src="/anh/banner_tro.png" alt="">
+
+                    <div class="item_room" v-for="post in listings.data" :key="post.id">
+                        <img :src="post.image && post.image.length > 0 ? post.image[0] : '/anh/banner_tro.png'" alt="" style="object-fit: cover;">
                         <div class="infor_room">
                             <div class="title_room">
-                                <h2>Cho thuê trọ</h2>
+                                <h2 style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">{{ post.title }}</h2>
                             </div>
                             <div class="infor">
-                                <p>2 triệu/tháng</p>
-                                <p>20m<sup>2</sup>
+                                <p>{{ new Intl.NumberFormat('vi-VN').format(post.room?.price || 0) }} đ/tháng</p>
+                                <p>{{ post.room?.area }}m<sup>2</sup></p>
+                                <p style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;" :title="post.room?.boarding_house?.address_detail || 'Ninh Bình'">
+                                    <span><i class="bi bi-geo-alt"></i></span>
+                                    {{ post.room?.boarding_house?.address_detail || 'Ninh Bình' }}
                                 </p>
-                                <p><span><i class="bi bi-geo-alt"></i></span>Duy Tiên, Hà Nam</p>
                                 <div class="about_room">
-                                    <p>Phòng xịn hẹ hẹ hẹ hẹ.</p>
+                                    <p v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'"></p>
                                 </div>
                             </div>
                             <div class="user_room">
-                                <img src="/anh/banner.png" alt="">
-                                <h4>Chủ trọ</h4>
-                                <p>cập nhật 2 giờ trước</p>
+                                <img :src="post.landlord?.avatar || '/anh/banner.png'" alt="" style="object-fit: cover;">
+                                <h4>{{ post.landlord?.name || 'Chủ trọ' }}</h4>
+                                <p>cập nhật {{ timeAgo(post.updated_at) }}</p>
                             </div>
                         </div>
-                        <a class="btn" href="#">
+                        <Link :href="'/chitiettro?id=' + post.id" class="btn">
                             Xem chi tiết
-                        </a>
-                    </div>
-                    <div class="item_room">
-                        <img src="/anh/banner_tro.png" alt="">
-                        <div class="infor_room">
-                            <div class="title_room">
-                                <h2>Cho thuê trọ</h2>
-                            </div>
-                            <div class="infor">
-                                <p>2 triệu/tháng</p>
-                                <p>20m<sup>2</sup>
-                                </p>
-                                <p><span><i class="bi bi-geo-alt"></i></span>Duy Tiên, Hà Nam</p>
-                                <div class="about_room">
-                                    <p>Phòng xịn hẹ hẹ hẹ hẹ.</p>
-                                </div>
-                            </div>
-                            <div class="user_room">
-                                <img src="/anh/banner.png" alt="">
-                                <h4>Chủ trọ</h4>
-                                <p>cập nhật 2 giờ trước</p>
-                            </div>
-                        </div>
-                        <a class="btn" href="#">
-                            Xem chi tiết
-                        </a>
-                    </div>
-                    <div class="item_room">
-                        <img src="/anh/banner_tro.png" alt="">
-                        <div class="infor_room">
-                            <div class="title_room">
-                                <h2>Cho thuê trọ</h2>
-                            </div>
-                            <div class="infor">
-                                <p>2 triệu/tháng</p>
-                                <p>20m<sup>2</sup>
-                                </p>
-                                <p><span><i class="bi bi-geo-alt"></i></span>Duy Tiên, Hà Nam</p>
-                                <div class="about_room">
-                                    <p>Phòng xịn hẹ hẹ hẹ hẹ.</p>
-                                </div>
-                            </div>
-                            <div class="user_room">
-                                <img src="/anh/banner.png" alt="">
-                                <h4>Chủ trọ</h4>
-                                <p>cập nhật 2 giờ trước</p>
-                            </div>
-                        </div>
-                        <a class="btn" href="#">
-                            Xem chi tiết
-                        </a>
-                    </div>
-                    <div class="item_room">
-                        <img src="/anh/banner_tro.png" alt="">
-                        <div class="infor_room">
-                            <div class="title_room">
-                                <h2>Cho thuê trọ</h2>
-                            </div>
-                            <div class="infor">
-                                <p>2 triệu/tháng</p>
-                                <p>20m<sup>2</sup>
-                                </p>
-                                <p><span><i class="bi bi-geo-alt"></i></span>Duy Tiên, Hà Nam</p>
-                                <div class="about_room">
-                                    <p>Phòng xịn hẹ hẹ hẹ hẹ.</p>
-                                </div>
-                            </div>
-                            <div class="user_room">
-                                <img src="/anh/banner.png" alt="">
-                                <h4>Chủ trọ</h4>
-                                <p>cập nhật 2 giờ trước</p>
-                            </div>
-                        </div>
-                        <a class="btn" href="#">
-                            Xem chi tiết
-                        </a>
+                        </Link>
                     </div>
                 </div>
-                <div class="phantrang">
+                
+                <!-- Phân trang -->
+                <div class="phantrang" v-if="listings.links && listings.links.length > 3">
                     <div class="baophantrang">
-                        <div class="so_trang">
-                            <a href="">
-                                <p>1</p>
-                            </a>
-                        </div>
-                        <div class="so_trang">
-                            <a href="">
-                                <p>2</p>
-                            </a>
-                        </div>
-                        <div class="so_trang">
-                            <a href="">
-                                <p>3</p>
-                            </a>
-                        </div>
+                        <template v-for="(link, index) in listings.links" :key="index">
+                            <div class="so_trang" :class="{ 'active': link.active }">
+                                <Link v-if="link.url" :href="link.url" v-html="link.label"></Link>
+                                <span v-else v-html="link.label" style="opacity: 0.5; padding: 8px 12px;"></span>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </section>
@@ -301,4 +211,13 @@ function submitSearch() {
 .dropdown ul li { cursor:pointer;display:flex;align-items:center;gap:6px; }
 .dropdown ul li:hover { background:#f1f5f9; }
 .dropdown ul li.active { background:#7c3aed;color:#fff; }
+
+/* Styles cho phân trang */
+.phantrang { display: flex; justify-content: center; margin-top: 30px; }
+.baophantrang { display: flex; gap: 8px; }
+.so_trang { border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; transition: all 0.2s; }
+.so_trang a, .so_trang span { display: block; padding: 8px 12px; color: #475569; font-weight: 500; text-decoration: none; }
+.so_trang:hover { background: #f8fafc; border-color: #cbd5e1; }
+.so_trang.active { background: #38bdf8; border-color: #38bdf8; }
+.so_trang.active a, .so_trang.active span { color: white; }
 </style>
