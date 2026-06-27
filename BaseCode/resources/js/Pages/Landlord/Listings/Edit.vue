@@ -1,38 +1,67 @@
 <script setup>
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import { useForm, Link } from "@inertiajs/vue3";
 import axios from "axios";
-import { computed } from "vue";
-//phần soạn thảo văn bản
+// Phần soạn thảo văn bản
 import { QuillEditor } from "@vueup/vue-quill";
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
+
 const props = defineProps({
+    post: Object,
     boardingHouses: Array,
 });
-const selectedHouse = ref(null);
-const selectedFloor = ref(null);
-const availableFloors = ref([]);
+
+// Xác định vị trí nhà trọ & tầng hiện tại để pre-select dropdowns
+const initialHouse =
+    props.boardingHouses.find((h) =>
+        h.floors.some((f) => f.rooms.some((r) => r.id === props.post.room_id)),
+    ) || null;
+
+const initialFloor = initialHouse
+    ? initialHouse.floors.find((f) =>
+          f.rooms.some((r) => r.id === props.post.room_id),
+      )
+    : null;
+
+const selectedHouse = ref(initialHouse);
+const selectedFloor = ref(initialFloor);
+const availableFloors = ref(initialHouse ? initialHouse.floors : []);
 const availableRooms = ref([]);
-//hiển thị tiện ích của phòng
+
 const roomServices = ref([]);
 const selectedRoomInfo = ref(null);
 const roomDetails = ref(null);
 const isLoadingDetails = ref(false);
-// lấy toạ độ trực tiếp khi đăng tin
 const isLocating = ref(false);
 
 const form = useForm({
-    room_id: "",
-    title: "",
-    description: "",
-    address: "",
-    latitude: null,
-    longitude: null,
-    images: [],
+    room_id: props.post.room_id || "",
+    title: props.post.title || "",
+    description: props.post.description || "",
+    address: props.post.room?.boarding_house?.address || "",
+    latitude: props.post.room?.boarding_house?.latitude || null,
+    longitude: props.post.room?.boarding_house?.longitude || null,
+    existing_images: props.post.image || [], // Chứa ảnh cũ
+    images: [], // Chứa ảnh mới upload
     action: "publish",
 });
 
+// Load danh sách phòng của tầng ban đầu
+if (selectedFloor.value) {
+    availableRooms.value = selectedFloor.value.rooms.filter((r) => {
+        if (r.id === props.post.room_id) return true; // Luôn hiển thị phòng hiện tại đang được sửa
+        const posts = r.room_posts || r.roomPosts;
+        const hasActivePost =
+            posts &&
+            posts.some((p) =>
+                ["draft", "pending", "approved"].includes(p.status),
+            );
+        return r.status === "available" && !hasActivePost;
+    });
+}
+
+// Watchers theo dõi thay đổi nhà trọ
 watch(selectedHouse, (newHouse) => {
     selectedFloor.value = null;
     form.room_id = "";
@@ -40,14 +69,19 @@ watch(selectedHouse, (newHouse) => {
     availableFloors.value = newHouse ? newHouse.floors : [];
 });
 
+// Watchers theo dõi thay đổi tầng
 watch(selectedFloor, (newFloor) => {
-    form.room_id = "";
-    roomDetails.value = null;
+    if (newFloor && newFloor.rooms.some((r) => r.id === props.post.room_id)) {
+        form.room_id = props.post.room_id;
+    } else {
+        form.room_id = "";
+        roomDetails.value = null;
+    }
+
     availableRooms.value = newFloor
         ? newFloor.rooms.filter((r) => {
-            //lấy mảng bài viết
-            const posts = r.room_posts || r.roomPosts;
-              //kiểm tra phòng này có tin dăng nháp, chờ, hay đã duyệt chx
+              if (r.id === props.post.room_id) return true; // Giữ lại phòng đang sửa
+              const posts = r.room_posts || r.roomPosts;
               const hasActivePost =
                   posts &&
                   posts.some((p) =>
@@ -58,6 +92,7 @@ watch(selectedFloor, (newFloor) => {
         : [];
 });
 
+// Theo dõi thay đổi phòng để tải chi tiết và tiện ích
 watch(
     () => form.room_id,
     async (newRoomId) => {
@@ -68,82 +103,62 @@ watch(
             return;
         }
         isLoadingDetails.value = true;
-        //chạy cả 2 API để tiết kiệm thời gian phản hồi
         try {
             const [detailsResponse, servicesResponse] = await Promise.all([
                 axios.get(`/landlord/rooms/${newRoomId}/details-for-listing`),
                 axios.get(`/landlord/rooms/${newRoomId}/services`),
             ]);
-            //xử lý dữ liệu chi tiết phòng
             roomDetails.value = detailsResponse.data;
-            if (selectedHouse.value) {
-                form.title = `Cho thuê phòng ${detailsResponse.data.room_number} - Khu nhà ${selectedHouse.value.name}`;
-            }
             roomServices.value = servicesResponse.data.services;
-            selectedRoomInfo.value = {
-                price: servicesResponse.data.price,
-            };
+            selectedRoomInfo.value = { price: servicesResponse.data.price };
         } catch (error) {
-            console.error(
-                "Lỗi khi tải thông tin chi tiết và tiện ích phòng:",
-                error,
-            );
+            console.error("Lỗi khi tải thông tin chi tiết phòng:", error);
         } finally {
             isLoadingDetails.value = false;
         }
     },
+    { immediate: true },
 );
 
-//Phần xử lý tải ảnh lên
+// Xử lý xóa ảnh cũ
+const removeExistingImage = (index) => {
+    form.existing_images.splice(index, 1);
+};
+
+// Xử lý thêm ảnh mới
 const handleFileChange = (e) => {
     form.images = Array.from(e.target.files);
 };
-
-//Phần xoá bớt ảnh trong danh sách xem trước
-const removeImage = (index) => {
+const removeNewImage = (index) => {
     form.images.splice(index, 1);
 };
 
-//phần submit
-const submitForm = (actionType) => {
-    form.action = actionType;
-    form.post(route("landlord.listings.store"));
-};
-
-//Phần định vị tiền tệ
-const formatMoney = (n) =>
-    n ? new Intl.NumberFormat("vi-VN").format(n) + "đ" : "-";
-
-//hàm kích hoạt GPS để lấy địa chỉ tự động
+// Hàm định vị GPS
 const getCurrentPosition = () => {
     if (!navigator.geolocation) {
-        alert("Trình duyệt của bạn không hỗ trợ trức năng định vị GPS");
+        alert("Trình duyệt của bạn không hỗ trợ chức năng định vị GPS");
         return;
     }
     isLocating.value = true;
 
-    //Gọi API của trình duyệt để lấy toạ độ GPS hiện tại
     navigator.geolocation.getCurrentPosition(
         async (position) => {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
 
-            //lưu toạ độ vào form để gửi lên backend
             form.latitude = lat;
             form.longitude = lon;
 
             try {
-                //lấy API của OpenStreetMap để dịch toạ độ thành địa chỉ
                 const response = await axios.get(
                     `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
                 );
                 if (response.data && response.data.display_name) {
-                    //tự động điền địa chỉ dịch được vào ô input
                     form.address = response.data.display_name;
                 }
             } catch (error) {
                 console.error("Lỗi dịch toạ độ sang địa chỉ:", error);
-                alert("Đã lấy được toạ độ nhưng không thể dịc thành địa chỉ");
+                alert("Đã lấy được toạ độ nhưng không thể dịch thành địa chỉ");
             } finally {
                 isLocating.value = false;
             }
@@ -169,39 +184,28 @@ const getCurrentPosition = () => {
     );
 };
 
-//phần hiển thị bản đồ map
-const mapUrl = computed(() => {
-    if (form.latitude && form.longitude) {
-        return `https://maps.google.com/maps?q=${form.latitude},${form.longitude}&z=15&output=embed`;
-    }
-
-    if (form.address) {
-        return `https://maps.google.com/maps?q=${encodeURIComponent(form.address)}&z=15&output=embed`;
-    }
-
-    return null;
-});
-
-// cấu hình đơn vị tính
-const typeUnits = {
-    per_kwh: "kWh",
-    per_m3: "m³",
-    fixed: "tháng",
-    per_person: "người",
+// Submit form sửa tin
+const submitForm = (actionType) => {
+    form.action = actionType;
+    // Phương pháp Spoofing PUT của Laravel vì có file đính kèm
+    form.transform((data) => ({
+        ...data,
+        _method: "PUT",
+    })).post(route("landlord.listings.update", props.post.id));
 };
 </script>
 
 <template>
     <LandlordLayout>
         <template #header-title>
-            <h1 class="ll-header-title">Đăng Tin Cho Thuê</h1>
+            <h1 class="ll-header-title">Chỉnh Sửa Tin Đăng</h1>
         </template>
 
         <div class="create-wrap">
             <div class="create-cols">
-                <!-- Form -->
+                <!-- Form chỉnh sửa -->
                 <div class="form-col">
-                    <!-- Basic info -->
+                    <!-- Thông tin cơ bản -->
                     <div class="form-card">
                         <h3 class="fc-title">
                             <i class="bi bi-info-circle-fill"></i> Thông Tin Cơ
@@ -214,6 +218,12 @@ const typeUnits = {
                                 class="form-input"
                                 placeholder="VD: Phòng trọ sạch sẽ thoáng mát trung tâm..."
                             />
+                            <div
+                                v-if="form.errors.title"
+                                class="text-red-500 text-xs mt-1"
+                            >
+                                {{ form.errors.title }}
+                            </div>
                         </div>
                         <div class="form-row-2">
                             <div class="form-group">
@@ -231,6 +241,12 @@ const typeUnits = {
                                         Phòng {{ room.room_number }}
                                     </option>
                                 </select>
+                                <div
+                                    v-if="form.errors.room_id"
+                                    class="text-red-500 text-xs mt-1"
+                                >
+                                    {{ form.errors.room_id }}
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label"
@@ -239,59 +255,58 @@ const typeUnits = {
                                 <input
                                     :value="roomDetails?.area || ''"
                                     disabled
-                                    class="form-input"
+                                    class="form-input bg-gray-50 text-gray-500"
                                 />
                             </div>
-                            <div class="mt-4" v-if="roomServices.length > 0">
-                                <label
-                                    class="block text-sm font-medium text-gray-700 mb-2"
-                                >
-                                    Các tiện ích sẵn có của phòng này:
-                                </label>
+                        </div>
 
+                        <!-- Danh sách tiện ích sẵn có của phòng -->
+                        <div class="mt-4" v-if="roomServices.length > 0">
+                            <label
+                                class="block text-sm font-medium text-gray-700 mb-2"
+                            >
+                                Các tiện ích sẵn có của phòng này:
+                            </label>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 <div
-                                    class="grid grid-cols-2 sm:grid-cols-3 gap-2"
+                                    v-for="service in roomServices"
+                                    :key="service.id"
+                                    class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm"
                                 >
-                                    <div
-                                        v-for="service in roomServices"
-                                        :key="service.id"
-                                        class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm"
+                                    <svg
+                                        class="w-4 h-4 text-green-600 flex-shrink-0"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
                                     >
-                                        <svg
-                                            class="w-4 h-4 text-green-600 flex-shrink-0"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M5 13l4 4L19 7"
-                                            ></path>
-                                        </svg>
-                                        <span>{{ service.name }}</span>
-                                        <span
-                                            v-if="service.price > 0"
-                                            class="text-xs text-gray-500"
-                                        >
-                                            ({{
-                                                new Intl.NumberFormat(
-                                                    "vi-VN",
-                                                ).format(service.price)
-                                            }}đ)
-                                        </span>
-                                    </div>
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M5 13l4 4L19 7"
+                                        ></path>
+                                    </svg>
+                                    <span>{{ service.name }}</span>
+                                    <span
+                                        v-if="service.price > 0"
+                                        class="text-xs text-gray-500"
+                                    >
+                                        ({{
+                                            new Intl.NumberFormat(
+                                                "vi-VN",
+                                            ).format(service.price)
+                                        }}đ)
+                                    </span>
                                 </div>
                             </div>
-
-                            <div
-                                class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
-                                v-else-if="form.room_id"
-                            >
-                                Phòng này hiện chưa được thiết lập tiện ích nào.
-                            </div>
                         </div>
+                        <div
+                            class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+                            v-else-if="form.room_id"
+                        >
+                            Phòng này hiện chưa được thiết lập tiện ích nào.
+                        </div>
+
                         <div class="form-group">
                             <label class="form-label"> Nhà trọ </label>
                             <select v-model="selectedHouse" class="form-input">
@@ -319,23 +334,20 @@ const typeUnits = {
                             </select>
                         </div>
 
+                        <!-- Địa chỉ bản đồ GPS -->
                         <div class="mb-4">
                             <label
                                 class="block text-sm font-medium text-gray-700 mb-1"
                             >
                                 Địa chỉ khu trọ / Phòng trọ:
                             </label>
-
                             <div class="flex gap-2">
-                                <div class="relative flex-1">
-                                    <input
-                                        type="text"
-                                        v-model="form.address"
-                                        placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                    />
-                                </div>
-
+                                <input
+                                    type="text"
+                                    v-model="form.address"
+                                    placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
+                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-sm form-input"
+                                />
                                 <button
                                     type="button"
                                     @click="getCurrentPosition"
@@ -362,62 +374,19 @@ const typeUnits = {
                                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                         ></path>
                                     </svg>
-
-                                    <svg
-                                        v-else
-                                        class="w-4 h-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                                        ></path>
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1 1 15 0z"
-                                        ></path>
-                                    </svg>
-                                    {{
-                                        isLocating
-                                            ? "Đang xác vị trí..."
-                                            : "Vị trí hiện tại"
-                                    }}
+                                    <i v-else class="bi bi-geo-alt"></i>
+                                    {{ isLocating ? "Đang định vị..." : "GPS" }}
                                 </button>
                             </div>
-
-                            <div
-                                v-if="form.latitude && form.longitude"
-                                class="mt-1.5 text-xs text-gray-500 flex gap-4"
-                            >
-                                <span
-                                    ><strong>Vĩ độ (Lat):</strong>
-                                    {{ form.latitude }}</span
-                                >
-                                <span
-                                    ><strong>Kinh độ (Lng):</strong>
-                                    {{ form.longitude }}</span
-                                >
-                            </div>
-
-                            <div
-                                v-if="form.errors.address"
-                                class="text-red-500 text-xs mt-1"
-                            >
-                                {{ form.errors.address }}
-                            </div>
                         </div>
+
+                        <!-- Trình soạn thảo mô tả -->
                         <div class="mb-4">
                             <label
                                 class="block text-sm font-medium text-gray-700 mb-2"
                             >
                                 Mô tả chi tiết bài đăng:
                             </label>
-
                             <div class="quill-editor-wrapper">
                                 <QuillEditor
                                     v-model:content="form.description"
@@ -430,19 +399,18 @@ const typeUnits = {
                                             'italic',
                                             'underline',
                                             'strike',
-                                        ], // Các nút Đậm, Nghiêng, Gạch chân, Gạch ngang
+                                        ],
                                         [
                                             { list: 'ordered' },
                                             { list: 'bullet' },
-                                        ], // Danh sách số, danh sách dấu chấm
-                                        [{ header: [1, 2, 3, false] }], // Kích thước tiêu đề chữ
-                                        [{ color: [] }, { background: [] }], // Màu chữ, màu nền chữ
-                                        [{ align: [] }], // Căn lề trái, giữa, phải
-                                        ['clean'], // Nút xóa toàn bộ định dạng để viết lại
+                                        ],
+                                        [{ header: [1, 2, 3, false] }],
+                                        [{ color: [] }, { background: [] }],
+                                        [{ align: [] }],
+                                        ['clean'],
                                     ]"
                                 />
                             </div>
-
                             <div
                                 v-if="form.errors.description"
                                 class="text-red-500 text-xs mt-1"
@@ -452,7 +420,7 @@ const typeUnits = {
                         </div>
                     </div>
 
-                    <!-- Pricing -->
+                    <!-- Giá thuê -->
                     <div class="form-card">
                         <h3 class="fc-title">
                             <i class="bi bi-cash-coin"></i> Giá Thuê & Phí Dịch
@@ -467,28 +435,32 @@ const typeUnits = {
                                     type="number"
                                     :value="roomDetails?.price || ''"
                                     disabled
-                                    class="form-input"
-                                    placeholder="3000000"
+                                    class="form-input bg-gray-50 text-gray-500"
                                 />
                                 <span
                                     class="form-hint"
                                     v-if="roomDetails?.price"
                                 >
-                                    {{ formatMoney(roomDetails.price) }}
+                                    {{
+                                        new Intl.NumberFormat("vi-VN").format(
+                                            roomDetails.price,
+                                        )
+                                    }}đ
                                 </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right: images + map + preview -->
+                <!-- Cột phải: Quản lý hình ảnh và Bản đồ -->
                 <div class="right-col">
-                    <!-- Images -->
+                    <!-- Hình ảnh -->
                     <div class="form-card">
                         <h3 class="fc-title">
                             <i class="bi bi-images"></i> Hình Ảnh Phòng
                         </h3>
-                        <label class="img-upload-area">
+
+                        <label class="img-upload-area mb-4">
                             <input
                                 type="file"
                                 multiple
@@ -497,42 +469,75 @@ const typeUnits = {
                                 style="display: none"
                             />
                             <i class="bi bi-cloud-upload"></i>
-                            <span>Nhấn để chọn ảnh</span>
+                            <span>Chọn thêm ảnh mới</span>
                             <span class="img-hint"
-                                >JPG, PNG tối đa 5MB mỗi ảnh</span
+                                >JPG, PNG tối đa 2MB mỗi ảnh</span
                             >
                         </label>
+
+                        <!-- Ảnh hiện tại của bài viết -->
                         <div
-                            class="img-preview-grid"
-                            v-if="form.images.length > 0"
+                            v-if="form.existing_images.length > 0"
+                            class="space-y-2"
                         >
-                            <div
-                                v-for="(src, i) in form.images"
-                                :key="i"
-                                class="img-preview-item"
-                            >
-                                <img
-                                    :src="
-                                        src instanceof File
-                                            ? URL.createObjectURL(src)
-                                            : src
-                                    "
-                                    :alt="`Ảnh ${i + 1}`"
-                                />
-                                <button
-                                    class="img-remove"
-                                    @click="removeImage(i)"
+                            <h4 class="text-xs font-bold text-slate-500">
+                                Ảnh hiện tại:
+                            </h4>
+                            <div class="img-preview-grid">
+                                <div
+                                    v-for="(src, i) in form.existing_images"
+                                    :key="'existing-' + i"
+                                    class="img-preview-item"
                                 >
-                                    <i class="bi bi-x"></i>
-                                </button>
-                                <span v-if="i === 0" class="img-main-badge"
-                                    >Ảnh chính</span
-                                >
+                                    <img :src="src" alt="Ảnh hiện tại" />
+                                    <button
+                                        type="button"
+                                        class="img-remove"
+                                        @click="removeExistingImage(i)"
+                                    >
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
+                        </div>
+
+                        <!-- Ảnh mới chọn thêm -->
+                        <div
+                            v-if="form.images.length > 0"
+                            class="space-y-2 mt-4"
+                        >
+                            <h4 class="text-xs font-bold text-slate-500">
+                                Ảnh mới chọn thêm:
+                            </h4>
+                            <div class="img-preview-grid">
+                                <div
+                                    v-for="(src, i) in form.images"
+                                    :key="'new-' + i"
+                                    class="img-preview-item"
+                                >
+                                    <img
+                                        :src="URL.createObjectURL(src)"
+                                        alt="Ảnh mới thêm"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="img-remove"
+                                        @click="removeNewImage(i)"
+                                    >
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            v-if="form.errors.images"
+                            class="text-red-500 text-xs mt-1"
+                        >
+                            {{ form.errors.images }}
                         </div>
                     </div>
 
-                    <!-- Map placeholder -->
+                    <!-- Google Map Preview -->
                     <div class="form-card">
                         <h3 class="fc-title">
                             <i class="bi bi-geo-alt-fill"></i> Vị Trí Trên Bản
@@ -540,60 +545,51 @@ const typeUnits = {
                         </h3>
                         <div class="map-container">
                             <iframe
-                                v-if="mapUrl"
-                                :src="mapUrl"
+                                v-if="form.latitude && form.longitude"
+                                :src="`https://maps.google.com/maps?q=${form.latitude},${form.longitude}&z=15&output=embed`"
                                 width="100%"
                                 height="250"
                                 style="border: 0; border-radius: 12px"
                                 loading="lazy"
-                            >
-                            </iframe>
-
+                            ></iframe>
                             <div v-else class="map-placeholder">
                                 <i class="bi bi-map"></i>
-                                <span
-                                    >Nhập địa chỉ hoặc lấy GPS để xem bản
-                                    đồ</span
-                                >
+                                <span>Nhập địa chỉ để định vị bản đồ</span>
                             </div>
                         </div>
-                        <input
-                            v-model="form.address"
-                            class="form-input mt-10"
-                            placeholder="Nhập địa chỉ để tìm trên bản đồ..."
-                        />
                     </div>
 
-                    <!-- Preview -->
+                    <!-- Xem trước nội dung (Preview) -->
                     <div class="preview-box">
                         <div class="prev-title">
                             {{ form.title || "Tiêu đề bài đăng..." }}
                         </div>
-                        <div class="prev-price">
-                            {{ roomDetails?.price?.toLocaleString() || 0 }}đ
+                        <div class="prev-price text-emerald-600 font-bold">
+                            {{
+                                roomDetails?.price
+                                    ? new Intl.NumberFormat("vi-VN").format(
+                                          roomDetails.price,
+                                      ) + "đ"
+                                    : "0đ"
+                            }}
                         </div>
-                        <div class="prev-meta">
-                            <span> {{ roomDetails?.area || 0 }} m² </span>
-                        </div>
-                        <div
-                            v-if="roomDetails?.services?.length"
-                            class="flex flex-wrap gap-2 mt-3"
-                        >
+                        <div class="prev-meta text-slate-400 text-xs mt-1">
                             <span
-                                v-for="service in roomDetails.services"
-                                :key="service.id"
-                                class="px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs"
+                                >Diện tích:
+                                {{ roomDetails?.area || 0 }} m²</span
                             >
-                                {{ service.name }}
-                            </span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Submit -->
+            <!-- Thanh chức năng gửi Form -->
             <div class="submit-bar">
-                <Link :href="route('landlord.listings.index')">Hủy</Link>
+                <Link
+                    :href="route('landlord.listings.index')"
+                    class="btn-cancel"
+                    >Hủy</Link
+                >
                 <button
                     type="button"
                     class="btn-draft"
@@ -606,7 +602,7 @@ const typeUnits = {
                     class="btn-submit"
                     @click="submitForm('publish')"
                 >
-                    <i class="bi bi-send-fill"></i> Đăng Tin
+                    <i class="bi bi-send-fill"></i> Cập Nhật
                 </button>
             </div>
         </div>
@@ -673,7 +669,7 @@ const typeUnits = {
     gap: 12px;
 }
 
-form.price {
+.form-label {
     font-size: 12px;
     font-weight: 600;
     color: #374151;
@@ -693,61 +689,13 @@ form.price {
     border-color: #0f766e;
 }
 
-.form-textarea {
-    resize: vertical;
-    font-family: inherit;
-}
-
 .form-hint {
     font-size: 12px;
     color: #0f766e;
     font-weight: 600;
 }
 
-.mt-10 {
-    margin-top: 10px;
-}
-
-/* Amenities */
-.amenity-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-}
-
-.amenity-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 6px;
-    border-radius: 10px;
-    border: 1.5px solid #e2e8f0;
-    background: #f8fafc;
-    color: #6b7280;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-
-.amenity-btn i {
-    font-size: 18px;
-}
-
-.amenity-active {
-    border-color: #0f766e !important;
-    background: #f0fdf4 !important;
-    color: #0f766e !important;
-}
-
-.amenity-btn:hover:not(.amenity-active) {
-    border-color: #d1fae5;
-    background: #f0fdf4;
-    color: #374151;
-}
-
-/* Images */
+/* Images Upload UI */
 .img-upload-area {
     display: flex;
     flex-direction: column;
@@ -778,14 +726,12 @@ form.price {
 .img-hint {
     font-size: 11px;
     color: #9ca3af;
-    font-weight: 400;
 }
 
 .img-preview-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
-    margin-top: 10px;
 }
 
 .img-preview-item {
@@ -793,6 +739,7 @@ form.price {
     border-radius: 8px;
     overflow: hidden;
     aspect-ratio: 1;
+    border: 1px solid #e2e8f0;
 }
 
 .img-preview-item img {
@@ -805,186 +752,132 @@ form.price {
     position: absolute;
     top: 4px;
     right: 4px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
-    color: #fff;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
     border: none;
-    cursor: pointer;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
     font-size: 12px;
 }
 
-.img-main-badge {
-    position: absolute;
-    bottom: 4px;
-    left: 4px;
-    background: #0f766e;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 100px;
+.img-remove:hover {
+    background: rgb(220, 38, 38);
 }
 
 /* Map */
+.map-container {
+    background: #f8fafc;
+    border-radius: 12px;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
 .map-placeholder {
-    background: #f0fdf4;
-    border-radius: 10px;
-    height: 160px;
+    color: #94a3b8;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 8px;
-    color: #6b7280;
 }
 
-.map-placeholder i {
-    font-size: 36px;
-    color: #6ee7b7;
-}
-
-.map-hint {
-    font-size: 11px;
-    color: #9ca3af;
-}
-
-/* Preview */
-.preview-card {
-    background: #f0fdf4;
-    border: 1.5px solid #d1fae5;
-    border-radius: 16px;
-    padding: 18px;
-}
-
+/* Preview Box */
 .preview-box {
-    background: #fff;
-    border-radius: 12px;
-    padding: 14px;
-    margin-top: 10px;
+    background: #fdfdfd;
+    border: 1px border;
+    border-color: #e2e8f0;
+    border-radius: 16px;
+    padding: 16px;
 }
 
 .prev-title {
     font-size: 14px;
     font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 6px;
+    color: #1e293b;
 }
 
-.prev-price {
-    font-size: 20px;
-    font-weight: 800;
-    color: #0f766e;
-    margin-bottom: 8px;
-}
-
-.prev-meta {
-    display: flex;
-    gap: 12px;
-    font-size: 12px;
-    color: #6b7280;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-}
-
-.prev-meta span {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.prev-amenities {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.prev-amenity {
-    padding: 3px 10px;
-    background: #f0fdf4;
-    color: #0f766e;
-    border-radius: 100px;
-    font-size: 11px;
-    font-weight: 600;
-}
-
-/* Submit bar */
+/* Action bar */
 .submit-bar {
     display: flex;
-    align-items: center;
     justify-content: flex-end;
-    gap: 10px;
-    background: #fff;
-    border-radius: 16px;
-    padding: 16px 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    gap: 12px;
+    margin-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 16px;
 }
 
 .btn-cancel {
     padding: 10px 20px;
-    background: #fff;
-    color: #374151;
     border: 1.5px solid #e2e8f0;
     border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: #64748b;
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-cancel:hover {
+    background: #f1f5f9;
 }
 
 .btn-draft {
     padding: 10px 20px;
-    background: #fef9c3;
-    color: #854d0e;
-    border: none;
+    border: 1.5px solid #0f766e;
+    background: transparent;
     border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f766e;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
 }
 
+.btn-draft:hover {
+    background: #f0fdf4;
+}
+
 .btn-submit {
-    padding: 10px 24px;
+    padding: 10px 20px;
     background: #0f766e;
-    color: #fff;
     border: none;
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
+    color: white;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
 }
 
 .btn-submit:hover {
-    background: #0d9488;
+    background: #0d5c56;
 }
 
-@media (max-width: 1100px) {
-    .create-cols {
-        grid-template-columns: 1fr;
-    }
-
-    .amenity-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
+.quill-editor-wrapper {
+    background: white;
+    border-radius: 8px;
+    border: 1.5px solid #e2e8f0;
 }
 
-.map-container {
-    width: 100%;
-    overflow: hidden;
-    border-radius: 12px;
+:deep(.ql-container.ql-snow) {
+    border: none;
+    min-height: 150px;
 }
 
-.map-placeholder {
-    height: 250px;
+:deep(.ql-toolbar.ql-snow) {
+    border: none;
+    border-bottom: 1.5px solid #e2e8f0;
 }
 </style>
