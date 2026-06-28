@@ -39,13 +39,14 @@ const form = useForm({
     room_id: props.post.room_id || "",
     title: props.post.title || "",
     description: props.post.description || "",
-    address: props.post.room?.boarding_house?.address || "",
-    latitude: props.post.room?.boarding_house?.latitude || null,
-    longitude: props.post.room?.boarding_house?.longitude || null,
+    address: props.post.address || "",
+    latitude: props.post.latitude || null,
+    longitude: props.post.longitude || null,
     existing_images: props.post.image || [], // Chứa ảnh cũ
     images: [], // Chứa ảnh mới upload
     action: "publish",
 });
+
 
 // Load danh sách phòng của tầng ban đầu
 if (selectedFloor.value) {
@@ -111,6 +112,15 @@ watch(
             roomDetails.value = detailsResponse.data;
             roomServices.value = servicesResponse.data.services;
             selectedRoomInfo.value = { price: servicesResponse.data.price };
+            //tự động điền địa chỉ & gps mới từ tầng/khu
+            if (detailsResponse.data.floor) {
+                //nếu tin đăng chưa có địa chỉ, hoặc chủ trọ chọn phòng thuộc tầng khác với tầng cũ của phòng
+                if (!form.address || (props.post.room?.floor_id !== detailsResponse.data.floor_id)) {
+                    form.address = detailsResponse.data.floor.address || "";
+                    form.latitude = detailsResponse.data.floor.latitude || null;
+                    form.longitude = detailsResponse.data.floor.longitude || null;
+                }
+            }
         } catch (error) {
             console.error("Lỗi khi tải thông tin chi tiết phòng:", error);
         } finally {

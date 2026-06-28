@@ -19,7 +19,7 @@ class Room extends Model
         'area',
         'capacity',
         'status',
-        'images'
+        'images',
     ];
 
     protected $casts = [

@@ -45,16 +45,16 @@ watch(selectedFloor, (newFloor) => {
     roomDetails.value = null;
     availableRooms.value = newFloor
         ? newFloor.rooms.filter((r) => {
-            //lấy mảng bài viết
-            const posts = r.room_posts || r.roomPosts;
-            //kiểm tra phòng này có tin dăng nháp, chờ, hay đã duyệt chx
-            const hasActivePost =
-                posts &&
-                posts.some((p) =>
-                    ["draft", "pending", "approved"].includes(p.status),
-                );
-            return r.status === "available" && !hasActivePost;
-        })
+              //lấy mảng bài viết
+              const posts = r.room_posts || r.roomPosts;
+              //kiểm tra phòng này có tin dăng nháp, chờ, hay đã duyệt chx
+              const hasActivePost =
+                  posts &&
+                  posts.some((p) =>
+                      ["draft", "pending", "approved"].includes(p.status),
+                  );
+              return r.status === "available" && !hasActivePost;
+          })
         : [];
 });
 
@@ -65,16 +65,18 @@ watch(
             roomDetails.value = null;
             roomServices.value = [];
             selectedRoomInfo.value = null;
+            // Reset địa chỉ khi không chọn phòng
+            form.address = "";
+            form.latitude = null;
+            form.longitude = null;
             return;
         }
         isLoadingDetails.value = true;
-        //chạy cả 2 API để tiết kiệm thời gian phản hồi
         try {
             const [detailsResponse, servicesResponse] = await Promise.all([
                 axios.get(`/landlord/rooms/${newRoomId}/details-for-listing`),
                 axios.get(`/landlord/rooms/${newRoomId}/services`),
             ]);
-            //xử lý dữ liệu chi tiết phòng
             roomDetails.value = detailsResponse.data;
             if (selectedHouse.value) {
                 form.title = `Cho thuê phòng ${detailsResponse.data.room_number} - Khu nhà ${selectedHouse.value.name}`;
@@ -83,11 +85,17 @@ watch(
             selectedRoomInfo.value = {
                 price: servicesResponse.data.price,
             };
+
+            // === TỰ ĐỘNG ĐIỀN ĐỊA CHỈ & GPS CỦA KHU TRỌ/TẦNG VÀO GIAO DIỆN ===
+            if (detailsResponse.data.floor) {
+                form.address = detailsResponse.data.floor.address || "";
+                form.latitude = detailsResponse.data.floor.latitude || null;
+                form.longitude = detailsResponse.data.floor.longitude || null;
+            }
+            // ========================================================
+            
         } catch (error) {
-            console.error(
-                "Lỗi khi tải thông tin chi tiết và tiện ích phòng:",
-                error,
-            );
+            console.error("Lỗi khi tải thông tin chi tiết và tiện ích phòng:", error);
         } finally {
             isLoadingDetails.value = false;
         }
@@ -230,56 +238,101 @@ const typeUnits = {
                             Bản
                         </h3>
                         <div class="form-group mb-4">
-                            <label class="block text-sm font-bold text-gray-700 mb-1">Tiêu đề tin đăng:</label>
-                            <input type="text" v-model="form.title"
+                            <label
+                                class="block text-sm font-bold text-gray-700 mb-1"
+                                >Tiêu đề tin đăng:</label
+                            >
+                            <input
+                                type="text"
+                                v-model="form.title"
                                 placeholder="Ví dụ: Phòng trọ khép kín giá rẻ ngay trung tâm TP Ninh Bình..."
-                                class="w-full text-sm rounded-xl border-gray-300" :class="form.errors.title
+                                class="w-full text-sm rounded-xl border-gray-300"
+                                :class="
+                                    form.errors.title
                                         ? 'border-red-500 focus:ring-red-500'
                                         : ''
-                                    " />
+                                "
+                            />
 
-                            <p v-if="form.errors.title"
-                                class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1">
+                            <p
+                                v-if="form.errors.title"
+                                class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
+                            >
                                 {{ form.errors.title }}
                             </p>
                         </div>
                         <div class="form-row-2">
                             <div class="form-group mb-4">
-                                <label class="block text-sm font-bold text-gray-700 mb-1">Chọn phòng trọ tiếp
-                                    thị:</label>
-                                <select v-model="form.room_id" class="w-full text-sm rounded-xl border-gray-300">
+                                <label
+                                    class="block text-sm font-bold text-gray-700 mb-1"
+                                    >Chọn phòng trọ tiếp thị:</label
+                                >
+                                <select
+                                    v-model="form.room_id"
+                                    class="w-full text-sm rounded-xl border-gray-300"
+                                >
                                     <option value="">
                                         -- Vui lòng chọn phòng --
                                     </option>
-                                    <option v-for="room in availableRooms" :key="room.id" :value="room.id">
+                                    <option
+                                        v-for="room in availableRooms"
+                                        :key="room.id"
+                                        :value="room.id"
+                                    >
                                         Phòng {{ room.room_number }}
                                     </option>
                                 </select>
 
-                                <p v-if="form.errors.room_id"
-                                    class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1">
+                                <p
+                                    v-if="form.errors.room_id"
+                                    class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
+                                >
                                     {{ form.errors.room_id }}
                                 </p>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Diện tích (m²) *</label>
-                                <input :value="roomDetails?.area || ''" disabled class="form-input" />
+                                <label class="form-label"
+                                    >Diện tích (m²) *</label
+                                >
+                                <input
+                                    :value="roomDetails?.area || ''"
+                                    disabled
+                                    class="form-input"
+                                />
                             </div>
                             <div class="mt-4" v-if="roomServices.length > 0">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-2"
+                                >
                                     Các tiện ích sẵn có của phòng này:
                                 </label>
 
-                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                    <div v-for="service in roomServices" :key="service.id"
-                                        class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-                                        <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none"
-                                            stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M5 13l4 4L19 7"></path>
+                                <div
+                                    class="grid grid-cols-2 sm:grid-cols-3 gap-2"
+                                >
+                                    <div
+                                        v-for="service in roomServices"
+                                        :key="service.id"
+                                        class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm"
+                                    >
+                                        <svg
+                                            class="w-4 h-4 text-green-600 flex-shrink-0"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M5 13l4 4L19 7"
+                                            ></path>
                                         </svg>
                                         <span>{{ service.name }}</span>
-                                        <span v-if="service.price > 0" class="text-xs text-gray-500">
+                                        <span
+                                            v-if="service.price > 0"
+                                            class="text-xs text-gray-500"
+                                        >
                                             ({{
                                                 new Intl.NumberFormat(
                                                     "vi-VN",
@@ -290,8 +343,10 @@ const typeUnits = {
                                 </div>
                             </div>
 
-                            <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
-                                v-else-if="form.room_id">
+                            <div
+                                class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+                                v-else-if="form.room_id"
+                            >
                                 Phòng này hiện chưa được thiết lập tiện ích nào.
                             </div>
                         </div>
@@ -299,7 +354,11 @@ const typeUnits = {
                             <label class="form-label"> Nhà trọ </label>
                             <select v-model="selectedHouse" class="form-input">
                                 <option :value="null">Chọn nhà trọ</option>
-                                <option v-for="house in boardingHouses" :key="house.id" :value="house">
+                                <option
+                                    v-for="house in boardingHouses"
+                                    :key="house.id"
+                                    :value="house"
+                                >
                                     {{ house.name }}
                                 </option>
                             </select>
@@ -308,42 +367,78 @@ const typeUnits = {
                             <label class="form-label"> Tầng </label>
                             <select v-model="selectedFloor" class="form-input">
                                 <option :value="null">Chọn tầng</option>
-                                <option v-for="floor in availableFloors" :key="floor.id" :value="floor">
+                                <option
+                                    v-for="floor in availableFloors"
+                                    :key="floor.id"
+                                    :value="floor"
+                                >
                                     Tầng {{ floor.name }}
                                 </option>
                             </select>
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label
+                                class="block text-sm font-medium text-gray-700 mb-1"
+                            >
                                 Địa chỉ khu trọ / Phòng trọ:
                             </label>
 
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
-                                    <input type="text" v-model="form.address"
+                                    <input
+                                        type="text"
+                                        v-model="form.address"
                                         placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" />
+                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                    />
                                 </div>
 
-                                <button type="button" @click="getCurrentPosition" :disabled="isLocating"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm disabled:opacity-50 transition-colors">
-                                    <svg v-if="isLocating" class="animate-spin h-4 w-4 text-white" fill="none"
-                                        viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                            stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                        </path>
+                                <button
+                                    type="button"
+                                    @click="getCurrentPosition"
+                                    :disabled="isLocating"
+                                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+                                >
+                                    <svg
+                                        v-if="isLocating"
+                                        class="animate-spin h-4 w-4 text-white"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <circle
+                                            class="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            stroke-width="4"
+                                        ></circle>
+                                        <path
+                                            class="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        ></path>
                                     </svg>
 
-                                    <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1 1 15 0z">
-                                        </path>
+                                    <svg
+                                        v-else
+                                        class="w-4 h-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                                        ></path>
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1 1 15 0z"
+                                        ></path>
                                     </svg>
                                     {{
                                         isLocating
@@ -353,24 +448,39 @@ const typeUnits = {
                                 </button>
                             </div>
 
-                            <div v-if="form.latitude && form.longitude" class="mt-1.5 text-xs text-gray-500 flex gap-4">
-                                <span><strong>Vĩ độ (Lat):</strong>
-                                    {{ form.latitude }}</span>
-                                <span><strong>Kinh độ (Lng):</strong>
-                                    {{ form.longitude }}</span>
+                            <div
+                                v-if="form.latitude && form.longitude"
+                                class="mt-1.5 text-xs text-gray-500 flex gap-4"
+                            >
+                                <span
+                                    ><strong>Vĩ độ (Lat):</strong>
+                                    {{ form.latitude }}</span
+                                >
+                                <span
+                                    ><strong>Kinh độ (Lng):</strong>
+                                    {{ form.longitude }}</span
+                                >
                             </div>
 
-                            <div v-if="form.errors.address" class="text-red-500 text-xs mt-1">
+                            <div
+                                v-if="form.errors.address"
+                                class="text-red-500 text-xs mt-1"
+                            >
                                 {{ form.errors.address }}
                             </div>
                         </div>
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label
+                                class="block text-sm font-medium text-gray-700 mb-2"
+                            >
                                 Mô tả chi tiết bài đăng:
                             </label>
 
                             <div class="quill-editor-wrapper">
-                                <QuillEditor v-model:content="form.description" contentType="html" theme="snow"
+                                <QuillEditor
+                                    v-model:content="form.description"
+                                    contentType="html"
+                                    theme="snow"
                                     placeholder="Nhập mô tả chi tiết phòng trọ của bạn (ví dụ: quy định giờ giấc, nội thất đi kèm, cọc bao nhiêu tháng...)"
                                     :toolbar="[
                                         [
@@ -387,11 +497,14 @@ const typeUnits = {
                                         [{ color: [] }, { background: [] }], // Màu chữ, màu nền chữ
                                         [{ align: [] }], // Căn lề trái, giữa, phải
                                         ['clean'], // Nút xóa toàn bộ định dạng để viết lại
-                                    ]" />
+                                    ]"
+                                />
                             </div>
 
-                            <p v-if="form.errors.description"
-                                class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1">
+                            <p
+                                v-if="form.errors.description"
+                                class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
+                            >
                                 {{ form.errors.description }}
                             </p>
                         </div>
@@ -405,10 +518,20 @@ const typeUnits = {
                         </h3>
                         <div class="form-row-3">
                             <div class="form-group">
-                                <label class="form-label">Giá thuê (đ/tháng) *</label>
-                                <input type="number" :value="roomDetails?.price || ''" disabled class="form-input"
-                                    placeholder="3000000" />
-                                <span class="form-hint" v-if="roomDetails?.price">
+                                <label class="form-label"
+                                    >Giá thuê (đ/tháng) *</label
+                                >
+                                <input
+                                    type="number"
+                                    :value="roomDetails?.price || ''"
+                                    disabled
+                                    class="form-input"
+                                    placeholder="3000000"
+                                />
+                                <span
+                                    class="form-hint"
+                                    v-if="roomDetails?.price"
+                                >
                                     {{ formatMoney(roomDetails.price) }}
                                 </span>
                             </div>
@@ -424,48 +547,91 @@ const typeUnits = {
                             <i class="bi bi-images"></i> Hình Ảnh Phòng
                         </h3>
 
-                        <label class="img-upload-area transition-all" :class="form.errors.images
-                                ? 'border-red-500 bg-red-50/30 hover:bg-red-50/50'
-                                : ''
-                            ">
-                            <input type="file" multiple accept="image/*" @change="handleFileChange"
-                                style="display: none" />
-                            <i class="bi bi-cloud-upload" :class="form.errors.images ? 'text-red-500' : ''
-                                "></i>
-                            <span :class="form.errors.images
-                                    ? 'text-red-700 font-medium'
+                        <label
+                            class="img-upload-area transition-all"
+                            :class="
+                                form.errors.images
+                                    ? 'border-red-500 bg-red-50/30 hover:bg-red-50/50'
                                     : ''
-                                ">Nhấn để chọn ảnh</span>
-                            <span class="img-hint">JPG, PNG tối đa 5MB mỗi ảnh</span>
+                            "
+                        >
+                            <input
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                @change="handleFileChange"
+                                style="display: none"
+                            />
+                            <i
+                                class="bi bi-cloud-upload"
+                                :class="
+                                    form.errors.images ? 'text-red-500' : ''
+                                "
+                            ></i>
+                            <span
+                                :class="
+                                    form.errors.images
+                                        ? 'text-red-700 font-medium'
+                                        : ''
+                                "
+                                >Nhấn để chọn ảnh</span
+                            >
+                            <span class="img-hint"
+                                >JPG, PNG tối đa 5MB mỗi ảnh</span
+                            >
                         </label>
 
-                        <p v-if="form.errors.images"
-                            class="text-red-500 font-semibold text-xs mt-2 flex items-center gap-1.5 animate-pulse">
+                        <p
+                            v-if="form.errors.images"
+                            class="text-red-500 font-semibold text-xs mt-2 flex items-center gap-1.5 animate-pulse"
+                        >
                             <i class="bi bi-exclamation-triangle-fill"></i>
                             {{ form.errors.images }}
                         </p>
 
-                        <div class="mt-2 space-y-1" v-if="
-                            Object.keys(form.errors).some((k) =>
-                                k.startsWith('images.'),
-                            )
-                        ">
+                        <div
+                            class="mt-2 space-y-1"
+                            v-if="
+                                Object.keys(form.errors).some((k) =>
+                                    k.startsWith('images.'),
+                                )
+                            "
+                        >
                             <div v-for="(error, key) in form.errors" :key="key">
-                                <p v-if="key.startsWith('images.')"
-                                    class="text-red-500 font-medium text-xs flex items-center gap-1.5">
-                                    <i class="bi bi-x-circle-fill text-[10px]"></i>
+                                <p
+                                    v-if="key.startsWith('images.')"
+                                    class="text-red-500 font-medium text-xs flex items-center gap-1.5"
+                                >
+                                    <i
+                                        class="bi bi-x-circle-fill text-[10px]"
+                                    ></i>
                                     {{ error }}
                                 </p>
                             </div>
                         </div>
 
-                        <div class="img-preview-grid mt-4" v-if="form.images.length > 0">
-                            <div v-for="(src, i) in form.images" :key="i" class="img-preview-item">
-                                <img :src="getObjectUrl(src)" :alt="`Ảnh ${i + 1}`" />
-                                <button class="img-remove" @click="removeImage(i)">
+                        <div
+                            class="img-preview-grid mt-4"
+                            v-if="form.images.length > 0"
+                        >
+                            <div
+                                v-for="(src, i) in form.images"
+                                :key="i"
+                                class="img-preview-item"
+                            >
+                                <img
+                                    :src="getObjectUrl(src)"
+                                    :alt="`Ảnh ${i + 1}`"
+                                />
+                                <button
+                                    class="img-remove"
+                                    @click="removeImage(i)"
+                                >
                                     <i class="bi bi-x"></i>
                                 </button>
-                                <span v-if="i === 0" class="img-main-badge">Ảnh chính</span>
+                                <span v-if="i === 0" class="img-main-badge"
+                                    >Ảnh chính</span
+                                >
                             </div>
                         </div>
                     </div>
@@ -477,18 +643,29 @@ const typeUnits = {
                             Đồ
                         </h3>
                         <div class="map-container">
-                            <iframe v-if="mapUrl" :src="mapUrl" width="100%" height="250"
-                                style="border: 0; border-radius: 12px" loading="lazy">
+                            <iframe
+                                v-if="mapUrl"
+                                :src="mapUrl"
+                                width="100%"
+                                height="250"
+                                style="border: 0; border-radius: 12px"
+                                loading="lazy"
+                            >
                             </iframe>
 
                             <div v-else class="map-placeholder">
                                 <i class="bi bi-map"></i>
-                                <span>Nhập địa chỉ hoặc lấy GPS để xem bản
-                                    đồ</span>
+                                <span
+                                    >Nhập địa chỉ hoặc lấy GPS để xem bản
+                                    đồ</span
+                                >
                             </div>
                         </div>
-                        <input v-model="form.address" class="form-input mt-10"
-                            placeholder="Nhập địa chỉ để tìm trên bản đồ..." />
+                        <input
+                            v-model="form.address"
+                            class="form-input mt-10"
+                            placeholder="Nhập địa chỉ để tìm trên bản đồ..."
+                        />
                     </div>
 
                     <!-- Preview -->
@@ -502,9 +679,15 @@ const typeUnits = {
                         <div class="prev-meta">
                             <span> {{ roomDetails?.area || 0 }} m² </span>
                         </div>
-                        <div v-if="roomDetails?.services?.length" class="flex flex-wrap gap-2 mt-3">
-                            <span v-for="service in roomDetails.services" :key="service.id"
-                                class="px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs">
+                        <div
+                            v-if="roomDetails?.services?.length"
+                            class="flex flex-wrap gap-2 mt-3"
+                        >
+                            <span
+                                v-for="service in roomDetails.services"
+                                :key="service.id"
+                                class="px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs"
+                            >
                                 {{ service.name }}
                             </span>
                         </div>
@@ -515,10 +698,18 @@ const typeUnits = {
             <!-- Submit -->
             <div class="submit-bar">
                 <Link :href="route('landlord.listings.index')">Hủy</Link>
-                <button type="button" class="btn-draft" @click="submitForm('draft')">
+                <button
+                    type="button"
+                    class="btn-draft"
+                    @click="submitForm('draft')"
+                >
                     <i class="bi bi-save"></i> Lưu Nháp
                 </button>
-                <button type="button" class="btn-submit" @click="submitForm('publish')">
+                <button
+                    type="button"
+                    class="btn-submit"
+                    @click="submitForm('publish')"
+                >
                     <i class="bi bi-send-fill"></i> Đăng Tin
                 </button>
             </div>

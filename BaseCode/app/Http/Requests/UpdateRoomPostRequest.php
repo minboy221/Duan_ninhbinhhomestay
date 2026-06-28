@@ -26,6 +26,9 @@ class UpdateRoomPostRequest extends FormRequest
             'room_id' => 'required|exists:rooms,id',
             'title' => 'required|string|min:10|max:255',
             'existing_images' => 'nullable|array', //mảng các link ảnh sẽ giữ lại
+            'address' => 'nullable|string',
+            'latitude'=> 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ];
 
         if ($this->input('action') === 'publish') {

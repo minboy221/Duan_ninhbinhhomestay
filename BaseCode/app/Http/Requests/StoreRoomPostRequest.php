@@ -27,6 +27,9 @@ class StoreRoomPostRequest extends FormRequest
             'action' => 'required|string|in:draft,publish',
             'room_id' => 'required|exists:rooms,id',
             'title' => 'required|string|min:10|max:255',
+            'address' => 'nullable|string',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ];
 
         // 2. Kiểm tra hành động từ phía Frontend gửi lên

@@ -1,6 +1,6 @@
 <script setup>
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { Head, useForm, router } from "@inertiajs/vue3";
+import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 
 const props = defineProps({
@@ -177,9 +177,12 @@ const typeClass = {
                 </div>
 
                 <div class="post-actions">
-                    <button @click="openDetail(post)" class="act-view">
+                    <Link
+                        :href="route('admin.listings.show', post.id)"
+                        class="act-view inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-bold text-xs transition-colors"
+                    >
                         <i class="bi bi-eye"></i> Xem chi tiết
-                    </button>
+                    </Link>
                     <template v-if="activeTab === 'pending'">
                         <button @click="approvePost(post)" class="act-approve">
                             <i class="bi bi-check-lg"></i> Duyệt
@@ -197,154 +200,6 @@ const typeClass = {
                 </div>
             </div>
         </div>
-
-        <Teleport to="body">
-            <div
-                v-if="showDetail"
-                class="modal-overlay"
-                @click.self="showDetail = false"
-            >
-                <div class="modal-box modal-lg">
-                    <div class="modal-header">
-                        <h3>Chi Tiết Tin Đăng #{{ detailPost?.id }}</h3>
-                        <button @click="showDetail = false" class="modal-close">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div
-                            class="mb-4"
-                            v-if="
-                                detailPost?.image && detailPost.image.length > 0
-                            "
-                        >
-                            <div class="grid grid-cols-4 gap-2">
-                                <img
-                                    v-for="(img, idx) in detailPost.image"
-                                    :key="idx"
-                                    :src="img"
-                                    class="w-full h-20 object-cover rounded-lg border shadow-sm"
-                                />
-                            </div>
-                        </div>
-                        <div v-else class="detail-thumb">
-                            <i class="bi bi-house-door"></i>
-                            <span>Không có ảnh đính kèm</span>
-                        </div>
-
-                        <div class="detail-grid">
-                            <div class="detail-row">
-                                <span class="dl">Tiêu đề</span>
-                                <span class="dv font-bold text-gray-900">{{
-                                    detailPost?.title
-                                }}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="dl">Chủ trọ</span>
-                                <span class="dv"
-                                    >{{ detailPost?.landlord?.name }} (SĐT:
-                                    {{
-                                        detailPost?.landlord?.phone ||
-                                        "Chưa cập nhật"
-                                    }})</span
-                                >
-                            </div>
-                            <div class="detail-row">
-                                <span class="dl">Địa chỉ thực tế</span>
-                                <span class="dv text-xs text-gray-600"
-                                    >📍
-                                    {{
-                                        detailPost?.address || "Chưa có định vị"
-                                    }}</span
-                                >
-                            </div>
-                            <div class="detail-row">
-                                <span class="dl">Diện tích</span>
-                                <span class="dv font-semibold text-gray-800"
-                                    >{{ detailPost?.room?.area || "—" }} m² (Số
-                                    phòng:
-                                    {{ detailPost?.room?.room_number }})</span
-                                >
-                            </div>
-                            <div class="detail-row">
-                                <span class="dl">Giá thuê phòng</span>
-                                <span class="dv font-black text-red-600"
-                                    >{{
-                                        formatMoney(detailPost?.room?.price)
-                                    }}đ/tháng</span
-                                >
-                            </div>
-                            <div class="mt-4 pt-3 border-t">
-                                <span
-                                    class="block text-xs font-bold text-gray-400 mb-1.5 uppercase"
-                                    >Nội dung mô tả chi tiết:</span
-                                >
-                                <div
-                                    v-html="detailPost?.description"
-                                    class="p-3 bg-gray-50 border rounded-xl text-xs text-gray-700 leading-relaxed max-h-40 overflow-y-auto"
-                                ></div>
-                            </div>
-                        </div>
-
-                        <div
-                            v-if="activeTab === 'pending'"
-                            class="reject-section mt-4"
-                        >
-                            <label class="reject-label font-bold text-red-600"
-                                >Lý do từ chối (Bắt buộc khi hủy tin):</label
-                            >
-                            <textarea
-                                v-model="rejectForm.reject_reason"
-                                class="reject-input w-full text-xs rounded-xl border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 mt-1"
-                                rows="3"
-                                placeholder="Nhập lý do cụ thể gửi về quả chuông thông báo của chủ trọ..."
-                            ></textarea>
-                            <div
-                                v-if="rejectForm.errors.reject_reason"
-                                class="text-red-500 text-xs mt-1 font-medium"
-                            >
-                                ⚠️ {{ rejectForm.errors.reject_reason }}
-                            </div>
-                        </div>
-
-                        <div
-                            v-if="
-                                activeTab === 'rejected' &&
-                                detailPost?.reject_reason
-                            "
-                            class="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl"
-                        >
-                            <span
-                                class="block text-xs font-bold text-red-700 mb-1"
-                                >Lý do đã từ chối trước đó:</span
-                            >
-                            <p class="text-xs text-red-600 italic">
-                                "{{ detailPost.reject_reason }}"
-                            </p>
-                        </div>
-                    </div>
-
-                    <div v-if="activeTab === 'pending'" class="modal-footer">
-                        <button @click="showDetail = false" class="btn-cancel">
-                            Hủy
-                        </button>
-                        <button
-                            @click="rejectPost(detailPost)"
-                            :disabled="rejectForm.processing"
-                            class="btn-reject-confirm"
-                        >
-                            <i class="bi bi-x-lg"></i> Từ chối duyệt
-                        </button>
-                        <button
-                            @click="approvePost(detailPost)"
-                            class="btn-approve-confirm"
-                        >
-                            <i class="bi bi-check-lg"></i> Duyệt Tin & Xuất Bản
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
     </AdminLayout>
 </template>
 

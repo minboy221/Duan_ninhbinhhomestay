@@ -3,6 +3,7 @@ import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import RoomFormModal from "./RoomFormModal.vue";
 import { ref, computed } from "vue";
 import { router } from "@inertiajs/vue3";
+import axios from "axios";
 
 const props = defineProps({
     floors: { type: Array, default: () => [] },
@@ -159,49 +160,159 @@ const getAllowedStatuses = (current) => statusTransitions[current] || [];
 
 // Floor Modals
 const showFloorModal = ref(false);
+const isEditFloor = ref(false);
+const editingFloorId = ref(null);
 const floorName = ref("");
+const floorAddress = ref("");
+const floorLatitude = ref(null);
+const floorLongitude = ref(null);
+const isLocatingFloor = ref(false);
 const floorError = ref("");
 
 const openAddFloor = () => {
+    isEditFloor.value = false;
+    editingFloorId.value = null;
     floorName.value = "";
+    floorAddress.value = "";
+    floorLatitude.value = null;
+    floorLongitude.value = null;
     floorError.value = "";
     showFloorModal.value = true;
 };
+
+const openEditFloor = (fl) => {
+    isEditFloor.value = true;
+    editingFloorId.value = fl.id;
+    floorName.value = fl.name;
+    floorAddress.value = fl.address || "";
+    floorLatitude.value = fl.latitude || null;
+    floorLongitude.value = fl.longitude || null;
+    floorError.value = "";
+    showFloorModal.value = true;
+};
+
+const getCurrentFloorPosition = () => {
+    if (!navigator.geolocation) {
+        alert("Trình duyệt của bạn không hỗ trợ chức năng định vị GPS");
+        return;
+    }
+    isLocatingFloor.value = true;
+
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+
+            floorLatitude.value = lat;
+            floorLongitude.value = lon;
+
+            try {
+                const response = await axios.get(
+                    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
+                );
+                if (response.data && response.data.display_name) {
+                    floorAddress.value = response.data.display_name;
+                }
+            } catch (error) {
+                console.error("Lỗi dịch toạ độ sang địa chỉ:", error);
+                alert("Đã lấy được toạ độ nhưng không thể dịch thành địa chỉ");
+            } finally {
+                isLocatingFloor.value = false;
+            }
+        },
+        (error) => {
+            isLocatingFloor.value = false;
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                    alert("Bạn đã từ chối cấp quyền truy cập GPS");
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    alert("Không thể xác định được vị trí hiện tại");
+                    break;
+                case error.TIMEOUT:
+                    alert("Quá thời gian yêu cầu lấy vị trí.");
+                    break;
+                default:
+                    alert("Đã xảy ra lỗi không xác định khi lấy vị trí.");
+                    break;
+            }
+        },
+        { enableHighAccuracy: true, timeout: 10000 },
+    );
+};
+
+const floorMapUrl = computed(() => {
+    if (floorLatitude.value && floorLongitude.value) {
+        return `https://maps.google.com/maps?q=${floorLatitude.value},${floorLongitude.value}&z=15&output=embed`;
+    }
+    if (floorAddress.value) {
+        return `https://maps.google.com/maps?q=${encodeURIComponent(floorAddress.value)}&z=15&output=embed`;
+    }
+    return null;
+});
+
 const submitFloor = () => {
     floorError.value = "";
     if (!floorName.value.trim()) {
-        floorError.value = "Vui lòng nhập tên tầng";
+        floorError.value = "Vui lòng nhập tên tầng/khu";
         return;
     }
     let name = floorName.value.trim();
     name = name.charAt(0).toUpperCase() + name.slice(1);
 
     const isDuplicate = floors.value.some(
-        (f) => f.name.toLowerCase() === name.toLowerCase(),
+        (f) => f.name.toLowerCase() === name.toLowerCase() && (!isEditFloor.value || f.id !== editingFloorId.value),
     );
 
     if (isDuplicate) {
-        floorError.value = `Tầng "${name}" đã tồn tại`;
+        floorError.value = `Tầng/Khu "${name}" đã tồn tại`;
         return;
     }
 
-    router.post(
-        route("landlord.floors.store"),
-        { name },
-        {
-            onSuccess: () => {
-                showFloorModal.value = false;
-                showAlert(
-                    "Thành công",
-                    `Thêm tầng "${name}" thành công!`,
-                    "success",
-                );
+    const payload = {
+        name,
+        address: floorAddress.value,
+        latitude: floorLatitude.value,
+        longitude: floorLongitude.value,
+    };
+
+    if (isEditFloor.value) {
+        router.put(
+            route("landlord.floors.update", editingFloorId.value),
+            payload,
+            {
+                onSuccess: () => {
+                    showFloorModal.value = false;
+                    showAlert(
+                        "Thành công",
+                        `Cập nhật tầng/khu "${name}" thành công!`,
+                        "success",
+                    );
+                },
+                onError: (errors) => {
+                    if (errors.name) floorError.value = errors.name;
+                },
+            }
+        );
+    } else {
+        router.post(
+            route("landlord.floors.store"),
+            payload,
+            {
+                onSuccess: () => {
+                    showFloorModal.value = false;
+                    showAlert(
+                        "Thành công",
+                        `Thêm tầng/khu "${name}" thành công!`,
+                        "success",
+                    );
+                },
+                onError: (errors) => {
+                    if (errors.name) floorError.value = errors.name;
+                },
             },
-            onError: (errors) => {
-                if (errors.name) floorError.value = errors.name;
-            },
-        },
-    );
+        );
+    }
 };
 const delFloor = (f) => {
     const restrictedStatuses = [
@@ -775,8 +886,14 @@ const handleConfirm = () => {
                                 title="Thêm phòng vào tầng này">
                                 <i class="bi bi-plus-lg"></i>
                             </button>
+                            <button @click="openEditFloor(fl)"
+                                class="w-7 h-7 hover:bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center"
+                                title="Sửa tầng này">
+                                <i class="bi bi-pencil"></i>
+                            </button>
                             <button @click="delFloor(fl)"
-                                class="w-7 h-7 hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center">
+                                class="w-7 h-7 hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center"
+                                title="Xóa tầng này">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -791,16 +908,16 @@ const handleConfirm = () => {
             <div v-if="showFloorModal"
                 class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                 @click.self="showFloorModal = false">
-                <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                         <h3 class="text-sm font-bold text-slate-800">
-                            Thêm Tầng Mới
+                            {{ isEditFloor ? "Sửa Tầng/Khu" : "Thêm Tầng Mới" }}
                         </h3>
                         <button @click="showFloorModal = false" class="text-slate-400 hover:text-slate-600 p-1">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
-                    <div class="p-6 space-y-4">
+                    <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500">Tên tầng
                                 <span class="text-rose-500">*</span></label>
@@ -810,6 +927,49 @@ const handleConfirm = () => {
                             <span v-if="floorError" class="text-[10px] text-rose-500 font-semibold block mt-1"><i
                                     class="bi bi-exclamation-circle"></i>
                                 {{ floorError }}</span>
+                        </div>
+
+                        <!-- Địa chỉ tầng/khu -->
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-xs font-bold text-slate-500">Địa chỉ tầng/khu</label>
+                                <button @click="getCurrentFloorPosition" type="button"
+                                    class="text-[10px] text-emerald-600 font-bold hover:underline flex items-center gap-1">
+                                    <i class="bi bi-geo-alt-fill"></i>
+                                    {{ isLocatingFloor ? 'Đang xác vị...' : 'Lấy vị trí hiện tại' }}
+                                </button>
+                            </div>
+                            <input v-model="floorAddress"
+                                class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
+                                placeholder="VD: 123 Đường ABC, Ninh Bình..." />
+                        </div>
+
+                        <!-- Toạ độ GPS -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-slate-400 font-bold">Vĩ độ (Latitude)</label>
+                                <input v-model="floorLatitude" type="number" step="any"
+                                    class="w-full px-3 py-2 border border-slate-200 focus:border-emerald-500 rounded-lg text-xs"
+                                    placeholder="VD: 20.2506" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-slate-400 font-bold">Kinh độ (Longitude)</label>
+                                <input v-model="floorLongitude" type="number" step="any"
+                                    class="w-full px-3 py-2 border border-slate-200 focus:border-emerald-500 rounded-lg text-xs"
+                                    placeholder="VD: 105.9744" />
+                            </div>
+                        </div>
+
+                        <!-- Map Preview -->
+                        <div class="rounded-xl overflow-hidden border border-slate-100" style="height: 150px">
+                            <iframe v-if="floorMapUrl"
+                                :src="floorMapUrl"
+                                width="100%" height="100%" style="border: 0" loading="lazy">
+                            </iframe>
+                            <div v-else
+                                class="h-full bg-slate-50 flex items-center justify-center text-[10px] text-slate-400">
+                                Nhập địa chỉ hoặc toạ độ để xem trước bản đồ vị trí khu trọ/tầng
+                            </div>
                         </div>
                     </div>
                     <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
@@ -821,7 +981,7 @@ const handleConfirm = () => {
                         <button
                             class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors"
                             @click="submitFloor">
-                            Thêm
+                            {{ isEditFloor ? "Lưu" : "Thêm" }}
                         </button>
                     </div>
                 </div>

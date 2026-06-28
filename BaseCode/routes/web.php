@@ -107,6 +107,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/landlords', [AdminController::class, 'landlords'])->name('admin.landlords');
     // Phần Duyệt tin đăng của Admin với chủ trọ
     Route::get('/approval', [AdminController::class, 'approval'])->name('admin.listings.index');
+    //Phần xem chi tiết tin đăng của admin khi user đăng lên
+    Route::get('/approval/{id}', [AdminController::class, 'showApproval'])->name('admin.listings.show');
+    //phần sử lý duyệt tin của admin
     Route::post('/listings/{id}/approve', [AdminController::class, 'approveListing'])->name('admin.listings.approve');
     Route::post('/listings/{id}/reject', [AdminController::class, 'rejectListing'])->name('admin.listings.reject');
 

@@ -12,6 +12,9 @@ class Floor extends Model
     protected $fillable = [
         'property_id',
         'name',
+        'address',
+        'latitude',
+        'longitude',
         'sort_order',
     ];
 

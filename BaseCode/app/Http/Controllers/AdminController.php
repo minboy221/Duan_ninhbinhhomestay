@@ -115,6 +115,18 @@ class AdminController extends Controller
         return redirect()->back()->with('success', 'đã từ chối bài viết và gửi lỗi đến chủ trọ');
     }
 
+    //Phần xem chi tiết tin đăng của Admin
+    public function showApproval($id)
+    {
+        //Eager load đầy đủ thông tin phòng, tầng, khu nhà trọ và thông tin của chủ trọ
+        $post = RoomPost::with(['room.floor', 'room.boardingHouse', 'landlord', 'room.services'])
+            ->findOrFail($id);
+        //trả dữ liệu ra đúng file Show.vue
+        return Inertia::render('Admin/Approval/Show', [
+            'post' => $post
+        ]);
+    }
+
     public function approveListing($id)
     {
         //tìm bài viết theo ID

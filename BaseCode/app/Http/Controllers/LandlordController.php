@@ -58,20 +58,30 @@ class LandlordController extends Controller
 
     public function storeFloor(Request $request)
     {
-        $request->validate(['name' => 'required|string|max:255']);
-        $result = $this->roomService->createFloor(Auth::id(), $request->only('name'));
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
+        $result = $this->roomService->createFloor(Auth::id(), $request->only('name', 'address', 'latitude', 'longitude'));
         if (!$result)
-            return redirect()->back()->with('error', 'Không thể thêm tầng!');
-        return redirect()->back()->with('success', 'Thêm tầng thành công!');
+            return redirect()->back()->with('error', 'Không thể thêm tầng/khu!');
+        return redirect()->back()->with('success', 'Thêm tầng/khu thành công!');
     }
 
     public function updateFloor(Request $request, int $id)
     {
-        $request->validate(['name' => 'required|string|max:255']);
-        $result = $this->roomService->updateFloor(Auth::id(), $id, $request->only('name'));
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
+        $result = $this->roomService->updateFloor(Auth::id(), $id, $request->only('name', 'address', 'latitude', 'longitude'));
         if (!$result)
-            return redirect()->back()->with('error', 'Không thể cập nhật tầng!');
-        return redirect()->back()->with('success', 'Cập nhật tầng thành công!');
+            return redirect()->back()->with('error', 'Không thể cập nhật tầng/khu!');
+        return redirect()->back()->with('success', 'Cập nhật tầng/khu thành công!');
     }
 
     public function deleteFloor(int $id)
@@ -102,6 +112,8 @@ class LandlordController extends Controller
             'amenities' => 'nullable|string',
             'images' => 'nullable|array|max:10',
             'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ]);
 
         $imageFiles = $request->file('images', []);
@@ -140,6 +152,8 @@ class LandlordController extends Controller
             'new_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
             'removed_images' => 'nullable|array',
             'removed_images.*' => 'string',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ]);
 
         $newImageFiles = $request->file('new_images', []);

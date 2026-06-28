@@ -48,8 +48,11 @@ class PublicListingController extends Controller
             ->where('status', 'approved')
             ->firstOrFail();
 
+        // Tạm tắt tự động cập nhật timestamps
+        $post->timestamps = false;
         // Tăng lượt xem (không bắt buộc nhưng tốt cho SEO/thống kê)
         $post->increment('view_count');
+
 
         // Lấy danh sách tin đăng tương tự (cùng khu vực, hoặc random) - loại trừ tin hiện tại
         $similarPosts = RoomPost::with(['room.boardingHouse'])
