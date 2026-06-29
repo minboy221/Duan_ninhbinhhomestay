@@ -237,7 +237,7 @@ const typeUnits = {
                             <i class="bi bi-info-circle-fill"></i> Thông Tin Cơ
                             Bản
                         </h3>
-                        <div class="form-group mb-4">
+                                                <div class="form-group mb-4">
                             <label
                                 class="block text-sm font-bold text-gray-700 mb-1"
                                 >Tiêu đề tin đăng:</label
@@ -253,7 +253,6 @@ const typeUnits = {
                                         : ''
                                 "
                             />
-
                             <p
                                 v-if="form.errors.title"
                                 class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
@@ -261,8 +260,40 @@ const typeUnits = {
                                 {{ form.errors.title }}
                             </p>
                         </div>
-                        <div class="form-row-2">
-                            <div class="form-group mb-4">
+
+                        <!-- Nhà trọ & Tầng (Chọn trước) -->
+                        <div class="form-row-2 mb-4">
+                            <div class="form-group">
+                                <label class="form-label"> Nhà trọ </label>
+                                <select v-model="selectedHouse" class="form-input">
+                                    <option :value="null">Chọn nhà trọ</option>
+                                    <option
+                                        v-for="house in boardingHouses"
+                                        :key="house.id"
+                                        :value="house"
+                                    >
+                                        {{ house.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label"> Tầng </label>
+                                <select v-model="selectedFloor" class="form-input">
+                                    <option :value="null">Chọn tầng</option>
+                                    <option
+                                        v-for="floor in availableFloors"
+                                        :key="floor.id"
+                                        :value="floor"
+                                    >
+                                        {{ floor.name.toLowerCase().startsWith('tầng') ? floor.name : 'Tầng ' + floor.name }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Phòng & Diện tích -->
+                        <div class="form-row-2 mb-4">
+                            <div class="form-group">
                                 <label
                                     class="block text-sm font-bold text-gray-700 mb-1"
                                     >Chọn phòng trọ tiếp thị:</label
@@ -282,7 +313,6 @@ const typeUnits = {
                                         Phòng {{ room.room_number }}
                                     </option>
                                 </select>
-
                                 <p
                                     v-if="form.errors.room_id"
                                     class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
@@ -297,176 +327,83 @@ const typeUnits = {
                                 <input
                                     :value="roomDetails?.area || ''"
                                     disabled
-                                    class="form-input"
+                                    class="form-input bg-gray-50 text-gray-500"
                                 />
                             </div>
-                            <div class="mt-4" v-if="roomServices.length > 0">
-                                <label
-                                    class="block text-sm font-medium text-gray-700 mb-2"
-                                >
-                                    Các tiện ích sẵn có của phòng này:
-                                </label>
-
-                                <div
-                                    class="grid grid-cols-2 sm:grid-cols-3 gap-2"
-                                >
-                                    <div
-                                        v-for="service in roomServices"
-                                        :key="service.id"
-                                        class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm"
-                                    >
-                                        <svg
-                                            class="w-4 h-4 text-green-600 flex-shrink-0"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M5 13l4 4L19 7"
-                                            ></path>
-                                        </svg>
-                                        <span>{{ service.name }}</span>
-                                        <span
-                                            v-if="service.price > 0"
-                                            class="text-xs text-gray-500"
-                                        >
-                                            ({{
-                                                new Intl.NumberFormat(
-                                                    "vi-VN",
-                                                ).format(service.price)
-                                            }}đ)
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div
-                                class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
-                                v-else-if="form.room_id"
-                            >
-                                Phòng này hiện chưa được thiết lập tiện ích nào.
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label"> Nhà trọ </label>
-                            <select v-model="selectedHouse" class="form-input">
-                                <option :value="null">Chọn nhà trọ</option>
-                                <option
-                                    v-for="house in boardingHouses"
-                                    :key="house.id"
-                                    :value="house"
-                                >
-                                    {{ house.name }}
-                                </option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label"> Tầng </label>
-                            <select v-model="selectedFloor" class="form-input">
-                                <option :value="null">Chọn tầng</option>
-                                <option
-                                    v-for="floor in availableFloors"
-                                    :key="floor.id"
-                                    :value="floor"
-                                >
-                                    Tầng {{ floor.name }}
-                                </option>
-                            </select>
                         </div>
 
-                        <div class="mb-4">
+                        <!-- Các tiện ích sẵn có của phòng này -->
+                        <div class="mb-4" v-if="roomServices.length > 0">
                             <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
+                                class="block text-sm font-medium text-gray-700 mb-2"
                             >
-                                Địa chỉ khu trọ / Phòng trọ:
+                                Các tiện ích sẵn có của phòng này:
                             </label>
-
-                            <div class="flex gap-2">
-                                <div class="relative flex-1">
-                                    <input
-                                        type="text"
-                                        v-model="form.address"
-                                        placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                    />
-                                </div>
-
-                                <button
-                                    type="button"
-                                    @click="getCurrentPosition"
-                                    :disabled="isLocating"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <div
+                                    v-for="service in roomServices"
+                                    :key="service.id"
+                                    class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm"
                                 >
                                     <svg
-                                        v-if="isLocating"
-                                        class="animate-spin h-4 w-4 text-white"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <circle
-                                            class="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            stroke-width="4"
-                                        ></circle>
-                                        <path
-                                            class="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        ></path>
-                                    </svg>
-
-                                    <svg
-                                        v-else
-                                        class="w-4 h-4"
+                                        class="w-4 h-4 text-green-600 flex-shrink-0"
                                         fill="none"
                                         stroke="currentColor"
-                                        stroke-width="2"
                                         viewBox="0 0 24 24"
                                     >
                                         <path
                                             stroke-linecap="round"
                                             stroke-linejoin="round"
-                                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                                        ></path>
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1 1 15 0z"
+                                            stroke-width="2"
+                                            d="M5 13l4 4L19 7"
                                         ></path>
                                     </svg>
-                                    {{
-                                        isLocating
-                                            ? "Đang xác vị trí..."
-                                            : "Vị trí hiện tại"
-                                    }}
-                                </button>
+                                    <span>{{ service.name }}</span>
+                                    <span
+                                        v-if="service.price > 0"
+                                        class="text-xs text-gray-500"
+                                    >
+                                        ({{
+                                            new Intl.NumberFormat(
+                                                "vi-VN",
+                                            ).format(service.price)
+                                        }}đ)
+                                    </span>
+                                </div>
                             </div>
+                        </div>
+                        <div
+                            class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+                            v-else-if="form.room_id"
+                        >
+                            Phòng này hiện chưa được thiết lập tiện ích nào.
+                        </div>
 
-                            <div
-                                v-if="form.latitude && form.longitude"
-                                class="mt-1.5 text-xs text-gray-500 flex gap-4"
-                            >
-                                <span
-                                    ><strong>Vĩ độ (Lat):</strong>
-                                    {{ form.latitude }}</span
-                                >
-                                <span
-                                    ><strong>Kinh độ (Lng):</strong>
-                                    {{ form.longitude }}</span
-                                >
-                            </div>
+                        <!-- Chỉ hiển thị thông tin địa chỉ khi đã chọn tầng và phòng -->
+                        <div v-if="selectedFloor && form.room_id" class="space-y-4 mb-4">
 
-                            <div
-                                v-if="form.errors.address"
-                                class="text-red-500 text-xs mt-1"
-                            >
-                                {{ form.errors.address }}
+
+                            <!-- Thông tin địa chỉ đầy đủ từ khu trọ -->
+                            <div class="bg-blue-50/40 border border-blue-100 rounded-lg p-3.5">
+                                <label class="block text-xs font-bold text-blue-800 mb-1.5 uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="bi bi-info-circle"></i> Địa chỉ phòng trọ (Tự động cập nhật)
+                                </label>
+                                <p class="text-sm text-gray-700 font-medium">
+                                    {{ form.address }}
+                                </p>
+                                <div
+                                    v-if="form.latitude && form.longitude"
+                                    class="mt-2 text-xs text-gray-500 flex gap-4 border-t border-blue-100/50 pt-2"
+                                >
+                                    <span><i class="bi bi-compass text-gray-400"></i> <strong>Vĩ độ (Lat):</strong> {{ form.latitude }}</span>
+                                    <span><i class="bi bi-compass text-gray-400"></i> <strong>Kinh độ (Lng):</strong> {{ form.longitude }}</span>
+                                </div>
+                                <div
+                                    v-if="form.errors.address"
+                                    class="text-red-500 text-xs mt-1"
+                                >
+                                    {{ form.errors.address }}
+                                </div>
                             </div>
                         </div>
                         <div class="mb-4">
