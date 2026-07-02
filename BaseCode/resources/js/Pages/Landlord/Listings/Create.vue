@@ -92,10 +92,11 @@ watch(
                 form.latitude = detailsResponse.data.floor.latitude || null;
                 form.longitude = detailsResponse.data.floor.longitude || null;
             }
-            // ========================================================
-            
         } catch (error) {
-            console.error("Lỗi khi tải thông tin chi tiết và tiện ích phòng:", error);
+            console.error(
+                "Lỗi khi tải thông tin chi tiết và tiện ích phòng:",
+                error,
+            );
         } finally {
             isLoadingDetails.value = false;
         }
@@ -219,6 +220,107 @@ const typeUnits = {
     fixed: "tháng",
     per_person: "người",
 };
+
+// Phần chức năng chuyển giọng nói sang văn bản
+const recordingField = ref(null);
+
+//khởi tạo đối tượng SpeechRecognition từ trình duyệt
+let recognition = null;
+const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = "vi-VN"; // Cấu hình sang nhận diện bằng tiếng Việt
+    recognition.continuous = false; // Nói xong một câu ngắn sẽ tự động dừng
+    recognition.interimResults = false; // Chỉ lấy kết quả cuối cùng sau khi xử lý
+
+    recognition.onresult = (event) => {
+        const textResult = event.results[0][0].transcript;
+
+        if (recordingField.value === "title") {
+            form.title = formatGeneralText(
+                form.title ? `${form.title} ${textResult}` : textResult,
+            );
+        } else if (recordingField.value === "description") {
+            form.description = formatGeneralText(
+                form.description
+                    ? `${form.description}\n${textResult}`
+                    : textResult,
+            );
+        }
+    };
+
+    // Dừng ghi âm khi người dùng im lặng quá lâu
+    recognition.onend = () => {
+        recordingField.value = null;
+    };
+
+    // Báo lỗi hệ thống nếu có
+    recognition.onerror = (event) => {
+        console.error("Lỗi Speech API:", event.error);
+
+        if (event.error === "not-allowed") {
+            alert(
+                "Vui lòng cấp quyền truy cập Microphone trên trình duyệt để sử dụng tính năng này!",
+            );
+        }
+        recordingField.value = null;
+    };
+}
+
+//phần bật tắt micro
+const toggleSpeechToText = (fieldName) => {
+    if (!recognition) {
+        alert(
+            "Trình duyệt của bạn quá cũ hoặc không hỗ trợ Web Speech API. Vui lòng dùng Google Chrome hoặc Microsoft Edge mới nhất!",
+        );
+        return;
+    }
+    //nếu ô đó đang ghi âm -> bấm lần nữa để dừng
+    if (recordingField.value === fieldName) {
+        recognition.stop();
+    } else {
+        //nếu ô khác nghi âm thì dừng ô cũ
+        if (recordingField.value) {
+            recognition.stop();
+        }
+        //kích hoạt ghi âm cho ô mới
+        recordingField.value = fieldName;
+        recognition.start();
+    }
+};
+
+//Set Format mặc định cho ghi âm
+const formatGeneralText = (text) => {
+    if (!text) return "";
+    let formatted = text;
+
+    //nếu có từ khoá giọng nói thì dịch sang ký tự
+    formatted = formatted.replace(/xuống dòng|xuống hàng/gi, "\n");
+    formatted = formatted.replace(/gạch đầu dòng/gi, "\n-");
+    formatted = formatted.replace(/\schấm\s|\schấm$/gi, ".");
+    formatted = formatted.replace(/\sphẩy\s|\sphẩy$/gi, ",");
+
+    //chuẩn hoá khoảng trắng và dấu xuống dòng
+    formatted = formatted.replace(/\r\n/g, "\n");
+    formatted = formatted.replace(/[\t]+/g, "");
+
+    // Quy tắc: Xóa khoảng trắng trước dấu câu, ép có đúng 1 khoảng trắng sau dấu câu
+    formatted = formatted.replace(/\s*([.,?!;:])\s*/g, "$1 ");
+
+    //tự động viết hoa đầu câu
+    formatted = formatted.replace(
+        /(^\s*|[.\n!?]\s*)(\p{L})/gu,
+        (match, p1, p2) => {
+            return p1 + p2.toUpperCase();
+        },
+    );
+    // 5. Dọn dẹp khoảng trắng thừa ở đầu/cuối các dòng
+    formatted = formatted.replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n");
+
+    return formatted.trim();
+};
 </script>
 
 <template>
@@ -237,21 +339,59 @@ const typeUnits = {
                             <i class="bi bi-info-circle-fill"></i> Thông Tin Cơ
                             Bản
                         </h3>
-                        <div class="form-group mb-4">
-                            <label
-                                class="block text-sm font-bold text-gray-700 mb-1"
-                                >Tiêu đề tin đăng:</label
+                        <div class="mb-5">
+                            <div class="flex items-center justify-between mb-2">
+                                <label
+                                    class="text-sm font-semibold text-gray-800 flex items-center gap-2"
+                                >
+                                    <i
+                                        class="bi bi-pencil-square text-blue-600"
+                                    ></i>
+                                    Tiêu đề tin đăng
+                                </label>
+
+                                <button
+                                    type="button"
+                                    @click="toggleSpeechToText('title')"
+                                    class="flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg text-sm font-semibold"
+                                    :class="
+                                        recordingField === 'title'
+                                            ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse scale-105'
+                                            : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:scale-105'
+                                    "
+                                >
+                                    <i
+                                        class="bi text-lg"
+                                        :class="
+                                            recordingField === 'title'
+                                                ? 'bi-mic-fill'
+                                                : 'bi-mic'
+                                        "
+                                    ></i>
+
+                                    {{
+                                        recordingField === "title"
+                                            ? "Đang lắng nghe..."
+                                            : "Nhập bằng giọng nói"
+                                    }}
+                                </button>
+                            </div>
+
+                            <p
+                                class="text-xs text-gray-500 flex items-center gap-1"
                             >
+                                <i class="bi bi-info-circle"></i>
+                                Bạn có thể bấm micro và đọc tiêu đề thay vì nhập
+                                bằng bàn phím.
+                            </p>
                             <input
                                 type="text"
                                 v-model="form.title"
-                                placeholder="Ví dụ: Phòng trọ khép kín giá rẻ ngay trung tâm TP Ninh Bình..."
-                                class="w-full text-sm rounded-xl border-gray-300"
-                                :class="
-                                    form.errors.title
-                                        ? 'border-red-500 focus:ring-red-500'
-                                        : ''
+                                @blur="
+                                    form.title = formatGeneralText(form.title)
                                 "
+                                placeholder="Nhập tiêu đề tin đăng trọ..."
+                                class="w-full text-sm rounded-xl border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                             />
 
                             <p
@@ -469,44 +609,75 @@ const typeUnits = {
                                 {{ form.errors.address }}
                             </div>
                         </div>
-                        <div class="mb-4">
-                            <label
-                                class="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                Mô tả chi tiết bài đăng:
-                            </label>
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <h3
+                                        class="text-base font-semibold text-gray-800 flex items-center gap-2"
+                                    >
+                                        <i
+                                            class="bi bi-card-text text-indigo-600"
+                                        ></i>
+                                        Mô tả chi tiết bài đăng
+                                    </h3>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        Viết càng chi tiết càng giúp tăng tỷ lệ
+                                        cho thuê.
+                                    </p>
+                                </div>
+                                <textarea
+                                    v-model="form.description"
+                                    rows="6"
+                                    @blur="
+                                        form.description = formatGeneralText(
+                                            form.description,
+                                        )
+                                    "
+                                    placeholder="Mô tả chi tiết về chi phí điện nước, tiện ích căn phòng..."
+                                    class="w-full text-sm rounded-xl border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                                ></textarea>
+                                <button
+                                    type="button"
+                                    @click="toggleSpeechToText('description')"
+                                    class="speech-btn"
+                                    :class="{
+                                        recording:
+                                            recordingField === 'description',
+                                    }"
+                                >
+                                    <i
+                                        class="bi"
+                                        :class="
+                                            recordingField === 'description'
+                                                ? 'bi-mic-fill'
+                                                : 'bi-mic'
+                                        "
+                                    ></i>
+                                    <span>
+                                        {{
+                                            recordingField === "description"
+                                                ? "Đang ghi âm"
+                                                : "Nhập bằng giọng nói"
+                                        }}
+                                    </span>
+                                </button>
+                            </div>
+                            <div class="editor-card">
+                                <div
+                                    v-if="recordingField === 'description'"
+                                    class="recording-banner"
+                                >
+                                    <span class="dot"></span>
 
-                            <div class="quill-editor-wrapper">
+                                    Đang ghi âm... Hãy nói rõ và chậm.
+                                </div>
                                 <QuillEditor
                                     v-model:content="form.description"
                                     contentType="html"
                                     theme="snow"
-                                    placeholder="Nhập mô tả chi tiết phòng trọ của bạn (ví dụ: quy định giờ giấc, nội thất đi kèm, cọc bao nhiêu tháng...)"
-                                    :toolbar="[
-                                        [
-                                            'bold',
-                                            'italic',
-                                            'underline',
-                                            'strike',
-                                        ], // Các nút Đậm, Nghiêng, Gạch chân, Gạch ngang
-                                        [
-                                            { list: 'ordered' },
-                                            { list: 'bullet' },
-                                        ], // Danh sách số, danh sách dấu chấm
-                                        [{ header: [1, 2, 3, false] }], // Kích thước tiêu đề chữ
-                                        [{ color: [] }, { background: [] }], // Màu chữ, màu nền chữ
-                                        [{ align: [] }], // Căn lề trái, giữa, phải
-                                        ['clean'], // Nút xóa toàn bộ định dạng để viết lại
-                                    ]"
+                                    placeholder="Ví dụ: Phòng rộng 25m², có điều hòa, giờ giấc tự do, không chung chủ..."
                                 />
                             </div>
-
-                            <p
-                                v-if="form.errors.description"
-                                class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
-                            >
-                                {{ form.errors.description }}
-                            </p>
                         </div>
                     </div>
 
@@ -1070,6 +1241,105 @@ form.price {
 
 .btn-submit:hover {
     background: #0d9488;
+}
+
+.editor-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    transition: 0.3s;
+}
+
+.editor-card:focus-within {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+}
+
+.ql-toolbar {
+    border: none !important;
+    border-bottom: 1px solid #ececec !important;
+    background: #fafafa;
+}
+
+.ql-container {
+    border: none !important;
+    min-height: 220px;
+    font-size: 15px;
+}
+
+.speech-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 10px 18px;
+
+    border: none;
+
+    border-radius: 999px;
+
+    background: #4f46e5;
+
+    color: white;
+
+    font-weight: 600;
+
+    transition: 0.25s;
+}
+
+.speech-btn:hover {
+    background: #4338ca;
+    transform: translateY(-1px);
+}
+
+.speech-btn.recording {
+    background: #ef4444;
+    animation: pulse 1.2s infinite;
+}
+
+.recording-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 10px 16px;
+
+    background: #fff1f2;
+
+    border-bottom: 1px solid #fecdd3;
+
+    color: #dc2626;
+
+    font-weight: 600;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+
+    border-radius: 50%;
+
+    background: red;
+
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.4);
+        opacity: 0.4;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 @media (max-width: 1100px) {

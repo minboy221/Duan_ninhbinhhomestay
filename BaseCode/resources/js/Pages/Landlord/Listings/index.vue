@@ -43,6 +43,28 @@ const deleteListing = (id) => {
         router.delete(route("landlord.listings.destroy", id));
     }
 };
+
+// Hàm đóng tin đăng
+const closeListing = (id, title) => {
+    if (
+        confirm(
+            `xác nhận xoá tin đăng: "${title}"?\nSau khi đóng khách thuê sẽ không tìm thấy tin đăng này nữa`,
+        )
+    ) {
+        router.post(route("landlord.listings.close", id));
+    }
+};
+
+//Hàm xoá tin đăng
+const handleDeletePost = (id) => {
+    if (
+        confirm(
+            "Bạn có chắc chắn muốn xoá vĩnh viễn bài đăng này không? Hành động này không thể hoàn tác ",
+        )
+    ) {
+        router.delete(route("landlord.listings.destroy", id));
+    }
+};
 </script>
 
 <template>
@@ -212,13 +234,22 @@ const deleteListing = (id) => {
                     <!-- Right Action Bar -->
                     <div
                         class="p-6 md:border-l border-slate-50 flex flex-row md:flex-col justify-center gap-2 bg-slate-50/35">
+                        <!-- 1. Nút Chỉnh sửa: Luôn luôn hiển thị -->
                         <Link :href="route('landlord.listings.edit', ls.id)"
                             class="flex-1 md:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1">
                             <i class="bi bi-pencil-square"></i>
                             Chỉnh sửa
                         </Link>
-                        <button type="button" @click="deleteListing(ls.id)"
-                            class="px-3.5 py-2 hover:bg-rose-50 text-rose-500 rounded-xl transition-colors">
+
+                        <button v-if="ls.status === 'approved'" type="button" @click="closeListing(ls.id, ls.title)"
+                            class="flex-1 md:flex-none px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-amber-200/40">
+                            <i class="bi bi-lock-fill"></i>
+                            Đóng tin
+                        </button>
+
+                        <button v-else type="button" @click="deleteListing(ls.id)"
+                            class="px-3.5 py-2 hover:bg-rose-50 text-rose-500 rounded-xl transition-colors flex items-center justify-center"
+                            title="Xóa vĩnh viễn">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>

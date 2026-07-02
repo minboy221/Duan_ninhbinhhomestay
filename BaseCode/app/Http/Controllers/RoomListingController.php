@@ -125,8 +125,28 @@ class RoomListingController extends Controller
         if ($post->landlord_id !== auth()->id()) {
             abort(403, 'Bạn không có quyền xoá bài đăng này');
         }
+
+        //bảo mật nếu tin đăng là công khai thì sẽ không cho xoá
+        if($post->status === 'approved'){
+            return redirect()->back()
+            ->with('error','hệ thống từ chối,bạn không thể xoá tin đăng ở trạng thái công khai');
+        }
         $this->roomPostService->deletePost($post);
         return redirect()->route('landlord.listings.index')
             ->with('success', 'Đã xoá bài đăng thành công!');
+    }
+
+    //Phần đóng tin đăng
+    public function close($id)
+    {
+        $post = RoomPost::findOrFail($id);
+        //check tài khoản chủ trọ
+        if ($post->landlord_id !== auth()->id()) {
+            abort(403, 'Bạn không có quyền đóng bài đăng này');
+        }
+        //chuyển trạng thái
+        $post->update(['status' => 'closed']);
+        return redirect()->route('landlord.listings.index')
+            ->with('success', 'Đã đóng tin đăng thành công! tin đăng đã được gỡ bỏ');
     }
 }
