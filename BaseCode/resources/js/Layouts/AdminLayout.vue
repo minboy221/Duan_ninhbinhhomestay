@@ -50,6 +50,11 @@ const navGroups = [
                 path: "/admin/categories",
                 icon: "bi-tags-fill",
             },
+            {
+                label: "Tin Tức",
+                path: "/admin/posts",
+                icon: "bi-newspaper",
+            },
         ],
     },
     {

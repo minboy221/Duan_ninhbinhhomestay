@@ -1,19 +1,18 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, computed } from 'vue'
+import { router } from '@inertiajs/vue3'
 
-const currentYear  = 2026
-const currentMonth = 5
+const props = defineProps({
+    dbAppointments: { type: Array, default: () => [] }
+})
+
+const appointments = computed(() => props.dbAppointments)
+
+const now = new Date()
+const currentYear  = now.getFullYear()
+const currentMonth = now.getMonth() + 1
 const viewMode = ref('month') // 'month' | 'list'
-
-const appointments = ref([
-    { id: 1, name: 'Phạm Văn Khoa', phone: '0911 222 333', room: 'Phòng 103', date: '2026-05-23', time: '09:00', status: 'pending', note: 'Muốn xem phòng tầng 1' },
-    { id: 2, name: 'Lê Thị Mai',    phone: '0944 555 666', room: 'Phòng 204', date: '2026-05-23', time: '09:30', status: 'pending', note: '' },
-    { id: 3, name: 'Trần Quốc Anh', phone: '0977 888 999', room: 'Phòng 103', date: '2026-05-24', time: '14:00', status: 'approved', note: 'Đi cùng người bạn' },
-    { id: 4, name: 'Nguyễn Hà Linh',phone: '0933 100 200', room: 'Phòng 204', date: '2026-05-25', time: '10:00', status: 'approved', note: '' },
-    { id: 5, name: 'Vũ Đình Nam',   phone: '0900 300 400', room: 'Phòng 103', date: '2026-05-26', time: '15:00', status: 'rejected', note: '' },
-    { id: 6, name: 'Hoàng Thị Lan', phone: '0912 500 600', room: 'Phòng 204', date: '2026-05-27', time: '09:00', status: 'pending', note: 'Hỏi về giá điện' },
-])
 
 // Conflict detection logic
 const hasConflict = (apt) => {
@@ -49,8 +48,12 @@ const statusMap = {
     rejected: { label: 'Từ Chối',    cls: 'bg-slate-50 text-slate-500 border-slate-100', dot: 'bg-slate-500' },
 }
 
-const approveApt  = (apt) => { apt.status = 'approved' }
-const rejectApt   = (apt) => { apt.status = 'rejected' }
+const approveApt  = (apt) => {
+    router.post(route('landlord.appointments.approve', apt.id), {}, { preserveScroll: true })
+}
+const rejectApt   = (apt) => {
+    router.post(route('landlord.appointments.reject', apt.id), {}, { preserveScroll: true })
+}
 const pendingList = computed(() => appointments.value.filter(a => a.status === 'pending'))
 </script>
 

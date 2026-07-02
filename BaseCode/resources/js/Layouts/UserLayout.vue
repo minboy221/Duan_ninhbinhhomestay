@@ -62,6 +62,18 @@ const uploadAvatar = (e) => {
                                 </Link>
                             </li>
                             <li>
+                                <Link :href="route('profile.appointments')" :class="{ active: route().current('profile.appointments') }">
+                                    <i class="bi bi-calendar2-check"></i>
+                                    <span>Lịch Hẹn Xem Phòng</span>
+                                </Link>
+                            </li>
+                            <li>
+                                <Link :href="route('profile.favorites')" :class="{ active: route().current('profile.favorites') }">
+                                    <i class="bi bi-heart-fill text-red"></i>
+                                    <span>Trọ Yêu Thích</span>
+                                </Link>
+                            </li>
+                            <li>
                                 <Link :href="route('caidatuser')" :class="{ active: route().current('caidat') }">
                                     <i class="bi bi-gear-wide-connected"></i>
                                     <span>Cài Đặt</span>
@@ -96,6 +108,14 @@ const uploadAvatar = (e) => {
         <Link :href="route('quanlynoio')" :class="{ active: route().current('quanlynoio') }">
             <i class="bi bi-house"></i>
             <span>Quản Lý Nơi ở</span>
+        </Link>
+        <Link :href="route('profile.appointments')" :class="{ active: route().current('profile.appointments') }">
+            <i class="bi bi-calendar2-check"></i>
+            <span>Lịch Hẹn</span>
+        </Link>
+        <Link :href="route('profile.favorites')" :class="{ active: route().current('profile.favorites') }">
+            <i class="bi bi-heart-fill text-red"></i>
+            <span>Yêu Thích</span>
         </Link>
         <Link :href="route('caidatuser')" :class="{ active: route().current('caidatuser') }">
             <i class="bi bi-gear-wide-connected"></i>

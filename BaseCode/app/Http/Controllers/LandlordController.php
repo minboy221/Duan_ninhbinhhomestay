@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Services\RoomService;
 use App\Services\ServiceManagementService;
+use App\Models\Appointment;
+use App\Notifications\AppointmentStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -197,7 +199,51 @@ class LandlordController extends Controller
 
     public function appointments()
     {
-        return Inertia::render('Landlord/Appointments/index');
+        $appointments = Appointment::with(['user', 'room.property'])
+            ->where('landlord_id', Auth::id())
+            ->orderBy('date', 'desc')
+            ->orderBy('time', 'desc')
+            ->get()
+            ->map(function ($apt) {
+                return [
+                    'id' => $apt->id,
+                    'name' => $apt->user ? $apt->user->name : 'Ẩn danh',
+                    'phone' => $apt->user ? $apt->user->phone : '',
+                    'room' => $apt->room ? $apt->room->room_number : '',
+                    'date' => $apt->date,
+                    'time' => substr($apt->time, 0, 5), // Giới hạn H:i
+                    'status' => $apt->status,
+                    'note' => $apt->note ?? '',
+                ];
+            });
+
+        return Inertia::render('Landlord/Appointments/index', [
+            'dbAppointments' => $appointments
+        ]);
+    }
+
+    public function approveAppointment(int $id)
+    {
+        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
+        $appointment->update(['status' => 'approved']);
+
+        if ($appointment->user) {
+            $appointment->user->notify(new AppointmentStatusUpdated($appointment));
+        }
+
+        return redirect()->back()->with('success', 'Đã duyệt lịch hẹn xem phòng.');
+    }
+
+    public function rejectAppointment(int $id)
+    {
+        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
+        $appointment->update(['status' => 'rejected']);
+
+        if ($appointment->user) {
+            $appointment->user->notify(new AppointmentStatusUpdated($appointment));
+        }
+
+        return redirect()->back()->with('success', 'Đã từ chối lịch hẹn xem phòng.');
     }
 
     public function tenants()
