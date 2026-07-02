@@ -123,16 +123,18 @@ class LandlordController extends Controller
             foreach ($request->room_numbers as $rn) {
                 $data = $request->except(['room_numbers', 'room_number']);
                 $data['room_number'] = $rn;
-                $this->roomService->createRoom(Auth::id(), $data, $imageFiles);
-                $count++;
+                $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles);
+                if ($room) {
+                    $count++;
+                }
             }
             if ($count === 0)
-                return redirect()->back()->with('error', 'Không có phòng nào được thêm!');
+                return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Vui lòng kiểm tra lại.');
             return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
         } else {
             $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles);
             if (!$result)
-                return redirect()->back()->with('error', 'Không thể thêm phòng!');
+                return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
             return redirect()->back()->with('success', 'Thêm phòng thành công!');
         }
     }

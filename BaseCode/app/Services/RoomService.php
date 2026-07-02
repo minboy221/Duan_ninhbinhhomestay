@@ -193,8 +193,15 @@ class RoomService
             return null;
 
         $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
-        if (!$boardingHouse)
-            return null;
+        if (!$boardingHouse) {
+            $boardingHouse = \App\Models\BoardingHouse::create([
+                'user_id' => $landlordId,
+                'name' => ($floor && $floor->property) ? $floor->property->name : 'Nhà trọ chính',
+                'district' => 'Chưa cập nhật',
+                'address_detail' => ($floor && $floor->property) ? $floor->property->address : 'Chưa cập nhật',
+                'status' => 'approved',
+            ]);
+        }
 
         $room = $this->roomRepo->create([
             'boarding_house_id' => $boardingHouse->id,

@@ -1,9 +1,10 @@
 <script setup>
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import RoomFormModal from "./RoomFormModal.vue";
-import { ref, computed } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { router } from "@inertiajs/vue3";
 import axios from "axios";
+import { HA_NAM_COMMUNES } from "@/constants/locations.js";
 
 const props = defineProps({
     floors: { type: Array, default: () => [] },
@@ -164,16 +165,55 @@ const isEditFloor = ref(false);
 const editingFloorId = ref(null);
 const floorName = ref("");
 const floorAddress = ref("");
+const selectedWard = ref("");
+const addressDetail = ref("");
 const floorLatitude = ref(null);
 const floorLongitude = ref(null);
 const isLocatingFloor = ref(false);
 const floorError = ref("");
+
+const isFloorDropdownOpen = ref(false);
+const floorDropdownRef = ref(null);
+
+const selectFloorCommune = (commune) => {
+    selectedWard.value = commune;
+    isFloorDropdownOpen.value = false;
+};
+
+const toggleFloorDropdown = () => {
+    isFloorDropdownOpen.value = !isFloorDropdownOpen.value;
+};
+
+onMounted(() => {
+    const handleClickOutside = (event) => {
+        if (floorDropdownRef.value && !floorDropdownRef.value.contains(event.target)) {
+            isFloorDropdownOpen.value = false;
+        }
+    };
+    window.addEventListener("click", handleClickOutside, true);
+    onUnmounted(() => {
+        window.removeEventListener("click", handleClickOutside, true);
+    });
+});
+
+watch([selectedWard, addressDetail], () => {
+    const detail = addressDetail.value.trim();
+    if (detail && selectedWard.value) {
+        floorAddress.value = `${detail}, ${selectedWard.value}`;
+    } else if (selectedWard.value) {
+        floorAddress.value = selectedWard.value;
+    } else {
+        floorAddress.value = detail;
+    }
+});
 
 const openAddFloor = () => {
     isEditFloor.value = false;
     editingFloorId.value = null;
     floorName.value = "";
     floorAddress.value = "";
+    selectedWard.value = "";
+    addressDetail.value = "";
     floorLatitude.value = null;
     floorLongitude.value = null;
     floorError.value = "";
@@ -188,6 +228,21 @@ const openEditFloor = (fl) => {
     floorLatitude.value = fl.latitude || null;
     floorLongitude.value = fl.longitude || null;
     floorError.value = "";
+    
+    let wardFound = "";
+    let detailFound = fl.address || "";
+    if (fl.address) {
+        for (const ward of HA_NAM_COMMUNES) {
+            if (fl.address.includes(ward)) {
+                wardFound = ward;
+                detailFound = fl.address.replace(ward, "").replace(/,\s*$/, "").replace(/^\s*,/, "").trim();
+                break;
+            }
+        }
+    }
+    selectedWard.value = wardFound;
+    addressDetail.value = detailFound;
+    
     showFloorModal.value = true;
 };
 
@@ -255,6 +310,14 @@ const submitFloor = () => {
     floorError.value = "";
     if (!floorName.value.trim()) {
         floorError.value = "Vui lòng nhập tên tầng/khu";
+        return;
+    }
+    if (!selectedWard.value) {
+        floorError.value = "Vui lòng chọn Phường/Xã";
+        return;
+    }
+    if (!addressDetail.value.trim()) {
+        floorError.value = "Vui lòng nhập địa chỉ chi tiết";
         return;
     }
     let name = floorName.value.trim();
@@ -456,25 +519,35 @@ const openEditRoom = () => {
 const submitRoom = (fd) => {
     if (isEditing.value && selRoom.value) {
         router.post(route("landlord.rooms.update", selRoom.value.id), fd, {
-            onSuccess: () => {
-                showForm.value = false;
-                showAlert(
-                    "Thành công",
-                    "Cập nhật thông tin phòng thành công!",
-                    "success",
-                );
+            onSuccess: (page) => {
+                const flash = page.props.flash;
+                if (flash && flash.error) {
+                    showAlert("Lỗi", flash.error, "warning");
+                } else {
+                    showForm.value = false;
+                    showAlert(
+                        "Thành công",
+                        flash && flash.success ? flash.success : "Cập nhật thông tin phòng thành công!",
+                        "success",
+                    );
+                }
             },
             forceFormData: true,
         });
     } else {
         router.post(route("landlord.rooms.store"), fd, {
-            onSuccess: () => {
-                showForm.value = false;
-                showAlert(
-                    "Thành công",
-                    "Thêm phòng mới thành công!",
-                    "success",
-                );
+            onSuccess: (page) => {
+                const flash = page.props.flash;
+                if (flash && flash.error) {
+                    showAlert("Lỗi", flash.error, "warning");
+                } else {
+                    showForm.value = false;
+                    showAlert(
+                        "Thành công",
+                        flash && flash.success ? flash.success : "Thêm phòng mới thành công!",
+                        "success",
+                    );
+                }
             },
             forceFormData: true,
         });
@@ -929,34 +1002,58 @@ const handleConfirm = () => {
                                 {{ floorError }}</span>
                         </div>
 
-                        <!-- Địa chỉ tầng/khu -->
-                        <div class="space-y-1">
-                            <div class="flex items-center justify-between">
-                                <label class="text-xs font-bold text-slate-500">Địa chỉ tầng/khu</label>
-                                <button @click="getCurrentFloorPosition" type="button"
-                                    class="text-[10px] text-emerald-600 font-bold hover:underline flex items-center gap-1">
-                                    <i class="bi bi-geo-alt-fill"></i>
-                                    {{ isLocatingFloor ? 'Đang xác vị...' : 'Lấy vị trí hiện tại' }}
-                                </button>
-                            </div>
-                            <input v-model="floorAddress"
-                                class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
-                                placeholder="VD: 123 Đường ABC, Ninh Bình..." />
-                        </div>
+                        <!-- Địa chỉ Phường/Xã và Chi tiết -->
+                        <div class="space-y-3">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Phường / Xã <span class="text-rose-500">*</span></label>
+                                <div class="relative w-full" ref="floorDropdownRef">
+                                    <!-- Custom Trigger Button -->
+                                    <button
+                                        type="button"
+                                        @click="toggleFloorDropdown"
+                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none bg-white transition-all flex items-center justify-between text-left cursor-pointer select-none"
+                                        :class="{ 'border-emerald-500 ring-2 ring-emerald-500/20': isFloorDropdownOpen }"
+                                    >
+                                        <span :class="{ 'text-slate-400': !selectedWard }">
+                                            {{ selectedWard || '-- Chọn Phường/Xã --' }}
+                                        </span>
+                                        <i class="bi bi-chevron-down text-slate-400 transition-transform duration-300" :class="{ 'rotate-180': isFloorDropdownOpen }"></i>
+                                    </button>
 
-                        <!-- Toạ độ GPS -->
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="space-y-1">
-                                <label class="text-[10px] text-slate-400 font-bold">Vĩ độ (Latitude)</label>
-                                <input v-model="floorLatitude" type="number" step="any"
-                                    class="w-full px-3 py-2 border border-slate-200 focus:border-emerald-500 rounded-lg text-xs"
-                                    placeholder="VD: 20.2506" />
+                                    <!-- Custom Dropdown Options Menu -->
+                                    <transition name="dropdown-fade">
+                                        <div
+                                            v-show="isFloorDropdownOpen"
+                                            class="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 z-[999] p-1.5 max-h-48 overflow-y-auto custom-scrollbar"
+                                        >
+                                            <button
+                                                v-for="commune in HA_NAM_COMMUNES"
+                                                :key="commune"
+                                                type="button"
+                                                @click="selectFloorCommune(commune)"
+                                                class="w-full px-3 py-2 rounded-lg text-left text-xs font-medium transition-all duration-150 flex items-center justify-between"
+                                                :class="selectedWard === commune ? 'bg-emerald-50 text-emerald-600 font-bold' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-800'"
+                                            >
+                                                <span>{{ commune }}</span>
+                                                <i v-if="selectedWard === commune" class="bi bi-check text-emerald-600 text-sm font-bold"></i>
+                                            </button>
+                                        </div>
+                                    </transition>
+                                </div>
                             </div>
+
                             <div class="space-y-1">
-                                <label class="text-[10px] text-slate-400 font-bold">Kinh độ (Longitude)</label>
-                                <input v-model="floorLongitude" type="number" step="any"
-                                    class="w-full px-3 py-2 border border-slate-200 focus:border-emerald-500 rounded-lg text-xs"
-                                    placeholder="VD: 105.9744" />
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-bold text-slate-500">Địa chỉ chi tiết <span class="text-rose-500">*</span></label>
+                                    <button @click="getCurrentFloorPosition" type="button"
+                                        class="text-[10px] text-emerald-600 font-bold hover:underline flex items-center gap-1">
+                                        <i class="bi bi-geo-alt-fill"></i>
+                                        {{ isLocatingFloor ? 'Đang định vị...' : 'Lấy vị trí hiện tại' }}
+                                    </button>
+                                </div>
+                                <input v-model="addressDetail"
+                                    class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
+                                    placeholder="Số nhà, tên đường..." />
                             </div>
                         </div>
 
@@ -1261,3 +1358,15 @@ const handleConfirm = () => {
         </Teleport>
     </LandlordLayout>
 </template>
+
+<style scoped>
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+    transition: all 0.2s ease;
+}
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-8px);
+}
+</style>

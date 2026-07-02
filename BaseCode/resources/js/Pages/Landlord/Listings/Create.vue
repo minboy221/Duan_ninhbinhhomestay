@@ -393,7 +393,6 @@ const formatGeneralText = (text) => {
                                 placeholder="Nhập tiêu đề tin đăng trọ..."
                                 class="w-full text-sm rounded-xl border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                             />
-
                             <p
                                 v-if="form.errors.title"
                                 class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
@@ -401,8 +400,40 @@ const formatGeneralText = (text) => {
                                 {{ form.errors.title }}
                             </p>
                         </div>
-                        <div class="form-row-2">
-                            <div class="form-group mb-4">
+
+                        <!-- Nhà trọ & Tầng (Chọn trước) -->
+                        <div class="form-row-2 mb-4">
+                            <div class="form-group">
+                                <label class="form-label"> Nhà trọ </label>
+                                <select v-model="selectedHouse" class="form-input">
+                                    <option :value="null">Chọn nhà trọ</option>
+                                    <option
+                                        v-for="house in boardingHouses"
+                                        :key="house.id"
+                                        :value="house"
+                                    >
+                                        {{ house.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label"> Tầng </label>
+                                <select v-model="selectedFloor" class="form-input">
+                                    <option :value="null">Chọn tầng</option>
+                                    <option
+                                        v-for="floor in availableFloors"
+                                        :key="floor.id"
+                                        :value="floor"
+                                    >
+                                        {{ floor.name.toLowerCase().startsWith('tầng') ? floor.name : 'Tầng ' + floor.name }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Phòng & Diện tích -->
+                        <div class="form-row-2 mb-4">
+                            <div class="form-group">
                                 <label
                                     class="block text-sm font-bold text-gray-700 mb-1"
                                     >Chọn phòng trọ tiếp thị:</label
@@ -422,7 +453,6 @@ const formatGeneralText = (text) => {
                                         Phòng {{ room.room_number }}
                                     </option>
                                 </select>
-
                                 <p
                                     v-if="form.errors.room_id"
                                     class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
@@ -437,7 +467,7 @@ const formatGeneralText = (text) => {
                                 <input
                                     :value="roomDetails?.area || ''"
                                     disabled
-                                    class="form-input"
+                                    class="form-input bg-gray-50 text-gray-500"
                                 />
                             </div>
                             <div class="mt-4" v-if="roomServices.length > 0">
