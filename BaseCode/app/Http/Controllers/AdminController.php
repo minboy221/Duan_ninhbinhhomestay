@@ -3,19 +3,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\RoomPost;
+use App\Services\RoomListingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class AdminController extends Controller
 {
+    protected $roomPostService;
+
+    public function __construct(RoomListingService $roomPostService)
+    {
+        $this->roomPostService = $roomPostService;
+    }
     public function index()
     {
         return Inertia::render('Admin/dashboard', [
             'stats' => [
-                'totalUsers'      => User::count(),
-                'newUsersToday'   => User::whereDate('created_at', today())->count(),
-                'pendingApproval' => 0,
-                'reports'         => 0,
+                'totalUsers' => User::count(),
+                'newUsersToday' => User::whereDate('created_at', today())->count(),
+                'pendingApproval' => RoomPost::where('status', 'pending')->count(),
+                'reports' => 0,
             ]
         ]);
     }
@@ -40,7 +48,7 @@ class AdminController extends Controller
     public function deleteUser($id)
     {
         $user = User::findOrFail($id);
-        
+
         // Cấm xóa admin để tránh lỗi hệ thống (tùy chọn nhưng nên có)
         if ($user->role === 'admin' && User::where('role', 'admin')->count() <= 1) {
             return redirect()->back()->with('error', 'Không thể xóa Admin duy nhất của hệ thống.');
@@ -66,15 +74,15 @@ class AdminController extends Controller
                 }
 
                 return [
-                    'id'       => $user->id,
-                    'name'     => $user->name,
-                    'email'    => $user->email,
-                    'phone'    => $user->phone ?? 'Chưa cập nhật',
-                    'cccd'     => $user->cccd_number ?? ($user->verification->id_card_number ?? 'Chưa cập nhật'),
-                    'rooms'    => $roomCount,
-                    'plan'     => 'Miễn phí', // Logic gói dịch vụ có thể mở rộng sau
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'phone' => $user->phone ?? 'Chưa cập nhật',
+                    'cccd' => $user->cccd_number ?? ($user->verification->id_card_number ?? 'Chưa cập nhật'),
+                    'rooms' => $roomCount,
+                    'plan' => 'Miễn phí', // Logic gói dịch vụ có thể mở rộng sau
                     'verified' => true,       // Vì role=landlord nên chắc chắn đã xác minh
-                    'joined'   => $user->created_at->format('d/m/Y'),
+                    'joined' => $user->created_at->format('d/m/Y'),
                 ];
             });
 
@@ -85,7 +93,47 @@ class AdminController extends Controller
 
     public function approval()
     {
-        return Inertia::render('Admin/Approval/index');
+        $listings = RoomPost::with(['room.floor', 'room.boardingHouse', 'landlord'])
+            ->whereIn('status', ['pending', 'approved', 'rejected'])
+            ->get();
+        return Inertia::render('Admin/Approval/index', [
+            'listings' => $listings
+        ]);
+    }
+
+    //Phần admin từ chối duyệt kèm lý do hiển thị từ popup
+    public function rejectListing(Request $request, $id)
+    {
+        $request->validate([
+            'reject_reason' => 'required|string|min:5|max:255'
+        ], [
+            'reject_reason.required' => 'Vui lòng nhập lý do cụ thể để chủ trọ biết để chỉnh sửa',
+            'reject_reason.min' => 'Lý do quá ngắn, vui lòng nhập ít nhất 5 ký tự.'
+        ]);
+        $post = RoomPost::findOrFail($id);
+        $this->roomPostService->rejectPost($post, $request->reject_reason);
+        return redirect()->back()->with('success', 'đã từ chối bài viết và gửi lỗi đến chủ trọ');
+    }
+
+    //Phần xem chi tiết tin đăng của Admin
+    public function showApproval($id)
+    {
+        //Eager load đầy đủ thông tin phòng, tầng, khu nhà trọ và thông tin của chủ trọ
+        $post = RoomPost::with(['room.floor', 'room.boardingHouse', 'landlord', 'room.services'])
+            ->findOrFail($id);
+        //trả dữ liệu ra đúng file Show.vue
+        return Inertia::render('Admin/Approval/Show', [
+            'post' => $post
+        ]);
+    }
+
+    public function approveListing($id)
+    {
+        //tìm bài viết theo ID
+        $post = RoomPost::findOrFail($id);
+        //gọi services xử lý rồi đẩy sang thông báo
+        $this->roomPostService->approvePost($post);
+        return redirect()->back()->with('success', 'Đã phê duyệt và xuất bản tin đăng trọ thành công');
     }
 
     public function categories()

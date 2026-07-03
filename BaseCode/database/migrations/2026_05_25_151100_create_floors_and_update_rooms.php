@@ -15,14 +15,6 @@ return new class extends Migration {
             $table->integer('sort_order')->default(0)->comment('Thứ tự sắp xếp');
             $table->timestamps();
         });
-
-        // Thêm floor_id và images vào rooms
-        Schema::table('rooms', function (Blueprint $table) {
-            $table->foreignId('floor_id')->nullable()->after('property_id')
-                  ->constrained('floors')->onDelete('set null');
-            $table->json('images')->nullable()->after('amenities')
-                  ->comment('Mảng đường dẫn ảnh phòng');
-        });
     }
 
     public function down(): void

@@ -18,6 +18,13 @@ const uploadAvatar = (e) => {
         });
     }
 };
+const getAvatarUrl = (avatar) => {
+    if (!avatar) return '/anh/banner.png';
+    if (avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:')) {
+        return avatar;
+    }
+    return '/storage/' + avatar;
+};
 </script>
 
 <template>
@@ -26,7 +33,7 @@ const uploadAvatar = (e) => {
             <div class="left_section">
                 <div class="bao-user">
                     <div class="img_user">
-                        <img id="avatarPreview" :src="user.avatar ? '/storage/' + user.avatar : '/anh/banner.png'" alt="">
+                        <img id="avatarPreview" :src="getAvatarUrl(user.avatar)" alt="">
 
                         <!-- input ẩn -->
                         <input type="file" @change="uploadAvatar" id="avatarInput" accept="image/*" hidden>

@@ -41,6 +41,13 @@ const formatDateTime = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - ' + date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+const getAvatarUrl = (avatar) => {
+    if (!avatar) return '/anh/banner.png';
+    if (avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:')) {
+        return avatar;
+    }
+    return '/storage/' + avatar;
+};
 </script>
 <template>
     <button id="backToTop" v-show="showBtn" @click="scrollToTop">
@@ -92,7 +99,7 @@ const formatDateTime = (dateString) => {
                         </span>
                     </button>
                     <button id="userBtn" class="user-btn" @click.stop="toggleDropdown" :style="user.avatar ? 'padding: 0; overflow: hidden; background: transparent;' : ''">
-                        <img v-if="user.avatar" :src="'/storage/' + user.avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;" alt="">
+                        <img v-if="user.avatar" :src="getAvatarUrl(user.avatar)" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;" alt="">
                         <i v-else class="bi bi-person"></i>
                     </button>
 
@@ -122,7 +129,7 @@ const formatDateTime = (dateString) => {
                         <!-- PROFILE -->
                         <div class="dropdown-header">
                             <Link :href="route('tranguser')" class="profile-card">
-                                <img :src="user.avatar ? '/storage/' + user.avatar : '/anh/banner.png'" class="avatar" alt="">
+                                <img :src="getAvatarUrl(user.avatar)" class="avatar" alt="">
                                 <div class="info">
                                     <p class="name">{{ user.name }}</p>
                                     <p class="status">

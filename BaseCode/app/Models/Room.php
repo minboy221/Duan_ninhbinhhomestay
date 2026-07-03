@@ -4,28 +4,25 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Room extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'property_id',
+        'boarding_house_id',
         'floor_id',
         'room_number',
         'address',
         'price',
         'area',
         'capacity',
-        'current_people',
         'status',
-        'amenities',
         'images',
     ];
 
     protected $casts = [
-        'price'  => 'decimal:2',
-        'area'   => 'decimal:2',
         'images' => 'array',
     ];
 
@@ -43,18 +40,28 @@ class Room extends Model
         'under_construction',
     ];
 
-    public function property()
+
+    // quan hệ phòng thuộc về một nhà trọ
+    public function boardingHouse()
     {
-        return $this->belongsTo(Property::class);
+        return $this->belongsTo(boardingHouse::class, 'boarding_house_id');
     }
 
-    public function floor()
+    //quan hệ:phòng thuộc về 1 tầng
+    public function floor(): BelongsTo
     {
-        return $this->belongsTo(Floor::class);
+        return $this->belongsTo(Floor::class, 'floor_id', 'id');
     }
 
+    //quan hệ một phòng có nhiều dịch vụ
     public function services()
     {
         return $this->belongsToMany(Service::class);
+    }
+
+    //quan hệ một phòng có nhiều bài đăng tiếp thị
+    public function roomPosts()
+    {
+        return $this->hasMany(RoomPost::class, 'room_id');
     }
 }

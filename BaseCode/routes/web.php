@@ -1,15 +1,24 @@
 <?php
 
 use App\Http\Controllers\AdminVerificationController;
+//phần hồ sơ
 use App\Http\Controllers\ProfileController;
+//phần admin
 use App\Http\Controllers\AdminController;
+//phần danh mục
 use App\Http\Controllers\CategoryController;
+//phần chủ trọ
 use App\Http\Controllers\LandlordController;
+//phần bài đăng tin cho phòng trọ
+use App\Http\Controllers\RoomListingController;
+//phần danh mục dịch vụ cho phòng trọ
 use App\Services\CategoryService;
 use App\Http\Controllers\AuthController;
 use Illuminate\Foundation\Application;
 //Phần xác minh thông tin chủ trọ
 use App\Http\Controllers\Api\VerificationController;
+//phần hiển thị tin đăng ra clien
+use App\Http\Controllers\Client\PublicListingController;
 
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\AdminPostController;
@@ -38,8 +47,8 @@ Route::get('/', function (CategoryService $categoryService) {
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
         'categories' => $categoryData['types'],
-        'areas'      => $categoryData['areas'],
-        'amenities'  => $categoryData['amenities'],
+        'areas' => $categoryData['areas'],
+        'amenities' => $categoryData['amenities'],
     ]);
 })->name('home');
 
@@ -50,6 +59,7 @@ Route::get('/about', function () {
 
 // Route cho Trang Tìm trọ
 Route::get('/timtro', [ClientRoomController::class, 'index'])->name('timtro');
+Route::get('/timtro', [PublicListingController::class, 'index'])->name('timtro');
 
 // Route cho Trang Tin tức
 Route::get('/tintuc', [PostController::class, 'index'])->name('tintuc');
@@ -62,6 +72,7 @@ Route::get('/lienhe', function () {
 
 // Route cho Trang chi tiết trọ
 Route::get('/chitiettro/{id?}', [ClientRoomController::class, 'show'])->name('chitiettro');
+Route::get('/chitiettro', [PublicListingController::class, 'show'])->name('chitiettro');
 
 // Route cho Trang chi tiết tin tức (lấy động theo slug)
 Route::get('/tintuc/{slug}', [PostController::class, 'show'])->name('chitiettintuc');
@@ -97,39 +108,45 @@ Route::middleware('auth')->group(function () {
 
 // ROUTER cho admin
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/dashboard',  [AdminController::class, 'index'])->name('admin.dashboard');
-    Route::get('/users',      [AdminController::class, 'users'])->name('admin.users');
+    Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
+    Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
     Route::patch('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus'])->name('admin.users.toggle-status');
     Route::delete('/users/{id}', [AdminController::class, 'deleteUser'])->name('admin.users.delete');
-    Route::get('/landlords',  [AdminController::class, 'landlords'])->name('admin.landlords');
-    Route::get('/approval',   [AdminController::class, 'approval'])->name('admin.approval');
-    Route::get('/categories', [CategoryController::class, 'index'])->name('admin.categories');
+    Route::get('/landlords', [AdminController::class, 'landlords'])->name('admin.landlords');
+    // Phần Duyệt tin đăng của Admin với chủ trọ
+    Route::get('/approval', [AdminController::class, 'approval'])->name('admin.listings.index');
+    //Phần xem chi tiết tin đăng của admin khi user đăng lên
+    Route::get('/approval/{id}', [AdminController::class, 'showApproval'])->name('admin.listings.show');
+    //phần sử lý duyệt tin của admin
+    Route::post('/listings/{id}/approve', [AdminController::class, 'approveListing'])->name('admin.listings.approve');
+    Route::post('/listings/{id}/reject', [AdminController::class, 'rejectListing'])->name('admin.listings.reject');
 
     // CRUD routes cho Danh mục (Loại phòng)
-    Route::post('/categories/types',           [CategoryController::class, 'storeCategory'])->name('admin.categories.types.store');
-    Route::put('/categories/types/{id}',       [CategoryController::class, 'updateCategory'])->name('admin.categories.types.update');
-    Route::delete('/categories/types/{id}',    [CategoryController::class, 'deleteCategory'])->name('admin.categories.types.delete');
+    Route::get('/categories', [CategoryController::class, 'index'])->name('admin.categories');
+    Route::post('/categories/types', [CategoryController::class, 'storeCategory'])->name('admin.categories.types.store');
+    Route::put('/categories/types/{id}', [CategoryController::class, 'updateCategory'])->name('admin.categories.types.update');
+    Route::delete('/categories/types/{id}', [CategoryController::class, 'deleteCategory'])->name('admin.categories.types.delete');
     Route::patch('/categories/types/{id}/toggle', [CategoryController::class, 'toggleCategory'])->name('admin.categories.types.toggle');
 
     // CRUD routes cho Khu vực
-    Route::post('/categories/areas',           [CategoryController::class, 'storeArea'])->name('admin.categories.areas.store');
-    Route::put('/categories/areas/{id}',       [CategoryController::class, 'updateArea'])->name('admin.categories.areas.update');
-    Route::delete('/categories/areas/{id}',    [CategoryController::class, 'deleteArea'])->name('admin.categories.areas.delete');
+    Route::post('/categories/areas', [CategoryController::class, 'storeArea'])->name('admin.categories.areas.store');
+    Route::put('/categories/areas/{id}', [CategoryController::class, 'updateArea'])->name('admin.categories.areas.update');
+    Route::delete('/categories/areas/{id}', [CategoryController::class, 'deleteArea'])->name('admin.categories.areas.delete');
     Route::patch('/categories/areas/{id}/toggle', [CategoryController::class, 'toggleArea'])->name('admin.categories.areas.toggle');
 
     // CRUD routes cho Tiện ích
-    Route::post('/categories/amenities',           [CategoryController::class, 'storeAmenity'])->name('admin.categories.amenities.store');
-    Route::put('/categories/amenities/{id}',       [CategoryController::class, 'updateAmenity'])->name('admin.categories.amenities.update');
-    Route::delete('/categories/amenities/{id}',    [CategoryController::class, 'deleteAmenity'])->name('admin.categories.amenities.delete');
+    Route::post('/categories/amenities', [CategoryController::class, 'storeAmenity'])->name('admin.categories.amenities.store');
+    Route::put('/categories/amenities/{id}', [CategoryController::class, 'updateAmenity'])->name('admin.categories.amenities.update');
+    Route::delete('/categories/amenities/{id}', [CategoryController::class, 'deleteAmenity'])->name('admin.categories.amenities.delete');
     Route::patch('/categories/amenities/{id}/toggle', [CategoryController::class, 'toggleAmenity'])->name('admin.categories.amenities.toggle');
 
-    Route::get('/reports',    [AdminController::class, 'reports'])->name('admin.reports');
-    Route::get('/reviews',    [AdminController::class, 'reviews'])->name('admin.reviews');
-    Route::get('/revenue',    [AdminController::class, 'revenue'])->name('admin.revenue');
-    Route::get('/roles',      [AdminController::class, 'roles'])->name('admin.roles');
-    Route::get('/auditlog',   [AdminController::class, 'auditlog'])->name('admin.auditlog');
-    Route::get('/website',    [AdminController::class, 'website'])->name('admin.website');
-    Route::get('/ads',        [AdminController::class, 'ads'])->name('admin.ads');
+    Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
+    Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
+    Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
+    Route::get('/roles', [AdminController::class, 'roles'])->name('admin.roles');
+    Route::get('/auditlog', [AdminController::class, 'auditlog'])->name('admin.auditlog');
+    Route::get('/website', [AdminController::class, 'website'])->name('admin.website');
+    Route::get('/ads', [AdminController::class, 'ads'])->name('admin.ads');
     Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     //Phần route để xác minh thông tin chủ trọ
     Route::get('/verifications', [AdminVerificationController::class, 'index'])->name('admin.verifications.index');
@@ -158,20 +175,31 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/rooms', [LandlordController::class, 'rooms'])->name('landlord.rooms');
 
     // CRUD routes cho Tầng
-    Route::post('/floors',              [LandlordController::class, 'storeFloor'])->name('landlord.floors.store');
-    Route::put('/floors/{id}',          [LandlordController::class, 'updateFloor'])->name('landlord.floors.update');
-    Route::delete('/floors/{id}',       [LandlordController::class, 'deleteFloor'])->name('landlord.floors.delete');
+    Route::post('/floors', [LandlordController::class, 'storeFloor'])->name('landlord.floors.store');
+    Route::put('/floors/{id}', [LandlordController::class, 'updateFloor'])->name('landlord.floors.update');
+    Route::delete('/floors/{id}', [LandlordController::class, 'deleteFloor'])->name('landlord.floors.delete');
 
     // CRUD routes cho Phòng trọ
-    Route::post('/rooms',                   [LandlordController::class, 'storeRoom'])->name('landlord.rooms.store');
-    Route::post('/rooms/{id}',              [LandlordController::class, 'updateRoom'])->name('landlord.rooms.update');
-    Route::patch('/rooms/{id}/status',      [LandlordController::class, 'changeRoomStatus'])->name('landlord.rooms.status');
-    Route::patch('/rooms/{id}/add-person',  [LandlordController::class, 'addPerson'])->name('landlord.rooms.add_person');
+    Route::post('/rooms', [LandlordController::class, 'storeRoom'])->name('landlord.rooms.store');
+    Route::post('/rooms/{id}', [LandlordController::class, 'updateRoom'])->name('landlord.rooms.update');
+    Route::patch('/rooms/{id}/status', [LandlordController::class, 'changeRoomStatus'])->name('landlord.rooms.status');
+    Route::patch('/rooms/{id}/add-person', [LandlordController::class, 'addPerson'])->name('landlord.rooms.add_person');
     Route::patch('/rooms/{id}/remove-person', [LandlordController::class, 'removePerson'])->name('landlord.rooms.remove_person');
-    Route::delete('/rooms/{id}',            [LandlordController::class, 'deleteRoom'])->name('landlord.rooms.delete');
+    Route::delete('/rooms/{id}', [LandlordController::class, 'deleteRoom'])->name('landlord.rooms.delete');
 
-    Route::get('/listings', [LandlordController::class, 'listings'])->name('landlord.listings');
-    Route::get('/listings/create', [LandlordController::class, 'listingCreate'])->name('landlord.listings.create');
+    //CRUD tin đăng phòng trọ
+    Route::get('/listings', [RoomListingController::class, 'index'])->name('landlord.listings.index');
+    Route::get('/listings/create', [RoomListingController::class, 'create'])->name('landlord.listings.create');
+    // Route lấy chi tiết phòng để đăng tin
+    Route::get('/rooms/{id}/details-for-listing', [RoomListingController::class, 'getRoomDetails'])->name('landlord.rooms.details');
+    Route::post('/listings', [RoomListingController::class, 'store'])->name('landlord.listings.store');
+    Route::get('/listings/{id}/edit', [RoomListingController::class, 'edit'])->name('landlord.listings.edit');
+    Route::put('/listings/{id}', [RoomListingController::class, 'update'])->name('landlord.listings.update');
+    Route::delete('/listings/{id}', [RoomListingController::class, 'destroy'])->name('landlord.listings.destroy');
+    Route::post('/listings/{id}/close',[RoomListingController::class,'close'])->name('landlord.listings.close');
+    // Lấy dịch vụ tiện ích của các phòng
+    Route::get('/rooms/{id}/services', [RoomListingController::class, 'getRoomServices']);
+
     Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.appointments');
     Route::post('/appointments/{id}/approve', [LandlordController::class, 'approveAppointment'])->name('landlord.appointments.approve');
     Route::post('/appointments/{id}/reject', [LandlordController::class, 'rejectAppointment'])->name('landlord.appointments.reject');
@@ -197,9 +225,23 @@ Route::middleware(['auth'])->group(function () {
 
     // Route đánh dấu thông báo đã đọc
     Route::post('/notifications/{id}/read', function ($id) {
-        $notification = auth()->user()->notifications()->find($id);
-        if ($notification) {
-            $notification->markAsRead();
+        $notification = auth()->user()->notifications()->findOrFail($id);
+        //Phần đánh dấu đã đọc
+        $notification->markAsRead();
+        //Lấy dữ liệu ra mảng json
+        $data = $notification->data;
+        //Nếu thông báo này có chứa thông tin về bài đăng tin của trọ
+        if (isset($data['post_id'])) {
+            //phần tin từ chối -> đẩy chủ trọ về trang sửa tin đăng
+            if (($data['type'] ?? '') === 'listing_rejected') {
+                return redirect()->route('landlord.listings.edit', $data['post_id'])
+                    ->with('info', 'Vui lòng đọc kỹ lý do từ chối và cập nhật lại bài đăng');
+            }
+            //phần tin duyệt thành công-> đẩy về trang danh sách tin đăng để xem
+            if (($data['type'] ?? '') === 'listing_approved') {
+                return redirect()->route('landlord.listings.index')
+                    ->with('success', 'Tin đăng của bạn đã được xuất bản công khai');
+            }
         }
         return back();
     })->name('notifications.read');

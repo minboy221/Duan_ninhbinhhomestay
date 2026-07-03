@@ -4,7 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 class BoardingHouse extends Model
 {
     use HasFactory;
@@ -27,5 +28,16 @@ class BoardingHouse extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+    public function floors()
+    {
+        return $this->hasManyThrough(
+            Floor::class,
+            Property::class,
+            'landlord_id',   // Khóa ngoại trên bảng properties trỏ tới user_id của chủ trọ
+            'property_id',   // Khóa ngoại trên bảng floors trỏ tới id của properties
+            'user_id',       // Khóa nội bộ trên bảng boarding_houses lưu ID chủ trọ
+            'id'             // Khóa nội bộ trên bảng properties
+        );
     }
 }

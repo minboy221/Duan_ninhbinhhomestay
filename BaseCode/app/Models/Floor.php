@@ -12,12 +12,15 @@ class Floor extends Model
     protected $fillable = [
         'property_id',
         'name',
+        'address',
+        'latitude',
+        'longitude',
         'sort_order',
     ];
 
     public function property()
     {
-        return $this->belongsTo(Property::class);
+        return $this->belongsTo(Property::class, 'property_id');
     }
 
     public function rooms()

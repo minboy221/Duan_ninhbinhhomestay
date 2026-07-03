@@ -8,6 +8,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\UserVerification;
+use App\Models\RoomPost;
+use App\Models\BoardingHouse;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -83,13 +85,14 @@ class User extends Authenticatable implements MustVerifyEmail
 
         \Illuminate\Support\Facades\Mail::to($this->email)->send(new \App\Mail\VerifyEmailOTP($this->otp_code));
     }
+    //xác minh thông tin chủ trọ
+
     public function verification()
     {
         // Liên kết với bảng user_verifications thông qua cột user_id
         return $this->hasOne(UserVerification::class, 'user_id', 'id');
     }
 
-    //xác minh thông tin chủ trọ
     public function boardingHouse()
     {
         return $this->hasOne(BoardingHouse::class, 'user_id', 'id');
@@ -101,5 +104,8 @@ class User extends Authenticatable implements MustVerifyEmail
     public function favoriteRooms()
     {
         return $this->belongsToMany(Room::class, 'favorites', 'user_id', 'room_id')->withTimestamps();
+    public function roomPosts()
+    {
+        return $this->hasMany(RoomPost::class, 'landlord_id', 'id');
     }
 }
