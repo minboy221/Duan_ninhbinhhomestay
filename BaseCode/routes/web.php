@@ -20,6 +20,9 @@ use App\Http\Controllers\Api\VerificationController;
 //phần hiển thị tin đăng ra clien
 use App\Http\Controllers\Client\PublicListingController;
 
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\AdminPostController;
+use App\Http\Controllers\ClientRoomController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -55,12 +58,12 @@ Route::get('/about', function () {
 })->name('about');
 
 // Route cho Trang Tìm trọ
+Route::get('/timtro', [ClientRoomController::class, 'index'])->name('timtro');
 Route::get('/timtro', [PublicListingController::class, 'index'])->name('timtro');
 
 // Route cho Trang Tin tức
-Route::get('/tintuc', function () {
-    return Inertia::render('Client/tintuc'); // Trỏ đến file Pages/Client/About.vue
-})->name('tintuc');
+Route::get('/tintuc', [PostController::class, 'index'])->name('tintuc');
+Route::get('/tintuc/suggest', [PostController::class, 'suggest'])->name('tintuc.suggest');
 
 // Route cho Trang Liên hệ
 Route::get('/lienhe', function () {
@@ -68,12 +71,11 @@ Route::get('/lienhe', function () {
 })->name('lienhe');
 
 // Route cho Trang chi tiết trọ
+Route::get('/chitiettro/{id?}', [ClientRoomController::class, 'show'])->name('chitiettro');
 Route::get('/chitiettro', [PublicListingController::class, 'show'])->name('chitiettro');
 
-// Route cho Trang chi tiết tin tức
-Route::get('/chitiettintuc', function () {
-    return Inertia::render('Client/chitiettintuc'); // Trỏ đến file Pages/Client/About.vue
-})->name('chitiettintuc');
+// Route cho Trang chi tiết tin tức (lấy động theo slug)
+Route::get('/tintuc/{slug}', [PostController::class, 'show'])->name('chitiettintuc');
 
 // Route cho Trang điều khoản và chính sách
 Route::get('/chitietdieukhoan', function () {
@@ -92,6 +94,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    
+    // Route lịch hẹn của khách thuê
+    Route::get('/lichhen', [ProfileController::class, 'appointments'])->name('profile.appointments');
+    Route::post('/chitiettro/{id}/book', [ClientRoomController::class, 'book'])->name('rooms.book');
+    Route::post('/chitiettro/{id}/favorite', [ClientRoomController::class, 'toggleFavorite'])->name('rooms.favorite');
+    Route::get('/yeuthich', [ProfileController::class, 'favorites'])->name('profile.favorites');
 
     // Route chung để xem file private (CCCD, Hợp đồng...)
     Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
@@ -149,6 +157,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     //Route Đặc biệt: để admin xem được ảnh lưu trong thư mục private
     Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
         ->name('admin.files.private');
+    // CRUD routes cho Tin tức (Bài viết)
+    Route::get('/posts',          [AdminPostController::class, 'index'])->name('admin.posts.index');
+    Route::get('/posts/create',   [AdminPostController::class, 'create'])->name('admin.posts.create');
+    Route::post('/posts',         [AdminPostController::class, 'store'])->name('admin.posts.store');
+    Route::get('/posts/{id}/edit',[AdminPostController::class, 'edit'])->name('admin.posts.edit');
+    Route::post('/posts/{id}',    [AdminPostController::class, 'update'])->name('admin.posts.update');
+    Route::delete('/posts/{id}',  [AdminPostController::class, 'destroy'])->name('admin.posts.destroy');
+
     // Các route trên đã định nghĩa đầy đủ
 });
 
@@ -185,6 +201,8 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/rooms/{id}/services', [RoomListingController::class, 'getRoomServices']);
 
     Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.appointments');
+    Route::post('/appointments/{id}/approve', [LandlordController::class, 'approveAppointment'])->name('landlord.appointments.approve');
+    Route::post('/appointments/{id}/reject', [LandlordController::class, 'rejectAppointment'])->name('landlord.appointments.reject');
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');

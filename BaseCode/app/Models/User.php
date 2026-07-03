@@ -98,6 +98,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(BoardingHouse::class, 'user_id', 'id');
     }
 
+    /**
+     * Relationship to favorited rooms
+     */
+    public function favoriteRooms()
+    {
+        return $this->belongsToMany(Room::class, 'favorites', 'user_id', 'room_id')->withTimestamps();
     public function roomPosts()
     {
         return $this->hasMany(RoomPost::class, 'landlord_id', 'id');

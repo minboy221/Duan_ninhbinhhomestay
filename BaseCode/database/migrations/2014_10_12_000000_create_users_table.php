@@ -14,13 +14,13 @@ return new class extends Migration {
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable(); // Đặt ngay dưới email thay vì dùng after
+            $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->string('otp_code', 6)->nullable();
             $table->timestamp('otp_expires_at')->nullable();
             $table->string('phone', 10)->nullable();
             $table->string('cccd_number')->nullable()->comment('số cccd để xác minh tài khoản');
-            $table->enum('role', ['admin', 'landlord', 'tenant'])->default('tenant');
+            $table->integer('role')->default(0);
             $table->boolean('is_verified')->default(false);
             $table->rememberToken();
             $table->timestamps();
