@@ -198,9 +198,13 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     // Lấy dịch vụ tiện ích của các phòng
     Route::get('/rooms/{id}/services', [RoomListingController::class, 'getRoomServices']);
 
+    //Phần hiển thị đặt lịch của chủ trọ
     Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.appointments');
     Route::post('/appointments/{id}/approve', [LandlordController::class, 'approveAppointment'])->name('landlord.appointments.approve');
     Route::post('/appointments/{id}/reject', [LandlordController::class, 'rejectAppointment'])->name('landlord.appointments.reject');
+    Route::get('/appointments/availabilities', [LandlordController::class, 'editAvailabilities'])->name('landlord.availabilities.edit');
+    Route::post('/appointments/availabilities', [LandlordController::class, 'storeAvailabilities'])->name('landlord.availabilities.store');
+
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');

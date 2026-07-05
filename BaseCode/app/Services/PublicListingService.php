@@ -159,5 +159,4 @@ class PublicListingService
         }
         return $appointment;
     }
-
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\LandlordAvailability;
 use App\Models\RoomPost;
 use App\Models\Appointment;
 use App\Services\CategoryService;
@@ -150,20 +151,45 @@ class PublicListingController extends Controller
     //Phần lấy danh sách các khung giờ đã bị user khác đặt trước dựa theo ngày
     public function getBookedSlots(Request $request, $id)
     {
-        $date = $request->query('date');
-        //tìm tất cả lịch hẹn của ngày của phòng này trong ngày được chọn
-        $post = RoomPost::findOrFail($id);
+        $dateStr = $request->query('date');
+        if (!$dateStr) {
+            return response()->json(['available_slots' => [], 'booked_slots' => []]);
+        }
+        $date = Carbon::parse($dateStr);
+        $dayOfWeek = $date->dayOfWeek;
+
+        //tìm thông tin để lấy ra ID của cơ sở trọ
+        $post = RoomPost::with('room.boardingHouse')->findOrFail($id);
+        $boardingHouseId = $post->room->boarding_house_id;
         $roomId = $post->room_id;
-        //Chỉ chặn nếu lịch hẹn đó đang ở trạng thái 'pending hoặc 'approved'/'confirmed'
-        $bookedTimes = Appointment::where('room_id', $roomId)
-            ->where('date', $date)
+
+        //lấy thời gian làm việc của từ chủ trọ đặt cho toàn bộ cơ sở này
+        $availabilities = LandlordAvailability::where('boarding_house_id', $boardingHouseId)
+            ->where('day_of_week', $dayOfWeek)
+            ->get();
+        //tự set chia nhỏ thời gian thành các danh sách các slot cách nhau 30 phút
+        $generatedSlots = [];
+        foreach ($availabilities as $avail) {
+            $start = Carbon::parse($avail->start_time);
+            $end = Carbon::parse($avail->end_time);
+
+            while ($start->lessThan($end)) {
+                $generatedSlots[] = $start->format('H:i');
+                $start->addMinutes(30);
+            }
+        }
+        //lấy các giờ đã bị trùng của riêng căn phòng đó dựa trên roomId vừa tìm được
+        $bookedTimes = Appointment::where('room_id', $roomId)->where('date', $dateStr)
             ->whereIn('status', ['pending', 'approved', 'confirmed'])
             ->pluck('time')
+            ->map(function ($time) {
+                return Carbon::parse($time)->format('H:i');
+            })
             ->toArray();
-        //Định dạng thời gian
-        $formattedBookedTimes = array_map(function ($time) {
-            return substr($time, 0, 5);
-        }, $bookedTimes);
-        return response()->json($formattedBookedTimes);
+        //trả kết quả về cho frontend
+        return response()->json([
+            'available_slots' => $generatedSlots,
+            'booked_slots' => $bookedTimes
+        ]);
     }
 }

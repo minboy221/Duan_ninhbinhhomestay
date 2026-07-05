@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BoardingHouse;
+use App\Models\LandlordAvailability;
 use App\Services\RoomService;
 use App\Services\ServiceManagementService;
 use App\Models\Appointment;
 use App\Notifications\AppointmentStatusUpdated;
+use App\Services\PublicListingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use App\Services\PublicListingService;
 
 class LandlordController extends Controller
 {
@@ -294,6 +296,57 @@ class LandlordController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
+    }
+
+    // Phần hiển thị cấu hình giờ cho chủ trọ
+    public function editAvailabilities()
+    {
+        //lấy danh sách các cơ sở trọ thuộc sở hữu của chủ trọ
+        $boardingHouses = BoardingHouse::where('user_id', auth()->id())->get();
+        //lấy các cấu hình giờ rảnh để hiển thị lại trên form
+        $currentAvailabilities = LandlordAvailability::where('landlord_id', auth()->id())->get();
+        //render sang trang vue
+        return Inertia::render('Landlord/Availabilities/Edit', [
+            'boardingHouses' => $boardingHouses,
+            'currentAvailabilities' => $currentAvailabilities
+        ]);
+    }
+
+    //Phần xử lý lưu cấu hình giờ hàng loạt cho cơ sở trọ
+    public function storeAvailabilities(Request $request)
+    {
+        //validate dữ liệu từ form gửi lên
+        $request->validate([
+            'boarding_house_id' => 'required|exists:boarding_houses,id',
+            'availabilities' => 'required|array',
+            'availabilities.*.day_of_week' => 'required|integer|between:0,6',
+            'availabilities.*.start_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i',
+            'availabilities.*.end_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i|after:availabilities.*.start_time',
+        ], [
+            'availabilities.*.end_time.after' => 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu.',
+            'availabilities.*.start_time.required_if' => 'Vui lòng chọn giờ bắt đầu.',
+            'availabilities.*.end_time.required_if' => 'Vui lòng chọn giờ kết thúc.',
+        ]);
+        $landlordId = auth()->id();
+        $boardingHouseId = $request->boarding_house_id;
+
+        //xoá sạch các câu hình cũ để ghi đè câu hình mới
+        LandlordAvailability::where('boarding_house_id',$boardingHouseId)
+        ->where('landlord_id',$landlordId)
+        ->delete();
+        //Duyệt qua mảng cấu hình gửi lên vue
+        foreach ($request->availabilities as $item){
+            if($item['is_active']){
+                LandlordAvailability::create([
+                    'landlord_id' => $landlordId,
+                    'boarding_house_id' => $boardingHouseId,
+                    'day_of_week' => $item['day_of_week'],
+                    'start_time' => $item['start_time'],
+                    'end_time' => $item['end_time'],
+                ]);
+            }
+        }
+        return redirect()->back()->with('success','cập nhật khung giờ cho cơ sở thành công');
     }
 
 

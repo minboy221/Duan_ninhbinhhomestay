@@ -14,6 +14,7 @@ const user = computed(() => page.props.auth?.user);
 
 //State lưu trữ danh sách các giờ đã có người chọn của phòng trong ngày đang chọn
 const disabledSlots = ref([]);
+const availablSlots = ref([]);
 
 // Image carousel state
 const activeImageIndex = ref(0);
@@ -63,6 +64,7 @@ const getTodayDateStr = () => {
 
 const getDaysOfWeek = () => {
     const list = [];
+    // Thêm lại 2 mảng này để tránh bị lỗi undefined khi lấy thứ
     const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     const fullDays = [
         "Chủ Nhật",
@@ -101,26 +103,6 @@ const getDaysOfWeek = () => {
 
 const dateList = computed(() => getDaysOfWeek());
 
-const timeSlots = [
-    "08:00",
-    "08:30",
-    "09:00",
-    "09:30",
-    "10:00",
-    "10:30",
-    "11:00",
-    "11:30",
-    "14:00",
-    "14:30",
-    "15:00",
-    "15:30",
-    "16:00",
-    "16:30",
-    "17:00",
-    "17:30",
-    "18:00",
-];
-
 const isTimeSlotDisabled = (slot) => {
     //kiểm tra giờ này nằm trong danh sách bận từ backend
     if (disabledSlots.value.includes(slot)) {
@@ -144,9 +126,10 @@ const fetchBookedSlots = async (dateVal) => {
     try {
         const postId = props.room.id; // props.room.id chính là id của RoomPost
         const response = await axios.get(
-            `/chitiettro/${postId}/booked_slots?date=${dateVal}`, // Đổi URL tại đây
+            `/chitiettro/${postId}/booked_slots?date=${dateVal}`,
         );
-        disabledSlots.value = response.data; // mảng trả về dữ liệu
+        disabledSlots.value = response.data.booked_slots || []; // mảng trả về dữ liệu
+        availablSlots.value = response.data.available_slots || [];
     } catch (error) {
         console.error("Không thể lấy danh sách khung giờ trùng:", error);
     }
@@ -348,9 +331,9 @@ function submitBooking() {
                     <div class="avatar1">
                         <div class="avatar-img">
                             <img :src="room.boardingHouse?.user?.avatar
-                                    ? '/storage/' +
-                                    room.boardingHouse.user.avatar
-                                    : '/anh/banner.png'
+                                ? '/storage/' +
+                                room.boardingHouse.user.avatar
+                                : '/anh/banner.png'
                                 " alt="Avatar" />
                             <span class="status1 online"></span>
                         </div>
@@ -373,7 +356,7 @@ function submitBooking() {
                                 <span>{{
                                     room.boardingHouse?.user?.phone ||
                                     "0862931722"
-                                    }}</span>
+                                }}</span>
                             </a>
                         </div>
                         <div class="nhantin_chutro">
@@ -444,7 +427,7 @@ function submitBooking() {
                     </button>
                 </div>
                 <form @submit.prevent="submitBooking" class="modal-body">
-                    <!-- Preview thời gian hẹn -->
+                    <!-- 1. Preview thời gian hẹn -->
                     <div class="booking-preview-card">
                         <i class="bi bi-calendar-check-fill text-blue"></i>
                         <div class="preview-text">
@@ -453,10 +436,12 @@ function submitBooking() {
                         </div>
                     </div>
 
-                    <!-- Chọn ngày -->
+                    <!-- 2. Chọn ngày hẹn (Tối đa 7 ngày) -->
                     <div class="form-group">
-                        <label class="modal-label">Chọn ngày hẹn xem phòng (Tối đa 7 ngày)
-                            <span class="required">*</span></label>
+                        <label class="modal-label">
+                            Chọn ngày hẹn xem phòng (Tối đa 7 ngày)
+                            <span class="required">*</span>
+                        </label>
                         <div class="weekly-date-strip">
                             <div v-for="d in dateList" :key="d.value" :class="[
                                 'date-strip-card',
@@ -472,35 +457,40 @@ function submitBooking() {
                             }}</span>
                     </div>
 
-                    <!-- Chọn giờ (Đã thêm logic ẩn lịch trùng) -->
+                    <!-- 3. Chọn giờ (Liên kết động với khung giờ rảnh của chủ trọ) -->
                     <div class="form-group">
-                        <label class="modal-label">Chọn giờ hẹn xem phòng
-                            <span class="required">*</span></label>
-                        <div class="time-slots-grid">
-                            <!-- 
-                      Sử dụng template v-for kết hợp v-if để lọc:
-                      Nếu khung giờ nằm trong mảng disabledSlots (đã có người đặt từ database), 
-                      nó sẽ bị ẩn hoàn toàn khỏi giao diện.
-                    -->
-                            <template v-for="slot in timeSlots" :key="slot">
+                        <label class="modal-label">
+                            Chọn giờ hẹn xem phòng
+                            <span class="required">*</span>
+                        </label>
+
+                        <!-- Trường hợp chủ trọ không có khung giờ rảnh nào vào ngày này -->
+                        <div v-if="availablSlots.length === 0" class="modal-error"
+                            style="background: #fff1f2; border: 1px solid #fecdd3; padding: 12px; border-radius: 12px; color: #e11d48; font-weight: 600; font-size: 13px; margin-bottom: 10px;">
+                            <i class="bi bi-exclamation-circle-fill"></i> Chủ trọ không nhận lịch hẹn vào ngày này hoặc
+                            chưa cấu hình giờ rảnh. Vui lòng chọn ngày khác!
+                        </div>
+
+                        <!-- Trường hợp có giờ rảnh, lặp qua danh sách giờ rảnh thực tế từ DB -->
+                        <div v-else class="time-slots-grid">
+                            <template v-for="slot in availablSlots" :key="slot">
                                 <button v-if="!disabledSlots.includes(slot)" type="button" :class="[
                                     'time-slot',
                                     form.time === slot ? 'active' : '',
-                                    isTimeSlotDisabled(slot)
-                                        ? 'disabled'
-                                        : '',
+                                    isTimeSlotDisabled(slot) ? 'disabled' : '',
                                 ]" :disabled="isTimeSlotDisabled(slot)" @click="selectTime(slot)">
                                     <i class="bi bi-clock-fill slot-icon"></i>
                                     <span>{{ slot }}</span>
                                 </button>
                             </template>
                         </div>
+
                         <span v-if="form.errors.time" class="modal-error">{{
                             form.errors.time
                             }}</span>
                     </div>
 
-                    <!-- Ghi chú -->
+                    <!-- 4. Ghi chú -->
                     <div class="form-group">
                         <label class="modal-label">Ghi chú gửi chủ trọ</label>
                         <textarea v-model="form.note" class="modal-textarea"
@@ -510,7 +500,7 @@ function submitBooking() {
                             }}</span>
                     </div>
 
-                    <!-- Nút gửi -->
+                    <!-- 5. Nút gửi -->
                     <div class="modal-footer">
                         <button type="button" class="btn-cancel-modal" @click="showBookingModal = false">
                             Hủy Bỏ
@@ -520,6 +510,7 @@ function submitBooking() {
                         </button>
                     </div>
                 </form>
+
             </div>
         </div>
     </MainLayout>
