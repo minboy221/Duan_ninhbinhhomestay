@@ -149,7 +149,7 @@ class ProfileController extends Controller
      */
     public function appointments(Request $request): Response
     {
-        $appointments = \App\Models\Appointment::with(['room.property.landlord.boardingHouse'])
+        $appointments = \App\Models\Appointment::with(['room.boardingHouse.landlord'])
             ->where('user_id', $request->user()->id)
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')

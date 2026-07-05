@@ -9,18 +9,23 @@ use App\Notifications\AppointmentStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Services\PublicListingService;
 
 class LandlordController extends Controller
 {
     protected RoomService $roomService;
     protected ServiceManagementService $serviceManagementService;
 
+    protected PublicListingService $publicListingService;
     public function __construct(
         RoomService $roomService,
-        ServiceManagementService $serviceManagementService
+        ServiceManagementService
+        $serviceManagementService,
+        PublicListingService $publicListingService
     ) {
         $this->roomService = $roomService;
         $this->serviceManagementService = $serviceManagementService;
+        $this->publicListingService = $publicListingService;
     }
 
     public function dashboard()
@@ -238,8 +243,8 @@ class LandlordController extends Controller
 
     public function appointments()
     {
-        $appointments = Appointment::with(['user', 'room.property'])
-            ->where('landlord_id', Auth::id())
+        $appointments = Appointment::with(['user', 'room.boardingHouse'])
+            ->where('landlord_id', auth()->id())
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')
             ->get()
@@ -273,17 +278,24 @@ class LandlordController extends Controller
         return redirect()->back()->with('success', 'Đã duyệt lịch hẹn xem phòng.');
     }
 
-    public function rejectAppointment(int $id)
+    public function rejectAppointment(Request $request, int $id)
     {
-        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
-        $appointment->update(['status' => 'rejected']);
+        $request->validate([
+            'cancellation_reason' => 'required|string|min:10|max:255'
+        ], [
+            'cancellation_reason.required' => 'Vui lòng cung cấp lý do từ chối lịch hẹn',
+            'cancellation_reason.min' => 'Lý do từ chối quá ngắn tối thiểu 10 ký tự'
+        ]);
+        try {
+            // Gọi service để xử lý cập nhật lên DB và gửi thông báo
+            $appointment = $this->publicListingService->rejectAppointmentWithReason($id, $request->cancellation_reason);
 
-        if ($appointment->user) {
-            $appointment->user->notify(new AppointmentStatusUpdated($appointment));
+            return redirect()->back()->with('success', 'Đã từ chối lịch hẹn xem phòng và gửi cho khách');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        return redirect()->back()->with('success', 'Đã từ chối lịch hẹn xem phòng.');
     }
+
 
     public function tenants()
     {

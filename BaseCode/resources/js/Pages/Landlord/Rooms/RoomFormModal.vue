@@ -435,11 +435,11 @@ const submit = () => {
                         <span class="text-rose-500">*</span></label>
                     <div class="grid grid-cols-2 gap-2 mt-1">
                         <label v-for="(cfg, key) in statusConfig" :key="key" v-show="isEdit
-                                ? allowedKeys(originalStatus).includes(key)
-                                : [
-                                    'available',
-                                    'under_construction',
-                                ].includes(key)
+                            ? allowedKeys(originalStatus).includes(key)
+                            : [
+                                'available',
+                                'under_construction',
+                            ].includes(key)
                             " :class="[
                                 'flex items-center gap-2 p-2.5 border rounded-xl text-[11px] font-bold cursor-pointer transition-all',
                                 form.status === key
@@ -498,10 +498,10 @@ const submit = () => {
                                         ]?.text
                                         : 'text-slate-400',
                                 ]">{{
-                                        new Intl.NumberFormat("vi-VN").format(
-                                            srv.price,
-                                        )
-                                    }}đ</span>
+                                    new Intl.NumberFormat("vi-VN").format(
+                                        srv.price,
+                                    )
+                                }}đ</span>
                             </div>
                         </label>
                     </div>

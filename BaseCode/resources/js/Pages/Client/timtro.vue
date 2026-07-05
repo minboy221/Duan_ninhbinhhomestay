@@ -1,21 +1,11 @@
 <script setup>
 import MainLayout from '@/Layouts/MainLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, onMounted } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
-// Props nhận dữ liệu từ ClientRoomController
+// Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Controller → Inertia)
 const props = defineProps({
-    rooms: { type: Object, default: () => ({ data: [], links: [] }) },
     categories: { type: Array, default: () => [] },
-    areas:      { type: Array, default: () => [] },
-    amenities:  { type: Array, default: () => [] },
-    filters:    { type: Object, default: () => ({}) }
-});
-
-const showDropdown = ref(false);
-const selectedArea = ref(props.areas.find(a => a.id == props.filters.area_id) || null);
     areas: { type: Array, default: () => [] },
     amenities: { type: Array, default: () => [] },
     listings: { type: Object, default: () => ({ data: [], links: [] }) },
@@ -35,22 +25,17 @@ const selectedArea = ref(null)
 
 // Đối tượng lưu trữ các giá trị lọc
 const form = ref({
-    area_id: props.filters.area_id || null,
-    price: props.filters.price || null,
-    dientich: props.filters.dientich || null,
-    categories: props.filters.categories ? (Array.isArray(props.filters.categories) ? props.filters.categories : [props.filters.categories]) : [],
-    amenities: props.filters.amenities ? (Array.isArray(props.filters.amenities) ? props.filters.amenities : [props.filters.amenities]) : []
-});
+    area_id: null,
+    price: null,
+    dientich: null,
+    categories: [],
+    amenities: []
+})
 
 function selectArea(area) {
-    if (selectedArea.value?.id === area.id) {
-        selectedArea.value = null;
-        form.value.area_id = null;
-    } else {
-        selectedArea.value = area;
-        form.value.area_id = area.id;
-    }
-    showDropdown.value = false;
+    selectedArea.value = area
+    form.value.area_id = area.id
+    showDropdown.value = false
 }
 
 //Phần hiển thị trạng thái của phòng trọ
@@ -84,48 +69,9 @@ const getStatusClass = (status) => {
 
 
 function submitSearch() {
-    router.get(route('timtro'), {
-        area_id: form.value.area_id,
-        price: form.value.price,
-        dientich: form.value.dientich,
-        categories: form.value.categories,
-        amenities: form.value.amenities
-    }, { preserveState: true });
+    console.log('Dữ liệu tìm kiếm:', form.value);
+    // TODO: Gửi request tìm kiếm phòng trọ sau này
 }
-
-function resetFilters() {
-    form.value = {
-        area_id: null,
-        price: null,
-        dientich: null,
-        categories: [],
-        amenities: []
-    };
-    selectedArea.value = null;
-    router.get(route('timtro'));
-}
-
-// Format price helper
-const formatPrice = (price) => {
-    const p = parseFloat(price);
-    if (p >= 1000000) {
-        return (p / 1000000).toFixed(1).replace('.0', '') + ' Triệu/Tháng';
-    }
-    return p.toLocaleString('vi-VN') + ' đ/Tháng';
-};
-
-// Format time
-const formatRelativeTime = (timeString) => {
-    if (!timeString) return '1 ngày trước';
-    const date = new Date(timeString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffHours < 24) {
-        return diffHours > 0 ? `${diffHours} giờ trước` : 'vừa xong';
-    }
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} ngày trước`;
 const getAvatarUrl = (avatar) => {
     if (!avatar) return '/anh/banner.png';
     if (avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:')) {
@@ -136,6 +82,7 @@ const getAvatarUrl = (avatar) => {
 </script>
 
 <template>
+
     <Head title="Tìm Phòng Trọ | Ninh Bình HomeStay" />
     <MainLayout>
         <!-- BANNER -->
@@ -143,22 +90,17 @@ const getAvatarUrl = (avatar) => {
             <img src="/anh/banner.png" alt="banner">
             <div class="banner-text">
                 <h1>Tìm Trọ</h1>
-                <p><Link :href="route('home')">Trang Chủ</Link> / Tìm Trọ</p>
+                <p>
+                <p><a href="/">Trang Chủ</a> / Tìm Trọ</p>
+                </p>
             </div>
         </div>
-
         <!-- phần chia layout -->
         <div class="layout">
             <!-- phần bộ lọc tìm kiếm -->
             <section class="filter">
                 <div class="baofilter">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2>Bộ Lọc Tìm Kiếm</h2>
-                        <button @click="resetFilters" style="background: none; border: none; color: #166ea9; font-size: 13px; font-weight: 600; cursor: pointer;">
-                            <i class="bi bi-arrow-counterclockwise"></i> Reset
-                        </button>
-                    </div>
-
+                    <h2>Bộ Lọc Tìm Kiếm</h2>
                     <!-- Khu vực (Dữ liệu từ DB) -->
                     <div class="select_box">
                         <div class="select" @click="showDropdown = !showDropdown">
@@ -181,7 +123,6 @@ const getAvatarUrl = (avatar) => {
                             </ul>
                         </div>
                     </div>
-
                     <!-- khoảng giá -->
                     <div class="select_option">
                         <h3>Khoảng giá:</h3>
@@ -196,7 +137,6 @@ const getAvatarUrl = (avatar) => {
                                 triệu</label>
                         </div>
                     </div>
-
                     <!-- Diện tích -->
                     <div class="select_option">
                         <h3>Diện Tích:</h3>
@@ -211,7 +151,6 @@ const getAvatarUrl = (avatar) => {
                                 50m<sup>2</sup></label>
                         </div>
                     </div>
-
                     <!-- Loại phòng (Dữ liệu từ DB) -->
                     <div class="select_option" v-if="categories.length">
                         <h3>Loại phòng:</h3>
@@ -222,7 +161,6 @@ const getAvatarUrl = (avatar) => {
                             </label>
                         </div>
                     </div>
-
                     <!-- tiện ích (Dữ liệu từ DB) -->
                     <div class="select_option" v-if="amenities.length">
                         <h3>Tiện ích:</h3>
@@ -242,38 +180,14 @@ const getAvatarUrl = (avatar) => {
 
                     <div class="bao_btn">
                         <button class="btn_filter" @click="submitSearch">Tìm kiếm</button>
+                        <button class="btn_filter_mic"><i class="bi bi-mic"></i>
+                        </button>
                     </div>
                 </div>
             </section>
-
             <!-- phần hiển thị phòng -->
             <section class="room">
                 <div class="baoroom">
-                    <div v-if="rooms.data.length === 0" class="no-rooms-found">
-                        <i class="bi bi-search" style="font-size: 32px; color: #94a3b8; display: block; margin-bottom: 8px;"></i>
-                        <p>Không tìm thấy phòng trọ phù hợp với tiêu chí lọc.</p>
-                    </div>
-                    <div v-for="room in rooms.data" :key="room.id" class="item_room">
-                        <img :src="(room.images && room.images[0]) || '/anh/banner_tro.png'" alt="Room image">
-                        <div class="infor_room">
-                            <div class="title_room">
-                                <h2>Phòng {{ room.room_number }} - {{ room.property?.name }}</h2>
-                            </div>
-                            <div class="infor">
-                                <p>{{ formatPrice(room.price) }}</p>
-                                <p>{{ parseFloat(room.area) }} m<sup>2</sup></p>
-                                <p><span><i class="bi bi-geo-alt"></i></span>{{ room.address || room.property?.address }}</p>
-                                <div class="about_room">
-                                    <p class="line-clamp-2">{{ room.property?.description || 'Không có mô tả' }}</p>
-                                </div>
-                            </div>
-                            <div class="user_room">
-                                <img :src="room.property?.landlord?.avatar ? '/storage/' + room.property.landlord.avatar : '/anh/banner.png'" alt="Landlord">
-                                <h4>{{ room.property?.landlord?.name }}</h4>
-                                <p>cập nhật {{ formatRelativeTime(room.updated_at) }}</p>
-                            </div>
-                        </div>
-                        <Link class="btn" :href="route('chitiettro', room.id)">
                     <div v-if="listings.data.length === 0"
                         style="text-align: center; padding: 50px 0; width: 100%; color: #64748b;">
                         <i class="bi bi-house-x text-4xl mb-3 block"></i>
@@ -325,13 +239,6 @@ const getAvatarUrl = (avatar) => {
                 </div>
 
                 <!-- Phân trang -->
-                <div class="phantrang" v-if="rooms.links && rooms.links.length > 3">
-                    <div class="baophantrang">
-                        <Link v-for="link in rooms.links" :key="link.label" 
-                              :href="link.url || '#'" 
-                              :class="['so_trang', link.active ? 'active' : '', !link.url ? 'disabled' : '']"
-                              v-html="link.label">
-                        </Link>
                 <div class="phantrang" v-if="listings.links && listings.links.length > 3">
                     <div class="baophantrang">
                         <template v-for="(link, index) in listings.links" :key="index">
@@ -383,60 +290,6 @@ const getAvatarUrl = (avatar) => {
 }
 
 /* Dropdown improvements */
-.select { cursor:pointer; }
-.dropdown { z-index:10; }
-.dropdown ul li { cursor:pointer;display:flex;align-items:center;gap:6px; }
-.dropdown ul li:hover { background:#f1f5f9; }
-.dropdown ul li.active { background:#7c3aed;color:#fff; }
-
-.no-rooms-found {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 60px 20px;
-    background: #fff;
-    border-radius: 16px;
-    border: 1px dashed #cbd5e1;
-    color: #64748b;
-    font-weight: 500;
-}
-
-.baophantrang {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
-
-.so_trang {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    color: #64748b;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    background: #fff;
-}
-
-.so_trang:hover:not(.disabled) {
-    border-color: #166ea9;
-    color: #166ea9;
-}
-
-.so_trang.active {
-    background: #166ea9;
-    color: #fff;
-    border-color: #166ea9;
-}
-
-.so_trang.disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
 .select {
     cursor: pointer;
 }

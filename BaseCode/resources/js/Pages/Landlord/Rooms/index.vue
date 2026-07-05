@@ -186,7 +186,10 @@ const toggleFloorDropdown = () => {
 
 onMounted(() => {
     const handleClickOutside = (event) => {
-        if (floorDropdownRef.value && !floorDropdownRef.value.contains(event.target)) {
+        if (
+            floorDropdownRef.value &&
+            !floorDropdownRef.value.contains(event.target)
+        ) {
             isFloorDropdownOpen.value = false;
         }
     };
@@ -228,21 +231,25 @@ const openEditFloor = (fl) => {
     floorLatitude.value = fl.latitude || null;
     floorLongitude.value = fl.longitude || null;
     floorError.value = "";
-    
+
     let wardFound = "";
     let detailFound = fl.address || "";
     if (fl.address) {
         for (const ward of HA_NAM_COMMUNES) {
             if (fl.address.includes(ward)) {
                 wardFound = ward;
-                detailFound = fl.address.replace(ward, "").replace(/,\s*$/, "").replace(/^\s*,/, "").trim();
+                detailFound = fl.address
+                    .replace(ward, "")
+                    .replace(/,\s*$/, "")
+                    .replace(/^\s*,/, "")
+                    .trim();
                 break;
             }
         }
     }
     selectedWard.value = wardFound;
     addressDetail.value = detailFound;
-    
+
     showFloorModal.value = true;
 };
 
@@ -324,7 +331,9 @@ const submitFloor = () => {
     name = name.charAt(0).toUpperCase() + name.slice(1);
 
     const isDuplicate = floors.value.some(
-        (f) => f.name.toLowerCase() === name.toLowerCase() && (!isEditFloor.value || f.id !== editingFloorId.value),
+        (f) =>
+            f.name.toLowerCase() === name.toLowerCase() &&
+            (!isEditFloor.value || f.id !== editingFloorId.value),
     );
 
     if (isDuplicate) {
@@ -355,26 +364,22 @@ const submitFloor = () => {
                 onError: (errors) => {
                     if (errors.name) floorError.value = errors.name;
                 },
-            }
-        );
-    } else {
-        router.post(
-            route("landlord.floors.store"),
-            payload,
-            {
-                onSuccess: () => {
-                    showFloorModal.value = false;
-                    showAlert(
-                        "Thành công",
-                        `Thêm tầng/khu "${name}" thành công!`,
-                        "success",
-                    );
-                },
-                onError: (errors) => {
-                    if (errors.name) floorError.value = errors.name;
-                },
             },
         );
+    } else {
+        router.post(route("landlord.floors.store"), payload, {
+            onSuccess: () => {
+                showFloorModal.value = false;
+                showAlert(
+                    "Thành công",
+                    `Thêm tầng/khu "${name}" thành công!`,
+                    "success",
+                );
+            },
+            onError: (errors) => {
+                if (errors.name) floorError.value = errors.name;
+            },
+        });
     }
 };
 const delFloor = (f) => {
@@ -527,7 +532,9 @@ const submitRoom = (fd) => {
                     showForm.value = false;
                     showAlert(
                         "Thành công",
-                        flash && flash.success ? flash.success : "Cập nhật thông tin phòng thành công!",
+                        flash && flash.success
+                            ? flash.success
+                            : "Cập nhật thông tin phòng thành công!",
                         "success",
                     );
                 }
@@ -544,7 +551,9 @@ const submitRoom = (fd) => {
                     showForm.value = false;
                     showAlert(
                         "Thành công",
-                        flash && flash.success ? flash.success : "Thêm phòng mới thành công!",
+                        flash && flash.success
+                            ? flash.success
+                            : "Thêm phòng mới thành công!",
                         "success",
                     );
                 }
@@ -725,6 +734,45 @@ const handleConfirm = () => {
         confirmModal.value.onConfirm(confirmModal.value.promptValue.trim());
     }
     confirmModal.value.show = false;
+};
+
+//Hàm tự động kích hoạt GPS để lấy toạ độ
+const getAutoCoordinates = () => {
+    if (!navigator.geolocation) {
+        alert("Trình duyệt của bạn không hỗ trợ định vị");
+        return;
+    }
+    //gọi GPS của thiết bị
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            latitude.value = position.coords.latitude;
+            longitude.value = position.coords.longitude;
+            //in toạ độ vào form
+            form.latitude = lat;
+            form.longitude = lng;
+            if (typeof map !== "undefined" && map && marker) {
+                map.setView([lat, lng], 16);
+                marker.setLatLng([lat, lng]);
+            }
+            alert(
+                "Đã tự động cập nhật toạ độ vị trí hiện tại của bạn thành công",
+            );
+        },
+        (error) => {
+            console.error("lỗi định vị", error);
+            //báo lỗi
+            if (error.code === error.PERMISSION_DENIED) {
+                alert("bạn đã từ chối cấp quyền vị trí");
+            } else {
+                alert("Thiết bị không phản hồi toạ độ GPS");
+            }
+        },
+        {
+            enableHighAccuracy: true, //ép bật định vị chính xác nhất
+            timeout: 8000, //tối đa 8s
+            maximumAge: 0, //không lấy lại toạ độ cũ bắt buộc phải lấy mới
+        },
+    );
 };
 </script>
 
@@ -1003,69 +1051,54 @@ const handleConfirm = () => {
                         </div>
 
                         <!-- Địa chỉ Phường/Xã và Chi tiết -->
-                        <div class="space-y-3">
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Phường / Xã <span class="text-rose-500">*</span></label>
-                                <div class="relative w-full" ref="floorDropdownRef">
-                                    <!-- Custom Trigger Button -->
-                                    <button
-                                        type="button"
-                                        @click="toggleFloorDropdown"
-                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none bg-white transition-all flex items-center justify-between text-left cursor-pointer select-none"
-                                        :class="{ 'border-emerald-500 ring-2 ring-emerald-500/20': isFloorDropdownOpen }"
-                                    >
-                                        <span :class="{ 'text-slate-400': !selectedWard }">
-                                            {{ selectedWard || '-- Chọn Phường/Xã --' }}
-                                        </span>
-                                        <i class="bi bi-chevron-down text-slate-400 transition-transform duration-300" :class="{ 'rotate-180': isFloorDropdownOpen }"></i>
-                                    </button>
+                        <div class="form-group mb-4">
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Địa chỉ chi tiết phòng
+                                trọ:</label>
+                            <button type="button" @click="toggleFloorDropdown"
+                                class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none bg-white transition-all flex items-center justify-between text-left cursor-pointer select-none"
+                                :class="{
+                                    'border-emerald-500 ring-2 ring-emerald-500/20':
+                                        isFloorDropdownOpen,
+                                }">
+                                <span :class="{ 'text-slate-400': !selectedWard }">
+                                    {{ selectedWard || "-- Chọn Phường/Xã --" }}
+                                </span>
+                                <i class="bi bi-chevron-down text-slate-400 transition-transform duration-300" :class="{
+                                    'rotate-180': isFloorDropdownOpen,
+                                }"></i>
+                            </button>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <input v-model="addressDetail"
+                                    class="flex-1 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
+                                    placeholder="Số nhà, tên đường, quận/huyện..." />
 
-                                    <!-- Custom Dropdown Options Menu -->
-                                    <transition name="dropdown-fade">
-                                        <div
-                                            v-show="isFloorDropdownOpen"
-                                            class="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 z-[999] p-1.5 max-h-48 overflow-y-auto custom-scrollbar"
-                                        >
-                                            <button
-                                                v-for="commune in HA_NAM_COMMUNES"
-                                                :key="commune"
-                                                type="button"
-                                                @click="selectFloorCommune(commune)"
-                                                class="w-full px-3 py-2 rounded-lg text-left text-xs font-medium transition-all duration-150 flex items-center justify-between"
-                                                :class="selectedWard === commune ? 'bg-emerald-50 text-emerald-600 font-bold' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-800'"
-                                            >
-                                                <span>{{ commune }}</span>
-                                                <i v-if="selectedWard === commune" class="bi bi-check text-emerald-600 text-sm font-bold"></i>
-                                            </button>
-                                        </div>
-                                    </transition>
-                                </div>
+                                <button type="button" @click="getAutoCoordinates"
+                                    class="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 border border-emerald-200/40 whitespace-nowrap active:scale-95">
+                                    <i class="bi bi-geo-alt-fill animate-bounce"></i>
+                                    Tự động lấy tọa độ
+                                </button>
                             </div>
 
-                            <div class="space-y-1">
-                                <div class="flex items-center justify-between">
-                                    <label class="text-xs font-bold text-slate-500">Địa chỉ chi tiết <span class="text-rose-500">*</span></label>
-                                    <button @click="getCurrentFloorPosition" type="button"
-                                        class="text-[10px] text-emerald-600 font-bold hover:underline flex items-center gap-1">
-                                        <i class="bi bi-geo-alt-fill"></i>
-                                        {{ isLocatingFloor ? 'Đang định vị...' : 'Lấy vị trí hiện tại' }}
-                                    </button>
-                                </div>
-                                <input v-model="addressDetail"
-                                    class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
-                                    placeholder="Số nhà, tên đường..." />
+                            <div v-if="latitude && longitude"
+                                class="mt-2 text-[11px] text-emerald-700 font-semibold bg-emerald-50/60 border border-emerald-100 px-3 py-1.5 rounded-xl inline-flex items-center gap-1.5 shadow-sm">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                                📍 Hệ thống đã ghi nhận GPS:
+                                <span class="text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">Vĩ
+                                    độ: {{ latitude }}</span>
+                                <span class="text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">Kinh
+                                    độ: {{ longitude }}</span>
                             </div>
                         </div>
 
                         <!-- Map Preview -->
                         <div class="rounded-xl overflow-hidden border border-slate-100" style="height: 150px">
-                            <iframe v-if="floorMapUrl"
-                                :src="floorMapUrl"
-                                width="100%" height="100%" style="border: 0" loading="lazy">
+                            <iframe v-if="floorMapUrl" :src="floorMapUrl" width="100%" height="100%" style="border: 0"
+                                loading="lazy">
                             </iframe>
                             <div v-else
                                 class="h-full bg-slate-50 flex items-center justify-center text-[10px] text-slate-400">
-                                Nhập địa chỉ hoặc toạ độ để xem trước bản đồ vị trí khu trọ/tầng
+                                Nhập địa chỉ hoặc toạ độ để xem trước bản đồ vị
+                                trí khu trọ/tầng
                             </div>
                         </div>
                     </div>
@@ -1364,6 +1397,7 @@ const handleConfirm = () => {
 .dropdown-fade-leave-active {
     transition: all 0.2s ease;
 }
+
 .dropdown-fade-enter-from,
 .dropdown-fade-leave-to {
     opacity: 0;

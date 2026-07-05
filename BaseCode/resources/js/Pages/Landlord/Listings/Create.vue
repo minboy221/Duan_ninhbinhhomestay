@@ -45,16 +45,16 @@ watch(selectedFloor, (newFloor) => {
     roomDetails.value = null;
     availableRooms.value = newFloor
         ? newFloor.rooms.filter((r) => {
-              //lấy mảng bài viết
-              const posts = r.room_posts || r.roomPosts;
-              //kiểm tra phòng này có tin dăng nháp, chờ, hay đã duyệt chx
-              const hasActivePost =
-                  posts &&
-                  posts.some((p) =>
-                      ["draft", "pending", "approved"].includes(p.status),
-                  );
-              return r.status === "available" && !hasActivePost;
-          })
+            //lấy mảng bài viết
+            const posts = r.room_posts || r.roomPosts;
+            //kiểm tra phòng này có tin dăng nháp, chờ, hay đã duyệt chx
+            const hasActivePost =
+                posts &&
+                posts.some((p) =>
+                    ["draft", "pending", "approved"].includes(p.status),
+                );
+            return r.status === "available" && !hasActivePost;
+        })
         : [];
 });
 
@@ -341,33 +341,21 @@ const formatGeneralText = (text) => {
                         </h3>
                         <div class="mb-5">
                             <div class="flex items-center justify-between mb-2">
-                                <label
-                                    class="text-sm font-semibold text-gray-800 flex items-center gap-2"
-                                >
-                                    <i
-                                        class="bi bi-pencil-square text-blue-600"
-                                    ></i>
+                                <label class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                                    <i class="bi bi-pencil-square text-blue-600"></i>
                                     Tiêu đề tin đăng
                                 </label>
 
-                                <button
-                                    type="button"
-                                    @click="toggleSpeechToText('title')"
+                                <button type="button" @click="toggleSpeechToText('title')"
                                     class="flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg text-sm font-semibold"
-                                    :class="
-                                        recordingField === 'title'
+                                    :class="recordingField === 'title'
                                             ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse scale-105'
                                             : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:scale-105'
-                                    "
-                                >
-                                    <i
-                                        class="bi text-lg"
-                                        :class="
-                                            recordingField === 'title'
-                                                ? 'bi-mic-fill'
-                                                : 'bi-mic'
-                                        "
-                                    ></i>
+                                        ">
+                                    <i class="bi text-lg" :class="recordingField === 'title'
+                                            ? 'bi-mic-fill'
+                                            : 'bi-mic'
+                                        "></i>
 
                                     {{
                                         recordingField === "title"
@@ -377,26 +365,17 @@ const formatGeneralText = (text) => {
                                 </button>
                             </div>
 
-                            <p
-                                class="text-xs text-gray-500 flex items-center gap-1"
-                            >
+                            <p class="text-xs text-gray-500 flex items-center gap-1">
                                 <i class="bi bi-info-circle"></i>
                                 Bạn có thể bấm micro và đọc tiêu đề thay vì nhập
                                 bằng bàn phím.
                             </p>
-                            <input
-                                type="text"
-                                v-model="form.title"
-                                @blur="
-                                    form.title = formatGeneralText(form.title)
-                                "
-                                placeholder="Nhập tiêu đề tin đăng trọ..."
-                                class="w-full text-sm rounded-xl border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                            <p
-                                v-if="form.errors.title"
-                                class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
-                            >
+                            <input type="text" v-model="form.title" @blur="
+                                form.title = formatGeneralText(form.title)
+                                " placeholder="Nhập tiêu đề tin đăng trọ..."
+                                class="w-full text-sm rounded-xl border-gray-300 focus:ring-blue-500 focus:border-blue-500" />
+                            <p v-if="form.errors.title"
+                                class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1">
                                 {{ form.errors.title }}
                             </p>
                         </div>
@@ -407,11 +386,7 @@ const formatGeneralText = (text) => {
                                 <label class="form-label"> Nhà trọ </label>
                                 <select v-model="selectedHouse" class="form-input">
                                     <option :value="null">Chọn nhà trọ</option>
-                                    <option
-                                        v-for="house in boardingHouses"
-                                        :key="house.id"
-                                        :value="house"
-                                    >
+                                    <option v-for="house in boardingHouses" :key="house.id" :value="house">
                                         {{ house.name }}
                                     </option>
                                 </select>
@@ -420,12 +395,14 @@ const formatGeneralText = (text) => {
                                 <label class="form-label"> Tầng </label>
                                 <select v-model="selectedFloor" class="form-input">
                                     <option :value="null">Chọn tầng</option>
-                                    <option
-                                        v-for="floor in availableFloors"
-                                        :key="floor.id"
-                                        :value="floor"
-                                    >
-                                        {{ floor.name.toLowerCase().startsWith('tầng') ? floor.name : 'Tầng ' + floor.name }}
+                                    <option v-for="floor in availableFloors" :key="floor.id" :value="floor">
+                                        {{
+                                            floor.name
+                                                .toLowerCase()
+                                                .startsWith("tầng")
+                                                ? floor.name
+                                                : "Tầng " + floor.name
+                                        }}
                                     </option>
                                 </select>
                             </div>
@@ -434,75 +411,41 @@ const formatGeneralText = (text) => {
                         <!-- Phòng & Diện tích -->
                         <div class="form-row-2 mb-4">
                             <div class="form-group">
-                                <label
-                                    class="block text-sm font-bold text-gray-700 mb-1"
-                                    >Chọn phòng trọ tiếp thị:</label
-                                >
-                                <select
-                                    v-model="form.room_id"
-                                    class="w-full text-sm rounded-xl border-gray-300"
-                                >
+                                <label class="block text-sm font-bold text-gray-700 mb-1">Chọn phòng trọ tiếp
+                                    thị:</label>
+                                <select v-model="form.room_id" class="w-full text-sm rounded-xl border-gray-300">
                                     <option value="">
                                         -- Vui lòng chọn phòng --
                                     </option>
-                                    <option
-                                        v-for="room in availableRooms"
-                                        :key="room.id"
-                                        :value="room.id"
-                                    >
+                                    <option v-for="room in availableRooms" :key="room.id" :value="room.id">
                                         Phòng {{ room.room_number }}
                                     </option>
                                 </select>
-                                <p
-                                    v-if="form.errors.room_id"
-                                    class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1"
-                                >
+                                <p v-if="form.errors.room_id"
+                                    class="text-red-500 font-medium text-xs mt-1.5 flex items-center gap-1">
                                     {{ form.errors.room_id }}
                                 </p>
                             </div>
                             <div class="form-group">
-                                <label class="form-label"
-                                    >Diện tích (m²) *</label
-                                >
-                                <input
-                                    :value="roomDetails?.area || ''"
-                                    disabled
-                                    class="form-input bg-gray-50 text-gray-500"
-                                />
+                                <label class="form-label">Diện tích (m²) *</label>
+                                <input :value="roomDetails?.area || ''" disabled
+                                    class="form-input bg-gray-50 text-gray-500" />
                             </div>
                             <div class="mt-4" v-if="roomServices.length > 0">
-                                <label
-                                    class="block text-sm font-medium text-gray-700 mb-2"
-                                >
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
                                     Các tiện ích sẵn có của phòng này:
                                 </label>
 
-                                <div
-                                    class="grid grid-cols-2 sm:grid-cols-3 gap-2"
-                                >
-                                    <div
-                                        v-for="service in roomServices"
-                                        :key="service.id"
-                                        class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm"
-                                    >
-                                        <svg
-                                            class="w-4 h-4 text-green-600 flex-shrink-0"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M5 13l4 4L19 7"
-                                            ></path>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    <div v-for="service in roomServices" :key="service.id"
+                                        class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                                        <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none"
+                                            stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M5 13l4 4L19 7"></path>
                                         </svg>
                                         <span>{{ service.name }}</span>
-                                        <span
-                                            v-if="service.price > 0"
-                                            class="text-xs text-gray-500"
-                                        >
+                                        <span v-if="service.price > 0" class="text-xs text-gray-500">
                                             ({{
                                                 new Intl.NumberFormat(
                                                     "vi-VN",
@@ -513,10 +456,8 @@ const formatGeneralText = (text) => {
                                 </div>
                             </div>
 
-                            <div
-                                class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
-                                v-else-if="form.room_id"
-                            >
+                            <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+                                v-else-if="form.room_id">
                                 Phòng này hiện chưa được thiết lập tiện ích nào.
                             </div>
                         </div>
@@ -524,11 +465,7 @@ const formatGeneralText = (text) => {
                             <label class="form-label"> Nhà trọ </label>
                             <select v-model="selectedHouse" class="form-input">
                                 <option :value="null">Chọn nhà trọ</option>
-                                <option
-                                    v-for="house in boardingHouses"
-                                    :key="house.id"
-                                    :value="house"
-                                >
+                                <option v-for="house in boardingHouses" :key="house.id" :value="house">
                                     {{ house.name }}
                                 </option>
                             </select>
@@ -537,177 +474,97 @@ const formatGeneralText = (text) => {
                             <label class="form-label"> Tầng </label>
                             <select v-model="selectedFloor" class="form-input">
                                 <option :value="null">Chọn tầng</option>
-                                <option
-                                    v-for="floor in availableFloors"
-                                    :key="floor.id"
-                                    :value="floor"
-                                >
+                                <option v-for="floor in availableFloors" :key="floor.id" :value="floor">
                                     Tầng {{ floor.name }}
                                 </option>
                             </select>
                         </div>
 
                         <div class="mb-4">
-                            <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                            >
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 Địa chỉ khu trọ / Phòng trọ:
                             </label>
 
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
-                                    <input
-                                        type="text"
-                                        v-model="form.address"
+                                    <input type="text" v-model="form.address"
                                         placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                    />
+                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" />
                                 </div>
-
-                                <button
-                                    type="button"
-                                    @click="getCurrentPosition"
-                                    :disabled="isLocating"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm disabled:opacity-50 transition-colors"
-                                >
-                                    <svg
-                                        v-if="isLocating"
-                                        class="animate-spin h-4 w-4 text-white"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <circle
-                                            class="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            stroke-width="4"
-                                        ></circle>
-                                        <path
-                                            class="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        ></path>
-                                    </svg>
-
-                                    <svg
-                                        v-else
-                                        class="w-4 h-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                                        ></path>
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1 1 15 0z"
-                                        ></path>
-                                    </svg>
-                                    {{
-                                        isLocating
-                                            ? "Đang xác vị trí..."
-                                            : "Vị trí hiện tại"
-                                    }}
-                                </button>
                             </div>
 
-                            <div
-                                v-if="form.latitude && form.longitude"
-                                class="mt-1.5 text-xs text-gray-500 flex gap-4"
-                            >
-                                <span
-                                    ><strong>Vĩ độ (Lat):</strong>
-                                    {{ form.latitude }}</span
-                                >
-                                <span
-                                    ><strong>Kinh độ (Lng):</strong>
-                                    {{ form.longitude }}</span
-                                >
+                            <div v-if="form.latitude && form.longitude" class="mt-1.5 text-xs text-gray-500 flex gap-4">
+                                <span><strong>Vĩ độ (Lat):</strong>
+                                    {{ form.latitude }}</span>
+                                <span><strong>Kinh độ (Lng):</strong>
+                                    {{ form.longitude }}</span>
                             </div>
 
-                            <div
-                                v-if="form.errors.address"
-                                class="text-red-500 text-xs mt-1"
-                            >
+                            <div v-if="form.errors.address" class="text-red-500 text-xs mt-1">
                                 {{ form.errors.address }}
                             </div>
                         </div>
                         <div class="mb-6">
-                            <div class="flex items-center justify-between mb-3">
+                            <!-- TẦNG 1: Tiêu đề và Nút bấm giọng nói cân bằng 2 bên -->
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                                 <div>
-                                    <h3
-                                        class="text-base font-semibold text-gray-800 flex items-center gap-2"
-                                    >
-                                        <i
-                                            class="bi bi-card-text text-indigo-600"
-                                        ></i>
+                                    <h3 class="text-base font-semibold text-gray-800 flex items-center gap-2">
+                                        <i class="bi bi-card-text text-indigo-600"></i>
                                         Mô tả chi tiết bài đăng
                                     </h3>
                                     <p class="text-sm text-gray-500 mt-1">
                                         Viết càng chi tiết càng giúp tăng tỷ lệ
-                                        cho thuê.
+                                        cho thuê thành công.
                                     </p>
                                 </div>
-                                <textarea
-                                    v-model="form.description"
-                                    rows="6"
-                                    @blur="
-                                        form.description = formatGeneralText(
-                                            form.description,
-                                        )
-                                    "
-                                    placeholder="Mô tả chi tiết về chi phí điện nước, tiện ích căn phòng..."
-                                    class="w-full text-sm rounded-xl border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-                                ></textarea>
-                                <button
-                                    type="button"
-                                    @click="toggleSpeechToText('description')"
-                                    class="speech-btn"
-                                    :class="{
-                                        recording:
-                                            recordingField === 'description',
-                                    }"
-                                >
-                                    <i
-                                        class="bi"
-                                        :class="
-                                            recordingField === 'description'
-                                                ? 'bi-mic-fill'
-                                                : 'bi-mic'
-                                        "
-                                    ></i>
+
+                                <!-- Nút ghi âm giọng nói -->
+                                <button type="button" @click="toggleSpeechToText('description')"
+                                    class="speech-btn flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all self-start sm:self-center"
+                                    :class="recordingField === 'description'
+                                            ? 'bg-red-500 text-white border-red-500 animate-pulse font-bold shadow-md'
+                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                        ">
+                                    <i class="bi" :class="recordingField === 'description'
+                                            ? 'bi-mic-fill'
+                                            : 'bi-mic'
+                                        "></i>
                                     <span>
                                         {{
                                             recordingField === "description"
-                                                ? "Đang ghi âm"
+                                                ? "Đang ghi âm..."
                                                 : "Nhập bằng giọng nói"
                                         }}
                                     </span>
                                 </button>
                             </div>
-                            <div class="editor-card">
-                                <div
-                                    v-if="recordingField === 'description'"
-                                    class="recording-banner"
-                                >
-                                    <span class="dot"></span>
 
-                                    Đang ghi âm... Hãy nói rõ và chậm.
+                            <!-- TẦNG 2: Khu vực hiển thị Trạng thái và Phần Word (QuillEditor) -->
+                            <div
+                                class="editor-card relative border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                <!-- Banner thông báo khi bật ghi âm -->
+                                <div v-if="recordingField === 'description'"
+                                    class="recording-banner p-2.5 bg-red-50 text-red-600 text-xs font-medium flex items-center gap-2 border-b border-red-100">
+                                    <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                                    🎙️ Trợ lý ảo đang lắng nghe... Hãy nói rõ
+                                    ràng, bạn có thể nói "xuống dòng" hoặc
+                                    "chấm", "phẩy".
                                 </div>
-                                <QuillEditor
-                                    v-model:content="form.description"
-                                    contentType="html"
-                                    theme="snow"
-                                    placeholder="Ví dụ: Phòng rộng 25m², có điều hòa, giờ giấc tự do, không chung chủ..."
-                                />
+
+                                <QuillEditor v-model:content="form.description" contentType="html" theme="snow" @blur="
+                                    form.description = formatHtmlContent(
+                                        form.description,
+                                    )
+                                    "
+                                    placeholder="Ví dụ: Phòng rộng 25m², có điều hòa, giường tủ, giờ giấc tự do, không chung chủ..." />
                             </div>
+
+                            <!-- Hiển thị lỗi từ Backend Laravel -->
+                            <p v-if="form.errors.description"
+                                class="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+                                <i class="bi bi-exclamation-circle-fill"></i>
+                                {{ form.errors.description }}
+                            </p>
                         </div>
                     </div>
 
@@ -719,20 +576,10 @@ const formatGeneralText = (text) => {
                         </h3>
                         <div class="form-row-3">
                             <div class="form-group">
-                                <label class="form-label"
-                                    >Giá thuê (đ/tháng) *</label
-                                >
-                                <input
-                                    type="number"
-                                    :value="roomDetails?.price || ''"
-                                    disabled
-                                    class="form-input"
-                                    placeholder="3000000"
-                                />
-                                <span
-                                    class="form-hint"
-                                    v-if="roomDetails?.price"
-                                >
+                                <label class="form-label">Giá thuê (đ/tháng) *</label>
+                                <input type="number" :value="roomDetails?.price || ''" disabled class="form-input"
+                                    placeholder="3000000" />
+                                <span class="form-hint" v-if="roomDetails?.price">
                                     {{ formatMoney(roomDetails.price) }}
                                 </span>
                             </div>
@@ -748,91 +595,48 @@ const formatGeneralText = (text) => {
                             <i class="bi bi-images"></i> Hình Ảnh Phòng
                         </h3>
 
-                        <label
-                            class="img-upload-area transition-all"
-                            :class="
-                                form.errors.images
-                                    ? 'border-red-500 bg-red-50/30 hover:bg-red-50/50'
+                        <label class="img-upload-area transition-all" :class="form.errors.images
+                                ? 'border-red-500 bg-red-50/30 hover:bg-red-50/50'
+                                : ''
+                            ">
+                            <input type="file" multiple accept="image/*" @change="handleFileChange"
+                                style="display: none" />
+                            <i class="bi bi-cloud-upload" :class="form.errors.images ? 'text-red-500' : ''
+                                "></i>
+                            <span :class="form.errors.images
+                                    ? 'text-red-700 font-medium'
                                     : ''
-                            "
-                        >
-                            <input
-                                type="file"
-                                multiple
-                                accept="image/*"
-                                @change="handleFileChange"
-                                style="display: none"
-                            />
-                            <i
-                                class="bi bi-cloud-upload"
-                                :class="
-                                    form.errors.images ? 'text-red-500' : ''
-                                "
-                            ></i>
-                            <span
-                                :class="
-                                    form.errors.images
-                                        ? 'text-red-700 font-medium'
-                                        : ''
-                                "
-                                >Nhấn để chọn ảnh</span
-                            >
-                            <span class="img-hint"
-                                >JPG, PNG tối đa 5MB mỗi ảnh</span
-                            >
+                                ">Nhấn để chọn ảnh</span>
+                            <span class="img-hint">JPG, PNG tối đa 5MB mỗi ảnh</span>
                         </label>
 
-                        <p
-                            v-if="form.errors.images"
-                            class="text-red-500 font-semibold text-xs mt-2 flex items-center gap-1.5 animate-pulse"
-                        >
+                        <p v-if="form.errors.images"
+                            class="text-red-500 font-semibold text-xs mt-2 flex items-center gap-1.5 animate-pulse">
                             <i class="bi bi-exclamation-triangle-fill"></i>
                             {{ form.errors.images }}
                         </p>
 
-                        <div
-                            class="mt-2 space-y-1"
-                            v-if="
-                                Object.keys(form.errors).some((k) =>
-                                    k.startsWith('images.'),
-                                )
-                            "
-                        >
+                        <div class="mt-2 space-y-1" v-if="
+                            Object.keys(form.errors).some((k) =>
+                                k.startsWith('images.'),
+                            )
+                        ">
                             <div v-for="(error, key) in form.errors" :key="key">
-                                <p
-                                    v-if="key.startsWith('images.')"
-                                    class="text-red-500 font-medium text-xs flex items-center gap-1.5"
-                                >
-                                    <i
-                                        class="bi bi-x-circle-fill text-[10px]"
-                                    ></i>
+                                <p v-if="key.startsWith('images.')"
+                                    class="text-red-500 font-medium text-xs flex items-center gap-1.5">
+                                    <i class="bi bi-x-circle-fill text-[10px]"></i>
                                     {{ error }}
                                 </p>
                             </div>
                         </div>
 
-                        <div
-                            class="img-preview-grid mt-4"
-                            v-if="form.images.length > 0"
-                        >
-                            <div
-                                v-for="(src, i) in form.images"
-                                :key="i"
-                                class="img-preview-item"
-                            >
-                                <img
-                                    :src="getObjectUrl(src)"
-                                    :alt="`Ảnh ${i + 1}`"
-                                />
-                                <button
-                                    class="img-remove"
-                                    @click="removeImage(i)"
-                                >
+                        <div class="img-preview-grid mt-4" v-if="form.images.length > 0">
+                            <div v-for="(src, i) in form.images" :key="i" class="img-preview-item">
+                                <img :src="getObjectUrl(src)" :alt="`Ảnh ${i + 1}`" />
+                                <button class="img-remove" @click="removeImage(i)">
                                     <i class="bi bi-x"></i>
                                 </button>
-                                <span v-if="i === 0" class="img-main-badge"
-                                    >Ảnh chính</span
-                                >
+                                <span v-if="i === 0" class="img-main-badge">Ảnh chính</span>
                             </div>
                         </div>
                     </div>
@@ -844,29 +648,18 @@ const formatGeneralText = (text) => {
                             Đồ
                         </h3>
                         <div class="map-container">
-                            <iframe
-                                v-if="mapUrl"
-                                :src="mapUrl"
-                                width="100%"
-                                height="250"
-                                style="border: 0; border-radius: 12px"
-                                loading="lazy"
-                            >
+                            <iframe v-if="mapUrl" :src="mapUrl" width="100%" height="250"
+                                style="border: 0; border-radius: 12px" loading="lazy">
                             </iframe>
 
                             <div v-else class="map-placeholder">
                                 <i class="bi bi-map"></i>
-                                <span
-                                    >Nhập địa chỉ hoặc lấy GPS để xem bản
-                                    đồ</span
-                                >
+                                <span>Nhập địa chỉ hoặc lấy GPS để xem bản
+                                    đồ</span>
                             </div>
                         </div>
-                        <input
-                            v-model="form.address"
-                            class="form-input mt-10"
-                            placeholder="Nhập địa chỉ để tìm trên bản đồ..."
-                        />
+                        <input v-model="form.address" class="form-input mt-10"
+                            placeholder="Nhập địa chỉ để tìm trên bản đồ..." />
                     </div>
 
                     <!-- Preview -->
@@ -880,15 +673,9 @@ const formatGeneralText = (text) => {
                         <div class="prev-meta">
                             <span> {{ roomDetails?.area || 0 }} m² </span>
                         </div>
-                        <div
-                            v-if="roomDetails?.services?.length"
-                            class="flex flex-wrap gap-2 mt-3"
-                        >
-                            <span
-                                v-for="service in roomDetails.services"
-                                :key="service.id"
-                                class="px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs"
-                            >
+                        <div v-if="roomDetails?.services?.length" class="flex flex-wrap gap-2 mt-3">
+                            <span v-for="service in roomDetails.services" :key="service.id"
+                                class="px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs">
                                 {{ service.name }}
                             </span>
                         </div>
@@ -899,18 +686,10 @@ const formatGeneralText = (text) => {
             <!-- Submit -->
             <div class="submit-bar">
                 <Link :href="route('landlord.listings.index')">Hủy</Link>
-                <button
-                    type="button"
-                    class="btn-draft"
-                    @click="submitForm('draft')"
-                >
+                <button type="button" class="btn-draft" @click="submitForm('draft')">
                     <i class="bi bi-save"></i> Lưu Nháp
                 </button>
-                <button
-                    type="button"
-                    class="btn-submit"
-                    @click="submitForm('publish')"
-                >
+                <button type="button" class="btn-submit" @click="submitForm('publish')">
                     <i class="bi bi-send-fill"></i> Đăng Tin
                 </button>
             </div>

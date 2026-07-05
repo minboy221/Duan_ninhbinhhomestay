@@ -40,4 +40,10 @@ class BoardingHouse extends Model
             'id'             // Khóa nội bộ trên bảng properties
         );
     }
+
+    public function landlord()
+    {
+        // Liên kết bảng BoardingHouse với bảng Users qua khoá ngoại user_id
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }
