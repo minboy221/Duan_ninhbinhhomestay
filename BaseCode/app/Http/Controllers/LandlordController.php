@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BoardingHouse;
+use App\Models\LandlordAvailability;
 use App\Services\RoomService;
 use App\Services\ServiceManagementService;
+use App\Models\Appointment;
+use App\Notifications\AppointmentStatusUpdated;
+use App\Services\PublicListingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -13,12 +18,16 @@ class LandlordController extends Controller
     protected RoomService $roomService;
     protected ServiceManagementService $serviceManagementService;
 
+    protected PublicListingService $publicListingService;
     public function __construct(
-        RoomService $roomService, 
-        ServiceManagementService $serviceManagementService
+        RoomService $roomService,
+        ServiceManagementService
+        $serviceManagementService,
+        PublicListingService $publicListingService
     ) {
         $this->roomService = $roomService;
         $this->serviceManagementService = $serviceManagementService;
+        $this->publicListingService = $publicListingService;
     }
 
     public function dashboard()
@@ -39,18 +48,18 @@ class LandlordController extends Controller
      */
     public function rooms()
     {
-        $landlordId   = Auth::id();
-        $floors       = $this->roomService->getFloorsWithRooms($landlordId);
+        $landlordId = Auth::id();
+        $floors = $this->roomService->getFloorsWithRooms($landlordId);
         $statusCounts = $this->roomService->getStatusCounts($landlordId);
-        
+
         // Fetch active services
-        $allServices  = $this->serviceManagementService->getServices($landlordId);
-        $services     = $allServices->where('is_active', true)->values();
+        $allServices = $this->serviceManagementService->getServices($landlordId);
+        $services = $allServices->where('is_active', true)->values();
 
         return Inertia::render('Landlord/Rooms/index', [
-            'floors'       => $floors,
+            'floors' => $floors,
             'statusCounts' => $statusCounts,
-            'services'     => $services,
+            'services' => $services,
         ]);
     }
 
@@ -58,25 +67,38 @@ class LandlordController extends Controller
 
     public function storeFloor(Request $request)
     {
-        $request->validate(['name' => 'required|string|max:255']);
-        $result = $this->roomService->createFloor(Auth::id(), $request->only('name'));
-        if (!$result) return redirect()->back()->with('error', 'Không thể thêm tầng!');
-        return redirect()->back()->with('success', 'Thêm tầng thành công!');
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
+        $result = $this->roomService->createFloor(Auth::id(), $request->only('name', 'address', 'latitude', 'longitude'));
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể thêm tầng/khu!');
+        return redirect()->back()->with('success', 'Thêm tầng/khu thành công!');
     }
 
     public function updateFloor(Request $request, int $id)
     {
-        $request->validate(['name' => 'required|string|max:255']);
-        $result = $this->roomService->updateFloor(Auth::id(), $id, $request->only('name'));
-        if (!$result) return redirect()->back()->with('error', 'Không thể cập nhật tầng!');
-        return redirect()->back()->with('success', 'Cập nhật tầng thành công!');
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
+        $result = $this->roomService->updateFloor(Auth::id(), $id, $request->only('name', 'address', 'latitude', 'longitude'));
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể cập nhật tầng/khu!');
+        return redirect()->back()->with('success', 'Cập nhật tầng/khu thành công!');
     }
 
     public function deleteFloor(int $id)
     {
         try {
             $result = $this->roomService->deleteFloor(Auth::id(), $id);
-            if (!$result) return redirect()->back()->with('error', 'Không thể xóa tầng!');
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể xóa tầng!');
             return redirect()->back()->with('success', 'Xóa tầng thành công!');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
@@ -88,17 +110,19 @@ class LandlordController extends Controller
     public function storeRoom(Request $request)
     {
         $request->validate([
-            'floor_id'     => 'required|integer|exists:floors,id',
+            'floor_id' => 'required|integer|exists:floors,id',
             'room_numbers' => 'nullable|array',
-            'room_number'  => 'nullable|string|max:255',
-            'address'      => 'nullable|string|max:255',
-            'price'        => 'required|numeric|min:0',
-            'area'         => 'required|numeric|min:0',
-            'capacity'     => 'nullable|integer|min:1',
-            'status'       => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
-            'amenities'    => 'nullable|string',
-            'images'       => 'nullable|array|max:10',
-            'images.*'     => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+            'room_number' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'price' => 'required|numeric|min:0',
+            'area' => 'required|numeric|min:0',
+            'capacity' => 'nullable|integer|min:1',
+            'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+            'amenities' => 'nullable|string',
+            'images' => 'nullable|array|max:10',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ]);
 
         $imageFiles = $request->file('images', []);
@@ -108,14 +132,18 @@ class LandlordController extends Controller
             foreach ($request->room_numbers as $rn) {
                 $data = $request->except(['room_numbers', 'room_number']);
                 $data['room_number'] = $rn;
-                $this->roomService->createRoom(Auth::id(), $data, $imageFiles);
-                $count++;
+                $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles);
+                if ($room) {
+                    $count++;
+                }
             }
-            if ($count === 0) return redirect()->back()->with('error', 'Không có phòng nào được thêm!');
+            if ($count === 0)
+                return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Vui lòng kiểm tra lại.');
             return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
         } else {
             $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles);
-            if (!$result) return redirect()->back()->with('error', 'Không thể thêm phòng!');
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
             return redirect()->back()->with('success', 'Thêm phòng thành công!');
         }
     }
@@ -123,27 +151,33 @@ class LandlordController extends Controller
     public function updateRoom(Request $request, int $id)
     {
         $request->validate([
-            'room_number'    => 'nullable|string|max:255',
-            'address'        => 'nullable|string|max:255',
-            'price'          => 'nullable|numeric|min:0',
-            'area'           => 'nullable|numeric|min:0',
-            'capacity'       => 'nullable|integer|min:1',
-            'status'         => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+            'room_number' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'price' => 'nullable|numeric|min:0',
+            'area' => 'nullable|numeric|min:0',
+            'capacity' => 'nullable|integer|min:1',
+            'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
             'maintenance_reason' => 'nullable|string',
-            'amenities'      => 'nullable|string',
-            'new_images'     => 'nullable|array|max:10',
-            'new_images.*'   => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+            'amenities' => 'nullable|string',
+            'new_images' => 'nullable|array|max:10',
+            'new_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
             'removed_images' => 'nullable|array',
             'removed_images.*' => 'string',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ]);
 
         $newImageFiles = $request->file('new_images', []);
         $removedImages = $request->input('removed_images', []);
 
-        $result = $this->roomService->updateRoom(Auth::id(), $id, $request->all(), $newImageFiles, $removedImages);
-
-        if (!$result) return redirect()->back()->with('error', 'Không thể cập nhật phòng!');
-        return redirect()->back()->with('success', 'Cập nhật phòng thành công!');
+        try {
+            $result = $this->roomService->updateRoom(Auth::id(), $id, $request->all(), $newImageFiles, $removedImages);
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể cập nhật phòng');
+            return redirect()->back()->with('success', 'Cập nhật phòng thành công');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function changeRoomStatus(Request $request, int $id)
@@ -153,35 +187,49 @@ class LandlordController extends Controller
             'maintenance_reason' => 'nullable|string',
         ]);
         $result = $this->roomService->changeStatus(Auth::id(), $id, $request->status, $request->maintenance_reason);
-        if ($result === 'empty_people') return redirect()->back()->with('error', 'Không thể chuyển sang Đã Thuê vì phòng đang có 0 người!');
-        if (!$result) return redirect()->back()->with('error', 'Không thể đổi trạng thái!');
+        if ($result === 'empty_people')
+            return redirect()->back()->with('error', 'Không thể chuyển sang Đã Thuê vì phòng đang có 0 người!');
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể đổi trạng thái!');
         return redirect()->back()->with('success', 'Đổi trạng thái thành công!');
     }
 
     public function addPerson(int $id)
     {
         $result = $this->roomService->addPerson(Auth::id(), $id);
-        if ($result === 'invalid_status') return redirect()->back()->with('error', 'Trạng thái phòng không cho phép thêm người!');
-        if ($result === 'full') return redirect()->back()->with('error', 'Phòng đã đủ số lượng người tối đa.');
-        if (!$result) return redirect()->back()->with('error', 'Không thể thêm người!');
+        if ($result === 'invalid_status')
+            return redirect()->back()->with('error', 'Trạng thái phòng không cho phép thêm người!');
+        if ($result === 'full')
+            return redirect()->back()->with('error', 'Phòng đã đủ số lượng người tối đa.');
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể thêm người!');
         return redirect()->back()->with('success', 'Thêm người thành công!');
     }
 
     public function removePerson(int $id)
     {
         $result = $this->roomService->removePerson(Auth::id(), $id);
-        if ($result === 'invalid_status') return redirect()->back()->with('error', 'Chỉ có thể bớt người ở trạng thái sắp hết hạn HĐ hoặc chờ gia hạn!');
-        if ($result === 'empty') return redirect()->back()->with('error', 'Phòng hiện không có ai để bớt.');
-        if (!$result) return redirect()->back()->with('error', 'Không thể bớt người!');
+        if ($result === 'invalid_status')
+            return redirect()->back()->with('error', 'Chỉ có thể bớt người ở trạng thái sắp hết hạn HĐ hoặc chờ gia hạn!');
+        if ($result === 'empty')
+            return redirect()->back()->with('error', 'Phòng hiện không có ai để bớt.');
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể bớt người!');
         return redirect()->back()->with('success', 'Bớt người thành công!');
     }
 
     public function deleteRoom(int $id)
     {
-        $result = $this->roomService->deleteRoom(Auth::id(), $id);
-        if (!$result) return redirect()->back()->with('error', 'Không thể xóa phòng!');
-        return redirect()->back()->with('success', 'Xóa phòng thành công!');
+        try {
+            $result = $this->roomService->deleteRoom(Auth::id(), $id);
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể xóa phòng!');
+            return redirect()->back()->with('success', 'Xóa phòng thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
+
 
     // ========== CÁC TRANG KHÁC ==========
 
@@ -197,8 +245,110 @@ class LandlordController extends Controller
 
     public function appointments()
     {
-        return Inertia::render('Landlord/Appointments/index');
+        $appointments = Appointment::with(['user', 'room.boardingHouse'])
+            ->where('landlord_id', auth()->id())
+            ->orderBy('date', 'desc')
+            ->orderBy('time', 'desc')
+            ->get()
+            ->map(function ($apt) {
+                return [
+                    'id' => $apt->id,
+                    'name' => $apt->user ? $apt->user->name : 'Ẩn danh',
+                    'phone' => $apt->user ? $apt->user->phone : '',
+                    'room' => $apt->room ? $apt->room->room_number : '',
+                    'date' => $apt->date,
+                    'time' => substr($apt->time, 0, 5), // Giới hạn H:i
+                    'status' => $apt->status,
+                    'note' => $apt->note ?? '',
+                ];
+            });
+
+        return Inertia::render('Landlord/Appointments/index', [
+            'dbAppointments' => $appointments
+        ]);
     }
+
+    public function approveAppointment(int $id)
+    {
+        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
+        $appointment->update(['status' => 'approved']);
+
+        if ($appointment->user) {
+            $appointment->user->notify(new AppointmentStatusUpdated($appointment));
+        }
+
+        return redirect()->back()->with('success', 'Đã duyệt lịch hẹn xem phòng.');
+    }
+
+    public function rejectAppointment(Request $request, int $id)
+    {
+        $request->validate([
+            'cancellation_reason' => 'required|string|min:10|max:255'
+        ], [
+            'cancellation_reason.required' => 'Vui lòng cung cấp lý do từ chối lịch hẹn',
+            'cancellation_reason.min' => 'Lý do từ chối quá ngắn tối thiểu 10 ký tự'
+        ]);
+        try {
+            // Gọi service để xử lý cập nhật lên DB và gửi thông báo
+            $appointment = $this->publicListingService->rejectAppointmentWithReason($id, $request->cancellation_reason);
+
+            return redirect()->back()->with('success', 'Đã từ chối lịch hẹn xem phòng và gửi cho khách');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    // Phần hiển thị cấu hình giờ cho chủ trọ
+    public function editAvailabilities()
+    {
+        //lấy danh sách các cơ sở trọ thuộc sở hữu của chủ trọ
+        $boardingHouses = BoardingHouse::where('user_id', auth()->id())->get();
+        //lấy các cấu hình giờ rảnh để hiển thị lại trên form
+        $currentAvailabilities = LandlordAvailability::where('landlord_id', auth()->id())->get();
+        //render sang trang vue
+        return Inertia::render('Landlord/Availabilities/Edit', [
+            'boardingHouses' => $boardingHouses,
+            'currentAvailabilities' => $currentAvailabilities
+        ]);
+    }
+
+    //Phần xử lý lưu cấu hình giờ hàng loạt cho cơ sở trọ
+    public function storeAvailabilities(Request $request)
+    {
+        //validate dữ liệu từ form gửi lên
+        $request->validate([
+            'boarding_house_id' => 'required|exists:boarding_houses,id',
+            'availabilities' => 'required|array',
+            'availabilities.*.day_of_week' => 'required|integer|between:0,6',
+            'availabilities.*.start_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i',
+            'availabilities.*.end_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i|after:availabilities.*.start_time',
+        ], [
+            'availabilities.*.end_time.after' => 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu.',
+            'availabilities.*.start_time.required_if' => 'Vui lòng chọn giờ bắt đầu.',
+            'availabilities.*.end_time.required_if' => 'Vui lòng chọn giờ kết thúc.',
+        ]);
+        $landlordId = auth()->id();
+        $boardingHouseId = $request->boarding_house_id;
+
+        //xoá sạch các câu hình cũ để ghi đè câu hình mới
+        LandlordAvailability::where('boarding_house_id',$boardingHouseId)
+        ->where('landlord_id',$landlordId)
+        ->delete();
+        //Duyệt qua mảng cấu hình gửi lên vue
+        foreach ($request->availabilities as $item){
+            if($item['is_active']){
+                LandlordAvailability::create([
+                    'landlord_id' => $landlordId,
+                    'boarding_house_id' => $boardingHouseId,
+                    'day_of_week' => $item['day_of_week'],
+                    'start_time' => $item['start_time'],
+                    'end_time' => $item['end_time'],
+                ]);
+            }
+        }
+        return redirect()->back()->with('success','cập nhật khung giờ cho cơ sở thành công');
+    }
+
 
     public function tenants()
     {
@@ -238,9 +388,10 @@ class LandlordController extends Controller
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
-        
+
         $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
-        if (!$result) return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
         return redirect()->back()->with('success', 'Thêm dịch vụ thành công!');
     }
 
@@ -254,16 +405,18 @@ class LandlordController extends Controller
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
-        
+
         $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
-        if (!$result) return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
         return redirect()->back()->with('success', 'Cập nhật dịch vụ thành công!');
     }
 
     public function deleteService(int $id)
     {
         $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
-        if (!$result) return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
         return redirect()->back()->with('success', 'Xóa dịch vụ thành công!');
     }
 
@@ -271,7 +424,8 @@ class LandlordController extends Controller
     {
         $request->validate(['is_active' => 'required|boolean']);
         $result = $this->serviceManagementService->changeStatus(Auth::id(), $id, $request->is_active);
-        if (!$result) return redirect()->back()->with('error', 'Không thể cập nhật trạng thái!');
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể cập nhật trạng thái!');
         return redirect()->back()->with('success', 'Cập nhật trạng thái thành công!');
     }
 

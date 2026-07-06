@@ -22,46 +22,28 @@ class UpdateRoomPostRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'room_id' => [
-                'required',
-                'exists:rooms,id',
-                function ($attribute, $value, $fail) {
-                    $room = \App\Models\Room::find($value);
-                    if ($room) {
-                        $postId = $this->route('id'); //lấy id bài viết từ router Url
-                        $post = \App\Models\RoomPost::find($postId);
-                        if ($post && $post->room_id == $value) {
-                            return;
-                        }
-                        if ($room->status !== 'available') {
-                            $fail("Căn phòng này hiện không ở trạng thái trống để đăng tin");
-                        }
-                    }
-                }
-            ],
-
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'existing_images' => 'nullable|array',
-            'existing_images.*' => 'string',
-            //khi sửa tin, ảnh sẽ là tuỳ chọn nullable vì hệ thống sẽ giữ lại ảnh cũ nếu không chọn file mới
-            'images' => 'nullable|array',
-            'images.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+            'action' => 'required|string|in:draft,publish',
+            'room_id' => 'required|exists:rooms,id',
+            'title' => 'required|string|min:10|max:255',
+            'existing_images' => 'nullable|array', //mảng các link ảnh sẽ giữ lại
+            'address' => 'nullable|string',
+            'latitude'=> 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ];
-        //phần đăng tin publish ảnh cũ sẽ được giữ lại và ảnh mới tải lên >=1
-        if ($this->input('action') === 'publish') {
-            $rules['images'] = [
-                'nullable',
-                'array',
-                function ($attribute, $value, $fail) {
-                    $existingImages = $this->input('existingImages') ?? [];
-                    $newImagesCount = is_array($value) ? count($value) : 0;
 
-                    if (count($existingImages) + $newImagesCount === 0) {
-                        $fail('Bạn phải tải lên hoặc giữ lại ít nhất 1 hình ảnh thực tế cho bài đăng');
-                    }
-                }
-            ];
+        if ($this->input('action') === 'publish') {
+            $rules['description'] = 'required|string|min:20';
+            //nếu không giữ ảnh cũ thì bắt buộc phải chọn ảnh mới tải lên
+            if (empty($this->input('existing_images'))) {
+                $rules['image'] = 'required|array|min:1';
+            } else {
+                $rules['images'] = 'nullable|array';
+            }
+            $rules['images.*'] = 'image|mimes:jpeg,png,jpg,webp|max:2048';
+        } else {
+            $rules['description'] = 'nullable|string';
+            $rules['images'] = 'nullable|array';
+            $rules['images.*'] = 'image|mimes:jpeg,png,jpg,webp|max:2048';
         }
         return $rules;
     }
@@ -69,13 +51,12 @@ class UpdateRoomPostRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'title.required' => 'tiêu đề bài viết không được để trống',
-            'title.max' => 'tiêu đề bài viết không vượt quá 255 ký tự',
-            'description.required' => 'Nội dung mô tả chi tiết không được để trống',
-            'images.array' => 'Dữ liệu hình ảnh tải lên không đúng định dạng',
-            'images.*.image' => 'Tệp tải lên phải là hình ảnh',
-            'images.*.mimes' => 'Hệ thống chỉ hỗ chị ảnh định dạng:jpeg,png,jpg',
-            'images.*.max' => 'Dung lượng mỗi ảnh bổ sung không quá 2MB',
+            'room_id.required' => 'Vui lòng chọn căn phòng trọ cần tiếp thị.',
+            'title.required' => 'Tiêu đề tin đăng không được bỏ trống.',
+            'title.min' => 'Tiêu đề tin đăng phải từ 10 ký tự trở lên.',
+            'description.required' => 'Nội dung mô tả phòng trọ là bắt buộc khi Đăng tin thương mại.',
+            'description.min' => 'Nội dung mô tả phòng trọ phải từ 20 ký tự trở lên.',
+            'images.required' => 'Vui lòng tải lên ảnh chụp thực tế nếu bạn đã xóa sạch bộ ảnh cũ.',
         ];
     }
 }

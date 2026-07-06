@@ -18,6 +18,13 @@ const uploadAvatar = (e) => {
         });
     }
 };
+const getAvatarUrl = (avatar) => {
+    if (!avatar) return '/anh/banner.png';
+    if (avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:')) {
+        return avatar;
+    }
+    return '/storage/' + avatar;
+};
 </script>
 
 <template>
@@ -26,7 +33,7 @@ const uploadAvatar = (e) => {
             <div class="left_section">
                 <div class="bao-user">
                     <div class="img_user">
-                        <img id="avatarPreview" :src="user.avatar ? '/storage/' + user.avatar : '/anh/banner.png'" alt="">
+                        <img id="avatarPreview" :src="getAvatarUrl(user.avatar)" alt="">
 
                         <!-- input ẩn -->
                         <input type="file" @change="uploadAvatar" id="avatarInput" accept="image/*" hidden>
@@ -61,6 +68,13 @@ const uploadAvatar = (e) => {
                                     <span>Quản Lý Nơi ở</span>
                                 </Link>
                             </li>
+                            <li>
+                                <Link :href="route('profile.appointments')" :class="{ active: route().current('profile.appointments') }">
+                                    <i class="bi bi-calendar2-check"></i>
+                                    <span>Lịch Hẹn Xem Phòng</span>
+                                </Link>
+                            </li>
+
                             <li>
                                 <Link :href="route('caidatuser')" :class="{ active: route().current('caidat') }">
                                     <i class="bi bi-gear-wide-connected"></i>
@@ -97,6 +111,11 @@ const uploadAvatar = (e) => {
             <i class="bi bi-house"></i>
             <span>Quản Lý Nơi ở</span>
         </Link>
+        <Link :href="route('profile.appointments')" :class="{ active: route().current('profile.appointments') }">
+            <i class="bi bi-calendar2-check"></i>
+            <span>Lịch Hẹn</span>
+        </Link>
+
         <Link :href="route('caidatuser')" :class="{ active: route().current('caidatuser') }">
             <i class="bi bi-gear-wide-connected"></i>
             <span>Cài Đặt</span>

@@ -22,7 +22,7 @@ const videoRef = ref(null);
 const canvasRef = ref(null);
 
 const statusMsg = ref("Đang chờ khởi tạo hệ thống...");
-const statusColor = ref("bg-slate-500");
+const statusColor = ref("bg-slate-500 text-white");
 const isMatched = ref(false);
 
 let scanInterval = null;
@@ -39,12 +39,14 @@ const startCamera = async () => {
             audio: false,
         });
 
-        videoRef.value.srcObject = stream;
-        statusMsg.value = "Đang khởi động camera...";
-        statusColor.value = "bg-emerald-600";
+        if (videoRef.value) {
+            videoRef.value.srcObject = stream;
+            statusMsg.value = "Đang khởi động camera...";
+            statusColor.value = "bg-emerald-600 text-white";
+        }
     } catch (error) {
         statusMsg.value = "Vui lòng cấp quyền camera";
-        statusColor.value = "bg-rose-500";
+        statusColor.value = "bg-rose-500 text-white";
     }
 };
 
@@ -65,6 +67,8 @@ const stopCamera = () => {
  * Chụp ảnh & submit
  */
 const captureAndSubmit = () => {
+    if (!videoRef.value) return;
+    
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.value.videoWidth;
     canvas.height = videoRef.value.videoHeight;
@@ -82,57 +86,139 @@ const captureAndSubmit = () => {
     }, "image/jpeg");
 };
 
+// Biến giữ faceMatcher
+let faceMatcher = null;
+let displaySize = { width: 0, height: 0 };
+
 /**
  * AI xử lý khuôn mặt
  */
 const onVideoPlay = async () => {
     if (!props.isModelsLoaded) {
         statusMsg.value = "AI đang tải dữ liệu...";
+        statusColor.value = "bg-amber-500 text-white";
         return;
     }
 
     if (!props.form.id_card_front) {
         statusMsg.value = "Bạn chưa tải CCCD ở bước 1";
-        statusColor.value = "bg-rose-500";
+        statusColor.value = "bg-rose-500 text-white";
         return;
     }
 
     statusMsg.value = "Đang phân tích CCCD...";
-    statusColor.value = "bg-amber-500";
+    statusColor.value = "bg-amber-500 text-white";
 
-    const idImg = await faceapi.bufferToImage(props.form.id_card_front);
-    const idDetection = await faceapi
-        .detectSingleFace(
-            idImg,
-            new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }),
-        )
-        .withFaceLandmarks()
-        .withFaceDescriptor();
+    try {
+        const idImg = await faceapi.bufferToImage(props.form.id_card_front);
+        const idDetection = await faceapi
+            .detectSingleFace(
+                idImg,
+                new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }),
+            )
+            .withFaceLandmarks()
+            .withFaceDescriptor();
 
-    if (!idDetection) {
-        statusMsg.value = "Không nhận diện được khuôn mặt trên CCCD";
-        statusColor.value = "bg-rose-500";
-        return;
-    }
-
-    const faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.4);
-
-    const displaySize = {
-        width: videoRef.value.videoWidth,
-        height: videoRef.value.videoHeight,
-    };
-
-    faceapi.matchDimensions(canvasRef.value, displaySize);
-    statusMsg.value = "Đưa khuôn mặt vào khung hình";
-    statusColor.value = "bg-emerald-600";
-
-    scanInterval = setInterval(async () => {
-        if (isMatched.value) {
+        if (!idDetection) {
+            statusMsg.value = "Không nhận diện được khuôn mặt trên CCCD";
+            statusColor.value = "bg-rose-500 text-white";
             return;
         }
 
-        const detections = await faceapi
-            .detectAllFaces(
+        faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.4);
+
+        displaySize = {
+            width: videoRef.value.videoWidth || 340,
+            height: videoRef.value.videoHeight || 425,
+        };
+
+        if (canvasRef.value) {
+            faceapi.matchDimensions(canvasRef.value, displaySize);
+        }
+        
+        statusMsg.value = "Đưa khuôn mặt vào giữa khung hình";
+        statusColor.value = "bg-emerald-600 text-white";
+
+        // Bắt đầu quét liên tục mỗi giây
+        startScanning();
+    } catch (e) {
+        console.error(e);
+        statusMsg.value = "Lỗi khi xử lý nhận dạng khuôn mặt";
+        statusColor.value = "bg-rose-500 text-white";
+    }
+};
+
+const startScanning = () => {
+    if (scanInterval) clearInterval(scanInterval);
+    
+    scanInterval = setInterval(async () => {
+        if (isMatched.value || !videoRef.value || !faceMatcher) {
+            return;
+        }
+
+        try {
+            const detections = await faceapi
+                .detectAllFaces(
+                    videoRef.value,
+                    new faceapi.TinyFaceDetectorOptions({
+                        inputSize: 320,
+                        scoreThreshold: 0.5,
+                    }),
+                )
+                .withFaceLandmarks()
+                .withFaceDescriptors();
+
+            const resized = faceapi.resizeResults(detections, displaySize);
+            
+            if (canvasRef.value) {
+                const ctx = canvasRef.value.getContext("2d");
+                ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
+            }
+
+            if (resized.length === 0) {
+                statusMsg.value = "Không tìm thấy khuôn mặt";
+                statusColor.value = "bg-amber-500 text-white";
+                return;
+            }
+
+            let foundMatch = false;
+            for (const detection of resized) {
+                const match = faceMatcher.findBestMatch(detection.descriptor);
+                if (match.label !== "unknown") {
+                    foundMatch = true;
+                    isMatched.value = true;
+                    statusMsg.value = "Xác minh thành công!";
+                    statusColor.value = "bg-emerald-600 text-white";
+                    clearInterval(scanInterval);
+                    captureAndSubmit();
+                    break;
+                }
+            }
+
+            if (!foundMatch && !isMatched.value) {
+                statusMsg.value = "Khuôn mặt không khớp CCCD";
+                statusColor.value = "bg-rose-500 text-white";
+            }
+        } catch (err) {
+            console.error("Lỗi quét camera:", err);
+        }
+    }, 1000);
+};
+
+// Chụp ảnh thủ công (kích hoạt quét lập tức)
+const handleCaptureManual = async () => {
+    if (!props.isModelsLoaded || !faceMatcher) {
+        statusMsg.value = "Vui lòng đợi hệ thống sẵn sàng...";
+        statusColor.value = "bg-amber-500 text-white";
+        return;
+    }
+    
+    statusMsg.value = "Đang quét khuôn mặt...";
+    statusColor.value = "bg-blue-600 text-white";
+    
+    try {
+        const detection = await faceapi
+            .detectSingleFace(
                 videoRef.value,
                 new faceapi.TinyFaceDetectorOptions({
                     inputSize: 320,
@@ -140,50 +226,38 @@ const onVideoPlay = async () => {
                 }),
             )
             .withFaceLandmarks()
-            .withFaceDescriptors();
-
-        const resized = faceapi.resizeResults(detections, displaySize);
-        const ctx = canvasRef.value.getContext("2d");
-        ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-
-        // faceapi.draw.drawDetections(canvasRef.value, resized);
-
-        if (resized.length === 0) {
-            statusMsg.value = "Không tìm thấy khuôn mặt";
-            statusColor.value = "bg-amber-500";
+            .withFaceDescriptor();
+            
+        if (!detection) {
+            statusMsg.value = "Không phát hiện khuôn mặt";
+            statusColor.value = "bg-amber-500 text-white";
             return;
         }
-
-        let foundMatch = false;
-        for (const detection of resized) {
-            const match = faceMatcher.findBestMatch(detection.descriptor);
-            if (match.label !== "unknown") {
-                foundMatch = true;
-                isMatched.value = true;
-                statusMsg.value = "Xác minh thành công";
-                statusColor.value = "bg-emerald-500";
-                clearInterval(scanInterval);
-                captureAndSubmit();
-                break;
-            }
+        
+        const match = faceMatcher.findBestMatch(detection.descriptor);
+        if (match.label !== "unknown") {
+            isMatched.value = true;
+            statusMsg.value = "Xác minh thành công!";
+            statusColor.value = "bg-emerald-600 text-white";
+            captureAndSubmit();
+        } else {
+            statusMsg.value = "Khuôn mặt không trùng khớp với CCCD";
+            statusColor.value = "bg-rose-500 text-white";
         }
-
-        if (!foundMatch && !isMatched.value) {
-            statusMsg.value = "Khuôn mặt không khớp CCCD";
-            statusColor.value = "bg-rose-500";
-        }
-    }, 1000);
+    } catch (e) {
+        console.error(e);
+        statusMsg.value = "Không thể phân tích ảnh";
+        statusColor.value = "bg-rose-500 text-white";
+    }
 };
 
 watch(
     () => props.currentStep,
     (step) => {
         if (step === 3) {
-            //reset toàn bộ trạng thái AI về ban đầu
             isMatched.value = false;
             statusMsg.value = "Vui lòng đưa khuôn mặt vào khung hình";
-            statusColor.value = "bg-blue-500";
-            // 2. XÓA DỮ LIỆU CŨ TRONG FORM (Để tránh gửi nhầm ảnh của lần quét hỏng trước đó)
+            statusColor.value = "bg-blue-500 text-white";
             if (props.form) {
                 props.form.is_face_matched = false;
                 props.form.face_auth_image = null;
@@ -216,26 +290,17 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="max-w-4xl mx-auto space-y-6">
-        <!-- Header -->
-        <div class="text-center space-y-2">
-            <h1 class="text-lg font-bold text-slate-800">Xác minh khuôn mặt</h1>
-            <p class="text-xs text-slate-400">
-                Đưa khuôn mặt của bạn đối chiếu song song với hình ảnh trên CCCD
-            </p>
-        </div>
-
-        <div
-            class="bg-white rounded-3xl border border-slate-100 overflow-hidden grid grid-cols-1 md:grid-cols-12 shadow-sm"
-        >
-            <!-- Left Camera Stream -->
-            <div
-                class="md:col-span-8 p-6 flex flex-col items-center justify-center space-y-4"
-            >
+    <div class="max-w-4xl mx-auto space-y-6 relative z-10">
+        <!-- Main Verification Canvas -->
+        <div class="glass-panel w-full max-w-4xl rounded-xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[650px] p-6 md:p-8 gap-6 md:gap-8">
+            
+            <!-- Left Side: Camera Box & Status Bar -->
+            <div class="flex-1 flex flex-col items-center justify-center gap-4">
+                <!-- Camera Container -->
                 <div
-                    class="relative w-full max-w-[420px] aspect-[4/5] bg-black rounded-2xl overflow-hidden shadow-inner"
+                    class="relative w-full aspect-[4/5] max-w-[340px] md:max-w-[400px] bg-black rounded-3xl overflow-hidden shadow-2xl"
                 >
-                    <!-- camera tag -->
+                    <!-- Camera Video Stream -->
                     <video
                         ref="videoRef"
                         @play="onVideoPlay"
@@ -245,95 +310,82 @@ onUnmounted(() => {
                         class="w-full h-full object-cover"
                     />
 
+                    <!-- Face-api Canvas overlay -->
                     <canvas
                         ref="canvasRef"
-                        class="absolute inset-0 w-full h-full pointer-events-none"
+                        class="absolute inset-0 w-full h-full pointer-events-none z-10"
                     />
 
-                    <!-- Face scanning guide overlay -->
-                    <div
-                        class="absolute inset-0 flex items-center justify-center pointer-events-none"
-                    >
-                        <div
-                            class="relative w-[200px] h-[260px] rounded-full border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                        >
-                            <!-- corner indicators -->
-                            <div
-                                class="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg"
-                            ></div>
-                            <div
-                                class="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg"
-                            ></div>
-                            <div
-                                class="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg"
-                            ></div>
-                            <div
-                                class="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg"
-                            ></div>
-
-                            <!-- scanning line -->
-                            <div
-                                class="absolute left-0 right-0 h-[1.5px] bg-emerald-400 animate-scan"
-                            ></div>
-                        </div>
+                    <!-- Biometric Guide Overlay -->
+                    <div class="biometric-guide">
+                        <div class="scanning-line"></div>
                     </div>
+                    
+                    <!-- Corner Accents -->
+                    <div class="absolute top-6 left-6 w-6 h-6 border-t-2 border-l-2 border-emerald-500 rounded-tl-md"></div>
+                    <div class="absolute top-6 right-6 w-6 h-6 border-t-2 border-r-2 border-emerald-500 rounded-tr-md"></div>
+                    <div class="absolute bottom-6 left-6 w-6 h-6 border-b-2 border-l-2 border-emerald-500 rounded-bl-md"></div>
+                    <div class="absolute bottom-6 right-6 w-6 h-6 border-b-2 border-r-2 border-emerald-500 rounded-br-md"></div>
                 </div>
 
-                <!-- status notifier -->
-                <div
-                    :class="[
-                        statusColor,
-                        'px-4 py-2.5 rounded-xl text-white font-bold text-xs text-center w-full max-w-[420px] transition-all',
-                    ]"
-                >
-                    {{ statusMsg }}
+                <!-- Status Notifier Bar (Below Video Box) -->
+                <div class="w-full max-w-[340px] md:max-w-[400px]">
+                    <div
+                        :class="[
+                            statusColor,
+                            'h-12 rounded-xl font-semibold text-sm flex items-center justify-center px-4 transition-all duration-300 shadow-sm text-center',
+                        ]"
+                    >
+                        {{ statusMsg }}
+                    </div>
                 </div>
             </div>
 
-            <!-- Right Notice Column -->
+            <!-- Right Side: Instructions & Action Buttons -->
             <div
-                class="md:col-span-4 bg-slate-50/50 p-6 flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-100"
+                class="w-full md:w-80 flex flex-col justify-between py-2 gap-8"
             >
-                <div class="space-y-4">
-                    <h3
-                        class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2 flex items-center gap-1"
-                    >
-                        <i class="bi bi-info-circle text-emerald-500"></i>
+                <!-- Instructions Section -->
+                <div class="space-y-6">
+                    <div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+                        <span class="material-symbols-outlined text-lg">info</span>
                         Lưu ý quan trọng
-                    </h3>
-                    <ul class="space-y-3 text-xs text-slate-500 font-semibold">
-                        <li class="flex items-center gap-2">
-                            <i class="bi bi-check-circle text-emerald-500"></i>
+                    </div>
+                    
+                    <ul class="space-y-4">
+                        <li class="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                            <span class="material-symbols-outlined text-emerald-500 text-lg">check_circle</span>
                             Không đeo kính, khẩu trang
                         </li>
-                        <li class="flex items-center gap-2">
-                            <i class="bi bi-check-circle text-emerald-500"></i>
+                        <li class="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                            <span class="material-symbols-outlined text-emerald-500 text-lg">check_circle</span>
                             Đảm bảo môi trường đủ sáng
                         </li>
-                        <li class="flex items-center gap-2">
-                            <i class="bi bi-check-circle text-emerald-500"></i>
+                        <li class="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                            <span class="material-symbols-outlined text-emerald-500 text-lg">check_circle</span>
                             Giữ điện thoại cố định
                         </li>
                     </ul>
                 </div>
 
-                <div class="pt-6 border-t border-slate-100 space-y-2">
+                <!-- Action Buttons (Stacked) -->
+                <div class="space-y-3 w-full">
+                    <!-- Quay lại Button -->
                     <button
                         type="button"
                         @click="emit('prev')"
-                        class="w-full px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1"
+                        class="w-full h-12 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
                     >
-                        <span class="material-symbols-outlined">
-                            arrow_back
-                        </span>
-
+                        <span class="material-symbols-outlined text-base">arrow_back</span>
                         Quay lại
                     </button>
 
+                    <!-- Auto-submit / Manual capture Button -->
                     <button
                         disabled
-                        class="w-full px-4 py-2.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl cursor-not-allowed"
+                        class="w-full h-12 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-2 border border-slate-200 shadow-sm"
                     >
+                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span>
                         Tự động nộp hồ sơ khi khớp ảnh
                     </button>
                 </div>
@@ -343,6 +395,35 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.glass-panel {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(24px);
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 20px 40px rgba(0, 98, 140, 0.08);
+}
+
+.biometric-guide {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 220px;
+    height: 280px;
+    border: 2px dashed rgba(16, 185, 129, 0.5); /* Emerald border matching screen accents */
+    border-radius: 50% 50% 45% 45%;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.scanning-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #10b981, transparent);
+    top: 0;
+    animation: scan 3s ease-in-out infinite;
+}
+
 @keyframes scan {
     0% {
         top: 10%;
@@ -355,8 +436,5 @@ onUnmounted(() => {
         top: 90%;
         opacity: 0;
     }
-}
-.animate-scan {
-    animation: scan 2.5s infinite ease-in-out;
 }
 </style>

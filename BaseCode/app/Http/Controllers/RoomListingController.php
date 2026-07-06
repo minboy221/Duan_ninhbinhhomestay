@@ -1,16 +1,21 @@
 <?php
 
 namespace App\Http\Controllers;
-
-
+use App\Models\RoomPost;
+use App\Models\Amenity;
+use App\Models\Area;
+use App\Models\Appointment;
+use App\Notifications\NewAppointment;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Controller;
+use Inertia\Inertia;
 use App\Models\BoardingHouse;
 use App\Models\Room;
-use App\Models\RoomPost;
 use App\Http\Requests\StoreRoomPostRequest;
 use App\Http\Requests\UpdateRoomPostRequest;
 use App\Services\RoomListingService;
 use Illuminate\Http\JsonResponse;
-use Inertia\Inertia;
 use Inertia\Response;
 
 class RoomListingController extends Controller
@@ -47,9 +52,9 @@ class RoomListingController extends Controller
     //API lấy thông tin phòng chp frontend
     public function getRoomDetails($id): JsonResponse
     {
-        $room = Room::with('services')->findOrFail($id);
+        $room = Room::with(['services', 'boardingHouse', 'floor'])->findOrFail($id);
         if ($room->boardingHouse?->user_id !== auth()->id()) {
-            return response()->json(['messeage' => 'không có quyền truy cập'], 403);
+            return response()->json(['message' => 'không có quyền truy cập'], 403);
         }
         return response()->json($room);
     }
@@ -125,8 +130,124 @@ class RoomListingController extends Controller
         if ($post->landlord_id !== auth()->id()) {
             abort(403, 'Bạn không có quyền xoá bài đăng này');
         }
+
+        //bảo mật nếu tin đăng là công khai thì sẽ không cho xoá
+        if ($post->status === 'approved') {
+            return redirect()->back()
+                ->with('error', 'hệ thống từ chối,bạn không thể xoá tin đăng ở trạng thái công khai');
+        }
         $this->roomPostService->deletePost($post);
         return redirect()->route('landlord.listings.index')
             ->with('success', 'Đã xoá bài đăng thành công!');
     }
+
+    //Phần đóng tin đăng
+    public function close($id)
+    {
+        $post = RoomPost::findOrFail($id);
+        //check tài khoản chủ trọ
+        if ($post->landlord_id !== auth()->id()) {
+            abort(403, 'Bạn không có quyền đóng bài đăng này');
+        }
+        //chuyển trạng thái
+        $post->update(['status' => 'closed']);
+        return redirect()->route('landlord.listings.index')
+            ->with('success', 'Đã đóng tin đăng thành công! tin đăng đã được gỡ bỏ');
+    }
+
+
+    public function getFilteredListings(Request $request)
+    {
+        $query = RoomPost::with(['room.boardingHouse', 'landlord'])
+            ->where('status', 'approved');
+
+        // Tìm kiếm theo tiêu đề
+        if ($request->filled('search')) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        // Lọc theo khu vực
+        if ($request->filled('area_id')) {
+            $area = Area::find($request->input('area_id'));
+            if ($area) {
+                $query->whereHas('room.boardingHouse', function ($q) use ($area) {
+                    $q->where('address_detail', 'like', "%{$area->name}%"); // Đã sửa lỗi address_detaill
+                });
+            }
+        }
+
+        // Lọc theo khoảng giá
+        if ($request->filled('price')) {
+            $priceRange = $request->input('price');
+            $query->whereHas('room', function ($q) use ($priceRange) {
+                if ($priceRange === 'duoi-1-trieu') {
+                    $q->where('price', '<', 1000000);
+                } elseif ($priceRange === '1-2-trieu') {
+                    $q->whereBetween('price', [1000000, 2000000]);
+                } elseif ($priceRange === '2-3-trieu') {
+                    $q->whereBetween('price', [2000000, 3000000]);
+                } elseif ($priceRange === 'tren-3-trieu') {
+                    $q->where('price', '>', 3000000);
+                }
+            });
+        }
+
+        // Lọc theo diện tích
+        if ($request->filled('dientich')) {
+            $sizeRange = $request->input('dientich');
+            $query->whereHas('room', function ($q) use ($sizeRange) {
+                if ($sizeRange === 'duoi-20') {
+                    $q->where('area', '<', 20);
+                } elseif ($sizeRange === '20-30') {
+                    $q->whereBetween('area', [20, 30]);
+                } elseif ($sizeRange === '30-50') {
+                    $q->whereBetween('area', [30, 50]);
+                } elseif ($sizeRange === 'tren-50') {
+                    $q->where('area', '>', 50);
+                }
+            });
+        }
+
+        // Lọc theo mảng tiện ích
+        if ($request->filled('amenities') && is_array($request->input('amenities'))) {
+            $amenityIds = $request->input('amenities');
+            $amenityNames = Amenity::whereIn('id', $amenityIds)->pluck('name')->toArray();
+
+            $query->whereHas('room', function ($q) use ($amenityNames) {
+                foreach ($amenityNames as $name) {
+                    $q->where('amenities', 'like', "%{$name}%");
+                }
+            });
+        }
+
+        return $query->latest()->paginate(10)->withQueryString();
+    }
+
+    /**
+     * Xử lý tạo lịch hẹn và gửi thông báo cho chủ trọ
+     */
+    public function createAppointment($id, array $data)
+    {
+        $post = RoomPost::with('room.boardingHouse')->findOrFail($id);
+        $landlordId = $post->room->boardingHouse->user_id ?? $post->landlord_id;
+
+        $appointment = Appointment::create([
+            'user_id' => Auth::id(), // Đã sửa lỗi usser_id
+            'landlord_id' => $landlordId,
+            'room_id' => $post->room_id,
+            'date' => $data['date'],
+            'time' => $data['time'],
+            'note' => $data['note'] ?? null,
+            'status' => 'pending',
+            'notified' => false,
+        ]);
+
+        $landlord = $appointment->landlord;
+        if ($landlord) {
+            $landlord->notify(new NewAppointment($appointment));
+        }
+
+        return $appointment;
+    }
 }
+?>

@@ -23,7 +23,9 @@ class DatabaseSeeder extends Seeder
             LandlordSeeder::class,
             UserSeeder::class,
             CategorySeeder::class,
-            
+            Databasedulieumau::class,
+            PostSeeder::class,
+            AppointmentSeeder::class,
         ]);
     }
 }

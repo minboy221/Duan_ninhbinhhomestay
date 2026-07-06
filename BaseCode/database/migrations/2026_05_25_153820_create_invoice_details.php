@@ -17,7 +17,7 @@ return new class extends Migration {
             $table->foreignId('service_id')->nullable()->constrained('services')->onDelete('set null')->comment('null nếu tiền phòng gốc');
             $table->string('item_name')->comment('tên khoản phí (tiền phòng, tiền điện, tiền nước');
             $table->integer('old_index')->nullable()->comment('chỉ số cũ đối với điện, nước');
-            $table->integer('new-index')->nullable()->comment('chỉ số mới điện, nước');
+            $table->integer('new_index')->nullable()->comment('chỉ số mới điện, nước');
             $table->string('meter_image_path')->nullable()->comment('Đường dẫn ảnh chụp công tơ điện/nước lúc chốt số');
             $table->integer('quantity')->default(1)->comment('Số lượng tiêu thụ');
             $table->decimal('price', 10, 2)->comment('đơn giá tại thời điểm chốt');

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
-class DatabaseSeeder extends Seeder
+class Databasedulieumau extends Seeder
 {
     public function run()
     {
@@ -70,7 +70,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 4. Tạo Contract (Hợp đồng mẫu)
-        DB::table('contracts')->insert([
+        $contractId = DB::table('contracts')->insertGetId([
             'tenant_id' => $tenantId,
             'room_id' => $roomId,
             'start_date' => Carbon::now()->format('Y-m-d'),
@@ -114,7 +114,7 @@ class DatabaseSeeder extends Seeder
 
         // 6. Tạo Hóa đơn mẫu (sử dụng biến $contractId từ phần trước)
         $invoiceId = DB::table('invoices')->insertGetId([
-            'contract_id' => 1, // Giả định ID hợp đồng vừa tạo là 1
+            'contract_id' => $contractId,
             'invoice_code' => 'HD-' . date('Ym') . '-001',
             'billing_month' => date('Y-m'),
             'total_amount' => 2725000.00, // Tổng cộng các khoản bên dưới
@@ -124,50 +124,10 @@ class DatabaseSeeder extends Seeder
             'updated_at' => Carbon::now(),
         ]);
 
-        // 7. Tạo Chi tiết hóa đơn mẫu
-        DB::table('invoice_details')->insert([
-            [
-                'invoice_id' => $invoiceId,
-                'service_id' => null,
-                'item_name' => 'Tiền thuê nhà tháng này',
-                'old_index' => null,
-                'new_index' => null,
-                'quantity' => 1,
-                'price' => 2500000.00,
-                'subtotal' => 2500000.00,
-                'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now(),
-            ],
-            [
-                'invoice_id' => $invoiceId,
-                'service_id' => $serviceDienId,
-                'item_name' => 'Tiền Điện',
-                'old_index' => 1200,
-                'new_index' => 1250,
-                'quantity' => 50, // 50 số điện
-                'price' => 3500.00,
-                'subtotal' => 175000.00,
-                'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now(),
-            ],
-            [
-                'invoice_id' => $invoiceId,
-                'service_id' => $serviceWifiId,
-                'item_name' => 'Internet Wifi',
-                'old_index' => null,
-                'new_index' => null,
-                'quantity' => 1,
-                'price' => 50000.00,
-                'subtotal' => 50000.00,
-                'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now(),
-            ],
-        ]);
-
         // 8. Tạo dữ liệu mẫu cho Yêu cầu sửa chữa (sử dụng $roomId và $tenantId từ phần trước)
         DB::table('maintenance_requests')->insert([
-            'room_id' => 1,
-            'tenant_id' => 3, // ID người thuê mẫu
+            'room_id' => $roomId,
+            'tenant_id' => $tenantId, // ID người thuê mẫu
             'title' => 'Hỏng vòi hoa sen',
             'description' => 'Vòi hoa sen trong nhà tắm bị rỉ nước mạnh, nhờ chủ nhà qua sửa giúp.',
             'status' => 'pending',
@@ -177,8 +137,8 @@ class DatabaseSeeder extends Seeder
 
         // 9. Tạo dữ liệu mẫu cho Đánh giá homestay
         DB::table('reviews')->insert([
-            'property_id' => 1,
-            'tenant_id' => 3,
+            'property_id' => $propertyId,
+            'tenant_id' => $tenantId,
             'rating' => 5,
             'comment' => 'Phòng sạch sẽ, chủ nhà thân thiện, thủ tục ký hợp đồng online rất nhanh gọn.',
             'created_at' => Carbon::now(),

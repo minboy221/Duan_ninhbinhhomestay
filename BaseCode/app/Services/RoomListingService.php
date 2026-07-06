@@ -40,6 +40,15 @@ class RoomListingService
         $imageUrls = !empty($files) ? $this->uploadImages($files) : [];
         //chạy transaction để đảm bảo an toàn cho DB
         $post = DB::transaction(function () use ($data, $imageUrls, $status) {
+
+            $room = \App\Models\Room::find($data['room_id']);
+            if ($room && $room->boardingHouse) {
+                $room->boardingHouse()->update([
+                    'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
+                    'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
+                    'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
+                ]);
+            }
             return RoomPost::create([
                 'landlord_id' => auth()->id(),
                 'room_id' => $data['room_id'],
@@ -65,6 +74,14 @@ class RoomListingService
     public function updatePost(RoomPost $post, array $data, ?array $newFiles, string $status): bool
     {
         $updated = DB::transaction(function () use ($post, $data, $newFiles, $status) {
+            $room = \App\Models\Room::find($data['room_id']);
+            if($room && $room->boardingHouse){
+                $room->boardingHouse->update([
+                    'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
+                    'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
+                    'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
+                ]);
+            }
             //lấy danh sách ảnh cũ được giữ lại từ Frontend gửi lên
             $imageUrls = $data['existing_images'] ?? [];
             //tìm các ảnh cũ bị người dùng xoá bỏ để dọn dẹp

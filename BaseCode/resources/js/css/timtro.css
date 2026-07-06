@@ -420,7 +420,7 @@ input[type="radio"]:checked::after {
 }
 
 .user_room p {
-    transform: translate(-50%, 50%);
+    transform: translate(-96%, 50%);
     margin-top: 25px;
     font-size: 13px;
     color: #888;

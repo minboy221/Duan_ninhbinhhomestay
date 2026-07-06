@@ -37,6 +37,7 @@ const navGroups = [
             { label: 'Hóa Đơn', path: '/landlord/invoices', icon: 'bi-receipt' },
             { label: 'Tin Đăng', path: '/landlord/listings', icon: 'bi-megaphone' },
             { label: 'Lịch Hẹn', path: '/landlord/appointments', icon: 'bi-calendar-event' },
+            { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
         ]
     },
     {
