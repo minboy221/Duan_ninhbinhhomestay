@@ -143,4 +143,40 @@ class ProfileController extends Controller
 
         return Redirect::back()->with('success', 'Cập nhật ảnh đại diện thành công.');
     }
+
+    /**
+     * Display client-side viewing appointments list
+     */
+    public function appointments(Request $request): Response
+    {
+        $appointments = \App\Models\Appointment::with(['room.boardingHouse.landlord'])
+            ->where('user_id', $request->user()->id)
+            ->orderBy('date', 'desc')
+            ->orderBy('time', 'desc')
+            ->get();
+
+        $favoriteRoomIds = $request->user()->favoriteRooms()->pluck('rooms.id')->toArray();
+
+        return Inertia::render('Profile/lichhen', [
+            'user' => $request->user(),
+            'appointments' => $appointments,
+            'favoriteRoomIds' => $favoriteRoomIds
+        ]);
+    }
+
+    /**
+     * Display client-side favorited rooms list
+     */
+    public function favorites(Request $request): Response
+    {
+        $favoriteRooms = $request->user()->favoriteRooms()
+            ->with(['property.landlord.boardingHouse'])
+            ->orderBy('favorites.created_at', 'desc')
+            ->get();
+
+        return Inertia::render('Profile/yeuthich', [
+            'user' => $request->user(),
+            'favoriteRooms' => $favoriteRooms
+        ]);
+    }
 }

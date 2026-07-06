@@ -7,6 +7,7 @@ const user = computed(() => page.props.auth?.user)
 const sidebarOpen = ref(true)
 const drawerOpen = ref(false)   // mobile drawer
 const propertyDropdownOpen = ref(false)
+const notifOpen = ref(false)
 
 const logout = () => router.post(route('logout'))
 const isActive = (path) => {
@@ -36,6 +37,7 @@ const navGroups = [
             { label: 'Hóa Đơn', path: '/landlord/invoices', icon: 'bi-receipt' },
             { label: 'Tin Đăng', path: '/landlord/listings', icon: 'bi-megaphone' },
             { label: 'Lịch Hẹn', path: '/landlord/appointments', icon: 'bi-calendar-event' },
+            { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
         ]
     },
     {
@@ -63,6 +65,28 @@ const bottomTabs = [
     { label: 'Hợp Đồng', path: '/landlord/contracts', icon: 'bi-file-earmark-text' },
     { label: 'Menu', path: null, icon: 'bi-list', action: () => { drawerOpen.value = true } },
 ]
+
+const showWelcomePopup = ref(false)
+const latestNotification = ref(null)
+import { onMounted } from 'vue'
+
+onMounted(() => {
+    if (page.props.auth?.notifications && page.props.auth.notifications.length > 0) {
+        const notif = page.props.auth.notifications[0]
+        const dismissed = sessionStorage.getItem('dismissed_landlord_notification_' + notif.id)
+        if (!dismissed) {
+            latestNotification.value = notif
+            showWelcomePopup.value = true
+        }
+    }
+})
+
+const closePopup = () => {
+    showWelcomePopup.value = false
+    if (latestNotification.value) {
+        sessionStorage.setItem('dismissed_landlord_notification_' + latestNotification.value.id, 'true')
+    }
+}
 </script>
 
 <template>
@@ -206,12 +230,59 @@ const bottomTabs = [
 
 
                     <!-- Notifications -->
-                    <button
-                        class="relative w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500 hover:bg-slate-100/80 hover:text-slate-800 transition-all shadow-[0_2px_6px_rgba(0,0,0,0.005)]">
-                        <i class="bi bi-bell text-sm"></i>
-                        <span
-                            class="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-white"></span>
-                    </button>
+                    <div class="relative">
+                        <button @click="notifOpen = !notifOpen"
+                            class="relative w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500 hover:bg-slate-100/80 hover:text-slate-800 transition-all shadow-[0_2px_6px_rgba(0,0,0,0.005)]">
+                            <i class="bi bi-bell text-sm"></i>
+                            <span v-if="page.props.auth?.notifications?.length > 0"
+                                class="absolute top-1 right-1 w-3.5 h-3.5 bg-rose-500 rounded-full border border-white text-[8px] font-bold text-white flex items-center justify-center">
+                                {{ page.props.auth.notifications.length > 9 ? "9+" : page.props.auth.notifications.length }}
+                            </span>
+                        </button>
+                        
+                        <!-- Notification Dropdown -->
+                        <div v-if="notifOpen" class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
+                            <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                <h3 class="text-sm font-bold text-slate-800">Thông báo</h3>
+                                <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                                    {{ page.props.auth?.notifications?.length || 0 }} mới
+                                </span>
+                            </div>
+                            <div style="max-height: 400px; overflow-y: auto;" class="scrollbar-thin scrollbar-thumb-slate-200">
+                                <div v-if="page.props.auth?.notifications?.length > 0">
+                                    <div v-for="notification in page.props.auth.notifications" :key="notification.id"
+                                        class="block px-4 py-3 hover:bg-slate-50 border-b border-slate-50 transition-colors relative group">
+                                        <div class="flex gap-3 items-start">
+                                            <div class="flex-shrink-0 mt-1">
+                                                <div class="w-8 h-8 rounded-full flex items-center justify-center"
+                                                    :class="notification.type === 'App\\Notifications\\LandlordRejected' || notification.type === 'listing_rejected' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'">
+                                                    <i :class="notification.type === 'App\\Notifications\\LandlordRejected' || notification.type === 'listing_rejected' ? 'bi bi-x-circle' : 'bi bi-info-circle'"></i>
+                                                </div>
+                                            </div>
+                                            <Link :href="notification.data.url || '#'" class="flex-1 min-w-0" @click="notifOpen = false">
+                                                <p class="text-[13px] font-semibold text-slate-800 mb-0.5 leading-snug">{{ notification.data.title || 'Thông báo mới' }}</p>
+                                                <p class="text-xs text-slate-500 mb-1 leading-relaxed">{{ notification.data.message || notification.data.content }}</p>
+                                                <p class="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                                    <i class="bi bi-clock"></i> 
+                                                    {{ new Date(notification.created_at).toLocaleDateString('vi-VN') }}
+                                                </p>
+                                            </Link>
+                                            <button type="button"
+                                                @click.stop="router.post(route('notifications.read', notification.id), {}, { preserveScroll: true })"
+                                                class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] bg-white border border-slate-200 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 px-2 py-1 rounded font-bold absolute right-3 top-3 shadow-sm z-10"
+                                                title="Đánh dấu đã đọc">
+                                                <i class="bi bi-check2"></i> Đã đọc
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-else class="px-4 py-8 text-center flex flex-col items-center justify-center gap-2">
+                                    <i class="bi bi-bell-slash text-slate-300 text-3xl"></i>
+                                    <p class="text-sm font-medium text-slate-400">Bạn không có thông báo mới nào</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- User Profile info -->
                     <div class="flex items-center gap-3 pl-3 border-l border-slate-100">
@@ -316,9 +387,69 @@ const bottomTabs = [
             </Link>
         </template>
     </nav>
+
+    <!-- Popup thông báo góc phải dưới -->
+    <Teleport to="body">
+        <Transition name="toast-slide">
+            <div v-if="showWelcomePopup" style="position: fixed; bottom: 30px; right: 30px; z-index: 99999;">
+                <div style="background: white; border-radius: 16px; width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; position: relative;">
+                    
+                    <!-- Thanh màu báo hiệu (xanh/đỏ) -->
+                    <div :style="latestNotification?.type === 'listing_rejected' || latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'height: 4px; background: linear-gradient(90deg, #ef4444, #f87171);' : 'height: 4px; background: linear-gradient(90deg, #22c55e, #4ade80);'"></div>
+                    
+                    <div style="padding: 24px;">
+                        <!-- Nút tắt (X) -->
+                        <button @click="closePopup" style="position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: #94a3b8; cursor: pointer; transition: color 0.2s; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%;" onmouseover="this.style.color='#ef4444'; this.style.background='#fef2f2'" onmouseout="this.style.color='#94a3b8'; this.style.background='transparent'">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+
+                        <div style="display: flex; gap: 16px; align-items: flex-start;">
+                            <!-- Icon -->
+                            <div :style="latestNotification?.type === 'listing_rejected' || latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'flex-shrink: 0; width: 48px; height: 48px; background: #fef2f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444;' : 'flex-shrink: 0; width: 48px; height: 48px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #22c55e;'">
+                                <i :class="latestNotification?.type === 'listing_rejected' || latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'bi bi-x-circle-fill text-2xl' : 'bi bi-check-circle-fill text-2xl'"></i>
+                            </div>
+
+                            <!-- Nội dung -->
+                            <div style="flex: 1; min-width: 0;">
+                                <h4 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 700; color: #1e293b; line-height: 1.4;">
+                                    {{ latestNotification?.data?.title || 'Thông báo mới' }}
+                                </h4>
+                                <p style="margin: 0 0 12px 0; font-size: 13.5px; color: #64748b; line-height: 1.5;">
+                                    {{ latestNotification?.data?.message || latestNotification?.data?.content || '' }}
+                                </p>
+                                <div style="display: flex; gap: 10px;">
+                                    <Link v-if="latestNotification?.data?.url" :href="latestNotification.data.url" @click="closePopup" style="flex: 1; text-align: center; padding: 10px 0; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; font-weight: 600; text-decoration: none; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#2563eb'" onmouseout="this.style.background='#f8fafc'; this.style.color='#3b82f6'">
+                                        Xem chi tiết
+                                    </Link>
+                                    <Link v-else href="/landlord/dashboard" @click="closePopup" style="flex: 1; text-align: center; padding: 10px 0; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; font-weight: 600; text-decoration: none; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#2563eb'" onmouseout="this.style.background='#f8fafc'; this.style.color='#3b82f6'">
+                                        Đóng
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+    </Teleport>
 </template>
 
 <style scoped>
+/* Animation cho toast */
+.toast-slide-enter-active {
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.toast-slide-leave-active {
+    transition: all 0.3s ease-in;
+}
+.toast-slide-enter-from {
+    transform: translateX(120%);
+    opacity: 0;
+}
+.toast-slide-leave-to {
+    transform: translateX(120%);
+    opacity: 0;
+}
 .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
 }

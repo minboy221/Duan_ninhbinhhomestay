@@ -52,7 +52,7 @@
 }
 
 .left_section {
-    margin-top: -200px;
+    margin-top: 150px;
     width: 300px;
     flex-shrink: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -64,7 +64,7 @@
 }
 
 .category {
-    margin-top: 300px;
+    margin-top: 25px;
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(20px);

@@ -95,7 +95,7 @@ class VerificationService
             $boardingHouseData = [
                 'user_id' => $userId,
                 'name' => $data['property_name'],
-                'district' => $data['district'],
+                'district' => $data['ward'],
                 'address_detail' => $data['address_detail'],
                 'contract_images' => $contractPaths,
                 'room_images' => $roomPaths,

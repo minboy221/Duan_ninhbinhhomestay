@@ -39,13 +39,14 @@ const form = useForm({
     room_id: props.post.room_id || "",
     title: props.post.title || "",
     description: props.post.description || "",
-    address: props.post.room?.boarding_house?.address || "",
-    latitude: props.post.room?.boarding_house?.latitude || null,
-    longitude: props.post.room?.boarding_house?.longitude || null,
+    address: props.post.address || "",
+    latitude: props.post.latitude || null,
+    longitude: props.post.longitude || null,
     existing_images: props.post.image || [], // Chứa ảnh cũ
     images: [], // Chứa ảnh mới upload
     action: "publish",
 });
+
 
 // Load danh sách phòng của tầng ban đầu
 if (selectedFloor.value) {
@@ -111,6 +112,15 @@ watch(
             roomDetails.value = detailsResponse.data;
             roomServices.value = servicesResponse.data.services;
             selectedRoomInfo.value = { price: servicesResponse.data.price };
+            //tự động điền địa chỉ & gps mới từ tầng/khu
+            if (detailsResponse.data.floor) {
+                //nếu tin đăng chưa có địa chỉ, hoặc chủ trọ chọn phòng thuộc tầng khác với tầng cũ của phòng
+                if (!form.address || (props.post.room?.floor_id !== detailsResponse.data.floor_id)) {
+                    form.address = detailsResponse.data.floor.address || "";
+                    form.latitude = detailsResponse.data.floor.latitude || null;
+                    form.longitude = detailsResponse.data.floor.longitude || null;
+                }
+            }
         } catch (error) {
             console.error("Lỗi khi tải thông tin chi tiết phòng:", error);
         } finally {
@@ -127,8 +137,21 @@ const removeExistingImage = (index) => {
 
 // Xử lý thêm ảnh mới
 const handleFileChange = (e) => {
-    form.images = Array.from(e.target.files);
+    const newFiles = Array.from(e.target.files);
+    form.images = [...form.images, ...newFiles];
 };
+
+const getObjectUrl = (file) => {
+    if (file instanceof File) {
+        if (!file.objectUrl) {
+            file.objectUrl = URL.createObjectURL(file);
+        }
+        return file.objectUrl;
+    }
+    return file;
+};
+
+// Xoá ảnh mới
 const removeNewImage = (index) => {
     form.images.splice(index, 1);
 };
@@ -184,9 +207,78 @@ const getCurrentPosition = () => {
     );
 };
 
-// Submit form sửa tin
 const submitForm = (actionType) => {
     form.action = actionType;
+    
+    // Xóa sạch lỗi cũ trước khi validate mới
+    form.clearErrors();
+    
+    let hasError = false;
+    
+    // Validate Tiêu đề
+    if (!form.title || form.title.trim() === "") {
+        form.setError("title", "Tiêu đề bài đăng không được để trống.");
+        hasError = true;
+    } else if (form.title.length < 10) {
+        form.setError("title", "Tiêu đề bài đăng phải từ 10 ký tự trở lên.");
+        hasError = true;
+    } else if (form.title.length > 255) {
+        form.setError("title", "Tiêu đề bài đăng không được vượt quá 255 ký tự.");
+        hasError = true;
+    }
+    
+    // Validate Phòng trọ
+    if (!form.room_id) {
+        form.setError("room_id", "Vui lòng chọn một căn phòng cụ thể.");
+        hasError = true;
+    }
+    
+    // Validate Mô tả
+    const cleanDesc = form.description ? form.description.replace(/<[^>]*>/g, '').trim() : "";
+    if (actionType === "publish") {
+        if (!cleanDesc || cleanDesc === "") {
+            form.setError("description", "Vui lòng nhập mô tả chi tiết cho phòng trọ.");
+            hasError = true;
+        } else if (cleanDesc.length < 20) {
+            form.setError("description", "Nội dung mô tả phòng trọ phải từ 20 ký tự trở lên.");
+            hasError = true;
+        }
+    } else {
+        if (cleanDesc && cleanDesc.length > 0 && cleanDesc.length < 20) {
+            form.setError("description", "Nội dung mô tả nếu nhập phải từ 20 ký tự trở lên.");
+            hasError = true;
+        }
+    }
+
+    // Validate Hình ảnh (Khi Đăng tin chính thức, tổng ảnh cũ và ảnh mới chọn thêm phải >= 1)
+    if (actionType === "publish") {
+        const totalImages = (form.existing_images ? form.existing_images.length : 0) + (form.images ? form.images.length : 0);
+        if (totalImages === 0) {
+            form.setError("images", "Bạn phải giữ lại hoặc tải lên ít nhất một tấm hình ảnh thực tế.");
+            hasError = true;
+        }
+    }
+    
+    // Validate kích thước ảnh mới chọn thêm (Tối đa 2MB mỗi file)
+    if (form.images && form.images.length > 0) {
+        const invalidSize = form.images.some(file => file.size > 2 * 1024 * 1024); // 2MB
+        if (invalidSize) {
+            form.setError("images", "Dung lượng mỗi ảnh mới chọn không được vượt quá 2MB.");
+            hasError = true;
+        }
+    }
+    
+    // Nếu có lỗi, cuộn màn hình đến phần tử lỗi đầu tiên
+    if (hasError) {
+        setTimeout(() => {
+            const firstErrorEl = document.querySelector(".text-red-500");
+            if (firstErrorEl) {
+                firstErrorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }, 100);
+        return;
+    }
+    
     // Phương pháp Spoofing PUT của Laravel vì có file đính kèm
     form.transform((data) => ({
         ...data,
@@ -211,7 +303,7 @@ const submitForm = (actionType) => {
                             <i class="bi bi-info-circle-fill"></i> Thông Tin Cơ
                             Bản
                         </h3>
-                        <div class="form-group">
+                                                <div class="form-group">
                             <label class="form-label">Tiêu đề tin đăng *</label>
                             <input
                                 v-model="form.title"
@@ -225,7 +317,39 @@ const submitForm = (actionType) => {
                                 {{ form.errors.title }}
                             </div>
                         </div>
-                        <div class="form-row-2">
+
+                        <!-- Nhà trọ & Tầng (Chọn trước) -->
+                        <div class="form-row-2 mb-4">
+                            <div class="form-group">
+                                <label class="form-label"> Nhà trọ </label>
+                                <select v-model="selectedHouse" class="form-input">
+                                    <option :value="null">Chọn nhà trọ</option>
+                                    <option
+                                        v-for="house in boardingHouses"
+                                        :key="house.id"
+                                        :value="house"
+                                    >
+                                        {{ house.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label"> Tầng </label>
+                                <select v-model="selectedFloor" class="form-input">
+                                    <option :value="null">Chọn tầng</option>
+                                    <option
+                                        v-for="floor in availableFloors"
+                                        :key="floor.id"
+                                        :value="floor"
+                                    >
+                                        {{ floor.name.toLowerCase().startsWith('tầng') ? floor.name : 'Tầng ' + floor.name }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Phòng & Diện tích -->
+                        <div class="form-row-2 mb-4">
                             <div class="form-group">
                                 <label class="form-label">Phòng *</label>
                                 <select
@@ -260,8 +384,8 @@ const submitForm = (actionType) => {
                             </div>
                         </div>
 
-                        <!-- Danh sách tiện ích sẵn có của phòng -->
-                        <div class="mt-4" v-if="roomServices.length > 0">
+                        <!-- Các tiện ích sẵn có của phòng này -->
+                        <div class="mb-4" v-if="roomServices.length > 0">
                             <label
                                 class="block text-sm font-medium text-gray-700 mb-2"
                             >
@@ -301,86 +425,39 @@ const submitForm = (actionType) => {
                             </div>
                         </div>
                         <div
-                            class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+                            class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
                             v-else-if="form.room_id"
                         >
                             Phòng này hiện chưa được thiết lập tiện ích nào.
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label"> Nhà trọ </label>
-                            <select v-model="selectedHouse" class="form-input">
-                                <option :value="null">Chọn nhà trọ</option>
-                                <option
-                                    v-for="house in boardingHouses"
-                                    :key="house.id"
-                                    :value="house"
-                                >
-                                    {{ house.name }}
-                                </option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label"> Tầng </label>
-                            <select v-model="selectedFloor" class="form-input">
-                                <option :value="null">Chọn tầng</option>
-                                <option
-                                    v-for="floor in availableFloors"
-                                    :key="floor.id"
-                                    :value="floor"
-                                >
-                                    Tầng {{ floor.name }}
-                                </option>
-                            </select>
-                        </div>
+                        <!-- Chỉ hiển thị thông tin địa chỉ khi đã chọn tầng và phòng -->
+                        <div v-if="selectedFloor && form.room_id" class="space-y-4 mb-4">
 
-                        <!-- Địa chỉ bản đồ GPS -->
-                        <div class="mb-4">
-                            <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                            >
-                                Địa chỉ khu trọ / Phòng trọ:
-                            </label>
-                            <div class="flex gap-2">
-                                <input
-                                    type="text"
-                                    v-model="form.address"
-                                    placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-sm form-input"
-                                />
-                                <button
-                                    type="button"
-                                    @click="getCurrentPosition"
-                                    :disabled="isLocating"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+
+                            <!-- Thông tin địa chỉ đầy đủ từ khu trọ -->
+                            <div class="bg-blue-50/40 border border-blue-100 rounded-lg p-3.5">
+                                <label class="block text-xs font-bold text-blue-800 mb-1.5 uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="bi bi-info-circle"></i> Địa chỉ phòng trọ (Tự động cập nhật)
+                                </label>
+                                <p class="text-sm text-gray-700 font-medium">
+                                    {{ form.address }}
+                                </p>
+                                <div
+                                    v-if="form.latitude && form.longitude"
+                                    class="mt-2 text-xs text-gray-500 flex gap-4 border-t border-blue-100/50 pt-2"
                                 >
-                                    <svg
-                                        v-if="isLocating"
-                                        class="animate-spin h-4 w-4 text-white"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <circle
-                                            class="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            stroke-width="4"
-                                        ></circle>
-                                        <path
-                                            class="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        ></path>
-                                    </svg>
-                                    <i v-else class="bi bi-geo-alt"></i>
-                                    {{ isLocating ? "Đang định vị..." : "GPS" }}
-                                </button>
+                                    <span><i class="bi bi-compass text-gray-400"></i> <strong>Vĩ độ (Lat):</strong> {{ form.latitude }}</span>
+                                    <span><i class="bi bi-compass text-gray-400"></i> <strong>Kinh độ (Lng):</strong> {{ form.longitude }}</span>
+                                </div>
+                                <div
+                                    v-if="form.errors.address"
+                                    class="text-red-500 text-xs mt-1"
+                                >
+                                    {{ form.errors.address }}
+                                </div>
                             </div>
                         </div>
-
-                        <!-- Trình soạn thảo mô tả -->
                         <div class="mb-4">
                             <label
                                 class="block text-sm font-medium text-gray-700 mb-2"
@@ -516,7 +593,7 @@ const submitForm = (actionType) => {
                                     class="img-preview-item"
                                 >
                                     <img
-                                        :src="URL.createObjectURL(src)"
+                                        :src="getObjectUrl(src)"
                                         alt="Ảnh mới thêm"
                                     />
                                     <button

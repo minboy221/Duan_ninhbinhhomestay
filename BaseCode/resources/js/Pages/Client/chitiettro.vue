@@ -1,21 +1,238 @@
 <script setup>
-import MainLayout from '@/Layouts/MainLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import MainLayout from "@/Layouts/MainLayout.vue";
+import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
+import { ref, computed } from "vue";
+import axios from "axios";
 
+const props = defineProps({
+    room: { type: Object, required: true },
+    similarRooms: { type: Array, default: () => [] },
+});
+
+const page = usePage();
+const user = computed(() => page.props.auth?.user);
+
+//State lưu trữ danh sách các giờ đã có người chọn của phòng trong ngày đang chọn
+const disabledSlots = ref([]);
+const availablSlots = ref([]);
+
+// Image carousel state
+const activeImageIndex = ref(0);
+const roomImages = computed(() => {
+    const imgs =
+        props.room.post_images?.length > 0
+            ? props.room.post_images
+            : props.room.images?.length > 0
+                ? props.room.images
+                : null;
+    if (imgs && Array.isArray(imgs) && imgs.length > 0) return imgs;
+    return ["/anh/banner_tro.png"];
+});
+
+const activeImage = computed(
+    () => roomImages.value[activeImageIndex.value] || "/anh/banner_tro.png",
+);
+
+function nextImage() {
+    activeImageIndex.value =
+        (activeImageIndex.value + 1) % roomImages.value.length;
+}
+
+function prevImage() {
+    activeImageIndex.value =
+        (activeImageIndex.value - 1 + roomImages.value.length) %
+        roomImages.value.length;
+}
+
+// Split amenities
+const roomAmenities = computed(() => {
+    if (!props.room.amenities) return [];
+    if (Array.isArray(props.room.amenities)) return props.room.amenities;
+    return props.room.amenities
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+});
+
+// Timezone-safe today date string
+const getTodayDateStr = () => {
+    const today = new Date();
+    const offset = today.getTimezoneOffset();
+    const localDate = new Date(today.getTime() - offset * 60 * 1000);
+    return localDate.toISOString().split("T")[0];
+};
+
+const getDaysOfWeek = () => {
+    const list = [];
+    // Thêm lại 2 mảng này để tránh bị lỗi undefined khi lấy thứ
+    const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    const fullDays = [
+        "Chủ Nhật",
+        "Thứ Hai",
+        "Thứ Ba",
+        "Thứ Tư",
+        "Thứ Năm",
+        "Thứ Sáu",
+        "Thứ Bảy",
+    ];
+    const now = new Date();
+
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(now.getTime());
+        d.setDate(now.getDate() + i);
+
+        const offset = d.getTimezoneOffset();
+        const localDate = new Date(d.getTime() - offset * 60 * 1000);
+        const valStr = localDate.toISOString().split("T")[0];
+
+        let dayLabel = days[d.getDay()];
+        if (i === 0) dayLabel = "Hôm nay";
+        else if (i === 1) dayLabel = "Ngày mai";
+
+        list.push({
+            dayName: dayLabel,
+            fullDayName: fullDays[d.getDay()],
+            dateNum: d.getDate(),
+            monthNum: d.getMonth() + 1,
+            yearNum: d.getFullYear(),
+            value: valStr,
+        });
+    }
+    return list;
+};
+
+const dateList = computed(() => getDaysOfWeek());
+
+const isTimeSlotDisabled = (slot) => {
+    //kiểm tra giờ này nằm trong danh sách bận từ backend
+    if (disabledSlots.value.includes(slot)) {
+        return true;
+    }
+    //kiểm tra giờ quá khứ nếu là ngày hôm nay
+    if (form.date === getTodayDateStr()) {
+        const now = new Date();
+        const [slotHour, slotMin] = slot.split(":").map(Number);
+        const currentHour = now.getHours();
+        const currentMin = now.getMinutes();
+
+        if (slotHour < currentHour) return true;
+        if (slotHour === currentHour && slotMin <= currentMin) return true;
+    }
+    return false;
+};
+
+//Hàm độc lập call API tải danh sách giờ mà use đã đặt lịch theo ngày
+const fetchBookedSlots = async (dateVal) => {
+    try {
+        const postId = props.room.id; // props.room.id chính là id của RoomPost
+        const response = await axios.get(
+            `/chitiettro/${postId}/booked_slots?date=${dateVal}`,
+        );
+        disabledSlots.value = response.data.booked_slots || []; // mảng trả về dữ liệu
+        availablSlots.value = response.data.available_slots || [];
+    } catch (error) {
+        console.error("Không thể lấy danh sách khung giờ trùng:", error);
+    }
+};
+
+async function selectDate(dateVal) {
+    form.date = dateVal;
+    //tải lại lịch bận cho ngày mới chọn
+    await fetchBookedSlots(dateVal);
+
+    if (form.time && isTimeSlotDisabled(form.time)) {
+        form.time = "";
+    }
+}
+
+function selectTime(timeVal) {
+    if (isTimeSlotDisabled(timeVal)) return;
+    form.time = timeVal;
+}
+
+const bookingPreview = computed(() => {
+    if (!form.date && !form.time) {
+        return "Vui lòng chọn ngày và giờ cụ thể để đặt lịch xem phòng.";
+    }
+    let dateStr = "";
+    if (form.date) {
+        const d = new Date(form.date);
+        dateStr = `ngày ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+    }
+    const timeStr = form.time ? `vào lúc ${form.time}` : "trong ngày";
+    return `Bạn đăng ký xem phòng: ${timeStr} ${dateStr}`;
+});
+
+const formatPrice = (price) => {
+    const p = parseFloat(price);
+    if (p >= 1000000) {
+        return (p / 1000000).toFixed(1).replace(".0", "") + " Triệu/Tháng";
+    }
+    return p.toLocaleString("vi-VN") + " đ/Tháng";
+};
+
+// Booking modal state
+const showBookingModal = ref(false);
+
+const form = useForm({
+    date: getTodayDateStr(),
+    time: "",
+    note: "",
+});
+
+async function openBooking() {
+    if (!user.value) {
+        if (
+            confirm(
+                "Bạn cần đăng nhập tài khoản khách thuê để đặt lịch xem phòng. Đi đến trang đăng nhập?",
+            )
+        ) {
+            window.location.href = route("login");
+        }
+        return;
+    }
+    //tải danh sách lịch trùng ngay cho ngày mặc định
+    await fetchBookedSlots(form.date);
+    showBookingModal.value = true;
+}
+
+function submitBooking() {
+    form.post(route("rooms.book", props.room.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showBookingModal.value = false;
+            form.reset();
+            alert(
+                "Gửi yêu cầu đặt lịch hẹn thành công! Vui lòng đợi chủ trọ phản hồi.",
+            );
+        },
+    });
+}
 </script>
 
 <template>
 
-    <Head title="Xem Chi Tiết Phòng | Ninh Bình HomeStay" />
+    <Head :title="`Xem Chi Tiết Phòng ${room.room_number} | Ninh Bình HomeStay`" />
     <MainLayout>
         <!-- điều hướng -->
         <div class="dieuhuong">
             <div class="baodieuhuong">
-                <a href="#">Trang Chủ</a> /
-                <a href="#">Tìm Phòng Trọ</a> /
-                <a href="#">Xem Chi Tiết Phòng</a>
+                <Link :href="route('home')">Trang Chủ</Link> /
+                <Link :href="route('timtro')">Tìm Phòng Trọ</Link> /
+                <span>Xem Chi Tiết Phòng</span>
             </div>
         </div>
+
+        <!-- Flash messages -->
+        <div v-if="$page.props.flash.success" class="flash-success-alert">
+            <i class="bi bi-check-circle-fill"></i>
+            {{ $page.props.flash.success }}
+        </div>
+        <div v-if="$page.props.flash.error" class="flash-error-alert">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            {{ $page.props.flash.error }}
+        </div>
+
         <!-- phần chi tiết phòng -->
         <div class="layout">
             <section class="room_detail">
@@ -23,173 +240,684 @@ import { Head } from '@inertiajs/vue3';
                     <div class="gallery">
                         <!-- Ảnh lớn -->
                         <div class="main-image">
-                            <button class="prev">&#10094;</button>
-                            <img id="currentImage" src="anh/banner.png">
-                            <button class="next">&#10095;</button>
+                            <button v-if="roomImages.length > 1" @click="prevImage" class="prev">
+                                &#10094;
+                            </button>
+                            <img id="currentImage" :src="activeImage" alt="Room Image" />
+                            <button v-if="roomImages.length > 1" @click="nextImage" class="next">
+                                &#10095;
+                            </button>
                         </div>
 
                         <!-- Thumbnail -->
-                        <div class="thumbnails">
-                            <img src="anh/banner.png" class="thumb active">
-                            <img src="anh/banner.png" class="thumb">
-                            <img src="anh/banner.png" class="thumb">
-                            <img src="anh/banner.png" class="thumb">
-                            <img src="anh/banner_tro.png" class="thumb">
+                        <div class="thumbnails" v-if="roomImages.length > 1">
+                            <img v-for="(img, idx) in roomImages" :key="idx" :src="img" :class="[
+                                'thumb',
+                                activeImageIndex === idx ? 'active' : '',
+                            ]" @click="activeImageIndex = idx" alt="Thumbnail" />
                         </div>
                     </div>
+
                     <div class="detail_tro">
                         <div class="theloai">
                             <i class="bi bi-award"></i>
-                            <span>ĐÃ ĐƯỢC KIỂM CHỨNG</span>
+                            <span>{{
+                                room.status === "available"
+                                    ? "ĐANG TRỐNG / ĐÃ KIỂM CHỨNG"
+                                    : "ĐÃ ĐƯỢC KIỂM CHỨNG"
+                            }}</span>
                         </div>
                         <div class="tieude">
-                            <h2>Phòng trọ xịn</h2>
+                            <h2>
+                                Phòng {{ room.room_number }} -
+                                {{
+                                    room.boardingHouse?.name ||
+                                    "Phòng trọ dịch vụ"
+                                }}
+                            </h2>
                         </div>
                         <div class="location">
                             <i class="bi bi-geo-alt-fill"></i>
-                            <span>Địa điểm: Duy Tiên, Ninh Bình</span>
+                            <span>Địa điểm:
+                                {{
+                                    room.boardingHouse?.address_detail ||
+                                    "Ninh Bình"
+                                }}</span>
                         </div>
                         <div class="infor_tro">
                             <div class="price_tro">
-                                <p>1.5 Triệu/Tháng</p>
+                                <p>{{ formatPrice(room.price) }}</p>
                             </div>
                             <div class="trangthai">
-                                <p>Cập nhật: 1 ngày trước</p>
+                                <p>
+                                    Diện tích: {{ parseFloat(room.area) }} m² ·
+                                    Sức chứa: {{ room.capacity }} người
+                                </p>
                             </div>
                         </div>
                         <div class="thongtin_tro">
                             <h4>Thông tin mô tả:</h4>
-                            <p>Cho thuê phòng trọ mới xây dạng chung cư mini cao cấp</p>
-                            <div class="tienich">
-                                <div class="baotienich">
+                            <p>
+                                {{
+                                    room.boardingHouse?.description ||
+                                    "Chưa có thông tin mô tả chi tiết từ chủ nhà."
+                                }}
+                            </p>
+
+                            <h4 v-if="roomAmenities.length > 0">
+                                Tiện ích đi kèm:
+                            </h4>
+                            <div class="tienich" v-if="roomAmenities.length > 0">
+                                <div v-for="amenity in roomAmenities" :key="amenity" class="baotienich">
                                     <i class="bi bi-check-circle-fill"></i>
-                                    <span>Đầy đủ nội thất</span>
-                                </div>
-                                <div class="baotienich">
-                                    <i class="bi bi-check-circle-fill"></i>
-                                    <span>Có kệ bếp</span>
-                                </div>
-                                <div class="baotienich">
-                                    <i class="bi bi-check-circle-fill"></i>
-                                    <span>Có chỗ để xe</span>
-                                </div>
-                                <div class="baotienich">
-                                    <i class="bi bi-check-circle-fill"></i>
-                                    <span>Không chung chủ</span>
-                                </div>
-                                <div class="baotienich">
-                                    <i class="bi bi-check-circle-fill"></i>
-                                    <span>Wifi</span>
+                                    <span>{{ amenity }}</span>
                                 </div>
                             </div>
+
                             <div class="bando">
-                                <h2>Vị trí & Bản Đồ</h2>
+                                <h2>Vị trí &amp; Bản Đồ</h2>
                                 <iframe
-                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2611.291724627434!2d105.93314109429076!3d20.603915192384463!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135cf62d752dc67%3A0xd79f03899b4e83d8!2zVHLGsOG7nW5nIENhbyDEkeG6s25nIEZQVCBQb2x5dGVjaG5pYyBjxqEgc-G7nyBIw6AgTmFt!5e1!3m2!1svi!2s!4v1774600950495!5m2!1svi!2s"
-                                    width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"
-                                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+                                    :src="`https://maps.google.com/maps?q=${encodeURIComponent(room.address || room.boardingHouse?.address_detail || 'Ninh Bình')}&t=&z=15&ie=UTF8&iwloc=&output=embed`"
+                                    width="100%" height="350" style="border: 0; border-radius: 12px" allowfullscreen=""
+                                    loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
+
             <section class="info_chutro">
                 <div class="baochutro">
                     <div class="avatar1">
                         <div class="avatar-img">
-                            <img src="anh/banner_tro.png" alt="">
+                            <img :src="room.boardingHouse?.user?.avatar
+                                ? '/storage/' +
+                                room.boardingHouse.user.avatar
+                                : '/anh/banner.png'
+                                " alt="Avatar" />
                             <span class="status1 online"></span>
                         </div>
                         <div class="name_chutro">
-                            <h3>Nhật Minh</h3>
+                            <h3>
+                                {{
+                                    room.boardingHouse?.user?.name || "Chủ trọ"
+                                }}
+                            </h3>
                             <div class="kiem_chung">
                                 <i class="bi bi-check-circle-fill"></i>
-                                <span>Đã Được Xác Thực</span>
+                                <span>Chủ Trọ Đã Xác Thực</span>
                             </div>
                         </div>
                     </div>
                     <div class="content_chutro">
                         <div class="phone">
-                            <a class="btn_content" href="">
+                            <a class="btn_content" :href="`tel:${room.boardingHouse?.user?.phone || '0862931722'}`">
                                 <i class="bi bi-telephone"></i>
-                                <span>0862931722</span>
+                                <span>{{
+                                    room.boardingHouse?.user?.phone ||
+                                    "0862931722"
+                                }}</span>
                             </a>
                         </div>
                         <div class="nhantin_chutro">
-                            <a class="btn_mess" href="">
-                                <i class="bi bi-chat-dots-fill"></i>
-                                <span>Nhắn Tin</span>
-                            </a>
-                        </div>
-                        <div class="warning">
-                            <a class="btn_waring" href="">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                <span>Báo Xấu</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="luu_y">
-                        <h5>Lưu ý an toàn</h5>
-                        <div class="warning_content">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            <span>Không đặt cọc nếu chưa xem phòng</span>
-                        </div>
-                        <div class="success_content">
-                            <i class="bi bi-check-circle"></i>
-                            <span>Kiểm tra giấy tờ chính chủ</span>
+                            <button @click="openBooking" class="btn_mess" style="
+                                    border: none;
+                                    width: 100%;
+                                    text-align: center;
+                                    cursor: pointer;
+                                ">
+                                <i class="bi bi-calendar-check-fill"></i>
+                                <span>Đặt Lịch Hẹn</span>
+                            </button>
                         </div>
                     </div>
                 </div>
             </section>
         </div>
-        <!-- phần bài đăng liên quan -->
+
+        <!-- phần phòng tương tự -->
         <section class="tindang_tro">
             <h2>Tin đăng tương tự</h2>
-
             <div class="bao_tindang">
-
-                <div class="item_tindang">
-                    <div class="img">
-                        <img src="anh/banner.png">
-                        <span class="count"><i class="bi bi-camera"></i> 6</span>
-                    </div>
-                    <div class="content">
-                        <h3>Căn hộ mini full nội thất gần ĐH Sư Phạm Kỹ Thuật</h3>
-                        <p class="dientich">Diện tích: 10 m²</p>
-                        <p class="diachi"><i class="bi bi-geo-alt"></i> Phủ Vân, Ninh Bình</p>
-                    </div>
+                <div v-if="similarRooms.length === 0" class="no-similar-rooms">
+                    Chưa có phòng tương tự khác.
                 </div>
-
-                <div class="item_tindang">
-                    <div class="img">
-                        <img src="anh/banner.png">
-                        <span class="count"><i class="bi bi-camera"></i> 4</span>
-                    </div>
-                    <div class="content">
-                        <h3>Phòng trọ gác lửng đường Hoàng Diệu 2, an ninh tốt</h3>
-                        <p class="dientich">Diện tích: 30 m²</p>
-                        <p class="diachi"><i class="bi bi-geo-alt"></i> Phủ Vân, Ninh Bình</p>
-                    </div>
-                </div>
-
-                <div class="item_tindang">
-                    <div class="img">
-                        <img src="anh/banner_tro.png">
-                        <span class="count"><i class="bi bi-camera"></i> 3</span>
-                    </div>
-                    <div class="content">
-                        <h3>Tìm nam ở ghép chung cư Moonlight, tiện ích hồ bơi</h3>
-                        <p class="dientich">Diện tích: 30 m²</p>
-                        <p class="diachi"><i class="bi bi-geo-alt"></i> Phủ Vân, Ninh Bình</p>
-                    </div>
+                <div v-for="sim in similarRooms" :key="sim.id" class="item_tindang">
+                    <Link :href="route('chitiettro', sim.id)" class="similar-card-link">
+                        <div class="img">
+                            <img :src="(sim.images && sim.images[0]) ||
+                                '/anh/banner_tro.png'
+                                " alt="Phòng tương tự" />
+                            <span class="count"><i class="bi bi-camera"></i>
+                                {{ sim.images ? sim.images.length : 1 }}</span>
+                        </div>
+                        <div class="content">
+                            <h3>
+                                Phòng {{ sim.room_number }} -
+                                {{ sim.boardingHouse?.name || "Phòng trọ" }}
+                            </h3>
+                            <p class="dientich">
+                                Diện tích: {{ parseFloat(sim.area) }} m² · Giá:
+                                {{ formatPrice(sim.price) }}
+                            </p>
+                            <p class="diachi">
+                                <i class="bi bi-geo-alt"></i>
+                                {{
+                                    sim.address ||
+                                    sim.boardingHouse?.address_detail ||
+                                    "Ninh Bình"
+                                }}
+                            </p>
+                        </div>
+                    </Link>
                 </div>
             </div>
         </section>
+
+        <!-- Booking Modal overlay -->
+        <div v-if="showBookingModal" class="booking-modal-overlay" @click.self="showBookingModal = false">
+            <div class="booking-modal-box">
+                <div class="modal-header">
+                    <h3>
+                        <i class="bi bi-calendar2-check-fill"></i> Đặt Lịch Hẹn
+                        Xem Phòng
+                    </h3>
+                    <button class="close-btn" @click="showBookingModal = false">
+                        &times;
+                    </button>
+                </div>
+                <form @submit.prevent="submitBooking" class="modal-body">
+                    <!-- 1. Preview thời gian hẹn -->
+                    <div class="booking-preview-card">
+                        <i class="bi bi-calendar-check-fill text-blue"></i>
+                        <div class="preview-text">
+                            <p class="preview-title">Xem trước thời gian hẹn</p>
+                            <p class="preview-desc">{{ bookingPreview }}</p>
+                        </div>
+                    </div>
+
+                    <!-- 2. Chọn ngày hẹn (Tối đa 7 ngày) -->
+                    <div class="form-group">
+                        <label class="modal-label">
+                            Chọn ngày hẹn xem phòng (Tối đa 7 ngày)
+                            <span class="required">*</span>
+                        </label>
+                        <div class="weekly-date-strip">
+                            <div v-for="d in dateList" :key="d.value" :class="[
+                                'date-strip-card',
+                                form.date === d.value ? 'active' : '',
+                            ]" @click="selectDate(d.value)">
+                                <span class="strip-day">{{ d.dayName }}</span>
+                                <span class="strip-date">{{ d.dateNum }}</span>
+                                <span class="strip-month">Thg {{ d.monthNum }}</span>
+                            </div>
+                        </div>
+                        <span v-if="form.errors.date" class="modal-error">{{
+                            form.errors.date
+                            }}</span>
+                    </div>
+
+                    <!-- 3. Chọn giờ (Liên kết động với khung giờ rảnh của chủ trọ) -->
+                    <div class="form-group">
+                        <label class="modal-label">
+                            Chọn giờ hẹn xem phòng
+                            <span class="required">*</span>
+                        </label>
+
+                        <!-- Trường hợp chủ trọ không có khung giờ rảnh nào vào ngày này -->
+                        <div v-if="availablSlots.length === 0" class="modal-error"
+                            style="background: #fff1f2; border: 1px solid #fecdd3; padding: 12px; border-radius: 12px; color: #e11d48; font-weight: 600; font-size: 13px; margin-bottom: 10px;">
+                            <i class="bi bi-exclamation-circle-fill"></i> Chủ trọ không nhận lịch hẹn vào ngày này hoặc
+                            chưa cấu hình giờ rảnh. Vui lòng chọn ngày khác!
+                        </div>
+
+                        <!-- Trường hợp có giờ rảnh, lặp qua danh sách giờ rảnh thực tế từ DB -->
+                        <div v-else class="time-slots-grid">
+                            <template v-for="slot in availablSlots" :key="slot">
+                                <button v-if="!disabledSlots.includes(slot)" type="button" :class="[
+                                    'time-slot',
+                                    form.time === slot ? 'active' : '',
+                                    isTimeSlotDisabled(slot) ? 'disabled' : '',
+                                ]" :disabled="isTimeSlotDisabled(slot)" @click="selectTime(slot)">
+                                    <i class="bi bi-clock-fill slot-icon"></i>
+                                    <span>{{ slot }}</span>
+                                </button>
+                            </template>
+                        </div>
+
+                        <span v-if="form.errors.time" class="modal-error">{{
+                            form.errors.time
+                            }}</span>
+                    </div>
+
+                    <!-- 4. Ghi chú -->
+                    <div class="form-group">
+                        <label class="modal-label">Ghi chú gửi chủ trọ</label>
+                        <textarea v-model="form.note" class="modal-textarea"
+                            placeholder="Nhập ghi chú thêm cho chủ nhà biết nhu cầu của bạn..." rows="3"></textarea>
+                        <span v-if="form.errors.note" class="modal-error">{{
+                            form.errors.note
+                            }}</span>
+                    </div>
+
+                    <!-- 5. Nút gửi -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel-modal" @click="showBookingModal = false">
+                            Hủy Bỏ
+                        </button>
+                        <button type="submit" class="btn-submit-modal" :disabled="form.processing">
+                            Gửi Yêu Cầu
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
     </MainLayout>
 </template>
 
 <style scoped>
 @import "../../css/chitiettro.css";
-@import '../../css/responsive/responsivechitiettro.css';
-@import '../../css/responsive/responsive.css';
+@import "../../css/responsive/responsivechitiettro.css";
+@import "../../css/responsive/responsive.css";
+
+/* Booking Modal styling */
+.booking-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.booking-modal-box {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 24px;
+    width: 480px;
+    max-width: 90%;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+    from {
+        transform: translateY(40px) scale(0.96);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #1e40af, #1e3a8a);
+    color: #fff;
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.close-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.booking-preview-card {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    border: 1px solid #bfdbfe;
+    border-radius: 16px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.text-blue {
+    color: #2563eb !important;
+    font-size: 22px;
+}
+
+.preview-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #1e40af;
+    letter-spacing: 0.05em;
+    margin: 0 0 2px;
+}
+
+.preview-desc {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e3a8a;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.modal-label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.required {
+    color: #ef4444;
+}
+
+.modal-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    resize: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.modal-textarea:focus {
+    border-color: #166ea9;
+}
+
+.modal-error {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: 4px;
+    display: block;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.btn-cancel-modal {
+    padding: 10px 16px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-submit-modal {
+    padding: 10px 20px;
+    border: none;
+    background: #166ea9;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-submit-modal:hover {
+    background: #0f4f7a;
+}
+
+.btn-submit-modal:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* Weekly date strip design */
+.weekly-date-strip {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    overflow-x: auto;
+    padding: 4px 2px;
+}
+
+.weekly-date-strip::-webkit-scrollbar {
+    height: 4px;
+}
+
+.weekly-date-strip::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.date-strip-card {
+    flex: 0 0 60px;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.date-strip-card:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+
+.date-strip-card.active {
+    background: #eff6ff;
+    border-color: #2563eb;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.08);
+}
+
+.date-strip-card .strip-day {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+.date-strip-card.active .strip-day {
+    color: #2563eb;
+}
+
+.date-strip-card .strip-date {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1e293b;
+    line-height: 1;
+}
+
+.date-strip-card.active .strip-date {
+    color: #1e3a8a;
+}
+
+.date-strip-card .strip-month {
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.date-strip-card.active .strip-month {
+    color: #3b82f6;
+}
+
+/* Time slots grid design */
+.time-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    width: 100%;
+    max-height: 160px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.time-slot {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 4px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #475569;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: all 0.2s;
+}
+
+.time-slot .slot-icon {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.time-slot:hover:not(.disabled) {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: #1e293b;
+}
+
+.time-slot.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+.time-slot.active .slot-icon {
+    color: #ffffff;
+}
+
+.time-slot.disabled {
+    opacity: 0.45;
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.similar-card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.flash-success-alert {
+    background-color: #f0fdf4;
+    border-left: 4px solid #15803d;
+    color: #15803d;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 16px auto;
+    max-width: 1200px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.flash-error-alert {
+    background-color: #fef2f2;
+    border-left: 4px solid #b91c1c;
+    color: #b91c1c;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 16px auto;
+    max-width: 1200px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Fix breadcrumb */
+.dieuhuong {
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    margin: 0 0 20px 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.baodieuhuong {
+    font-size: 15px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.baodieuhuong a {
+    color: #0284c7;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.baodieuhuong a:hover {
+    text-decoration: underline;
+}
+
+.no-similar-rooms {
+    text-align: center;
+    padding: 30px;
+    color: #64748b;
+    font-size: 16px;
+}
 </style>

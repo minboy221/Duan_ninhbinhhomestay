@@ -20,7 +20,7 @@ return new class extends Migration {
             $table->timestamp('otp_expires_at')->nullable();
             $table->string('phone', 10)->nullable();
             $table->string('cccd_number')->nullable()->comment('số cccd để xác minh tài khoản');
-            $table->enum('role', ['admin', 'landlord', 'tenant'])->default('tenant');
+            $table->integer('role')->default(0);
             $table->boolean('is_verified')->default(false);
             $table->rememberToken();
             $table->timestamps();

@@ -29,12 +29,28 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        if ($user) {
+            // Check for today's approved appointments to notify
+            $today = \Carbon\Carbon::today()->format('Y-m-d');
+            $todayAppointments = \App\Models\Appointment::where('user_id', $user->id)
+                ->where('date', $today)
+                ->where('status', 'approved')
+                ->where('notified', false)
+                ->get();
+
+            foreach ($todayAppointments as $apt) {
+                $user->notify(new \App\Notifications\AppointmentReminder($apt));
+                $apt->update(['notified' => true]);
+            }
+        }
+
         return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $request->user() ? $request->user()->load('verification') : null,                //phần kiểm tra user có dữ liệu trong bảng user_verifications
-                'has_submitted_verification' => $request->user()
-                    ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $request->user()->id)->exists() : false,
-                'notifications' => $request->user() ? $request->user()->unreadNotifications : [],
+                'user' => $user ? $user->load('verification') : null,
+                'has_submitted_verification' => $user
+                    ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $user->id)->exists() : false,
+                'notifications' => $user ? $user->unreadNotifications : [],
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

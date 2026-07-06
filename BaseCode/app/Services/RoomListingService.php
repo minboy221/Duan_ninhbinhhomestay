@@ -39,7 +39,16 @@ class RoomListingService
     {
         $imageUrls = !empty($files) ? $this->uploadImages($files) : [];
         //chạy transaction để đảm bảo an toàn cho DB
-        return DB::transaction(function () use ($data, $imageUrls, $status) {
+        $post = DB::transaction(function () use ($data, $imageUrls, $status) {
+
+            $room = \App\Models\Room::find($data['room_id']);
+            if ($room && $room->boardingHouse) {
+                $room->boardingHouse()->update([
+                    'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
+                    'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
+                    'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
+                ]);
+            }
             return RoomPost::create([
                 'landlord_id' => auth()->id(),
                 'room_id' => $data['room_id'],
@@ -51,12 +60,28 @@ class RoomListingService
                 'is_vip' => false,
             ]);
         });
+
+        // Gửi thông báo cho Admin nếu bài đăng ở trạng thái chờ duyệt
+        if ($status === 'pending') {
+            $admins = \App\Models\User::where('role', 'admin')->get();
+            \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\NewRoomPostNotification($post));
+        }
+
+        return $post;
     }
 
     //Phần sửa tin đăng
     public function updatePost(RoomPost $post, array $data, ?array $newFiles, string $status): bool
     {
-        return DB::transaction(function () use ($post, $data, $newFiles, $status) {
+        $updated = DB::transaction(function () use ($post, $data, $newFiles, $status) {
+            $room = \App\Models\Room::find($data['room_id']);
+            if($room && $room->boardingHouse){
+                $room->boardingHouse->update([
+                    'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
+                    'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
+                    'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
+                ]);
+            }
             //lấy danh sách ảnh cũ được giữ lại từ Frontend gửi lên
             $imageUrls = $data['existing_images'] ?? [];
             //tìm các ảnh cũ bị người dùng xoá bỏ để dọn dẹp
@@ -80,6 +105,14 @@ class RoomListingService
                 'status' => $status, //chuyển trạng thái chờ duyệt hoặc bản nháp
             ]);
         });
+
+        // Gửi thông báo cho Admin nếu bài đăng được gửi duyệt
+        if ($updated && $status === 'pending') {
+            $admins = \App\Models\User::where('role', 'admin')->get();
+            \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\NewRoomPostNotification($post));
+        }
+
+        return $updated;
     }
 
     //Phần xoá tin đăng

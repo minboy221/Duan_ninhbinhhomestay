@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->string('billing_month', 7)->comment('Tháng thu tiền định dạng YYYY-MM');
             $table->decimal('total_amount', 10, 2)->default(0);
             $table->enum('status', ['unpaid', 'paid', 'overdue'])->default('unpaid');
-            $table->date('due_table')->comment('hạn chót thanh toán');
+            $table->date('due_date')->comment('hạn chót thanh toán');
             $table->timestamp('paid_at')->nullable();
             $table->timestamps();
         });
