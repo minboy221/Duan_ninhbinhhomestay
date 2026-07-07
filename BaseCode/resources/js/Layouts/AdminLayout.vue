@@ -46,6 +46,11 @@ const navGroups = [
                 icon: "bi-check-circle-fill",
             },
             {
+                label: "Duyệt Cơ Sở Mới",
+                path: "/admin/boarding-houses",
+                icon: "bi-building-check",
+            },
+            {
                 label: "Danh Mục",
                 path: "/admin/categories",
                 icon: "bi-tags-fill",
