@@ -49,8 +49,10 @@ class LandlordController extends Controller
     public function rooms()
     {
         $landlordId = Auth::id();
-        $floors = $this->roomService->getFloorsWithRooms($landlordId);
-        $statusCounts = $this->roomService->getStatusCounts($landlordId);
+        $boardingHouseId = session('selected_boarding_house_id');
+        
+        $floors = $this->roomService->getFloorsWithRooms($landlordId, $boardingHouseId);
+        $statusCounts = $this->roomService->getStatusCounts($landlordId, $boardingHouseId);
 
         // Fetch active services
         $allServices = $this->serviceManagementService->getServices($landlordId);
@@ -126,13 +128,14 @@ class LandlordController extends Controller
         ]);
 
         $imageFiles = $request->file('images', []);
+        $boardingHouseId = session('selected_boarding_house_id');
 
         if ($request->has('room_numbers') && is_array($request->room_numbers)) {
             $count = 0;
             foreach ($request->room_numbers as $rn) {
                 $data = $request->except(['room_numbers', 'room_number']);
                 $data['room_number'] = $rn;
-                $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles);
+                $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles, $boardingHouseId);
                 if ($room) {
                     $count++;
                 }
@@ -141,7 +144,7 @@ class LandlordController extends Controller
                 return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Vui lòng kiểm tra lại.');
             return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
         } else {
-            $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles);
+            $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles, $boardingHouseId);
             if (!$result)
                 return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
             return redirect()->back()->with('success', 'Thêm phòng thành công!');
