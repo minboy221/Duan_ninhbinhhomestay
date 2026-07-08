@@ -71,4 +71,16 @@ class RoomRepository{
         ->pluck('total', 'status')
         ->toArray();
     }
+
+    /**
+     * Đếm phòng theo trạng thái của 1 boarding house
+     */
+    public function countByStatusForBoardingHouse(int $boardingHouseId): array
+    {
+        return Room::where('boarding_house_id', $boardingHouseId)
+        ->selectRaw('status, COUNT(*) as total')
+        ->groupBy('status')
+        ->pluck('total', 'status')
+        ->toArray();
+    }
 }

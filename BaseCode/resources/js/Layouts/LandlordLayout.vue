@@ -1,6 +1,6 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3'
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
@@ -9,6 +9,19 @@ const drawerOpen = ref(false)   // mobile drawer
 const propertyDropdownOpen = ref(false)
 const notifOpen = ref(false)
 
+const flashMessage = ref('')
+const showFlash = ref(false)
+
+watch(() => page.props.flash?.success, (newVal) => {
+    if (newVal) {
+        flashMessage.value = newVal
+        showFlash.value = true
+        setTimeout(() => {
+            showFlash.value = false
+        }, 3000)
+    }
+}, { immediate: true })
+
 const logout = () => router.post(route('logout'))
 const isActive = (path) => {
     if (path === '#') return false
@@ -16,17 +29,13 @@ const isActive = (path) => {
 }
 const closeDrawer = () => { drawerOpen.value = false }
 
-// Mock properties list for the dropdown
-const properties = ref([
-    { id: 1, name: 'Nhà Trọ Thanh Hóa' },
-    { id: 2, name: 'Homestay Hoa Lư View' }
-])
-const selectedProperty = ref(properties.value[0])
+const properties = computed(() => usePage().props.auth.boarding_houses || [])
+const selectedPropertyId = computed(() => usePage().props.auth.selected_boarding_house_id)
+const selectedProperty = computed(() => properties.value.find(p => p.id === selectedPropertyId.value) || properties.value[0] || { name: 'Chưa có cơ sở' })
 
 const selectProperty = (prop) => {
-    selectedProperty.value = prop
     propertyDropdownOpen.value = false
-    // You can fire an event or redirect to reload rooms under this property
+    router.post(route('landlord.select-boarding-house'), { id: prop.id }, { preserveScroll: true })
 }
 
 const openSubmenus = ref(['Lịch Hẹn'])
@@ -76,6 +85,8 @@ const navGroups = [
         label: 'NHÀ CỦA TÔI',
         items: [
             { label: 'Thông Tin CĐT', path: '/landlord/profile', icon: 'bi-person-gear' },
+            { label: 'Quản Lý Cơ Sở', path: '/landlord/boarding-houses', icon: 'bi-buildings' },
+            { label: 'Hồ Sơ Xét Duyệt', path: '/landlord/boarding-houses/history', icon: 'bi-file-earmark-check' },
         ]
     }
 ]
@@ -91,7 +102,6 @@ const bottomTabs = [
 
 const showWelcomePopup = ref(false)
 const latestNotification = ref(null)
-import { onMounted } from 'vue'
 
 onMounted(() => {
     // Tự động mở các menu con nếu có trang con đang active lúc load trang
@@ -469,8 +479,26 @@ const closePopup = () => {
         </template>
     </nav>
 
-    <!-- Popup thông báo góc phải dưới -->
-    <Teleport to="body">
+        <Teleport to="body">
+        <Transition name="toast-slide">
+            <div v-if="showFlash" style="position: fixed; top: 30px; right: 30px; z-index: 99999;">
+                <div style="background: white; border-radius: 12px; width: 320px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; display: flex; align-items: center; padding: 16px;">
+                    <div style="width: 4px; height: 100%; background: #10b981; position: absolute; left: 0; top: 0;"></div>
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #d1fae5; color: #10b981; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+                        <i class="bi bi-check-lg" style="font-size: 18px; font-weight: bold;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0; font-size: 14px; font-weight: bold; color: #1e293b;">Thành công</h4>
+                        <p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">{{ flashMessage }}</p>
+                    </div>
+                    <button @click="showFlash = false" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px;">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+        </Transition>
+
+        <!-- Popup thông báo góc phải dưới -->
         <Transition name="toast-slide">
             <div v-if="showWelcomePopup" style="position: fixed; bottom: 30px; right: 30px; z-index: 99999;">
                 <div style="background: white; border-radius: 16px; width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; position: relative;">

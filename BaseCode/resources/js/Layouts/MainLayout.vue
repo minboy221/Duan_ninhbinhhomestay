@@ -18,6 +18,25 @@ const logout = () => {
 const showWelcomePopup = ref(false)
 const latestNotification = ref(null)
 
+const showPropertyPrompt = ref(false)
+const handleLandlordClick = (e) => {
+    e.preventDefault()
+    closeDrawer()
+    const houses = auth.value.boarding_houses || []
+    if (houses.length >= 2) {
+        showPropertyPrompt.value = true
+    } else {
+        router.visit(route('landlord.dashboard'))
+    }
+}
+const selectPropertyFromPrompt = (prop) => {
+    showPropertyPrompt.value = false
+    router.post(route('landlord.select-boarding-house'), { 
+        id: prop.id, 
+        redirect_to: route('landlord.dashboard') 
+    })
+}
+
 onMounted(() => {
     if (auth.value.notifications && auth.value.notifications.length > 0) {
         const notif = auth.value.notifications[0]
@@ -149,9 +168,9 @@ const getAvatarUrl = (avatar) => {
                                 </Link>
                             </li>
                             <li v-if="user.role === 'landlord'">
-                                <Link :href="route('landlord.dashboard')"> <i class="bi bi-house-gear"></i>
+                                <a href="#" @click="handleLandlordClick"> <i class="bi bi-house-gear"></i>
                                     <span>Trang Chủ Trọ</span>
-                                </Link>
+                                </a>
                             </li>
                             <li v-if="user.role === 'user' && !auth.has_submitted_verification">
                                 <Link :href="route('landlord.verify.create')"> <i class="bi bi-house-add"></i>
@@ -237,7 +256,7 @@ const getAvatarUrl = (avatar) => {
                         <Link :href="route('admin.dashboard')" @click="closeDrawer"><i class="bi bi-speedometer2"></i> Trang Quản Trị</Link>
                     </li>
                     <li class="border-t mt-4 pt-4" v-else-if="user.role === 'landlord'">
-                        <Link :href="route('landlord.dashboard')" @click="closeDrawer"><i class="bi bi-house-gear"></i> Trang Chủ Trọ</Link>
+                        <a href="#" @click="handleLandlordClick"><i class="bi bi-house-gear"></i> Trang Chủ Trọ</a>
                     </li>
                     <li :class="['border-t mt-4 pt-4', (user.role === 'admin' || user.role === 'landlord') ? '!mt-2 !pt-2 !border-none' : '']">
                         <button @click="logout(); closeDrawer()"
@@ -364,6 +383,42 @@ const getAvatarUrl = (avatar) => {
                                     </Link>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+
+        <!-- Property Selection Modal (Every Time Landlord Enters Dashboard) -->
+        <Transition name="fade">
+            <div v-if="showPropertyPrompt" class="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="showPropertyPrompt = false"></div>
+                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-slide-up">
+                    <div class="bg-gradient-to-r from-blue-500 to-cyan-500 p-6 text-white text-center relative overflow-hidden">
+                        <div class="absolute top-0 right-0 p-4 opacity-20 transform translate-x-4 -translate-y-4">
+                            <i class="bi bi-buildings text-6xl"></i>
+                        </div>
+                        <h3 class="text-xl font-extrabold mb-2 relative z-10">Chọn Cơ Sở Quản Lý</h3>
+                        <p class="text-blue-50 text-sm relative z-10">Bạn đang có nhiều hơn 1 cơ sở. Vui lòng chọn cơ sở bạn muốn thao tác lúc này.</p>
+                        <button @click="showPropertyPrompt = false" class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors z-20">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="p-6 max-h-[60vh] overflow-y-auto">
+                        <div class="space-y-3">
+                            <button v-for="prop in (auth?.boarding_houses || [])" :key="prop.id"
+                                @click="selectPropertyFromPrompt(prop)"
+                                class="w-full group flex items-center p-4 rounded-xl border-2 transition-all duration-200 text-left border-slate-100 hover:border-blue-200 hover:bg-slate-50">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center mr-4 transition-colors bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-500">
+                                    <i class="bi bi-building"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-blue-600">{{ prop.name }}</h4>
+                                    <p class="text-xs text-slate-500 mt-0.5" v-if="prop.address_detail">{{ prop.address_detail }}</p>
+                                    <p class="text-xs text-slate-500 mt-0.5" v-else>Cơ sở hợp lệ</p>
+                                </div>
+                            </button>
                         </div>
                     </div>
                 </div>

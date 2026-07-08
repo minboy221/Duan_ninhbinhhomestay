@@ -30,7 +30,7 @@ class RoomService
     /**
      * Lấy danh sách tầng kèm phòng cho trang quản lý
      */
-    public function getFloorsWithRooms(int $landlordId): array
+    public function getFloorsWithRooms(int $landlordId, ?int $boardingHouseId = null): array
     {
         $properties = $this->propertyRepo->getByLandlordId($landlordId);
         if ($properties->isEmpty())
@@ -40,14 +40,19 @@ class RoomService
         $property = $properties->first();
         $floors = $this->floorRepo->getByPropertyId($property->id);
 
-        return $floors->map(function ($floor) {
+        return $floors->map(function ($floor) use ($boardingHouseId) {
+            $rooms = $floor->rooms;
+            if ($boardingHouseId) {
+                $rooms = $rooms->where('boarding_house_id', $boardingHouseId);
+            }
+
             return [
                 'id' => $floor->id,
                 'name' => $floor->name,
                 'address' => $floor->address,
                 'latitude' => $floor->latitude,
                 'longitude' => $floor->longitude,
-                'rooms' => $floor->rooms->map(fn($r) => $this->formatRoom($r))->values()->toArray(),
+                'rooms' => $rooms->map(fn($r) => $this->formatRoom($r))->values()->toArray(),
             ];
         })->values()->toArray();
     }
@@ -163,9 +168,14 @@ class RoomService
     /**
      * Thống kê số phòng theo trạng thái
      */
-    public function getStatusCounts(int $landlordId): array
+    public function getStatusCounts(int $landlordId, ?int $boardingHouseId = null): array
     {
-        $counts = $this->roomRepo->countByStatusForLandlord($landlordId);
+        if ($boardingHouseId) {
+            $counts = $this->roomRepo->countByStatusForBoardingHouse($boardingHouseId);
+        } else {
+            $counts = $this->roomRepo->countByStatusForLandlord($landlordId);
+        }
+        
         $result = [];
         foreach (Room::STATUSES as $status) {
             $result[$status] = $counts[$status] ?? 0;
@@ -176,7 +186,7 @@ class RoomService
     /**
      * Tạo phòng mới (có upload ảnh)
      */
-    public function createRoom(int $landlordId, array $data, array $imageFiles = []): ?Room
+    public function createRoom(int $landlordId, array $data, array $imageFiles = [], ?int $boardingHouseId = null): ?Room
     {
         // Kiểm tra floor thuộc về landlord
         $floor = $this->floorRepo->findById($data['floor_id']);
@@ -192,7 +202,12 @@ class RoomService
         if ($exists)
             return null;
 
-        $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
+        if ($boardingHouseId) {
+            $boardingHouse = \App\Models\BoardingHouse::where('id', $boardingHouseId)->where('user_id', $landlordId)->first();
+        } else {
+            $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
+        }
+
         if (!$boardingHouse) {
             $boardingHouse = \App\Models\BoardingHouse::create([
                 'user_id' => $landlordId,
