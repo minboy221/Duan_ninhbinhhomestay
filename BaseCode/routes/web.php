@@ -107,6 +107,12 @@ Route::middleware('auth')->group(function () {
 // ROUTER cho admin
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
+    // Phần Duyệt cơ sở mới của Admin
+    Route::get('/boarding-houses', [\App\Http\Controllers\AdminBoardingHouseController::class, 'index'])->name('admin.boarding-houses.index');
+    Route::get('/boarding-houses/{id}', [\App\Http\Controllers\AdminBoardingHouseController::class, 'show'])->name('admin.boarding-houses.show');
+    Route::post('/boarding-houses/{id}/approve', [\App\Http\Controllers\AdminBoardingHouseController::class, 'approve'])->name('admin.boarding-houses.approve');
+    Route::post('/boarding-houses/{id}/reject', [\App\Http\Controllers\AdminBoardingHouseController::class, 'reject'])->name('admin.boarding-houses.reject');
+
     Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
     Route::patch('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus'])->name('admin.users.toggle-status');
     Route::delete('/users/{id}', [AdminController::class, 'deleteUser'])->name('admin.users.delete');
@@ -169,6 +175,13 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 // ROUTER cho landlord (chủ trọ)
 Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/dashboard', [LandlordController::class, 'dashboard'])->name('landlord.dashboard');
+
+    // Phần quản lý cơ sở của chủ trọ
+    Route::get('/boarding-houses', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'index'])->name('landlord.boarding-houses.index');
+    Route::get('/boarding-houses/history', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'history'])->name('landlord.boarding-houses.history');
+    Route::get('/boarding-houses/create', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'create'])->name('landlord.boarding-houses.create');
+    Route::post('/boarding-houses', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'store'])->name('landlord.boarding-houses.store');
+    Route::post('/select-boarding-house', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'selectBoardingHouse'])->name('landlord.select-boarding-house');
     Route::get('/profile', [LandlordController::class, 'profile'])->name('landlord.profile');
     Route::get('/rooms', [LandlordController::class, 'rooms'])->name('landlord.rooms');
 

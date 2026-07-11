@@ -160,6 +160,13 @@ const statusTransitions = {
 const getAllowedStatuses = (current) => statusTransitions[current] || [];
 
 // Floor Modals
+const formatFloorName = () => {
+    const val = floorName.value.trim();
+    if (/^\d+$/.test(val)) {
+        floorName.value = 'Tầng ' + val;
+    }
+}
+
 const showFloorModal = ref(false);
 const isEditFloor = ref(false);
 const editingFloorId = ref(null);
@@ -317,14 +324,6 @@ const submitFloor = () => {
     floorError.value = "";
     if (!floorName.value.trim()) {
         floorError.value = "Vui lòng nhập tên tầng/khu";
-        return;
-    }
-    if (!selectedWard.value) {
-        floorError.value = "Vui lòng chọn Phường/Xã";
-        return;
-    }
-    if (!addressDetail.value.trim()) {
-        floorError.value = "Vui lòng nhập địa chỉ chi tiết";
         return;
     }
     let name = floorName.value.trim();
@@ -1043,63 +1042,12 @@ const getAutoCoordinates = () => {
                             <label class="text-xs font-bold text-slate-500">Tên tầng
                                 <span class="text-rose-500">*</span></label>
                             <input v-model="floorName"
+                                @blur="formatFloorName"
                                 class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
-                                placeholder="VD: Tầng 1" @keyup.enter="submitFloor" />
+                                placeholder="VD: Tầng 1 (hoặc nhập số 1)" @keyup.enter="submitFloor" />
                             <span v-if="floorError" class="text-[10px] text-rose-500 font-semibold block mt-1"><i
                                     class="bi bi-exclamation-circle"></i>
                                 {{ floorError }}</span>
-                        </div>
-
-                        <!-- Địa chỉ Phường/Xã và Chi tiết -->
-                        <div class="form-group mb-4">
-                            <label class="block text-xs font-bold text-slate-700 mb-1">Địa chỉ chi tiết phòng
-                                trọ:</label>
-                            <button type="button" @click="toggleFloorDropdown"
-                                class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none bg-white transition-all flex items-center justify-between text-left cursor-pointer select-none"
-                                :class="{
-                                    'border-emerald-500 ring-2 ring-emerald-500/20':
-                                        isFloorDropdownOpen,
-                                }">
-                                <span :class="{ 'text-slate-400': !selectedWard }">
-                                    {{ selectedWard || "-- Chọn Phường/Xã --" }}
-                                </span>
-                                <i class="bi bi-chevron-down text-slate-400 transition-transform duration-300" :class="{
-                                    'rotate-180': isFloorDropdownOpen,
-                                }"></i>
-                            </button>
-                            <div class="flex flex-col sm:flex-row gap-2">
-                                <input v-model="addressDetail"
-                                    class="flex-1 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
-                                    placeholder="Số nhà, tên đường, quận/huyện..." />
-
-                                <button type="button" @click="getAutoCoordinates"
-                                    class="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 border border-emerald-200/40 whitespace-nowrap active:scale-95">
-                                    <i class="bi bi-geo-alt-fill animate-bounce"></i>
-                                    Tự động lấy tọa độ
-                                </button>
-                            </div>
-
-                            <div v-if="latitude && longitude"
-                                class="mt-2 text-[11px] text-emerald-700 font-semibold bg-emerald-50/60 border border-emerald-100 px-3 py-1.5 rounded-xl inline-flex items-center gap-1.5 shadow-sm">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                                📍 Hệ thống đã ghi nhận GPS:
-                                <span class="text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">Vĩ
-                                    độ: {{ latitude }}</span>
-                                <span class="text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">Kinh
-                                    độ: {{ longitude }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Map Preview -->
-                        <div class="rounded-xl overflow-hidden border border-slate-100" style="height: 150px">
-                            <iframe v-if="floorMapUrl" :src="floorMapUrl" width="100%" height="100%" style="border: 0"
-                                loading="lazy">
-                            </iframe>
-                            <div v-else
-                                class="h-full bg-slate-50 flex items-center justify-center text-[10px] text-slate-400">
-                                Nhập địa chỉ hoặc toạ độ để xem trước bản đồ vị
-                                trí khu trọ/tầng
-                            </div>
                         </div>
                     </div>
                     <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">

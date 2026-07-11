@@ -1,6 +1,6 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3'
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
@@ -9,6 +9,19 @@ const drawerOpen = ref(false)   // mobile drawer
 const propertyDropdownOpen = ref(false)
 const notifOpen = ref(false)
 
+const flashMessage = ref('')
+const showFlash = ref(false)
+
+watch(() => page.props.flash?.success, (newVal) => {
+    if (newVal) {
+        flashMessage.value = newVal
+        showFlash.value = true
+        setTimeout(() => {
+            showFlash.value = false
+        }, 3000)
+    }
+}, { immediate: true })
+
 const logout = () => router.post(route('logout'))
 const isActive = (path) => {
     if (path === '#') return false
@@ -16,17 +29,30 @@ const isActive = (path) => {
 }
 const closeDrawer = () => { drawerOpen.value = false }
 
-// Mock properties list for the dropdown
-const properties = ref([
-    { id: 1, name: 'Nhà Trọ Thanh Hóa' },
-    { id: 2, name: 'Homestay Hoa Lư View' }
-])
-const selectedProperty = ref(properties.value[0])
+const properties = computed(() => usePage().props.auth.boarding_houses || [])
+const selectedPropertyId = computed(() => usePage().props.auth.selected_boarding_house_id)
+const selectedProperty = computed(() => properties.value.find(p => p.id === selectedPropertyId.value) || properties.value[0] || { name: 'Chưa có cơ sở' })
 
 const selectProperty = (prop) => {
-    selectedProperty.value = prop
     propertyDropdownOpen.value = false
-    // You can fire an event or redirect to reload rooms under this property
+    router.post(route('landlord.select-boarding-house'), { id: prop.id }, { preserveScroll: true })
+}
+
+const openSubmenus = ref(['Lịch Hẹn'])
+const toggleSubmenu = (label) => {
+    const index = openSubmenus.value.indexOf(label)
+    if (index > -1) {
+        openSubmenus.value.splice(index, 1)
+    } else {
+        openSubmenus.value.push(label)
+    }
+}
+const isChildActive = (item) => {
+    if (!item.children) return false
+    return item.children.some(child => isActive(child.path))
+}
+const isSubmenuOpen = (item) => {
+    return openSubmenus.value.includes(item.label)
 }
 
 const navGroups = [
@@ -36,8 +62,14 @@ const navGroups = [
             { label: 'Tổng Quan', path: '/landlord/dashboard', icon: 'bi-grid-1x2-fill' },
             { label: 'Hóa Đơn', path: '/landlord/invoices', icon: 'bi-receipt' },
             { label: 'Tin Đăng', path: '/landlord/listings', icon: 'bi-megaphone' },
-            { label: 'Lịch Hẹn', path: '/landlord/appointments', icon: 'bi-calendar-event' },
-            { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
+            { 
+                label: 'Lịch Hẹn', 
+                icon: 'bi-calendar-event',
+                children: [
+                    { label: 'Lịch Đặt Hẹn', path: '/landlord/appointments', icon: 'bi-calendar-check' },
+                    { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
+                ]
+            },
         ]
     },
     {
@@ -53,6 +85,8 @@ const navGroups = [
         label: 'NHÀ CỦA TÔI',
         items: [
             { label: 'Thông Tin CĐT', path: '/landlord/profile', icon: 'bi-person-gear' },
+            { label: 'Quản Lý Cơ Sở', path: '/landlord/boarding-houses', icon: 'bi-buildings' },
+            { label: 'Hồ Sơ Xét Duyệt', path: '/landlord/boarding-houses/history', icon: 'bi-file-earmark-check' },
         ]
     }
 ]
@@ -68,9 +102,19 @@ const bottomTabs = [
 
 const showWelcomePopup = ref(false)
 const latestNotification = ref(null)
-import { onMounted } from 'vue'
 
 onMounted(() => {
+    // Tự động mở các menu con nếu có trang con đang active lúc load trang
+    navGroups.forEach(group => {
+        group.items.forEach(item => {
+            if (item.children && isChildActive(item)) {
+                if (!openSubmenus.value.includes(item.label)) {
+                    openSubmenus.value.push(item.label)
+                }
+            }
+        })
+    })
+
     if (page.props.auth?.notifications && page.props.auth.notifications.length > 0) {
         const notif = page.props.auth.notifications[0]
         const dismissed = sessionStorage.getItem('dismissed_landlord_notification_' + notif.id)
@@ -119,33 +163,57 @@ const closePopup = () => {
                     <div v-else-if="group.label && !sidebarOpen" class="h-px bg-slate-100/80 my-4 mx-2"></div>
 
                     <div class="space-y-1">
-                        <component :is="item.path === '#' ? 'div' : Link" v-for="item in group.items" :key="item.label"
-                            :href="item.path !== '#' ? item.path : undefined" :class="[
-                                'flex items-center transition-all duration-300 group relative w-full rounded-xl',
-                                sidebarOpen ? 'gap-3.5 px-4 py-3' : 'justify-center py-3 px-2',
-                                item.path === '#' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:translate-x-0.5',
-                                isActive(item.path)
-                                    ? 'bg-emerald-50/70 border border-emerald-100/50 text-emerald-700 font-bold shadow-[0_2px_12px_rgba(16,185,129,0.04)] before:absolute before:left-0 before:top-2.5 before:bottom-2.5 before:w-1 before:bg-emerald-500 before:rounded-full'
-                                    : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-900'
-                            ]" :title="!sidebarOpen ? item.label : ''">
-                            <i
-                                :class="['bi', item.icon, 'text-2xl transition-colors duration-300', isActive(item.path) ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-700']"></i>
-                            <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{ item.label
-                                }}</span>
+                        <div v-for="item in group.items" :key="item.label" class="space-y-1">
+                            <!-- Parent Item (No Children) -->
+                            <component v-if="!item.children" :is="item.path === '#' ? 'div' : Link"
+                                :href="item.path !== '#' ? item.path : undefined" :class="[
+                                    'flex items-center transition-all duration-300 group relative w-full rounded-xl',
+                                    sidebarOpen ? 'gap-3.5 px-4 py-3' : 'justify-center py-3 px-2',
+                                    item.path === '#' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:translate-x-0.5',
+                                    isActive(item.path)
+                                        ? 'bg-emerald-50/70 border border-emerald-100/50 text-emerald-700 font-bold shadow-[0_2px_12px_rgba(16,185,129,0.04)] before:absolute before:left-0 before:top-2.5 before:bottom-2.5 before:w-1 before:bg-emerald-500 before:rounded-full'
+                                        : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-900'
+                                ]" :title="!sidebarOpen ? item.label : ''">
+                                <i :class="['bi', item.icon, 'text-2xl transition-colors duration-300', isActive(item.path) ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-700']"></i>
+                                <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{ item.label }}</span>
+                                <span v-if="item.isPro && sidebarOpen" class="ml-auto px-1.5 py-0.5 text-[8px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md uppercase">PRO</span>
+                                <div v-if="!sidebarOpen" class="absolute left-16 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                                    {{ item.label }}
+                                </div>
+                            </component>
 
-                            <!-- Pro badge -->
-                            <span v-if="item.isPro && sidebarOpen"
-                                class="ml-auto px-1.5 py-0.5 text-[8px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md uppercase">
-                                PRO
-                            </span>
+                            <!-- Parent Item (Has Children) -->
+                            <div v-else class="space-y-1">
+                                <button type="button" @click="toggleSubmenu(item.label)" :class="[
+                                    'flex items-center transition-all duration-300 group relative w-full rounded-xl',
+                                    sidebarOpen ? 'gap-3.5 px-4 py-3' : 'justify-center py-3 px-2',
+                                    isChildActive(item)
+                                        ? 'bg-emerald-50/20 text-emerald-700 font-bold'
+                                        : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-900'
+                                ]" :title="!sidebarOpen ? item.label : ''">
+                                    <i :class="['bi', item.icon, 'text-2xl transition-colors duration-300', isChildActive(item) ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-700']"></i>
+                                    <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{ item.label }}</span>
+                                    <i v-if="sidebarOpen" :class="['bi ml-auto text-xs transition-transform duration-200', isSubmenuOpen(item) ? 'bi-chevron-up' : 'bi-chevron-down']"></i>
+                                    
+                                    <div v-if="!sidebarOpen" class="absolute left-16 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                                        {{ item.label }}
+                                    </div>
+                                </button>
 
-                            <!-- Tooltip when collapsed -->
-                            <div v-if="!sidebarOpen"
-                                class="absolute left-16 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                                {{ item.label }} <span v-if="item.isPro"
-                                    class="text-[8px] text-amber-400 ml-1">(PRO)</span>
+                                <!-- Children submenu links -->
+                                <div v-if="sidebarOpen && isSubmenuOpen(item)" class="pl-6 space-y-1">
+                                    <Link v-for="child in item.children" :key="child.label" :href="child.path" :class="[
+                                        'flex items-center gap-3 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 border border-transparent',
+                                        isActive(child.path)
+                                            ? 'text-emerald-700 font-bold bg-emerald-50/50'
+                                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50/50'
+                                    ]">
+                                        <i :class="['bi', child.icon, 'text-base', isActive(child.path) ? 'text-emerald-600' : 'text-slate-400']"></i>
+                                        <span>{{ child.label }}</span>
+                                    </Link>
+                                </div>
                             </div>
-                        </component>
+                        </div>
                     </div>
                 </div>
             </nav>
@@ -335,20 +403,43 @@ const closePopup = () => {
                             {{ group.label }}
                         </p>
                         <div class="space-y-0.5">
-                            <component :is="item.path === '#' ? 'div' : Link" v-for="item in group.items"
-                                :key="item.label" :href="item.path !== '#' ? item.path : undefined" :class="[
-                                    'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
-                                    item.path === '#' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer',
-                                    isActive(item.path)
-                                        ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm'
-                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-                                ]" @click="closeDrawer">
-                                <i
-                                    :class="['bi', item.icon, 'text-xl', isActive(item.path) ? 'text-emerald-500' : 'text-slate-400']"></i>
-                                <span class="text-sm font-bold">{{ item.label }}</span>
-                                <span v-if="item.isPro"
-                                    class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 rounded uppercase">PRO</span>
-                            </component>
+                            <div v-for="item in group.items" :key="item.label" class="space-y-0.5">
+                                <component v-if="!item.children" :is="item.path === '#' ? 'div' : Link"
+                                    :href="item.path !== '#' ? item.path : undefined" :class="[
+                                        'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
+                                        item.path === '#' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer',
+                                        isActive(item.path)
+                                            ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm'
+                                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                    ]" @click="closeDrawer">
+                                    <i
+                                        :class="['bi', item.icon, 'text-xl', isActive(item.path) ? 'text-emerald-500' : 'text-slate-400']"></i>
+                                    <span class="text-sm font-bold">{{ item.label }}</span>
+                                    <span v-if="item.isPro"
+                                        class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 rounded uppercase">PRO</span>
+                                </component>
+
+                                <div v-else class="space-y-0.5">
+                                    <button type="button" @click="toggleSubmenu(item.label)" class="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full transition-all duration-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800">
+                                        <i :class="['bi', item.icon, 'text-xl', isChildActive(item) ? 'text-emerald-500' : 'text-slate-400']"></i>
+                                        <span class="text-sm font-bold text-left flex-1">{{ item.label }}</span>
+                                        <i :class="['bi ml-auto text-xs transition-transform duration-200', isSubmenuOpen(item) ? 'bi-chevron-up' : 'bi-chevron-down']"></i>
+                                    </button>
+
+                                    <div v-if="isSubmenuOpen(item)" class="pl-6 space-y-0.5">
+                                        <Link v-for="child in item.children" :key="child.label" :href="child.path"
+                                            class="flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200"
+                                            :class="[
+                                                isActive(child.path)
+                                                    ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm'
+                                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                            ]" @click="closeDrawer">
+                                            <i :class="['bi', child.icon, 'text-lg', isActive(child.path) ? 'text-emerald-500' : 'text-slate-400']"></i>
+                                            <span class="text-xs font-bold">{{ child.label }}</span>
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </nav>
@@ -388,8 +479,26 @@ const closePopup = () => {
         </template>
     </nav>
 
-    <!-- Popup thông báo góc phải dưới -->
-    <Teleport to="body">
+        <Teleport to="body">
+        <Transition name="toast-slide">
+            <div v-if="showFlash" style="position: fixed; top: 30px; right: 30px; z-index: 99999;">
+                <div style="background: white; border-radius: 12px; width: 320px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; display: flex; align-items: center; padding: 16px;">
+                    <div style="width: 4px; height: 100%; background: #10b981; position: absolute; left: 0; top: 0;"></div>
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #d1fae5; color: #10b981; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+                        <i class="bi bi-check-lg" style="font-size: 18px; font-weight: bold;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0; font-size: 14px; font-weight: bold; color: #1e293b;">Thành công</h4>
+                        <p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">{{ flashMessage }}</p>
+                    </div>
+                    <button @click="showFlash = false" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px;">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+        </Transition>
+
+        <!-- Popup thông báo góc phải dưới -->
         <Transition name="toast-slide">
             <div v-if="showWelcomePopup" style="position: fixed; bottom: 30px; right: 30px; z-index: 99999;">
                 <div style="background: white; border-radius: 16px; width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; position: relative;">

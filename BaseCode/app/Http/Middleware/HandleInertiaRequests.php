@@ -45,9 +45,26 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
+        $boardingHouses = [];
+        $selectedBoardingHouseId = null;
+
+        if ($user && $user->role === 'landlord') {
+            $boardingHouses = \App\Models\BoardingHouse::where('user_id', $user->id)
+                ->where('status', 'approved')
+                ->get(['id', 'name']);
+            
+            $selectedBoardingHouseId = session('selected_boarding_house_id');
+            if (!$selectedBoardingHouseId && $boardingHouses->count() > 0) {
+                $selectedBoardingHouseId = $boardingHouses->first()->id;
+                session(['selected_boarding_house_id' => $selectedBoardingHouseId]);
+            }
+        }
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $user ? $user->load('verification') : null,
+                'boarding_houses' => $boardingHouses,
+                'selected_boarding_house_id' => $selectedBoardingHouseId,
                 'has_submitted_verification' => $user
                     ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $user->id)->exists() : false,
                 'notifications' => $user ? $user->unreadNotifications : [],
