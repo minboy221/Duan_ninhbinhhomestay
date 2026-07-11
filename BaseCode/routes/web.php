@@ -74,6 +74,11 @@ Route::get('/chitiettro/{id?}', [PublicListingController::class, 'show'])->name(
 
 // Route cho Trang chi tiết tin tức (lấy động theo slug)
 Route::get('/tintuc/{slug}', [PostController::class, 'show'])->name('chitiettintuc');
+//Route cho phần đếm ngược giờ đặt lịch
+Route::get('/api/user/today-appointments', [PublicListingController::class, 'getTodayAppointment'])->middleware('auth');
+
+//Route xử lý phản hồi cuộc họp xem phòng của clien
+Route::post('/api/appointments/{id}/feedback',[PublicListingController::class,'submitFeedback'])->middleware('auth');
 
 // Route cho Trang điều khoản và chính sách
 Route::get('/chitietdieukhoan', function () {

@@ -1,6 +1,6 @@
 <script setup>
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { router, useForm } from "@inertiajs/vue3";
 const props = defineProps({
     dbAppointments: { type: Array, default: () => [] },
@@ -98,9 +98,55 @@ const submitRejection = () => {
         },
     );
 };
+
+// --- PHÂN TRANG CHO YÊU CẦU CHỜ DUYỆT ---
+const pendingPage = ref(1);
+const pendingPageSize = 5;
 const pendingList = computed(() =>
     appointments.value.filter((a) => a.status === "pending"),
 );
+const pendingTotalPages = computed(() => Math.ceil(pendingList.value.length / pendingPageSize));
+const paginatedPendingList = computed(() => {
+    const start = (pendingPage.value - 1) * pendingPageSize;
+    return pendingList.value.slice(start, start + pendingPageSize);
+});
+watch(pendingList, (newVal) => {
+    if (pendingPage.value > 1 && newVal.length <= (pendingPage.value - 1) * pendingPageSize) {
+        pendingPage.value = Math.max(1, Math.ceil(newVal.length / pendingPageSize));
+    }
+});
+
+// --- PHÂN TRANG CHO TẤT CẢ LỊCH HẸN ---
+const allPage = ref(1);
+const allPageSize = 10;
+const allTotalPages = computed(() => Math.ceil(appointments.value.length / allPageSize));
+const paginatedAllAppointments = computed(() => {
+    const start = (allPage.value - 1) * allPageSize;
+    return appointments.value.slice(start, start + allPageSize);
+});
+
+// Helper hiển thị số trang có dấu ba chấm
+const getVisiblePages = (currentPage, totalPages) => {
+    const pages = [];
+    const maxVisible = 5;
+    if (totalPages <= maxVisible) {
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+        pages.push(1);
+        if (currentPage > 3) pages.push('...');
+        
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+        
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+        
+        if (currentPage < totalPages - 2) pages.push('...');
+        pages.push(totalPages);
+    }
+    return pages;
+};
 </script>
 
 <template>
@@ -220,7 +266,7 @@ const pendingList = computed(() =>
                             Tuyệt vời! Không còn lịch hẹn nào chưa xử lý.
                         </div>
                         <div v-else class="space-y-3">
-                            <div v-for="apt in pendingList" :key="apt.id" :class="[
+                            <div v-for="apt in paginatedPendingList" :key="apt.id" :class="[
                                 'p-4 border rounded-2xl flex flex-col md:flex-row justify-between md:items-center gap-4 transition-all',
                                 hasConflict(apt)
                                     ? 'bg-rose-50/20 border-rose-200'
@@ -274,6 +320,39 @@ const pendingList = computed(() =>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Pagination for Pending Requests -->
+                        <div v-if="pendingTotalPages > 1" class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+                            <span class="text-[11px] text-slate-400 font-semibold">
+                                Hiển thị {{ (pendingPage - 1) * pendingPageSize + 1 }} - {{ Math.min(pendingPage * pendingPageSize, pendingList.length) }} trong số {{ pendingList.length }}
+                            </span>
+                            <div class="flex items-center gap-1">
+                                <button 
+                                    @click="pendingPage = Math.max(1, pendingPage - 1)" 
+                                    :disabled="pendingPage === 1"
+                                    class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
+                                    <i class="bi bi-chevron-left text-[9px]"></i>
+                                </button>
+                                <button 
+                                    v-for="p in pendingTotalPages" 
+                                    :key="p" 
+                                    @click="pendingPage = p"
+                                    :class="[
+                                        'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
+                                        pendingPage === p 
+                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
+                                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    ]">
+                                    {{ p }}
+                                </button>
+                                <button 
+                                    @click="pendingPage = Math.min(pendingTotalPages, pendingPage + 1)" 
+                                    :disabled="pendingPage === pendingTotalPages"
+                                    class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
+                                    <i class="bi bi-chevron-right text-[9px]"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- All Schedule Table -->
@@ -295,7 +374,7 @@ const pendingList = computed(() =>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                                    <tr v-for="apt in appointments" :key="apt.id" class="hover:bg-slate-50/30">
+                                    <tr v-for="apt in paginatedAllAppointments" :key="apt.id" class="hover:bg-slate-50/30">
                                         <td class="py-3 px-4">
                                             <div class="flex flex-col">
                                                 <span>{{ apt.name }}</span>
@@ -330,6 +409,41 @@ const pendingList = computed(() =>
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <!-- Pagination for All Appointments -->
+                        <div v-if="allTotalPages > 1" class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+                            <span class="text-[11px] text-slate-400 font-semibold">
+                                Hiển thị {{ (allPage - 1) * allPageSize + 1 }} - {{ Math.min(allPage * allPageSize, appointments.length) }} trong số {{ appointments.length }}
+                            </span>
+                            <div class="flex items-center gap-1">
+                                <button 
+                                    @click="allPage = Math.max(1, allPage - 1)" 
+                                    :disabled="allPage === 1"
+                                    class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
+                                    <i class="bi bi-chevron-left text-[9px]"></i>
+                                </button>
+                                <button 
+                                    v-for="p in getVisiblePages(allPage, allTotalPages)" 
+                                    :key="p" 
+                                    @click="typeof p === 'number' ? allPage = p : null"
+                                    :class="[
+                                        'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
+                                        allPage === p 
+                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
+                                            : p === '...' 
+                                                ? 'border-transparent text-slate-400 cursor-default' 
+                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    ]">
+                                    {{ p }}
+                                </button>
+                                <button 
+                                    @click="allPage = Math.min(allTotalPages, allPage + 1)" 
+                                    :disabled="allPage === allTotalPages"
+                                    class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
+                                    <i class="bi bi-chevron-right text-[9px]"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

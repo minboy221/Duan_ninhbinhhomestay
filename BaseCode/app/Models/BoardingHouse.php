@@ -20,6 +20,7 @@ class BoardingHouse extends Model
         'status',
         'latitude',
         'longitude',
+        'cancel_after_minutes',
     ];
     protected $casts = [
         'contract_images' => 'array',
