@@ -11,7 +11,7 @@
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 50px;
+    border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -42,7 +42,7 @@
 
 ::-webkit-scrollbar-thumb {
     background: #144470;
-    border-radius: 5px;
+    border-radius: 4px;
     transition: all 0.3s ease;
 }
 
@@ -72,7 +72,7 @@ body {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 50px;
+    border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -103,7 +103,7 @@ body {
     color: rgb(79, 76, 76);
     font-size: 15px;
     padding: 8px 16px;
-    border-radius: 20px;
+    border-radius: 10px;
     transition: all 0.3s ease;
     font-weight: 500;
 }
@@ -117,7 +117,7 @@ body {
 /* Phần nút button  */
 .login-btn {
     padding: 12px 20px;
-    border-radius: 40px;
+    border-radius: 12px;
     border: none;
     cursor: pointer;
     background: rgba(255, 255, 255, 0.25);
@@ -148,7 +148,7 @@ body {
     font-size: 15px;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     color: #fff;
-    border-radius: 15px;
+    border-radius: 8px;
     transition: 0.3s;
     text-align: center;
     text-decoration: none;
@@ -166,7 +166,7 @@ body {
     font-weight: 600;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     color: #fff;
-    border-radius: 15px;
+    border-radius: 8px;
     transition: 0.3s;
     text-align: center;
     text-decoration: none;
@@ -202,7 +202,7 @@ body {
     right: 45px;
     width: 350px;
     background: #fff;
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
     padding: 15px;
     display: none;
@@ -231,7 +231,7 @@ body {
 }
 .notification-box ul::-webkit-scrollbar-thumb {
     background: #cbd5e1;
-    border-radius: 10px;
+    border-radius: 6px;
 }
 
 .notification-box ul {
@@ -299,7 +299,7 @@ body {
     background: rgba(255, 255, 255, 1);
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
-    border-radius: 25px;
+    border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -382,7 +382,7 @@ body {
 
 .dropdown ul li:hover {
     background: #e0e0e0;
-    border-radius: 10px;
+    border-radius: 6px;
     color: #45abe6;
 }
 
@@ -488,7 +488,7 @@ body {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 30px;
+    border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -530,12 +530,12 @@ body {
 
 .search input {
     padding: 10px 25px;
-    border-radius: 5px;
+    border-radius: 4px;
 }
 
 .search select {
     padding: 10px 25px;
-    border-radius: 5px;
+    border-radius: 4px;
 }
 
 /* phần giới thiệu */
@@ -558,7 +558,7 @@ body {
 .image_noidung img {
     width: 100%;
     height: 420px;
-    border-radius: 55px;
+    border-radius: 12px;
     object-fit: cover;
 }
 
@@ -611,7 +611,7 @@ body {
     height: 90%;
     object-fit: cover;
     filter: brightness(80%);
-    border-radius: 25px;
+    border-radius: 10px;
 }
 
 .title1 h2 {
@@ -673,7 +673,7 @@ body {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 25px;
+    border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -752,7 +752,7 @@ body {
 .img_camket img {
     width: 100%;
     height: 600px;
-    border-radius: 50px;
+    border-radius: 12px;
     object-fit: cover;
 }
 
@@ -948,7 +948,7 @@ body {
     margin: 0 15px;
     padding: 25px;
     background: #fff;
-    border-radius: 15px;
+    border-radius: 8px;
     text-align: left;
     box-shadow: 0 10px 10px rgba(0, 0, 0, 0.1);
 }
@@ -988,7 +988,7 @@ body {
     border: none;
     margin: 5px;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 6px;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     color: white;
 
@@ -1013,7 +1013,7 @@ body {
     gap: 60px;
     justify-content: space-between;
     background: linear-gradient(90deg, #273e79, #45abe6);
-    border-radius: 10px;
+    border-radius: 6px;
 
 }
 
@@ -1052,7 +1052,7 @@ body {
     background: #45abe6;
     color: #fff;
     font-weight: 600;
-    border-radius: 10px;
+    border-radius: 6px;
     text-decoration: none;
     transition: all 0.3s ease;
 }
@@ -1141,7 +1141,7 @@ body {
 .footer_col input {
     width: 100%;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: 1px solid #444;
     background: transparent;
     color: #fff;
@@ -1155,7 +1155,7 @@ body {
     width: 100px;
     background: #3f7a9c;
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     color: #fff;
     cursor: pointer;
     font-weight: 600;
@@ -1205,7 +1205,7 @@ body {
     height: 36px;
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50px;
+    border-radius: 12px;
     cursor: pointer;
     padding: 7px;
     transition: 0.3s;
@@ -1323,7 +1323,7 @@ body {
     align-items: center;
     gap: 12px;
     padding: 13px 15px;
-    border-radius: 12px;
+    border-radius: 8px;
     text-decoration: none;
     color: #333;
     font-size: 15px;
@@ -1376,7 +1376,7 @@ body {
     position: relative;
     width: 100%;
     height: 520px;
-    border-radius: 30px;
+    border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
@@ -1421,7 +1421,7 @@ body {
 .pt-badge {
     display: inline-block;
     padding: 4px 14px;
-    border-radius: 20px;
+    border-radius: 10px;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     font-size: 12px;
     font-weight: 600;
@@ -1486,7 +1486,7 @@ body {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 30px;
+    border-radius: 12px;
     color: #fff;
     font-weight: 600;
     font-size: 14px;

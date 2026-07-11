@@ -264,7 +264,7 @@ const months = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
 
 .stat-card {
     background: #fff;
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 20px;
     border: 1px solid #f1f5f9;
     box-shadow: 0 1px 4px rgba(0,0,0,0.05);
@@ -273,7 +273,7 @@ const months = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
 .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
 
 .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.stat-icon { width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
 .stat-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px; }
 .badge-green  { background: #f0fdf4; color: #16a34a; }
 .badge-orange { background: #fff7ed; color: #ea580c; }
@@ -290,7 +290,7 @@ const months = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
 
 .dash-card {
     background: #fff;
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 20px;
     border: 1px solid #f1f5f9;
     box-shadow: 0 1px 4px rgba(0,0,0,0.05);
@@ -306,7 +306,7 @@ const months = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
 .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding-top: 8px; }
 .bar-col   { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; height: 100%; }
 .bar-wrap  { flex: 1; display: flex; align-items: flex-end; width: 100%; }
-.bar       { width: 100%; border-radius: 6px 6px 0 0; transition: opacity 0.2s; cursor: default; }
+.bar       { width: 100%; border-radius: 4px 4px 0 0; transition: opacity 0.2s; cursor: default; }
 .bar:hover { opacity: 0.75; }
 .bar-label { font-size: 9px; color: #94a3b8; }
 
@@ -314,7 +314,7 @@ const months = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
 .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .qa-btn {
     display: flex; align-items: center; gap: 8px;
-    padding: 11px 12px; border-radius: 12px;
+    padding: 11px 12px; border-radius: 8px;
     font-size: 12.5px; font-weight: 600;
     text-decoration: none;
     transition: transform 0.15s, box-shadow 0.15s;
@@ -335,7 +335,7 @@ const months = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
 .data-table tr:last-child td { border-bottom: none; }
 
 .user-cell  { display: flex; align-items: center; gap: 10px; }
-.user-ava   { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg,#7c3aed,#4f46e5); color:#fff; display:flex;align-items:center;justify-content:center; font-size:13px;font-weight:700;flex-shrink:0; }
+.user-ava   { width: 32px; height: 32px; border-radius: 6px; background: linear-gradient(135deg,#7c3aed,#4f46e5); color:#fff; display:flex;align-items:center;justify-content:center; font-size:13px;font-weight:700;flex-shrink:0; }
 .user-name  { font-size: 13px; font-weight: 600; color: #0f172a; margin: 0; }
 .user-email { font-size: 11px; color: #94a3b8; margin: 0; }
 .font-medium { font-weight: 600; color: #0f172a; }
