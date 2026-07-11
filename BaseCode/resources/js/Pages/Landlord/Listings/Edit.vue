@@ -626,17 +626,7 @@ const submitForm = (actionType) => {
                                 :src="`https://maps.google.com/maps?q=${form.latitude},${form.longitude}&z=15&output=embed`"
                                 width="100%"
                                 height="250"
-                                style="border: 0; border-radius: 12px"
-                                loading="lazy"
-                            ></iframe>
-                            <div v-else class="map-placeholder">
-                                <i class="bi bi-map"></i>
-                                <span>Nhập địa chỉ để định vị bản đồ</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Xem trước nội dung (Preview) -->
+                                style="border: 0; border-radius: 12px" loading="lazy" ></iframe> <div v-else class="map-placeholder"> <i class="bi bi-map"></i> <span>Nhập địa chỉ để định vị bản đồ</span> </div> </div> </div> <!-- Xem trước nội dung (Preview) -->
                     <div class="preview-box">
                         <div class="prev-title">
                             {{ form.title || "Tiêu đề bài đăng..." }}
@@ -709,7 +699,7 @@ const submitForm = (actionType) => {
 
 .form-card {
     background: #fff;
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     border: 1px solid #f0fdf4;
@@ -755,7 +745,7 @@ const submitForm = (actionType) => {
 .form-input {
     padding: 9px 12px;
     border: 1.5px solid #e2e8f0;
-    border-radius: 9px;
+    border-radius: 6px;
     font-size: 14px;
     outline: none;
     width: 100%;
@@ -779,7 +769,7 @@ const submitForm = (actionType) => {
     align-items: center;
     gap: 8px;
     border: 2px dashed #d1fae5;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 24px;
     cursor: pointer;
     transition: border-color 0.15s;
@@ -813,7 +803,7 @@ const submitForm = (actionType) => {
 
 .img-preview-item {
     position: relative;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
     aspect-ratio: 1;
     border: 1px solid #e2e8f0;
@@ -849,7 +839,7 @@ const submitForm = (actionType) => {
 /* Map */
 .map-container {
     background: #f8fafc;
-    border-radius: 12px;
+    border-radius: 8px;
     min-height: 200px;
     display: flex;
     align-items: center;
@@ -870,7 +860,7 @@ const submitForm = (actionType) => {
     background: #fdfdfd;
     border: 1px border;
     border-color: #e2e8f0;
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 16px;
 }
 
@@ -893,7 +883,7 @@ const submitForm = (actionType) => {
 .btn-cancel {
     padding: 10px 20px;
     border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 6px;
     font-size: 13px;
     font-weight: 700;
     color: #64748b;
@@ -910,7 +900,7 @@ const submitForm = (actionType) => {
     padding: 10px 20px;
     border: 1.5px solid #0f766e;
     background: transparent;
-    border-radius: 10px;
+    border-radius: 6px;
     font-size: 13px;
     font-weight: 700;
     color: #0f766e;
@@ -928,7 +918,7 @@ const submitForm = (actionType) => {
     padding: 10px 20px;
     background: #0f766e;
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     font-size: 13px;
     font-weight: 700;
     color: white;
@@ -944,7 +934,7 @@ const submitForm = (actionType) => {
 
 .quill-editor-wrapper {
     background: white;
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1.5px solid #e2e8f0;
 }
 

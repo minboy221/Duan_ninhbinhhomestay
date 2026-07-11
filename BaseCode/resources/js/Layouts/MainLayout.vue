@@ -347,7 +347,7 @@ const getAvatarUrl = (avatar) => {
     <Teleport to="body">
         <Transition name="toast-slide">
             <div v-if="showWelcomePopup" style="position: fixed; bottom: 30px; right: 30px; z-index: 99999;">
-                <div style="background: white; border-radius: 16px; width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; position: relative;">
+                <div style="background: white; border-radius: 8px; width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; position: relative;">
                     
                     <!-- Thanh màu báo hiệu (xanh/đỏ) -->
                     <div :style="latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'height: 4px; background: linear-gradient(90deg, #ef4444, #f87171);' : 'height: 4px; background: linear-gradient(90deg, #22c55e, #4ade80);'"></div>
@@ -378,7 +378,7 @@ const getAvatarUrl = (avatar) => {
                                 
                                 <!-- Hành động -->
                                 <div style="display: flex; gap: 10px;">
-                                    <Link :href="latestNotification?.data?.url" @click="closePopup" style="flex: 1; text-align: center; padding: 10px 0; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; font-weight: 600; text-decoration: none; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#2563eb'" onmouseout="this.style.background='#f8fafc'; this.style.color='#3b82f6'">
+                                    <Link :href="latestNotification?.data?.url" @click="closePopup" style="flex: 1; text-align: center; padding: 10px 0; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; font-weight: 600; text-decoration: none; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#2563eb'" onmouseout="this.style.background='#f8fafc'; this.style.color='#3b82f6'">
                                         {{ latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'Xem lý do chi tiết' : 'Truy cập trang quản lý' }}
                                     </Link>
                                 </div>

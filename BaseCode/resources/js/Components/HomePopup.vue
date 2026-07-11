@@ -155,7 +155,7 @@ onMounted(() => {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 40px;
+    border-radius: 12px;
     width: 100%;
     max-width: 800px;
     max-height: 90vh;
@@ -176,13 +176,13 @@ onMounted(() => {
 
 .popup-container::-webkit-scrollbar-thumb {
     background: #cbd5e1;
-    border-radius: 10px;
+    border-radius: 6px;
 }
 
 @media (max-width: 768px) {
     .popup-container {
         padding: 40px 20px 30px;
-        border-radius: 30px;
+        border-radius: 12px;
         max-width: 500px;
     }
 }
@@ -260,7 +260,7 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     padding: 30px 25px;
-    border-radius: 24px;
+    border-radius: 10px;
     text-decoration: none;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     border: 2px solid transparent;
@@ -319,7 +319,7 @@ onMounted(() => {
 .role-icon {
     width: 55px;
     height: 55px;
-    border-radius: 18px;
+    border-radius: 10px;
     background: white;
     display: flex;
     align-items: center;
@@ -335,7 +335,7 @@ onMounted(() => {
         width: 45px;
         height: 45px;
         margin-bottom: 0;
-        border-radius: 12px;
+        border-radius: 8px;
     }
 }
 

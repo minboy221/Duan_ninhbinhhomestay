@@ -5,11 +5,14 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class Databasedulieumau extends Seeder
 {
     public function run()
     {
+        // No truncates here to preserve preceding seeders' data during migrate:fresh --seed
+
         // 1. Tạo Users
         $adminId = DB::table('users')->insertGetId([
             'name' => 'Admin Ninh Binh StayWork',
@@ -28,6 +31,9 @@ class Databasedulieumau extends Seeder
             'cccd_number' => '037123456789',
             'role' => 'landlord',
             'is_verified' => true,
+            'bank_name' => 'Vietcombank',
+            'bank_account_no' => '1234567890',
+            'bank_account_name' => 'NGUYEN VAN CHU TRO',
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
         ]);
@@ -44,7 +50,50 @@ class Databasedulieumau extends Seeder
             'updated_at' => Carbon::now(),
         ]);
 
-        // 2. Tạo Property (Khu trọ / Homestay)
+        // Copy private files to match the new landlord user ID dynamically
+        $oldId = 6;
+        $newId = $landlordId;
+        $filesToCopy = [
+            'private/kyc/id_cards/user_' . $oldId . '_cccd_truoc_1780282532.jpg' => 'private/kyc/id_cards/user_' . $newId . '_cccd_truoc_1780282532.jpg',
+            'private/kyc/id_cards/user_' . $oldId . '_cccd_sau_1780282532.jpg' => 'private/kyc/id_cards/user_' . $newId . '_cccd_sau_1780282532.jpg',
+            'private/kyc/faces/user_' . $oldId . '_khuon_mat_1780282532.jpg' => 'private/kyc/faces/user_' . $newId . '_khuon_mat_1780282532.jpg',
+            'private/properties/contracts/user_' . $oldId . '_hop_dong_0_1780282532.png' => 'private/properties/contracts/user_' . $newId . '_hop_dong_0_1780282532.png',
+            'private/properties/rooms/user_' . $oldId . '_phong_tro_0_1780282532.png' => 'private/properties/rooms/user_' . $newId . '_phong_tro_0_1780282532.png',
+        ];
+
+        foreach ($filesToCopy as $src => $dest) {
+            if ($src !== $dest && \Illuminate\Support\Facades\Storage::disk('local')->exists($src)) {
+                \Illuminate\Support\Facades\Storage::disk('local')->copy($src, $dest);
+            }
+        }
+
+        // Tạo dữ liệu kyc cho chủ trọ
+        DB::table('user_verifications')->insert([
+            'user_id' => $landlordId,
+            'id_card_number' => '037123456789',
+            'id_card_front' => 'private/kyc/id_cards/user_' . $newId . '_cccd_truoc_1780282532.jpg',
+            'id_card_back' => 'private/kyc/id_cards/user_' . $newId . '_cccd_sau_1780282532.jpg',
+            'face_auth_image' => 'private/kyc/faces/user_' . $newId . '_khuon_mat_1780282532.jpg',
+            'kyc_status' => 'approved',
+            'kyc_notes' => 'Hồ sơ đầy đủ, hợp lệ',
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+
+        // 2. Tạo Boarding House (Nhà trọ)
+        $boardingHouseId = DB::table('boarding_houses')->insertGetId([
+            'user_id' => $landlordId,
+            'name' => 'Nhà trọ Hoa Lư View',
+            'district' => 'Hoa Lư',
+            'address_detail' => '123 Đường Tràng An',
+            'status' => 'approved',
+            'contract_images' => json_encode(['private/properties/contracts/user_' . $landlordId . '_hop_dong_0_1780282532.png']),
+            'room_images' => json_encode(['private/properties/rooms/user_' . $landlordId . '_phong_tro_0_1780282532.png']),
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+
+        // 3. Tạo Property (Khu trọ / Homestay phục vụ tìm kiếm)
         $propertyId = DB::table('properties')->insertGetId([
             'landlord_id' => $landlordId,
             'name' => 'Homestay Hoa Lư View',
@@ -56,32 +105,43 @@ class Databasedulieumau extends Seeder
             'updated_at' => Carbon::now(),
         ]);
 
-        // 3. Tạo Rooms
-        $roomId = DB::table('rooms')->insertGetId([
+        // 4. Tạo Floor (Tầng)
+        $floorId = DB::table('floors')->insertGetId([
             'property_id' => $propertyId,
-            'room_number' => 'P101',
-            'price' => 2500000.00,
-            'area' => 25.5,
-            'capacity' => 2,
-            'status' => 'available',
-            'amenities' => 'Điều hòa, Nóng lạnh, Giường tủ',
+            'name' => 'Tầng 1',
+            'address' => '123 Đường Tràng An',
+            'sort_order' => 1,
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
         ]);
 
-        // 4. Tạo Contract (Hợp đồng mẫu)
+        // 5. Tạo Room (Phòng)
+        $roomId = DB::table('rooms')->insertGetId([
+            'boarding_house_id' => $boardingHouseId,
+            'floor_id' => $floorId,
+            'room_number' => 'P101',
+            'address' => '123 Đường Tràng An, Tầng 1',
+            'price' => 2500000.00,
+            'area' => 25.5,
+            'capacity' => 2,
+            'status' => 'rented',
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+
+        // 6. Tạo Contract (Hợp đồng mẫu)
         $contractId = DB::table('contracts')->insertGetId([
             'tenant_id' => $tenantId,
             'room_id' => $roomId,
             'start_date' => Carbon::now()->format('Y-m-d'),
             'end_date' => Carbon::now()->addMonths(6)->format('Y-m-d'),
             'deposit_amount' => 2500000.00,
-            'status' => 'pending',
+            'status' => 'signed',
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
         ]);
 
-        // 5. Tạo danh mục dịch vụ mẫu cho khu trọ (sử dụng biến $propertyId từ phần trước)
+        // 7. Tạo danh mục dịch vụ mẫu cho khu trọ
         $serviceDienId = DB::table('services')->insertGetId([
             'property_id' => $propertyId,
             'name' => 'Tiền Điện',
@@ -112,40 +172,19 @@ class Databasedulieumau extends Seeder
             'updated_at' => Carbon::now(),
         ]);
 
-        // 6. Tạo Hóa đơn mẫu (sử dụng biến $contractId từ phần trước)
+        // 8. Tạo Hóa đơn mẫu
         $invoiceId = DB::table('invoices')->insertGetId([
             'contract_id' => $contractId,
             'invoice_code' => 'HD-' . date('Ym') . '-001',
             'billing_month' => date('Y-m'),
-            'total_amount' => 2725000.00, // Tổng cộng các khoản bên dưới
+            'total_amount' => 2725000.00,
             'status' => 'unpaid',
             'due_date' => Carbon::now()->addDays(7)->format('Y-m-d'),
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
         ]);
 
-        // 8. Tạo dữ liệu mẫu cho Yêu cầu sửa chữa (sử dụng $roomId và $tenantId từ phần trước)
-        DB::table('maintenance_requests')->insert([
-            'room_id' => $roomId,
-            'tenant_id' => $tenantId, // ID người thuê mẫu
-            'title' => 'Hỏng vòi hoa sen',
-            'description' => 'Vòi hoa sen trong nhà tắm bị rỉ nước mạnh, nhờ chủ nhà qua sửa giúp.',
-            'status' => 'pending',
-            'created_at' => Carbon::now(),
-            'updated_at' => Carbon::now(),
-        ]);
-
-        // 9. Tạo dữ liệu mẫu cho Đánh giá homestay
-        DB::table('reviews')->insert([
-            'property_id' => $propertyId,
-            'tenant_id' => $tenantId,
-            'rating' => 5,
-            'comment' => 'Phòng sạch sẽ, chủ nhà thân thiện, thủ tục ký hợp đồng online rất nhanh gọn.',
-            'created_at' => Carbon::now(),
-            'updated_at' => Carbon::now(),
-        ]);
-
-        // Cập nhật Chi tiết hóa đơn mẫu có kèm ảnh minh chứng công tơ
+        // 9. Tạo Chi tiết hóa đơn mẫu
         DB::table('invoice_details')->insert([
             [
                 'invoice_id' => $invoiceId,
@@ -153,7 +192,7 @@ class Databasedulieumau extends Seeder
                 'item_name' => 'Tiền thuê nhà tháng này',
                 'old_index' => null,
                 'new_index' => null,
-                'meter_image_path' => null, // Tiền phòng không cần ảnh
+                'meter_image_path' => null,
                 'quantity' => 1,
                 'price' => 2500000.00,
                 'subtotal' => 2500000.00,
@@ -166,7 +205,7 @@ class Databasedulieumau extends Seeder
                 'item_name' => 'Tiền Điện',
                 'old_index' => 1200,
                 'new_index' => 1250,
-                'meter_image_path' => 'uploads/meters/dien_thang5_2026.jpg', // Đường dẫn ảnh mẫu
+                'meter_image_path' => 'uploads/meters/dien_thang5_2026.jpg',
                 'quantity' => 50,
                 'price' => 3500.00,
                 'subtotal' => 175000.00,
@@ -179,13 +218,49 @@ class Databasedulieumau extends Seeder
                 'item_name' => 'Internet Wifi',
                 'old_index' => null,
                 'new_index' => null,
-                'meter_image_path' => null, // Phí cố định không cần ảnh
+                'meter_image_path' => null,
                 'quantity' => 1,
                 'price' => 50000.00,
                 'subtotal' => 50000.00,
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ],
+        ]);
+
+        // 10. Tạo dữ liệu mẫu cho Yêu cầu sửa chữa
+        DB::table('maintenance_requests')->insert([
+            'room_id' => $roomId,
+            'tenant_id' => $tenantId,
+            'title' => 'Hỏng vòi hoa sen',
+            'description' => 'Vòi hoa sen trong nhà tắm bị rỉ nước mạnh, nhờ chủ nhà qua sửa giúp.',
+            'status' => 'pending',
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+
+        // 11. Tạo dữ liệu mẫu cho Đánh giá homestay
+        DB::table('reviews')->insert([
+            'property_id' => $propertyId,
+            'tenant_id' => $tenantId,
+            'rating' => 5,
+            'comment' => 'Phòng sạch sẽ, chủ nhà thân thiện, thủ tục ký hợp đồng online rất nhanh gọn.',
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+
+        // 12. Tạo bài đăng mẫu (RoomPost)
+        DB::table('room_posts')->insert([
+            'landlord_id' => $landlordId,
+            'room_id' => $roomId,
+            'title' => 'Phòng trọ P101 đầy đủ tiện nghi, thoáng mát sạch sẽ',
+            'description' => 'Phòng trọ khép kín, an ninh tốt, gần trung tâm du lịch Tràng An, phù hợp cho học sinh, sinh viên và người đi làm.',
+            'image' => json_encode(['private/properties/rooms/user_' . $landlordId . '_phong_tro_0_1780282532.png']),
+            'status' => 'approved',
+            'view_count' => 12,
+            'is_vip' => false,
+            'published_at' => Carbon::now(),
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
         ]);
     }
 }

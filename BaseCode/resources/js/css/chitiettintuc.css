@@ -18,7 +18,7 @@
     width: 100%;
     padding: 14px 45px 14px 15px;
     /* chừa chỗ bên phải cho icon */
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid #ddd;
     outline: none;
     font-size: 14px;
@@ -64,8 +64,8 @@
 }
 
 .category {
-    margin-top: 25px;
-    border-radius: 20px;
+    margin-top: 300px;
+    border-radius: 10px;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -84,7 +84,7 @@
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 15px;
+    border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -145,7 +145,7 @@
     text-decoration: none;
     font-size: 14px;
     padding: 6px 12px;
-    border-radius: 20px;
+    border-radius: 10px;
     background: rgba(69, 171, 230, 0.1);
     color: #45abe6;
     border: 1px solid rgba(69, 171, 230, 0.3);

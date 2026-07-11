@@ -277,7 +277,7 @@ const getAvatarUrl = (avatar) => {
 }
 
 .map_wrap {
-    border-radius: 12px;
+    border-radius: 8px;
     overflow: hidden;
     border: 1px solid #e2e8f0;
 }
@@ -327,7 +327,7 @@ const getAvatarUrl = (avatar) => {
 }
 
 .so_trang {
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
     border: 1px solid #e2e8f0;
     transition: all 0.2s;

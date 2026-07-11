@@ -279,8 +279,45 @@ const getCurrentFloorPosition = () => {
                 const response = await axios.get(
                     `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
                 );
-                if (response.data && response.data.display_name) {
-                    floorAddress.value = response.data.display_name;
+                if (response.data) {
+                    const addr = response.data.address || {};
+                    let foundWard = '';
+                    const possibleWardKeys = ['suburb', 'village', 'town', 'quarter', 'city_district', 'neighbourhood'];
+                    
+                    for (const key of possibleWardKeys) {
+                        if (addr[key]) {
+                            const val = addr[key].trim();
+                            const matched = HA_NAM_COMMUNES.find(c => 
+                                c.toLowerCase().includes(val.toLowerCase()) || 
+                                val.toLowerCase().includes(c.toLowerCase())
+                            );
+                            if (matched) {
+                                foundWard = matched;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (foundWard) {
+                        selectedWard.value = foundWard;
+                    }
+
+                    let displayName = response.data.display_name || '';
+                    let detail = displayName;
+                    if (foundWard) {
+                        const idx = displayName.indexOf(foundWard);
+                        if (idx !== -1) {
+                            detail = displayName.substring(0, idx).trim().replace(/,\s*$/, "").replace(/^\s*,/, "").trim();
+                        }
+                    } else {
+                        const parts = displayName.split(',');
+                        if (parts.length > 2) {
+                            detail = parts.slice(0, 2).join(', ').trim();
+                        }
+                    }
+
+                    addressDetail.value = detail || displayName;
+                    floorAddress.value = displayName;
                 }
             } catch (error) {
                 console.error("Lỗi dịch toạ độ sang địa chỉ:", error);
@@ -1048,6 +1085,77 @@ const getAutoCoordinates = () => {
                             <span v-if="floorError" class="text-[10px] text-rose-500 font-semibold block mt-1"><i
                                     class="bi bi-exclamation-circle"></i>
                                 {{ floorError }}</span>
+                        </div>
+                        <!-- Địa chỉ Phường/Xã và Chi tiết -->
+                        <div class="space-y-3">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Phường / Xã <span class="text-rose-500">*</span></label>
+                                <div class="relative w-full" ref="floorDropdownRef">
+                                    <!-- Custom Trigger Button -->
+                                    <button
+                                        type="button"
+                                        @click="toggleFloorDropdown"
+                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none bg-white transition-all flex items-center justify-between text-left cursor-pointer select-none"
+                                        :class="{ 'border-emerald-500 ring-2 ring-emerald-500/20': isFloorDropdownOpen }"
+                                    >
+                                        <span :class="{ 'text-slate-400': !selectedWard }">
+                                            {{ selectedWard || '-- Chọn Phường/Xã --' }}
+                                        </span>
+                                        <i class="bi bi-chevron-down text-slate-400 transition-transform duration-300" :class="{ 'rotate-180': isFloorDropdownOpen }"></i>
+                                    </button>
+
+                                    <!-- Custom Dropdown Options Menu -->
+                                    <transition name="dropdown-fade">
+                                        <div
+                                            v-show="isFloorDropdownOpen"
+                                            class="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 z-[999] p-1.5 max-h-48 overflow-y-auto custom-scrollbar"
+                                        >
+                                            <button
+                                                v-for="commune in HA_NAM_COMMUNES"
+                                                :key="commune"
+                                                type="button"
+                                                @click="selectFloorCommune(commune)"
+                                                class="w-full px-3 py-2 rounded-lg text-left text-xs font-medium transition-all duration-150 flex items-center justify-between"
+                                                :class="selectedWard === commune ? 'bg-emerald-50 text-emerald-600 font-bold' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-800'"
+                                            >
+                                                <span>{{ commune }}</span>
+                                                <i v-if="selectedWard === commune" class="bi bi-check text-emerald-600 text-sm font-bold"></i>
+                                            </button>
+                                        </div>
+                                    </transition>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-bold text-slate-500">Địa chỉ chi tiết <span class="text-rose-500">*</span></label>
+                                    <button @click="getCurrentFloorPosition" type="button"
+                                        class="text-[10px] text-emerald-600 font-bold hover:underline flex items-center gap-1">
+                                        <i class="bi bi-geo-alt-fill"></i>
+                                        {{ isLocatingFloor ? 'Đang định vị...' : 'Lấy vị trí hiện tại' }}
+                                    </button>
+                                </div>
+                                <input v-model="addressDetail"
+                                    class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
+                                    placeholder="Số nhà, tên đường..." />
+                                
+                                <div v-if="floorLatitude && floorLongitude" class="mt-1.5 p-2 bg-emerald-50/50 border border-emerald-100/50 rounded-xl text-[10px] font-bold text-emerald-700 flex gap-4">
+                                    <span><i class="bi bi-compass"></i> Vĩ độ (Lat): {{ floorLatitude }}</span>
+                                    <span><i class="bi bi-compass"></i> Kinh độ (Lng): {{ floorLongitude }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Map Preview -->
+                        <div class="rounded-xl overflow-hidden border border-slate-100" style="height: 150px">
+                            <iframe v-if="floorMapUrl"
+                                :src="floorMapUrl"
+                                width="100%" height="100%" style="border: 0" loading="lazy">
+                            </iframe>
+                            <div v-else
+                                class="h-full bg-slate-50 flex items-center justify-center text-[10px] text-slate-400">
+                                Nhập địa chỉ hoặc toạ độ để xem trước bản đồ vị trí khu trọ/tầng
+                            </div>
                         </div>
                     </div>
                     <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">

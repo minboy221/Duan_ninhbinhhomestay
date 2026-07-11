@@ -720,7 +720,7 @@ const formatGeneralText = (text) => {
 
 .form-card {
     background: #fff;
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     border: 1px solid #f0fdf4;
@@ -766,7 +766,7 @@ form.price {
 .form-input {
     padding: 9px 12px;
     border: 1.5px solid #e2e8f0;
-    border-radius: 9px;
+    border-radius: 6px;
     font-size: 14px;
     outline: none;
     width: 100%;
@@ -805,7 +805,7 @@ form.price {
     align-items: center;
     gap: 4px;
     padding: 10px 6px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: 1.5px solid #e2e8f0;
     background: #f8fafc;
     color: #6b7280;
@@ -838,7 +838,7 @@ form.price {
     align-items: center;
     gap: 8px;
     border: 2px dashed #d1fae5;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 24px;
     cursor: pointer;
     transition: border-color 0.15s;
@@ -874,7 +874,7 @@ form.price {
 
 .img-preview-item {
     position: relative;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
     aspect-ratio: 1;
 }
@@ -917,7 +917,7 @@ form.price {
 /* Map */
 .map-placeholder {
     background: #f0fdf4;
-    border-radius: 10px;
+    border-radius: 6px;
     height: 160px;
     display: flex;
     flex-direction: column;
@@ -941,13 +941,13 @@ form.price {
 .preview-card {
     background: #f0fdf4;
     border: 1.5px solid #d1fae5;
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 18px;
 }
 
 .preview-box {
     background: #fff;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 14px;
     margin-top: 10px;
 }
@@ -1003,7 +1003,7 @@ form.price {
     justify-content: flex-end;
     gap: 10px;
     background: #fff;
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 16px 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
@@ -1013,7 +1013,7 @@ form.price {
     background: #fff;
     color: #374151;
     border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 6px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -1025,7 +1025,7 @@ form.price {
     background: #fef9c3;
     color: #854d0e;
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -1039,7 +1039,7 @@ form.price {
     background: #0f766e;
     color: #fff;
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -1164,7 +1164,7 @@ form.price {
 .map-container {
     width: 100%;
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 .map-placeholder {
