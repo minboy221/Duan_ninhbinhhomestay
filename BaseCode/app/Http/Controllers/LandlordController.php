@@ -43,6 +43,23 @@ class LandlordController extends Controller
         ]);
     }
 
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'bank_name' => 'nullable|string|max:100',
+            'bank_account_no' => 'nullable|string|max:50',
+            'bank_account_name' => 'nullable|string|max:100',
+        ]);
+
+        $user = Auth::user();
+        $user->update($request->only('name', 'phone', 'email', 'bank_name', 'bank_account_no', 'bank_account_name'));
+
+        return redirect()->back()->with('success', 'Cập nhật thông tin thành công!');
+    }
+
     /**
      * Trang quản lý phòng trọ — Controller chỉ gọi Service, trả kết quả
      */
@@ -374,7 +391,157 @@ class LandlordController extends Controller
 
     public function invoices()
     {
-        return Inertia::render('Landlord/Invoices/index');
+        $landlordId = Auth::id();
+        
+        $invoices = \App\Models\Invoice::whereHas('contract.room.boardingHouse', function($q) use($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+        ->with(['contract.room', 'contract.tenant', 'details.service'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        $activeContracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+        ->where('status', '!=', 'terminated')
+        ->with(['room.services', 'tenant'])
+        ->get();
+
+        // Get landlord services
+        $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
+        $propertyId = $boardingHouse ? $this->roomService->getOrCreatePropertyId($landlordId) : null;
+        $services = $propertyId ? \App\Models\Service::where('property_id', $propertyId)->where('is_active', true)->get() : collect();
+
+        return Inertia::render('Landlord/Invoices/index', [
+            'invoices' => $invoices,
+            'activeContracts' => $activeContracts,
+            'services' => $services,
+        ]);
+    }
+
+    public function storeInvoice(Request $request)
+    {
+        $request->validate([
+            'contract_id' => 'required|exists:contracts,id',
+            'billing_month' => 'required|string',
+            'due_date' => 'required|date',
+            'details' => 'required|array',
+            'details.*.item_name' => 'required|string',
+            'details.*.price' => 'required|numeric',
+            'details.*.quantity' => 'required|numeric',
+            'details.*.subtotal' => 'required|numeric',
+            'details.*.old_index' => 'nullable|integer',
+            'details.*.new_index' => 'nullable|integer',
+            'details.*.service_id' => 'nullable|exists:services,id',
+        ]);
+
+        $contract = \App\Models\Contract::findOrFail($request->contract_id);
+        
+        // Tránh trùng hóa đơn trong cùng kỳ thanh toán
+        $exists = \App\Models\Invoice::where('contract_id', $request->contract_id)
+            ->where('billing_month', $request->billing_month)
+            ->exists();
+        if ($exists) {
+            return redirect()->back()->with('error', 'Hóa đơn cho hợp đồng này trong kỳ này đã tồn tại!');
+        }
+
+        $totalAmount = collect($request->details)->sum('subtotal');
+
+        $invoice = \App\Models\Invoice::create([
+            'contract_id' => $request->contract_id,
+            'invoice_code' => 'HD-' . date('Ym') . '-' . str_pad(rand(0, 999), 3, '0', STR_PAD_LEFT),
+            'billing_month' => $request->billing_month,
+            'total_amount' => $totalAmount,
+            'status' => 'unpaid',
+            'due_date' => $request->due_date,
+        ]);
+
+        foreach ($request->details as $d) {
+            \App\Models\InvoiceDetail::create([
+                'invoice_id' => $invoice->id,
+                'service_id' => $d['service_id'] ?? null,
+                'item_name' => $d['item_name'],
+                'old_index' => $d['old_index'] ?? null,
+                'new_index' => $d['new_index'] ?? null,
+                'quantity' => $d['quantity'],
+                'price' => $d['price'],
+                'subtotal' => $d['subtotal'],
+            ]);
+        }
+
+        // Gửi thông báo cho khách thuê
+        $tenant = $contract->tenant;
+        if ($tenant) {
+            $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+        }
+
+        return redirect()->back()->with('success', 'Tạo hóa đơn thành công!');
+    }
+
+    public function updateInvoice(Request $request, $id)
+    {
+        $invoice = \App\Models\Invoice::findOrFail($id);
+
+        $request->validate([
+            'due_date' => 'required|date',
+            'details' => 'required|array',
+            'details.*.item_name' => 'required|string',
+            'details.*.price' => 'required|numeric',
+            'details.*.quantity' => 'required|numeric',
+            'details.*.subtotal' => 'required|numeric',
+            'details.*.old_index' => 'nullable|integer',
+            'details.*.new_index' => 'nullable|integer',
+            'details.*.service_id' => 'nullable|exists:services,id',
+        ]);
+
+        $totalAmount = collect($request->details)->sum('subtotal');
+
+        $invoice->update([
+            'total_amount' => $totalAmount,
+            'due_date' => $request->due_date,
+        ]);
+
+        // Recreate details
+        $invoice->details()->delete();
+
+        foreach ($request->details as $d) {
+            \App\Models\InvoiceDetail::create([
+                'invoice_id' => $invoice->id,
+                'service_id' => $d['service_id'] ?? null,
+                'item_name' => $d['item_name'],
+                'old_index' => $d['old_index'] ?? null,
+                'new_index' => $d['new_index'] ?? null,
+                'quantity' => $d['quantity'],
+                'price' => $d['price'],
+                'subtotal' => $d['subtotal'],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Cập nhật hóa đơn thành công!');
+    }
+
+    public function updateInvoiceStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|string|in:unpaid,paid'
+        ]);
+
+        $invoice = \App\Models\Invoice::findOrFail($id);
+        $invoice->update([
+            'status' => $request->status,
+            'paid_at' => $request->status === 'paid' ? now() : null,
+        ]);
+
+        return redirect()->back()->with('success', 'Cập nhật trạng thái hóa đơn thành công!');
+    }
+
+    public function deleteInvoice($id)
+    {
+        $invoice = \App\Models\Invoice::findOrFail($id);
+        $invoice->details()->delete();
+        $invoice->delete();
+
+        return redirect()->back()->with('success', 'Xóa hóa đơn thành công!');
     }
 
     public function finance()

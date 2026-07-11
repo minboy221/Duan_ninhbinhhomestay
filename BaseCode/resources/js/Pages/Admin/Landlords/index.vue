@@ -86,7 +86,7 @@ function open(l) {
                                         " class="w-full h-full object-cover rounded-lg" style="
                                             width: 100%;
                                             height: 100%;
-                                            border-radius: 9px;
+                                            border-radius: 6px;
                                         " />
                                     <span v-else>{{
                                         l.name[0]?.toUpperCase()
@@ -210,7 +210,7 @@ function open(l) {
 
 .scard {
     background: #fff;
-    border-radius: 14px;
+    border-radius: 8px;
     padding: 16px;
     display: flex;
     align-items: center;
@@ -241,7 +241,7 @@ function open(l) {
 
 .table-card {
     background: #fff;
-    border-radius: 14px;
+    border-radius: 8px;
     border: 1px solid #f1f5f9;
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -294,7 +294,7 @@ function open(l) {
 .ava {
     width: 34px;
     height: 34px;
-    border-radius: 9px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -365,7 +365,7 @@ function open(l) {
 
 .act-btn {
     padding: 7px 12px;
-    border-radius: 9px;
+    border-radius: 6px;
     border: none;
     font-size: 12px;
     font-weight: 600;
@@ -397,7 +397,7 @@ function open(l) {
 
 .modal-box {
     background: #fff;
-    border-radius: 18px;
+    border-radius: 10px;
     width: 440px;
     max-width: 92vw;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
@@ -422,7 +422,7 @@ function open(l) {
 .modal-close {
     width: 30px;
     height: 30px;
-    border-radius: 8px;
+    border-radius: 6px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -466,7 +466,7 @@ function open(l) {
 
 .info-block {
     background: #f8fafc;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 12px 14px;
     text-align: left;
     margin-bottom: 12px;
@@ -493,7 +493,7 @@ function open(l) {
 
 .cccd-preview {
     border: 2px dashed #e2e8f0;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 24px;
     color: #94a3b8;
     font-size: 36px;
@@ -517,7 +517,7 @@ function open(l) {
 .btn-cancel {
     flex: 1;
     padding: 9px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: 1px solid #e2e8f0;
     background: #fff;
     color: #64748b;
@@ -529,7 +529,7 @@ function open(l) {
 .btn-approve {
     flex: 2;
     padding: 9px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: none;
     background: #7c3aed;
     color: #fff;
@@ -556,7 +556,7 @@ function open(l) {
     font-weight: 700;
     color: #16a34a;
     background: #f0fdf4;
-    border-radius: 10px;
+    border-radius: 6px;
     padding: 9px;
 }
 </style>

@@ -6,6 +6,13 @@ import MainLayout from '@/Layouts/MainLayout.vue';
 const { props } = usePage()
 const user = computed(() => props.auth.user);
 
+const isVerified = computed(() => {
+    if (user.value?.role === 'admin' || user.value?.role === 'landlord') {
+        return true;
+    }
+    return !!(user.value?.phone && user.value?.address);
+});
+
 const avatarForm = useForm({
     avatar: null,
 });
@@ -51,7 +58,14 @@ const getAvatarUrl = (avatar) => {
                             <p>ID:{{ user.id.toString().padStart(6, '0') }}</p>
                         </div>
                         <div class="xacthuc_user">
-                            <p><i class="bi bi-check2-circle"></i> <span>tài khoản đã được xác thực</span></p>
+                            <p v-if="isVerified" class="kyc-approved">
+                                <i class="bi bi-check2-circle"></i>
+                                <span>Tài khoản đã xác thực</span>
+                            </p>
+                            <p v-else class="kyc-unverified" title="Vui lòng cập nhật số điện thoại để xác thực">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <span>Tài khoản chưa xác thực</span>
+                            </p>
                         </div>
                     </div>
                     <div class="menu_nguoidung">
@@ -134,4 +148,14 @@ const getAvatarUrl = (avatar) => {
 @import "../css/user.css";
 @import '../css/responsive/responsivetranguser.css';
 @import '../css/responsive/responsive.css';
+
+.xacthuc_user p.kyc-approved {
+    background: #e6f9f2 !important;
+    color: #00b894 !important;
+}
+
+.xacthuc_user p.kyc-unverified {
+    background: #fff9db !important;
+    color: #f59f00 !important;
+}
 </style>

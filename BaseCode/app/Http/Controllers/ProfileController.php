@@ -47,16 +47,30 @@ class ProfileController extends Controller
     //trang quản lý nơi ở
     public function quanlynoio(Request $request): Response
     {
+        $contract = \App\Models\Contract::where('tenant_id', $request->user()->id)
+            ->where('status', 'signed')
+            ->with(['room.boardingHouse.user'])
+            ->first();
+
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
+            'contract' => $contract,
         ]);
     }
 
     //trang thanh toán
     public function lichsuthanhtoan(Request $request): Response
     {
+        $invoices = \App\Models\Invoice::whereHas('contract', function ($q) use ($request) {
+            $q->where('tenant_id', $request->user()->id);
+        })
+        ->with(['details.service', 'contract.room.boardingHouse.user'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
         return Inertia::render('Profile/listthanhtoan', [
             'user' => $request->user(),
+            'invoices' => $invoices,
         ]);
     }
 
@@ -178,5 +192,32 @@ class ProfileController extends Controller
             'user' => $request->user(),
             'favoriteRooms' => $favoriteRooms
         ]);
+    }
+
+    /**
+     * Gửi thông báo đã thanh toán cho chủ trọ
+     */
+    public function notifyPayment(Request $request, $id)
+    {
+        $request->validate([
+            'payment_method' => 'required|string|in:qr,cash'
+        ]);
+
+        $invoice = \App\Models\Invoice::where('id', $id)
+            ->whereHas('contract', function ($q) use ($request) {
+                $q->where('tenant_id', $request->user()->id);
+            })
+            ->with(['contract.room.boardingHouse.user'])
+            ->firstOrFail();
+
+        // Cập nhật trạng thái hoặc gửi thông báo
+        // Giao dịch được coi là đã thông báo, chờ landlord duyệt
+        $landlord = $invoice->contract->room->boardingHouse->user ?? null;
+        if ($landlord) {
+            $methodLabel = $request->payment_method === 'qr' ? 'QR Code' : 'Tiền mặt';
+            $landlord->notify(new \App\Notifications\TenantPaidInvoiceNotification($invoice, $methodLabel));
+        }
+
+        return Redirect::back()->with('success', 'Đã gửi thông báo đã chuyển khoản thành công tới Chủ trọ!');
     }
 }

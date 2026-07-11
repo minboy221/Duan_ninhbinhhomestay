@@ -378,7 +378,7 @@ const navGroups = [
     width: 36px;
     height: 36px;
     background: #166ea9;
-    border-radius: 10px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -437,7 +437,7 @@ const navGroups = [
     align-items: center;
     gap: 10px;
     padding: 9px 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     color: #94a3b8;
     text-decoration: none;
     cursor: pointer;
@@ -531,7 +531,7 @@ const navGroups = [
 .header-btn {
     width: 38px;
     height: 38px;
-    border-radius: 10px;
+    border-radius: 6px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     display: flex;
@@ -555,7 +555,7 @@ const navGroups = [
     min-width: 18px;
     height: 18px;
     background: #ef4444;
-    border-radius: 9px;
+    border-radius: 6px;
     border: 1.5px solid #fff;
     color: white;
     font-size: 10px;
@@ -576,7 +576,7 @@ const navGroups = [
 .admin-avatar {
     width: 36px;
     height: 36px;
-    border-radius: 10px;
+    border-radius: 6px;
     background: linear-gradient(135deg, #166ea9, #0e4f7a);
     display: flex;
     align-items: center;

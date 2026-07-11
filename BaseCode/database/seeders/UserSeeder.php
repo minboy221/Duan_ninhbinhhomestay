@@ -33,6 +33,9 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('12345678'),
                 'role' => 'user', // Gán role dạng chuỗi
                 'email_verified_at' => now(),
+                'phone' => '0987654321',
+                'cccd_number' => '037987654321',
+                'is_verified' => true,
             ]
         );
     }

@@ -196,6 +196,10 @@ async function openBooking() {
     showBookingModal.value = true;
 }
 
+function reportListing() {
+    alert("Cảm ơn bạn đã gửi báo cáo. Ninh Bình HomeStay sẽ tiến hành kiểm tra và xác minh thông tin phòng trọ này trong thời gian sớm nhất!");
+}
+
 function submitBooking() {
     form.post(route("rooms.book", props.room.id), {
         preserveScroll: true,
@@ -349,6 +353,26 @@ function submitBooking() {
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="chutro-details" style="padding: 15px; margin: 10px 15px; background: rgba(255, 255, 255, 0.4); border-radius: 8px; border: 1px solid rgba(0, 0, 0, 0.05); font-size: 13.5px; color: #4b5563; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; text-align: left;">
+                        <div class="detail-item" style="display: flex; align-items: center; gap: 8px;">
+                            <i class="bi bi-person-fill" style="color: #45abe6; font-size: 15px;"></i>
+                            <span><strong>Họ tên:</strong> {{ room.boardingHouse?.user?.name || "Chủ trọ" }}</span>
+                        </div>
+                        <div class="detail-item" style="display: flex; align-items: center; gap: 8px;">
+                            <i class="bi bi-telephone-fill" style="color: #45abe6; font-size: 15px;"></i>
+                            <span><strong>SĐT:</strong> {{ room.boardingHouse?.user?.phone || "Chưa cập nhật" }}</span>
+                        </div>
+                        <div class="detail-item" style="display: flex; align-items: center; gap: 8px;">
+                            <i class="bi bi-envelope-fill" style="color: #45abe6; font-size: 15px;"></i>
+                            <span><strong>Email:</strong> {{ room.boardingHouse?.user?.email || "Chưa cập nhật" }}</span>
+                        </div>
+                        <div class="detail-item" style="display: flex; align-items: flex-start; gap: 8px;">
+                            <i class="bi bi-geo-alt-fill" style="color: #45abe6; font-size: 15px; margin-top: 3px;"></i>
+                            <span><strong>Địa chỉ:</strong> {{ room.boardingHouse?.address_detail || "Chưa cập nhật" }}</span>
+                        </div>
+                    </div>
+
                     <div class="content_chutro">
                         <div class="phone">
                             <a class="btn_content" :href="`tel:${room.boardingHouse?.user?.phone || '0862931722'}`">
@@ -369,6 +393,39 @@ function submitBooking() {
                                 <i class="bi bi-calendar-check-fill"></i>
                                 <span>Đặt Lịch Hẹn</span>
                             </button>
+                        </div>
+                        <div class="warning">
+                            <button @click="reportListing" class="btn_waring" style="
+                                    border: none;
+                                    width: 100%;
+                                    text-align: center;
+                                    cursor: pointer;
+                                    color: #fff;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    gap: 8px;
+                                ">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span>Báo Xấu</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Safety Note -->
+                    <div class="safety-note" style="margin: 15px; padding: 15px; background: rgba(255, 255, 255, 0.4); border-radius: 8px; border: 1px solid rgba(0, 0, 0, 0.05); font-size: 13.5px; line-height: 1.6; color: #4b5563; text-align: left;">
+                        <h4 style="font-weight: 700; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: #1f2937;">
+                            Lưu ý an toàn
+                        </h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: flex-start; gap: 8px;">
+                                <i class="bi bi-exclamation-triangle-fill" style="color: #eab308; margin-top: 2px;"></i>
+                                <span>Không đặt cọc nếu chưa xem phòng</span>
+                            </div>
+                            <div style="display: flex; align-items: flex-start; gap: 8px;">
+                                <i class="bi bi-check-circle-fill" style="color: #22c55e; margin-top: 2px;"></i>
+                                <span>Kiểm tra giấy tờ chính chủ</span>
+                            </div>
                         </div>
                     </div>
                 </div>
