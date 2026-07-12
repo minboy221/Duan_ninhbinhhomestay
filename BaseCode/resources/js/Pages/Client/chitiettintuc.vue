@@ -818,4 +818,22 @@ const formatDate = (dateStr) => {
         transform: rotate(360deg);
     }
 }
+
+.dieuhuong {
+    width: auto;
+    padding: 15px 15px;
+    position: fixed;
+    top: 62px;
+    left: 0;
+    transform: translate(61%, 55%);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 5px 0 30px 30px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.25),
+        inset 0 0 10px rgba(255, 255, 255, 0.2);
+    z-index: 999;
+}
 </style>

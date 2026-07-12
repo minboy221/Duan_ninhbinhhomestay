@@ -4,21 +4,20 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 
 .dieuhuong {
-    width: 500px;
+    width: auto;
     padding: 15px 15px;
     position: fixed;
     top: 62px;
-    left: 35%;
-    transform: translate(-70%, 55%);
+    left: 0;
+    transform: translate(42%, 55%);
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 4px 0 12px 12px;
+    border-radius: 5px 0 30px 30px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -60,7 +59,7 @@
 .gallery {
     width: 850px;
     background: #fff;
-    border-radius: 6px;
+    border-radius: 10px;
     overflow: hidden;
 }
 
@@ -93,7 +92,7 @@ button.next {
     color: #fff;
     border: none;
     font-size: 25px;
-    padding: 5px 15px;
+    padding: 5px 17px;
     cursor: pointer;
 }
 
@@ -147,7 +146,7 @@ button.next {
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
         inset 0 0 10px rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
+    border-radius: 20px;
     overflow: hidden;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
     position: relative;
@@ -283,7 +282,7 @@ button.next {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 10px;
+    border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
     position: relative;
@@ -296,7 +295,7 @@ button.next {
 }
 
 .avatar1 {
-    margin-top: 40px;
+    margin-top: 25px;
     display: flex;
     gap: 10px;
     align-items: center;
@@ -349,6 +348,8 @@ button.next {
 }
 
 .kiem_chung {
+    display: flex;
+    gap: 5px;
     background-color: #6ddf9c;
     color: #fff;
     border-radius: 4px;
@@ -362,7 +363,6 @@ button.next {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     text-align: center;
-    margin-top: 45px;
     padding: 10px;
 }
 
@@ -379,25 +379,48 @@ button.next {
     margin-top: 15px;
 }
 
-.content_chutro a {
+.content_chutro {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 10px;
+}
+
+.phone,
+.nhantin_chutro {
+    width: 100%;
+}
+
+.btn_content,
+.btn_mess {
+    width: 100%;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    width: 100%;
-    padding: 12px;
-    border-radius: 6px;
+    gap: 8px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
     font-weight: 600;
-    text-decoration: none;
     color: #fff;
-
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: all .25s ease;
 }
 
 .btn_content {
     background: linear-gradient(90deg, #102a6d, #3f7a9c);
-    padding: 10px;
-    font-weight: 600;
-    border-radius: 6px;
+}
+
+.btn_mess {
+    background: linear-gradient(90deg, #1361aa, #adc9f3);
+}
+
+.btn_content:hover,
+.btn_mess:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .15);
 }
 
 .btn_waring {
@@ -422,7 +445,9 @@ button.next {
 }
 
 .luu_y span {
+    font-size: 15px;
     color: #333;
+    margin: 0;
 }
 
 .warning_content i {

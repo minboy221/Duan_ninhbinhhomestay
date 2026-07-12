@@ -11,7 +11,7 @@
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 12px;
+    border-radius: 50px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -72,13 +72,12 @@ body {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 12px;
+    border-radius: 50px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
         inset 0 0 10px rgba(255, 255, 255, 0.2);
     z-index: 1000;
-    font-family: 'Inter', sans-serif;
 }
 
 /* LOGO */
@@ -117,7 +116,7 @@ body {
 /* Phần nút button  */
 .login-btn {
     padding: 12px 20px;
-    border-radius: 12px;
+    border-radius: 40px;
     border: none;
     cursor: pointer;
     background: rgba(255, 255, 255, 0.25);
@@ -140,7 +139,6 @@ body {
 .btn {
     margin-top: 15px;
     padding: 12px 15px;
-    font-family: 'Inter', sans-serif;
     border: none;
     cursor: pointer;
     transition: 0.3s;
@@ -148,7 +146,7 @@ body {
     font-size: 15px;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     color: #fff;
-    border-radius: 8px;
+    border-radius: 15px;
     transition: 0.3s;
     text-align: center;
     text-decoration: none;
@@ -160,7 +158,6 @@ body {
 
 .btn_xem {
     padding: 10px 10px;
-    font-family: 'Inter', sans-serif;
     cursor: pointer;
     transition: 0.3s;
     font-weight: 600;
@@ -304,7 +301,6 @@ body {
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
         inset 0 0 10px rgba(255, 255, 255, 0.2);
-    font-family: 'Inter', sans-serif;
 }
 
 .dropdown.show {
@@ -488,7 +484,7 @@ body {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 12px;
+    border-radius: 30px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -536,6 +532,7 @@ body {
 .search select {
     padding: 10px 25px;
     border-radius: 4px;
+    color: #000;
 }
 
 /* phần giới thiệu */
@@ -558,7 +555,7 @@ body {
 .image_noidung img {
     width: 100%;
     height: 420px;
-    border-radius: 12px;
+    border-radius: 55px;
     object-fit: cover;
 }
 
@@ -615,7 +612,6 @@ body {
 }
 
 .title1 h2 {
-    font-family: 'Inter', sans-serif;
     position: absolute;
     top: -15%;
     left: 27%;
@@ -752,7 +748,7 @@ body {
 .img_camket img {
     width: 100%;
     height: 600px;
-    border-radius: 12px;
+    border-radius: 50px;
     object-fit: cover;
 }
 
@@ -948,7 +944,7 @@ body {
     margin: 0 15px;
     padding: 25px;
     background: #fff;
-    border-radius: 8px;
+    border-radius: 15px;
     text-align: left;
     box-shadow: 0 10px 10px rgba(0, 0, 0, 0.1);
 }
@@ -1052,7 +1048,7 @@ body {
     background: #45abe6;
     color: #fff;
     font-weight: 600;
-    border-radius: 6px;
+    border-radius: 10px;
     text-decoration: none;
     transition: all 0.3s ease;
 }
@@ -1376,7 +1372,7 @@ body {
     position: relative;
     width: 100%;
     height: 520px;
-    border-radius: 12px;
+    border-radius: 30px;
     overflow: hidden;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
@@ -1486,7 +1482,7 @@ body {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 12px;
+    border-radius: 30px;
     color: #fff;
     font-weight: 600;
     font-size: 14px;

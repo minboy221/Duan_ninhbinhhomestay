@@ -75,6 +75,7 @@ class PublicListingController extends Controller
             'description' => $post->description ?? null,
             'title' => $post->title ?? null,
             'boardingHouse' => $room->boardingHouse,
+            'services' => $room->services ?? [],
         ];
 
         // Danh sách phòng tương tự (cùng nhà trọ)

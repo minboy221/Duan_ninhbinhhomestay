@@ -212,7 +212,6 @@ const submit = () => {
                                 <option value="">-- Chọn Giới Tính --</option>
                                 <option value="male">Nam</option>
                                 <option value="female">Nữ</option>
-                                <option value="other">Khác</option>
                             </select>
                             <span v-if="form.errors.gender" class="text-red-500 text-sm">{{ form.errors.gender }}</span>
                         </div>
