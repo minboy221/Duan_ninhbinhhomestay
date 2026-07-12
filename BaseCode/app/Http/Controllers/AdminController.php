@@ -69,7 +69,7 @@ class AdminController extends Controller
                 $roomCount = 0;
                 if ($user->boardingHouse) {
                     $roomCount = \Illuminate\Support\Facades\DB::table('rooms')
-                        ->where('property_id', $user->boardingHouse->id)
+                        ->where('boarding_house_id', $user->boardingHouse->id)
                         ->count();
                 }
 

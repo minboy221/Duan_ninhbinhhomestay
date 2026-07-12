@@ -67,7 +67,7 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         $boardingHouseId = session('selected_boarding_house_id');
-        
+
         $floors = $this->roomService->getFloorsWithRooms($landlordId, $boardingHouseId);
         $statusCounts = $this->roomService->getStatusCounts($landlordId, $boardingHouseId);
 
@@ -338,6 +338,7 @@ class LandlordController extends Controller
         //validate dữ liệu từ form gửi lên
         $request->validate([
             'boarding_house_id' => 'required|exists:boarding_houses,id',
+            'cancel_after_minutes' => 'required|integer|min:5|max:1440',
             'availabilities' => 'required|array',
             'availabilities.*.day_of_week' => 'required|integer|between:0,6',
             'availabilities.*.start_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i',
@@ -350,13 +351,21 @@ class LandlordController extends Controller
         $landlordId = auth()->id();
         $boardingHouseId = $request->boarding_house_id;
 
+        //cập nhật số phút tự huỷ cho mỗi cơ sở trọ
+        $boardingHouse = BoardingHouse::where('id', $boardingHouseId)
+            ->where('user_id', $landlordId)
+            ->firstOrFail();
+        $boardingHouse->update([
+            'cancel_after_minutes' => $request->cancel_after_minutes
+        ]);
+
         //xoá sạch các câu hình cũ để ghi đè câu hình mới
-        LandlordAvailability::where('boarding_house_id',$boardingHouseId)
-        ->where('landlord_id',$landlordId)
-        ->delete();
+        LandlordAvailability::where('boarding_house_id', $boardingHouseId)
+            ->where('landlord_id', $landlordId)
+            ->delete();
         //Duyệt qua mảng cấu hình gửi lên vue
-        foreach ($request->availabilities as $item){
-            if($item['is_active']){
+        foreach ($request->availabilities as $item) {
+            if ($item['is_active']) {
                 LandlordAvailability::create([
                     'landlord_id' => $landlordId,
                     'boarding_house_id' => $boardingHouseId,
@@ -366,7 +375,7 @@ class LandlordController extends Controller
                 ]);
             }
         }
-        return redirect()->back()->with('success','cập nhật khung giờ cho cơ sở thành công');
+        return redirect()->back()->with('success', 'cập nhật khung giờ cho cơ sở thành công');
     }
 
 

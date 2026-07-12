@@ -193,7 +193,14 @@ const closePopup = () => {
                                 ]" :title="!sidebarOpen ? item.label : ''">
                                     <i :class="['bi', item.icon, 'text-2xl transition-colors duration-300', isChildActive(item) ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-700']"></i>
                                     <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{ item.label }}</span>
-                                    <i v-if="sidebarOpen" :class="['bi ml-auto text-xs transition-transform duration-200', isSubmenuOpen(item) ? 'bi-chevron-up' : 'bi-chevron-down']"></i>
+                                    
+                                    <!-- Chấm đỏ/Badge số lượng cho menu Lịch Hẹn -->
+                                    <span v-if="item.label === 'Lịch Hẹn' && page.props.auth?.pending_appointments_count > 0" 
+                                        :class="sidebarOpen ? 'ml-auto mr-2 px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]' : 'absolute top-2 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white'">
+                                        {{ sidebarOpen ? page.props.auth.pending_appointments_count : '' }}
+                                    </span>
+
+                                    <i v-if="sidebarOpen" :class="['bi text-xs transition-transform duration-200', isSubmenuOpen(item) ? 'bi-chevron-up' : 'bi-chevron-down', item.label === 'Lịch Hẹn' && page.props.auth?.pending_appointments_count > 0 ? '' : 'ml-auto']"></i>
                                     
                                     <div v-if="!sidebarOpen" class="absolute left-16 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                                         {{ item.label }}
@@ -210,6 +217,11 @@ const closePopup = () => {
                                     ]">
                                         <i :class="['bi', child.icon, 'text-base', isActive(child.path) ? 'text-emerald-600' : 'text-slate-400']"></i>
                                         <span>{{ child.label }}</span>
+                                        <!-- Badge số lượng cho menu con Lịch Đặt Hẹn -->
+                                        <span v-if="child.label === 'Lịch Đặt Hẹn' && page.props.auth?.pending_appointments_count > 0" 
+                                            class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[16px] h-[16px]">
+                                            {{ page.props.auth.pending_appointments_count }}
+                                        </span>
                                     </Link>
                                 </div>
                             </div>
@@ -419,11 +431,18 @@ const closePopup = () => {
                                         class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 rounded uppercase">PRO</span>
                                 </component>
 
-                                <div v-else class="space-y-0.5">
+                                 <div v-else class="space-y-0.5">
                                     <button type="button" @click="toggleSubmenu(item.label)" class="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full transition-all duration-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800">
                                         <i :class="['bi', item.icon, 'text-xl', isChildActive(item) ? 'text-emerald-500' : 'text-slate-400']"></i>
-                                        <span class="text-sm font-bold text-left flex-1">{{ item.label }}</span>
-                                        <i :class="['bi ml-auto text-xs transition-transform duration-200', isSubmenuOpen(item) ? 'bi-chevron-up' : 'bi-chevron-down']"></i>
+                                        <span class="text-sm font-bold text-left">{{ item.label }}</span>
+                                        
+                                        <!-- Chấm đỏ/Badge số lượng cho mobile Lịch Hẹn -->
+                                        <span v-if="item.label === 'Lịch Hẹn' && page.props.auth?.pending_appointments_count > 0" 
+                                            class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]">
+                                            {{ page.props.auth.pending_appointments_count }}
+                                        </span>
+
+                                        <i :class="['bi text-xs transition-transform duration-200', isSubmenuOpen(item) ? 'bi-chevron-up' : 'bi-chevron-down', item.label === 'Lịch Hẹn' && page.props.auth?.pending_appointments_count > 0 ? '' : 'ml-auto']"></i>
                                     </button>
 
                                     <div v-if="isSubmenuOpen(item)" class="pl-6 space-y-0.5">
@@ -436,6 +455,12 @@ const closePopup = () => {
                                             ]" @click="closeDrawer">
                                             <i :class="['bi', child.icon, 'text-lg', isActive(child.path) ? 'text-emerald-500' : 'text-slate-400']"></i>
                                             <span class="text-xs font-bold">{{ child.label }}</span>
+                                            
+                                            <!-- Badge số lượng cho mobile Lịch Đặt Hẹn -->
+                                            <span v-if="child.label === 'Lịch Đặt Hẹn' && page.props.auth?.pending_appointments_count > 0" 
+                                                class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[16px] h-[16px]">
+                                                {{ page.props.auth.pending_appointments_count }}
+                                            </span>
                                         </Link>
                                     </div>
                                 </div>

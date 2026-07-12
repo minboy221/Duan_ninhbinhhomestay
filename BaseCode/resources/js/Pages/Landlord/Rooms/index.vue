@@ -522,7 +522,7 @@ const currentFloorName = computed(() =>
 
 const openAddRoom = () => {
     if (floors.value.length === 0) {
-        alert("Vui lòng thêm tầng trước!");
+        showAlert("Cảnh báo", "Vui lòng thêm tầng trước khi thêm phòng!", "warning");
         return;
     }
     isEditing.value = false;
