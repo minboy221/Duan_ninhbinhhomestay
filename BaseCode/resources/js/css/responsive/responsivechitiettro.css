@@ -30,7 +30,7 @@
 
     .gallery {
         width: 100%;
-        border-radius: 15px;
+        border-radius: 8px;
     }
 
     .main-image {
@@ -51,7 +51,7 @@
         width: 100%;
         padding: 20px;
         margin-top: 15px;
-        border-radius: 15px;
+        border-radius: 8px;
     }
 
     .tieude h2 {

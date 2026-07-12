@@ -1,6 +1,7 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, reactive, onMounted } from 'vue'
+import { useForm } from '@inertiajs/vue3'
 
 const props = defineProps({
     userData: {
@@ -32,6 +33,9 @@ const profile = reactive({
     email: props.userData?.email || '',
     address: props.userData?.boardingHouse?.address_detail || '',
     bio: '',
+    bank_name: props.userData?.bank_name || '',
+    bank_account_no: props.userData?.bank_account_no || '',
+    bank_account_name: props.userData?.bank_account_name || '',
     cccdFront: getFileUrl(props.userData?.verification?.id_card_front),
     cccdBack: getFileUrl(props.userData?.verification?.id_card_back),
     faceAuthImage: getFileUrl(props.userData?.verification?.face_auth_image),
@@ -46,6 +50,30 @@ const handleFile = (field, e) => {
     const reader = new FileReader()
     reader.onload = (ev) => profile[field] = ev.target.result
     reader.readAsDataURL(f)
+}
+
+const form = useForm({
+    name: '',
+    phone: '',
+    email: '',
+    bank_name: '',
+    bank_account_no: '',
+    bank_account_name: '',
+})
+
+const saveInfo = () => {
+    form.name = profile.name
+    form.phone = profile.phone
+    form.email = profile.email
+    form.bank_name = profile.bank_name
+    form.bank_account_no = profile.bank_account_no
+    form.bank_account_name = profile.bank_account_name
+    
+    form.post(route('landlord.profile.update'), {
+        onSuccess: () => {
+            alert('Lưu thông tin chủ trọ thành công!')
+        }
+    })
 }
 
 const statusConfig = {
@@ -101,10 +129,24 @@ const statusConfig = {
                             <input v-model="profile.address" class="form-input" />
                         </div>
                         <div class="form-group">
+                            <label class="form-label">Tên ngân hàng (ví dụ: MBBank, Vietcombank...)</label>
+                            <input v-model="profile.bank_name" class="form-input" placeholder="MBBank, Vietcombank, Techcombank..." />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Số tài khoản ngân hàng</label>
+                            <input v-model="profile.bank_account_no" class="form-input" placeholder="0912345678" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tên chủ tài khoản ngân hàng (viết hoa không dấu)</label>
+                            <input v-model="profile.bank_account_name" class="form-input" placeholder="NGUYEN VAN A" />
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">Giới thiệu bản thân</label>
                             <textarea v-model="profile.bio" class="form-input form-textarea" rows="3" placeholder="Mô tả ngắn về bạn và nhà trọ..."></textarea>
                         </div>
-                        <button class="btn-save-info">Lưu Thông Tin</button>
+                        <button @click="saveInfo" class="btn-save-info" :disabled="form.processing">
+                            {{ form.processing ? 'Đang lưu...' : 'Lưu Thông Tin' }}
+                        </button>
                     </div>
                 </div>
 
@@ -168,7 +210,7 @@ const statusConfig = {
 /* Verify Banner */
 .verify-banner {
     display: flex; align-items: center; gap: 14px;
-    border-radius: 14px; padding: 14px 20px;
+    border-radius: 8px; padding: 14px 20px;
     font-size: 14px;
 }
 .verify-banner i { font-size: 24px; flex-shrink: 0; }
@@ -184,7 +226,7 @@ const statusConfig = {
 .prof-cols { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: flex-start; }
 .prof-left, .prof-right { display: flex; flex-direction: column; gap: 16px; }
 
-.prof-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #f0fdf4; display: flex; flex-direction: column; gap: 14px; }
+.prof-card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #f0fdf4; display: flex; flex-direction: column; gap: 14px; }
 
 /* Avatar */
 .avatar-section { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #f0fdf4; }
@@ -194,17 +236,17 @@ const statusConfig = {
 .avatar-change {
     display: flex; align-items: center; gap: 6px;
     padding: 6px 14px; background: #f0fdf4; color: #0f766e;
-    border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+    border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
     border: 1px solid #d1fae5;
 }
 
 .form-group { display: flex; flex-direction: column; gap: 5px; }
 .form-label { font-size: 12px; font-weight: 600; color: #374151; }
-.form-input { padding: 9px 12px; border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box; }
+.form-input { padding: 9px 12px; border: 1.5px solid #e2e8f0; border-radius: 6px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box; }
 .form-input:focus { border-color: #0f766e; }
 .form-textarea { resize: vertical; font-family: inherit; }
 
-.btn-save-info { padding: 10px; background: #0f766e; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-save-info { padding: 10px; background: #0f766e; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn-save-info:hover { background: #0d9488; }
 
 /* Docs */
@@ -217,7 +259,7 @@ const statusConfig = {
 
 .doc-row { display: flex; gap: 10px; }
 .doc-upload {
-    flex: 1; border: 2px dashed #d1fae5; border-radius: 10px;
+    flex: 1; border: 2px dashed #d1fae5; border-radius: 6px;
     min-height: 100px; display: flex; align-items: center; justify-content: center;
     cursor: pointer; overflow: hidden; transition: border-color 0.15s;
     position: relative;
@@ -234,17 +276,17 @@ const statusConfig = {
 .doc-img { width: 100%; height: 100%; object-fit: cover; }
 
 .room-photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.rp-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.rp-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
 
 .btn-submit-verify {
     padding: 12px; background: #0f766e; color: #fff;
-    border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+    border: none; border-radius: 6px; font-size: 14px; font-weight: 700;
     cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .btn-submit-verify:hover { background: #0d9488; }
 
-.pending-info { background: #fffbeb; color: #92400e; border-radius: 10px; padding: 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.verified-info { background: #f0fdf4; color: #065f46; border-radius: 10px; padding: 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.pending-info { background: #fffbeb; color: #92400e; border-radius: 6px; padding: 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.verified-info { background: #f0fdf4; color: #065f46; border-radius: 6px; padding: 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 
 @media (max-width: 1024px) {
     .prof-cols { grid-template-columns: 1fr; }

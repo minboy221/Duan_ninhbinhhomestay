@@ -88,6 +88,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
     Route::get('/quanlynoio', [ProfileController::class, 'quanlynoio'])->name('quanlynoio');
     Route::get('/lichsuthanhtoan', [ProfileController::class, 'lichsuthanhtoan'])->name('lichsuthanhtoan');
+    Route::post('/invoices/{id}/notify-payment', [ProfileController::class, 'notifyPayment'])->name('invoices.notify-payment');
     Route::get('/caidatuser', [ProfileController::class, 'caidatuser'])->name('caidatuser');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -183,6 +184,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::post('/boarding-houses', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'store'])->name('landlord.boarding-houses.store');
     Route::post('/select-boarding-house', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'selectBoardingHouse'])->name('landlord.select-boarding-house');
     Route::get('/profile', [LandlordController::class, 'profile'])->name('landlord.profile');
+    Route::post('/profile', [LandlordController::class, 'updateProfile'])->name('landlord.profile.update');
     Route::get('/rooms', [LandlordController::class, 'rooms'])->name('landlord.rooms');
 
     // CRUD routes cho Tầng
@@ -220,7 +222,17 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
+    
+    // Đăng ký hợp đồng (Phase 3, 4, 5)
+    Route::get('/contracts/create-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'createDraft'])->name('landlord.contracts.create_draft');
+    Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
+    Route::post('/contracts/{contract}/upload-signed', [\App\Http\Controllers\Landlord\ContractController::class, 'uploadSignedContract'])->name('landlord.contracts.upload_signed');
+
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
+    Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');
+    Route::put('/invoices/{id}', [LandlordController::class, 'updateInvoice'])->name('landlord.invoices.update');
+    Route::patch('/invoices/{id}/status', [LandlordController::class, 'updateInvoiceStatus'])->name('landlord.invoices.status');
+    Route::delete('/invoices/{id}', [LandlordController::class, 'deleteInvoice'])->name('landlord.invoices.delete');
     Route::get('/finance', [LandlordController::class, 'finance'])->name('landlord.finance');
     Route::get('/services', [LandlordController::class, 'services'])->name('landlord.services');
     Route::post('/services', [LandlordController::class, 'storeService'])->name('landlord.services.store');

@@ -14,7 +14,7 @@
         width: 100%;
         padding: 5px 15px;
         top: 15px;
-        border-radius: 30px;
+        border-radius: 12px;
         justify-content: space-between;
     }
 
@@ -63,7 +63,7 @@
         width: 270px;
         right: -10px;
         top: 50px;
-        border-radius: 18px;
+        border-radius: 10px;
     }
 
     .notification-box {
@@ -80,7 +80,7 @@
     .banner img {
         height: 100%;
         object-fit: cover;
-        border-radius: 0 0 24px 24px;
+        border-radius: 0 0 10px 10px;
     }
 
     .banner-text {
@@ -112,7 +112,7 @@
         left: auto;
         transform: none;
         margin: -50px auto 30px;
-        border-radius: 20px;
+        border-radius: 10px;
     }
 
     .search {
@@ -143,7 +143,7 @@
         padding: 9px 12px;
         font-size: 14px;
         background: rgba(255, 255, 255, 0.85);
-        border-radius: 8px;
+        border-radius: 6px;
     }
 
     .search button.login-btn {
@@ -164,7 +164,7 @@
 
     .image_noidung img {
         height: 230px;
-        border-radius: 24px;
+        border-radius: 10px;
         object-fit: cover;
         width: 100%;
     }
@@ -204,7 +204,7 @@
 
     .baophongtro img {
         height: 300px;
-        border-radius: 18px;
+        border-radius: 10px;
         width: 100%;
     }
 
@@ -251,7 +251,7 @@
 
     .baotro img {
         height: 220px;
-        border-radius: 18px 18px 0 0;
+        border-radius: 10px 10px 0 0;
         width: 100%;
     }
 
@@ -273,7 +273,7 @@
         font-size: 13px;
         padding: 8px 12px;
         background: linear-gradient(90deg, #102a6d, #45abe6);
-        border-radius: 10px;
+        border-radius: 6px;
         display: inline-block;
     }
 
@@ -295,7 +295,7 @@
     .img_camket img {
         width: 100%;
         height: auto;
-        border-radius: 24px;
+        border-radius: 10px;
     }
 
     .title h2 {
@@ -411,7 +411,7 @@
         min-width: calc(100vw - 60px);
         margin: 0 10px;
         padding: 22px;
-        border-radius: 20px;
+        border-radius: 10px;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
         border: 1px solid rgba(0, 0, 0, 0.03);
     }
@@ -481,7 +481,7 @@
         flex-direction: column;
         height: auto;
         gap: 0;
-        border-radius: 18px;
+        border-radius: 10px;
         padding: 30px 20px;
     }
 
@@ -702,7 +702,7 @@
 
     .pt-slider {
         height: 480px;
-        border-radius: 20px;
+        border-radius: 10px;
     }
 
     .pt-info {
@@ -765,7 +765,7 @@
 
     .pt-slider {
         height: 460px;
-        border-radius: 24px;
+        border-radius: 10px;
     }
 
     .pt-info {

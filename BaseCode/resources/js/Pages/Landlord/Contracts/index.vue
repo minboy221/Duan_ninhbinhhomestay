@@ -1,17 +1,32 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { router, useForm } from '@inertiajs/vue3'
 
-const contracts = ref([
-    { id: 'HD001', room: 'Phòng 101', tenant: 'Nguyễn Văn A', phone: '0912 345 678', start: '2025-06-01', end: '2026-06-01', rent: 2800000, deposit: 2800000, depositPaid: true,  status: 'active' },
-    { id: 'HD002', room: 'Phòng 102', tenant: 'Trần Thị B',   phone: '0987 654 321', start: '2026-01-15', end: '2026-05-15', rent: 2800000, deposit: 2800000, depositPaid: true,  status: 'expiring' },
-    { id: 'HD003', room: 'Phòng 201', tenant: 'Lê Minh C',    phone: '0901 111 222', start: '2025-09-01', end: '2026-09-01', rent: 3200000, deposit: 3200000, depositPaid: false, status: 'active' },
-    { id: 'HD004', room: 'Phòng 205', tenant: 'Phạm Thị D',   phone: '0933 444 555', start: '2026-04-20', end: '2026-06-20', rent: 3200000, deposit: 3200000, depositPaid: true,  status: 'expiring' },
-    { id: 'HD005', room: 'Phòng 301', tenant: 'Hoàng Văn E',  phone: '0966 777 888', start: '2025-03-01', end: '2025-12-31', rent: 3500000, deposit: 3500000, depositPaid: true,  status: 'expired' },
-])
+const props = defineProps({
+    dbContracts: Array,
+    appointments: Array
+})
+
+const contracts = computed(() => {
+    return (props.dbContracts || []).map(c => ({
+        id: c.id,
+        room: c.room ? c.room.room_number : '',
+        tenant: c.tenant ? c.tenant.name : '',
+        phone: c.tenant ? c.tenant.phone : '',
+        start: c.start_date,
+        end: c.end_date,
+        rent: c.monthly_rent,
+        deposit: c.deposit_amount,
+        depositPaid: true,
+        status: c.status,
+        original_contract: c,
+    }))
+})
 
 const showModal      = ref(false)
 const showAddModal   = ref(false)
+const showUploadModal = ref(false)
 const selectedContract = ref(null)
 const showDeleteConfirm = ref(false)
 const deleteTarget   = ref(null)
@@ -19,8 +34,11 @@ const deleteTarget   = ref(null)
 const daysLeft  = (endDate) => Math.ceil((new Date(endDate) - new Date()) / (1000 * 60 * 60 * 24))
 const statusMap = {
     active:   { label: 'Đang Hiệu Lực', cls: 'bg-emerald-50 text-emerald-600 border-emerald-150', dot: 'bg-emerald-500' },
+    draft:    { label: 'Bản Nháp',      cls: 'bg-slate-50 text-slate-600 border-slate-150', dot: 'bg-slate-500' },
+    awaiting_upload: { label: 'Chờ Upload Ảnh', cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
+    expired:  { label: 'Đã Hết Hạn',    cls: 'bg-rose-50 text-rose-600 border-rose-150', dot: 'bg-rose-500' },
+    cancelled:{ label: 'Đã Hủy',        cls: 'bg-rose-50 text-rose-500 border-rose-150', dot: 'bg-rose-500' },
     expiring: { label: 'Sắp Hết Hạn',   cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
-    expired:  { label: 'Đã Hết Hạn',    cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
 }
 
 const expiringCount = computed(() => contracts.value.filter(c => c.status === 'expiring').length)
@@ -31,9 +49,29 @@ const confirmDelete = () => { contracts.value = contracts.value.filter(c => c.id
 const formatMoney   = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ'
 const formatDate    = (d) => new Date(d).toLocaleDateString('vi-VN')
 
+const uploadForm = useForm({
+    signed_image: null,
+})
+
+const openUploadModal = (c) => {
+    selectedContract.value = c;
+    showUploadModal.value = true;
+}
+
+const submitUpload = () => {
+    uploadForm.post(`/landlord/contracts/${selectedContract.value.id}/upload-signed`, {
+        forceFormData: true,
+        onSuccess: () => {
+            showUploadModal.value = false;
+            uploadForm.reset();
+        }
+    })
+}
+
 // Multi-step create contract state
 const activeStep = ref(1) // 1: Room & Price, 2: Tenant Info, 3: Terms & Services
 const addForm = ref({
+    appointment_id: '',
     room: '',
     rent: 3000000,
     deposit: 3000000,
@@ -46,9 +84,22 @@ const addForm = ref({
     depositPaid: true
 })
 
+watch(() => addForm.value.appointment_id, (newVal) => {
+    if (newVal) {
+        const apt = props.appointments.find(a => a.id === newVal)
+        if (apt) {
+            addForm.value.room = apt.room ? apt.room.room_number : ''
+            addForm.value.tenant_name = apt.user ? apt.user.name : ''
+            addForm.value.tenant_phone = apt.user ? apt.user.phone : ''
+            addForm.value.rent = apt.room ? apt.room.price : 3000000
+        }
+    }
+})
+
 const openAddContract = () => {
     activeStep.value = 1
     addForm.value = {
+        appointment_id: '',
         room: '',
         rent: 3000000,
         deposit: 3000000,
@@ -64,25 +115,45 @@ const openAddContract = () => {
 }
 
 const submitAddContract = () => {
-    if(!addForm.value.room || !addForm.value.tenant_name || !addForm.value.start_date || !addForm.value.end_date) {
+    if(!addForm.value.appointment_id || !addForm.value.start_date || !addForm.value.end_date) {
         alert('Vui lòng hoàn thành toàn bộ thông tin hợp đồng.')
         return
     }
-
-    const nextId = 'HD' + String(contracts.value.length + 1).padStart(3, '0')
-    contracts.value.push({
-        id: nextId,
-        room: addForm.value.room,
-        tenant: addForm.value.tenant_name,
-        phone: addForm.value.tenant_phone,
-        start: addForm.value.start_date,
-        end: addForm.value.end_date,
-        rent: addForm.value.rent,
-        deposit: addForm.value.deposit,
-        depositPaid: addForm.value.depositPaid,
-        status: 'active'
-    })
+    
+    // Convert current data to form
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/landlord/contracts/store-draft';
+    form.target = '_blank'; // Open PDF in new tab
+    
+    const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content || '';
+    
+    const inputs = {
+        _token: csrfToken,
+        appointment_id: addForm.value.appointment_id,
+        start_date: addForm.value.start_date,
+        end_date: addForm.value.end_date,
+        monthly_rent: addForm.value.rent
+    };
+    
+    for (const key in inputs) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = inputs[key];
+        form.appendChild(input);
+    }
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    
     showAddModal.value = false
+    
+    // Reload data after a short delay since it opens in a new tab
+    setTimeout(() => {
+        router.reload({ only: ['dbContracts'] });
+    }, 1500);
 }
 </script>
 
@@ -197,7 +268,8 @@ const submitAddContract = () => {
                                 <td class="py-4 px-6 text-right" @click.stop>
                                     <div class="flex items-center justify-end gap-1.5">
                                         <button @click="openContract(c)" class="w-7 h-7 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-eye"></i></button>
-                                        <button class="w-7 h-7 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-file-earmark-pdf"></i></button>
+                                        <a v-if="c.original_contract?.contract_file_path" :href="`/storage/${c.original_contract.contract_file_path}`" target="_blank" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-file-earmark-pdf"></i></a>
+                                        <button v-if="c.status === 'awaiting_upload'" @click="openUploadModal(c)" class="w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-upload"></i></button>
                                         <button @click="askDelete(c)" class="w-7 h-7 bg-slate-50 hover:bg-rose-100 text-rose-500 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-trash"></i></button>
                                     </div>
                                 </td>
@@ -292,8 +364,17 @@ const submitAddContract = () => {
                         <!-- Step 1: Room & Price -->
                         <div v-if="activeStep === 1" class="space-y-4">
                             <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Chọn lịch hẹn khách ký HĐ <span class="text-rose-500">*</span></label>
+                                <select v-model="addForm.appointment_id" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all">
+                                    <option value="" disabled>-- Chọn khách đã hẹn --</option>
+                                    <option v-for="apt in props.appointments" :key="apt.id" :value="apt.id">
+                                        Phòng {{ apt.room?.room_number }} - {{ apt.user?.name }} ({{ apt.user?.phone }})
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
                                 <label class="text-xs font-bold text-slate-500">Số phòng thuê <span class="text-rose-500">*</span></label>
-                                <input v-model="addForm.room" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: Phòng 101"/>
+                                <input v-model="addForm.room" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1">
@@ -317,11 +398,11 @@ const submitAddContract = () => {
                         <div v-if="activeStep === 2" class="space-y-4">
                             <div class="space-y-1">
                                 <label class="text-xs font-bold text-slate-500">Họ và tên khách thuê <span class="text-rose-500">*</span></label>
-                                <input v-model="addForm.tenant_name" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: Nguyễn Văn A"/>
+                                <input v-model="addForm.tenant_name" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-bold text-slate-500">Số điện thoại <span class="text-rose-500">*</span></label>
-                                <input v-model="addForm.tenant_phone" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: 0912345678"/>
+                                <input v-model="addForm.tenant_phone" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-bold text-slate-500">Căn cước công dân (CCCD)</label>
@@ -373,7 +454,7 @@ const submitAddContract = () => {
                                 class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors"
                                 @click="submitAddContract"
                             >
-                                Ký hợp đồng
+                                Tạo & Xuất PDF
                             </button>
                         </div>
                     </div>
@@ -396,6 +477,48 @@ const submitAddContract = () => {
                         <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showDeleteConfirm = false">Hủy</button>
                         <button class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/10 transition-colors" @click="confirmDelete">Xóa</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Upload Signed Image Modal -->
+            <div v-if="showUploadModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                        <h3 class="text-sm font-bold text-slate-800">Upload Hợp Đồng Đã Ký</h3>
+                        <button @click="showUploadModal = false" class="text-slate-400 hover:text-slate-600 p-1">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    
+                    <form @submit.prevent="submitUpload">
+                        <div class="p-6 space-y-4">
+                            <p class="text-xs text-slate-500">Vui lòng tải lên ảnh chụp bản hợp đồng gốc đã có đầy đủ chữ ký của cả hai bên để kích hoạt hợp đồng.</p>
+                            
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Ảnh hợp đồng (Định dạng JPEG, PNG) <span class="text-rose-500">*</span></label>
+                                <input 
+                                    type="file" 
+                                    accept="image/*"
+                                    capture="environment"
+                                    @input="uploadForm.signed_image = $event.target.files[0]"
+                                    class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
+                                    required
+                                />
+                                <div v-if="uploadForm.errors.signed_image" class="text-[10px] text-rose-500 font-bold mt-1">{{ uploadForm.errors.signed_image }}</div>
+                            </div>
+                        </div>
+
+                        <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
+                            <button type="button" @click="showUploadModal = false" class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors">Đóng</button>
+                            <button 
+                                type="submit" 
+                                :disabled="uploadForm.processing"
+                                class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md transition-colors disabled:opacity-50"
+                            >
+                                {{ uploadForm.processing ? 'Đang tải lên...' : 'Xác nhận & Kích hoạt' }}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </Teleport>
