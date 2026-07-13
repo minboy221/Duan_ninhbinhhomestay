@@ -7,6 +7,13 @@ const { props } = usePage()
 const auth = computed(() => props.auth)
 const user = computed(() => auth.value.user)
 
+const isVerified = computed(() => {
+    if (user.value?.role === 'admin' || user.value?.role === 'landlord') {
+        return true;
+    }
+    return !!(user.value?.phone && user.value?.address);
+});
+
 const { showBtn, scrollToTop } = useBackToTop()
 const { showDropdown, showNotification, toggleDropdown, toggleNotification } = useDropdownMenu()
 const { isOpen, closeDrawer, toggleDrawer } = useMobileDrawer()
@@ -208,6 +215,11 @@ const getAvatarUrl = (avatar) => {
                                 </Link>
                             </li>
                             <li>
+                                <Link :href="route('profile.appointments')"><i class="bi bi-calendar-check"></i>
+                                    <span>Lịch Hẹn Xem Phòng</span>
+                                </Link>
+                            </li>
+                            <li>
                                 <a :href="route('caidatuser')"><i class="bi bi-gear-wide-connected"></i>
                                     <span>Cài Đặt</span>
                                 </a>
@@ -274,8 +286,13 @@ const getAvatarUrl = (avatar) => {
                     <li class="border-t mt-4 pt-4" v-else-if="user.role === 'landlord'">
                         <a href="#" @click="handleLandlordClick"><i class="bi bi-house-gear"></i> Trang Chủ Trọ</a>
                     </li>
-                    <li
-                        :class="['border-t mt-4 pt-4', (user.role === 'admin' || user.role === 'landlord') ? '!mt-2 !pt-2 !border-none' : '']">
+                    <li :class="['border-t mt-4 pt-4', (user.role === 'admin' || user.role === 'landlord') ? '!mt-2 !pt-2 !border-none' : '']">
+                        <Link :href="route('tranguser')" @click="closeDrawer"><i class="bi bi-person-circle"></i> Trang Cá Nhân</Link>
+                    </li>
+                    <li class="mt-2">
+                        <Link :href="route('profile.appointments')" @click="closeDrawer"><i class="bi bi-calendar-check"></i> Lịch Hẹn Xem Phòng</Link>
+                    </li>
+                    <li class="mt-2">
                         <button @click="logout(); closeDrawer()"
                             style="background: none; border: none; color: inherit; padding: 0; font: inherit; cursor: pointer; display: flex; align-items: center; gap: 10px;">
                             <i class="bi bi-box-arrow-right"></i> Đăng Xuất
@@ -513,5 +530,15 @@ const getAvatarUrl = (avatar) => {
     background: #f1f5f9;
     color: #2563eb;
     border-color: #bfdbfe;
+}
+
+.dropdown .profile-card .status.verified {
+    background: #e6f9f2 !important;
+    color: #00b894 !important;
+}
+
+.dropdown .profile-card .status.unverified {
+    background: #fff9db !important;
+    color: #f59f00 !important;
 }
 </style>

@@ -18,6 +18,8 @@ class Contract extends Model
         'end_date',
         'deposit_amount',
         'contract_file_path',
+        'signed_contract_image',
+        'monthly_rent',
         'status',
         'signed_at',
     ];
@@ -27,7 +29,28 @@ class Contract extends Model
         'end_date' => 'date',
         'signed_at' => 'datetime',
         'deposit_amount' => 'decimal:2',
+        'monthly_rent' => 'decimal:2',
     ];
+
+    /**
+     * Boot function from Laravel.
+     */
+    protected static function booted()
+    {
+        parent::booted();
+
+        static::updating(function ($contract) {
+            // Prevent changing immutable fields if the contract is active
+            if ($contract->getOriginal('status') === 'active') {
+                $immutableFields = ['start_date', 'end_date', 'monthly_rent'];
+                foreach ($immutableFields as $field) {
+                    if ($contract->isDirty($field)) {
+                        throw new \Exception("Cannot update {$field} because the contract is active (immutable).");
+                    }
+                }
+            }
+        });
+    }
 
     /**
      * Khách thuê

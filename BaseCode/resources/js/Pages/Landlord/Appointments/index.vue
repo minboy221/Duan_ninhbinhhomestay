@@ -69,6 +69,11 @@ const statusMap = {
         cls: "bg-slate-50 text-slate-500 border-slate-100",
         dot: "bg-slate-500",
     },
+    viewed: {
+        label: "Đã Xem",
+        cls: "bg-indigo-50 text-indigo-600 border-indigo-100",
+        dot: "bg-indigo-500",
+    },
 };
 
 const approveApt = (apt) => {
@@ -371,6 +376,7 @@ const getVisiblePages = (currentPage, totalPages) => {
                                         <th class="py-3 px-4">Phòng xem</th>
                                         <th class="py-3 px-4">Ngày & Giờ</th>
                                         <th class="py-3 px-4">Trạng thái</th>
+                                        <th class="py-3 px-4">Hợp đồng</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
@@ -398,13 +404,23 @@ const getVisiblePages = (currentPage, totalPages) => {
                                                 'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
                                                 statusMap[apt.status].cls,
                                             ]">
-                                                <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[apt.status]
-                                                    .dot
-                                                    "></span>
-                                                {{
-                                                    statusMap[apt.status].label
-                                                }}
+                                                <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[apt.status].dot"></span>
+                                                {{ statusMap[apt.status].label }}
                                             </span>
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            <div v-if="apt.has_contract" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded w-fit flex items-center gap-1">
+                                                <i class="bi bi-file-earmark-check"></i> Đã có HĐ
+                                            </div>
+                                            <button v-else-if="apt.feedback_result === 'interested'" @click="router.get('/landlord/contracts', { action: 'create_contract', appointment_id: apt.id })" class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm shadow-blue-500/30">
+                                                <i class="bi bi-file-earmark-plus"></i> Tạo hợp đồng
+                                            </button>
+                                            <div v-else-if="apt.feedback_result === 'not_interested'" class="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded w-fit flex items-center gap-1">
+                                                <i class="bi bi-x-circle"></i> Không ưng
+                                            </div>
+                                            <div v-else class="text-[10px] text-slate-300 font-medium italic">
+                                                -
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>
