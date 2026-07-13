@@ -150,7 +150,7 @@ watch(
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 12px;
+    border-radius: 20px;
     width: 100%;
     max-width: 800px;
     max-height: 90vh;

@@ -7,18 +7,24 @@
     <style>
         body {
             font-family: 'DejaVu Sans', sans-serif;
-            font-size: 14px;
-            line-height: 1.5;
+            font-size: 13px;
+            line-height: 1.4;
         }
         h1, h2, h3, h4 {
             text-align: center;
         }
         .header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+        }
+        .header h2, .header h3, .header h4 {
+            margin: 5px 0;
         }
         .section {
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+        }
+        .section p {
+            margin: 5px 0;
         }
         .section-title {
             font-weight: bold;
@@ -27,7 +33,7 @@
         }
         .signature-table {
             width: 100%;
-            margin-top: 50px;
+            margin-top: 30px;
             text-align: center;
         }
         .signature-table td {
@@ -44,28 +50,28 @@
     </div>
 
     <div class="section">
-        <p>Hôm nay, ngày {{ now()->format('d') }} tháng {{ now()->format('m') }} năm {{ now()->format('Y') }}, tại địa chỉ: {{ $room->boardingHouse->address ?? '' }}, chúng tôi gồm:</p>
+        <p>Hôm nay, ngày {{ now()->format('d') }} tháng {{ now()->format('m') }} năm {{ now()->format('Y') }}, tại địa chỉ: <strong>{{ $room->boardingHouse->address_detail ?? '..........................................................' }}</strong>, chúng tôi gồm:</p>
     </div>
 
     <div class="section">
         <div class="section-title">BÊN CHO THUÊ (BÊN A):</div>
         <p>Họ và tên: <strong>{{ $landlord->name }}</strong></p>
-        <p>SĐT: {{ $landlord->phone ?? '..........................' }}</p>
-        <p>CCCD/CMND: {{ $landlord->cccd_number ?? '..........................' }}</p>
+        <p>SĐT: <strong>{{ !empty($landlord->phone) ? $landlord->phone : '..........................................' }}</strong></p>
+        <p>CCCD/CMND: <strong>{{ !empty($landlord->cccd_number) ? $landlord->cccd_number : '..........................................' }}</strong></p>
     </div>
 
     <div class="section">
         <div class="section-title">BÊN THUÊ (BÊN B):</div>
         <p>Họ và tên: <strong>{{ $tenant->name }}</strong></p>
-        <p>SĐT: {{ $tenant->phone ?? '..........................' }}</p>
-        <p>CCCD/CMND: {{ $tenant->cccd_number ?? '..........................' }}</p>
+        <p>SĐT: <strong>{{ !empty($tenant->phone) ? $tenant->phone : '..........................................' }}</strong></p>
+        <p>CCCD/CMND: <strong>{{ !empty($contract->tenant_cccd) ? $contract->tenant_cccd : (!empty($tenant->cccd_number) ? $tenant->cccd_number : '..........................................') }}</strong></p>
     </div>
 
     <div class="section">
         <div class="section-title">ĐIỀU 1: ĐỐI TƯỢNG VÀ GIÁ CẢ</div>
-        <p>Bên A đồng ý cho Bên B thuê phòng số <strong>{{ $room->room_number }}</strong> tại địa chỉ {{ $room->address ?? $room->boardingHouse->address ?? '' }}.</p>
-        <p>Giá thuê hàng tháng: <strong>{{ number_format($contract->monthly_rent, 0, ',', '.') }} VNĐ</strong></p>
-        <p>Tiền cọc: <strong>{{ number_format($contract->deposit_amount, 0, ',', '.') }} VNĐ</strong></p>
+        <p>Bên A đồng ý cho Bên B thuê phòng số <strong>{{ $room->room_number }}</strong> tại địa chỉ: <strong>{{ $room->boardingHouse->address_detail ?? '..........................................................' }}</strong>.</p>
+        <p>Giá thuê hàng tháng: <strong>{{ number_format((float)($contract->monthly_rent ?? 0), 0, ',', '.') }} VNĐ</strong></p>
+        <p>Tiền cọc: <strong>{{ number_format((float)($contract->deposit_amount ?? 0), 0, ',', '.') }} VNĐ</strong></p>
     </div>
 
     <div class="section">
@@ -84,13 +90,11 @@
                 <strong>BÊN THUÊ (BÊN B)</strong><br>
                 <i>(Ký và ghi rõ họ tên)</i>
                 <br><br><br><br><br>
-                {{ $tenant->name }}
             </td>
             <td>
                 <strong>BÊN CHO THUÊ (BÊN A)</strong><br>
                 <i>(Ký và ghi rõ họ tên)</i>
                 <br><br><br><br><br>
-                {{ $landlord->name }}
             </td>
         </tr>
     </table>

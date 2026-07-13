@@ -30,7 +30,6 @@
 
         .dropdown {
             position: fixed;
-            /* 👈 QUAN TRỌNG */
             bottom: 0;
             left: 0;
             width: 100%;
@@ -61,10 +60,9 @@
         height: auto;
     }
 
-    .item_room img {
+    .image_room {
         width: 100%;
-        height: 220px;
-        border-radius: 10px 10px 0 0;
+        height: 100%;
     }
 
     .infor_room {
@@ -149,10 +147,6 @@
 
     .item_room {
         transform: none;
-    }
-
-    .item_room img {
-        width: 280px;
     }
 
     .baophantrang {

@@ -59,6 +59,21 @@ class PublicListingController extends Controller
 
         $room = $post->room;
 
+        $reviews = \App\Models\Review::with('tenant')
+            ->where('room_id', $room->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'rating' => $r->rating,
+                    'comment' => $r->comment,
+                    'created_at' => $r->created_at->diffForHumans(),
+                    'tenant_name' => $r->tenant->name ?? 'Người dùng ẩn danh',
+                    'tenant_avatar' => $r->tenant->avatar ?? null,
+                ];
+            });
+
         // Gộp dữ liệu post + room thành 1 object phẳng để Vue dùng
         $roomData = [
             'id' => $post->id, // dùng post_id để đặt lịch/booking
@@ -75,6 +90,8 @@ class PublicListingController extends Controller
             'description' => $post->description ?? null,
             'title' => $post->title ?? null,
             'boardingHouse' => $room->boardingHouse,
+            'services' => $room->services ?? [],
+            'reviews' => $reviews,
         ];
 
         // Danh sách phòng tương tự (cùng nhà trọ)

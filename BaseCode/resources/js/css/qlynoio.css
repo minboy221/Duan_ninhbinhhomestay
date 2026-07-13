@@ -5,7 +5,6 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .bao_item {
@@ -52,7 +51,6 @@
 }
 
 .status p {
-    color: #00b894;
     font-size: 15px;
     font-weight: 600;
 }
@@ -61,7 +59,7 @@ form {
     margin-top: 15px;
     background: #fff;
     padding: 20px;
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 

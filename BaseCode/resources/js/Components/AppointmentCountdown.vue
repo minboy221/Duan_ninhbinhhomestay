@@ -27,7 +27,7 @@ const checkTodayAppointment = async () => {
 
     try {
         const response = await axios.get("/api/user/today-appointments");
-        if (response.data) {
+        if (response.data && response.data.id) {
             todayApt.value = response.data;
             startCountdown(response.data.time);
         } else {
@@ -40,6 +40,7 @@ const checkTodayAppointment = async () => {
 };
 
 const startCountdown = (apiTime) => {
+    if (!apiTime) return;
     if (countdownInterval) clearInterval(countdownInterval);
     countdownInterval = setInterval(() => {
         const now = new Date();
@@ -124,9 +125,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div v-if="todayApt && !showFeedbackModal"
-        class="fixed bottom-6 left-6 z-50 bg-white border border-slate-100 shadow-2xl rounded-3xl p-4 max-w-sm flex items-start gap-3 transform transition-all duration-500 hover:scale-105">
-        <div class="p-3 bg-blue-50 text-blue-500 rounded-2xl flex-shrink-0 animate-pulse">
+    <div
+        v-if="todayApt && !showFeedbackModal"
+        class="fixed bottom-6 left-6 z-50 bg-white border border-slate-100 shadow-2xl rounded-3xl p-4 max-w-sm flex items-start gap-3 transform transition-all duration-500 hover:scale-105"
+    >
+        <div
+            class="p-3 bg-blue-50 text-blue-500 rounded-2xl flex-shrink-0 animate-pulse"
+        >
             <i class="bi bi-geo-alt-fill text-xl"></i>
         </div>
         <div class="space-y-1">
@@ -137,23 +142,31 @@ onUnmounted(() => {
                 {{ todayApt.room_name }} — {{ todayApt.address }}
             </p>
             <div class="flex items-center gap-2 pt-1">
-                <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                <span
+                    class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md"
+                >
                     Giờ: {{ todayApt.time }}
                 </span>
-                <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                <span
+                    class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md"
+                >
                     {{ countdownText }}
                 </span>
             </div>
         </div>
     </div>
 
-    <div v-if="showFeedbackModal && todayApt"
-        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div
+        v-if="showFeedbackModal && todayApt"
+        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+    >
         <div
-            class="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 border border-slate-50 shadow-2xl animate-fade-in">
+            class="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 border border-slate-50 shadow-2xl animate-fade-in"
+        >
             <div v-if="feedbackStep === 1" class="text-center space-y-4 py-2">
                 <div
-                    class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-xl">
+                    class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-xl"
+                >
                     <i class="bi bi-chat-heart-fill"></i>
                 </div>
                 <div class="space-y-1">
@@ -164,17 +177,21 @@ onUnmounted(() => {
                         Căn phòng thực tế tại
                         <span class="text-slate-600 font-bold">{{
                             todayApt.room_name
-                            }}</span>
+                        }}</span>
                         thế nào ạ?
                     </p>
                 </div>
                 <div class="grid grid-cols-2 gap-3 pt-3">
-                    <button @click="handleFeedbackResult('like')"
-                        class="p-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md transition-all">
+                    <button
+                        @click="handleFeedbackResult('like')"
+                        class="p-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+                    >
                         👍 Mình rất ưng, thuê luôn
                     </button>
-                    <button @click="handleFeedbackResult('dislike')"
-                        class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-all">
+                    <button
+                        @click="handleFeedbackResult('dislike')"
+                        class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-all"
+                    >
                         👎 Không hợp với mình
                     </button>
                 </div>
@@ -192,20 +209,30 @@ onUnmounted(() => {
                 </div>
 
                 <div class="space-y-2">
-                    <label v-for="r in dislikeReasons" :key="r"
+                    <label
+                        v-for="r in dislikeReasons"
+                        :key="r"
                         class="flex items-center gap-3 p-3 border rounded-xl text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors"
-                        :class="selectedReason === r
+                        :class="
+                            selectedReason === r
                                 ? 'border-blue-500 bg-blue-50/20 text-blue-600'
                                 : 'border-slate-100'
-                            ">
-                        <input type="radio" v-model="selectedReason" :value="r"
-                            class="text-blue-500 focus:ring-blue-400" />
+                        "
+                    >
+                        <input
+                            type="radio"
+                            v-model="selectedReason"
+                            :value="r"
+                            class="text-blue-500 focus:ring-blue-400"
+                        />
                         <span>{{ r }}</span>
                     </label>
                 </div>
 
-                <button @click="submitDislikeReason"
-                    class="w-full p-3 bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md transition-all">
+                <button
+                    @click="submitDislikeReason"
+                    class="w-full p-3 bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+                >
                     Gửi phản hồi và tìm phòng mới
                 </button>
             </div>
@@ -218,37 +245,50 @@ onUnmounted(() => {
                     <p class="text-xs text-slate-400 font-semibold">
                         Dựa vào lý do "<span class="text-blue-500 font-bold">{{
                             selectedReason
-                            }}</span>", xem thử các phòng này nhé:
+                        }}</span
+                        >", xem thử các phòng này nhé:
                     </p>
                 </div>
 
                 <div class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                    <div v-if="recommendedRooms.length === 0"
-                        class="text-center py-4 text-xs font-semibold text-slate-400">
+                    <div
+                        v-if="recommendedRooms.length === 0"
+                        class="text-center py-4 text-xs font-semibold text-slate-400"
+                    >
                         Hiện tại chưa tìm thấy phòng nào phù hợp hơn lý do này.
                     </div>
-                    <a v-else v-for="post in recommendedRooms" :key="post.id" :href="'/chitiettro/' + post.id"
-                        class="flex items-center gap-3 p-2 border border-slate-100 hover:border-blue-200 rounded-2xl hover:bg-slate-50/50 transition-all group block">
-                        <img :src="post.thumbnail || '/images/default-room.jpg'"
-                            class="w-12 h-12 object-cover rounded-xl flex-shrink-0" />
+                    <a
+                        v-else
+                        v-for="post in recommendedRooms"
+                        :key="post.id"
+                        :href="'/chitiettro/' + post.id"
+                        class="flex items-center gap-3 p-2 border border-slate-100 hover:border-blue-200 rounded-2xl hover:bg-slate-50/50 transition-all group block"
+                    >
+                        <img
+                            :src="post.thumbnail || '/images/default-room.jpg'"
+                            class="w-12 h-12 object-cover rounded-xl flex-shrink-0"
+                        />
                         <div class="space-y-0.5 flex-1">
                             <h4
-                                class="text-xs font-bold text-slate-700 group-hover:text-blue-600 line-clamp-1 transition-colors">
+                                class="text-xs font-bold text-slate-700 group-hover:text-blue-600 line-clamp-1 transition-colors"
+                            >
                                 {{ post.title }}
                             </h4>
                             <p class="text-[11px] font-bold text-rose-500">
-                                {{
-                                    Number(post.price).toLocaleString()
-                                }}
+                                {{ Number(post.price).toLocaleString() }}
                                 đ/tháng
                             </p>
                         </div>
-                        <i class="bi bi-chevron-right text-slate-300 text-sm pr-1"></i>
+                        <i
+                            class="bi bi-chevron-right text-slate-300 text-sm pr-1"
+                        ></i>
                     </a>
                 </div>
 
-                <button @click="closeFeedback"
-                    class="w-full p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs rounded-xl transition-colors">
+                <button
+                    @click="closeFeedback"
+                    class="w-full p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs rounded-xl transition-colors"
+                >
                     Đóng lại & tự tìm tiếp
                 </button>
             </div>

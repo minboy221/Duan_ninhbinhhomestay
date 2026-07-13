@@ -44,12 +44,23 @@ class ContractController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
             'monthly_rent' => 'required|numeric|min:0',
+            'deposit' => 'nullable|numeric|min:0',
+            'tenant_cccd' => 'nullable|string|max:20',
+            'billing_cycle' => 'nullable|integer|min:1',
         ]);
 
         $appointment = Appointment::findOrFail($request->appointment_id);
 
         if ($appointment->landlord_id !== Auth::id()) {
             abort(403);
+        }
+
+        // Cập nhật CCCD của khách thuê nếu có
+        if ($request->filled('tenant_cccd')) {
+            $user = $appointment->user;
+            if ($user) {
+                $user->update(['cccd_number' => $request->tenant_cccd]);
+            }
         }
 
         // Create contract
@@ -59,8 +70,18 @@ class ContractController extends Controller
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'monthly_rent' => $request->monthly_rent,
+            'deposit_amount' => $request->deposit ?? 0,
             'status' => 'awaiting_upload',
         ]);
+
+        // Tự động chuyển trạng thái phòng sang Đã đặt cọc và tăng số người
+        $room = $appointment->room;
+        if ($room) {
+            $room->update([
+                'status' => 'deposited',
+                'current_people' => min($room->capacity, $room->current_people + 1)
+            ]);
+        }
 
         // Generate PDF
         $pdf = Pdf::loadView('pdf.contract_template', [
@@ -74,6 +95,11 @@ class ContractController extends Controller
         Storage::disk('public')->put($fileName, $pdf->output());
 
         $contract->update(['contract_file_path' => $fileName]);
+
+        // Gửi thông báo cho khách thuê
+        if ($appointment->user) {
+            $appointment->user->notify(new \App\Notifications\ContractCreatedNotification($contract));
+        }
 
         // Trả về file PDF để tải xuống ngay
         return response()->download(storage_path('app/public/' . $fileName));
@@ -90,13 +116,18 @@ class ContractController extends Controller
         }
 
         $request->validate([
-            'signed_image' => 'required|image|mimes:jpeg,png,jpg|max:5120', // max 5MB
+            'signed_image' => 'required|array|min:1',
+            'signed_image.*' => 'image|mimes:jpeg,png,jpg|max:5120', // max 5MB per image
         ]);
 
         if ($request->hasFile('signed_image')) {
-            $path = $request->file('signed_image')->store('contracts/signed', 'public');
+            $paths = [];
+            foreach ($request->file('signed_image') as $file) {
+                $paths[] = $file->store('contracts/signed', 'public');
+            }
+            
             $contract->update([
-                'signed_contract_image' => $path
+                'signed_contract_image' => json_encode($paths)
             ]);
 
             // Fire event to activate contract and room

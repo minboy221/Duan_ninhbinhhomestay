@@ -57,7 +57,7 @@ import { Head } from '@inertiajs/vue3';
                             </ul>
                             <ul>
                                 <li>Quản lý hóa đơn tự động</li>
-                                <li>Thanh toán VNPay tiện lợi</li>
+                                <li>Thanh toán tiện lợi</li>
                                 <li>Theo dõi trạng thái phòng</li>
                                 <li>Kết nối chủ trọ uy tín</li>
                             </ul>

@@ -195,18 +195,19 @@ const getAvatarUrl = (avatar) => {
                     </div>
 
                     <div class="item_room" v-for="post in listings.data" :key="post.id">
-                        <img :src="post.image && post.image.length > 0 ? post.image[0] : '/anh/banner_tro.png'" alt=""
-                            style="object-fit: cover;">
+                        <div class="image_room">
+                            <img :src="post.image && post.image.length > 0 ? post.image[0] : '/anh/banner_tro.png'"
+                                alt="" style="object-fit: cover;">
+                        </div>
                         <div class="infor_room">
                             <div class="title_room">
-                                <h2
-                                    style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                                <h2 style="overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
                                     {{ post.title }}</h2>
                             </div>
                             <div class="infor">
                                 <p>{{ new Intl.NumberFormat('vi-VN').format(post.room?.price || 0) }} đ/tháng</p>
                                 <p>{{ post.room?.area }}m<sup>2</sup></p>
-                                <p style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;"
+                                <p style="overflow: hidden; text-overflow: ellipsis; max-width: 250px;"
                                     :title="post.room?.boarding_house?.address_detail || 'Ninh Bình'">
                                     <span><i class="bi bi-geo-alt"></i></span>
                                     {{ post.room?.boarding_house?.address_detail || 'Ninh Bình' }}
@@ -214,8 +215,10 @@ const getAvatarUrl = (avatar) => {
 
                                 <!-- THÊM BADGE TRẠNG THÁI PHÒNG Ở ĐÂY -->
                                 <div v-if="post.room?.status" style="margin-top: 4px;">
-                                    <span
-                                        :class="['px-2 py-0.5 rounded border text-[11px] font-semibold', getStatusClass(post.room.status)]">
+                                    <span :class="[
+                                        'inline-flex items-center px-4 py-1.5 rounded-full text-[13px] font-semibold border',
+                                        getStatusClass(post.room.status)
+                                    ]">
                                         {{ getStatusLabel(post.room.status) }}
                                     </span>
                                     <div class="about_room">
@@ -226,13 +229,12 @@ const getAvatarUrl = (avatar) => {
                                 </div>
                             </div>
                             <div class="user_room">
-                                <img :src="getAvatarUrl(post.landlord?.avatar)" alt=""
-                                    style="object-fit: cover;">
+                                <img :src="getAvatarUrl(post.landlord?.avatar)" alt="" style="object-fit: cover;">
                                 <h4>{{ post.landlord?.name || 'Chủ trọ' }}</h4>
                                 <p>cập nhật {{ timeAgo(post.updated_at) }}</p>
                             </div>
                         </div>
-                        <Link :href="'/chitiettro?id=' + post.id" class="btn">
+                        <Link :href="'/chitiettro/' + post.id" class="btn">
                             Xem chi tiết
                         </Link>
                     </div>

@@ -280,6 +280,8 @@ class LandlordController extends Controller
                     'time' => substr($apt->time, 0, 5), // Giới hạn H:i
                     'status' => $apt->status,
                     'note' => $apt->note ?? '',
+                    'feedback_result' => $apt->feedback_result,
+                    'has_contract' => \App\Models\Contract::where('tenant_id', $apt->user_id)->where('room_id', $apt->room_id)->exists(),
                 ];
             });
 
@@ -395,10 +397,10 @@ class LandlordController extends Controller
         ->orderBy('created_at', 'desc')
         ->get();
 
-        // Get approved appointments to create contracts from
+        // Get approved or viewed appointments to create contracts from
         $appointments = \App\Models\Appointment::with(['user', 'room'])
             ->where('landlord_id', $landlordId)
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'viewed'])
             ->get();
 
         return Inertia::render('Landlord/Contracts/index', [
