@@ -523,7 +523,7 @@ const currentFloorName = computed(() =>
 
 const openAddRoom = () => {
     if (floors.value.length === 0) {
-        alert("Vui lòng thêm tầng trước!");
+        showAlert("Cảnh báo", "Vui lòng thêm tầng trước khi thêm phòng!", "warning");
         return;
     }
     isEditing.value = false;
@@ -675,9 +675,11 @@ const addPerson = (room) => {
         route("landlord.rooms.add_person", room.id),
         {},
         {
+            preserveScroll: true,
             onSuccess: () => {
+                room.current_people++;
                 if (selRoom.value && selRoom.value.id === room.id) {
-                    selRoom.value.current_people++;
+                    selRoom.value.current_people = room.current_people;
                 }
             },
         },
@@ -701,9 +703,11 @@ const removePerson = (room) => {
         route("landlord.rooms.remove_person", room.id),
         {},
         {
+            preserveScroll: true,
             onSuccess: () => {
+                room.current_people--;
                 if (selRoom.value && selRoom.value.id === room.id) {
-                    selRoom.value.current_people--;
+                    selRoom.value.current_people = room.current_people;
                 }
             },
         },

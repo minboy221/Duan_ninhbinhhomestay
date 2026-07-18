@@ -81,8 +81,8 @@ function open(l) {
                             <div class="user-cell">
                                 <div class="ava" :style="`background:hsl(${l.id * 80}deg,60%,55%)`">
                                     <img v-if="l.avatar" :src="l.avatar.startsWith('http')
-                                            ? l.avatar
-                                            : '/storage/' + l.avatar
+                                        ? l.avatar
+                                        : '/storage/' + l.avatar
                                         " class="w-full h-full object-cover rounded-lg" style="
                                             width: 100%;
                                             height: 100%;
@@ -90,7 +90,7 @@ function open(l) {
                                         " />
                                     <span v-else>{{
                                         l.name[0]?.toUpperCase()
-                                        }}</span>
+                                    }}</span>
                                 </div>
                                 <div>
                                     <p class="fw">{{ l.name }}</p>
@@ -138,8 +138,8 @@ function open(l) {
                     <div class="modal-body">
                         <div class="ll-avatar" style="overflow: hidden">
                             <img v-if="selected?.avatar" :src="selected.avatar.startsWith('http')
-                                    ? selected.avatar
-                                    : '/storage/' + selected.avatar
+                                ? selected.avatar
+                                : '/storage/' + selected.avatar
                                 " class="w-full h-full object-cover rounded-full" style="
                                     width: 100%;
                                     height: 100%;
@@ -147,7 +147,7 @@ function open(l) {
                                 " />
                             <span v-else>{{
                                 selected?.name[0]?.toUpperCase()
-                                }}</span>
+                            }}</span>
                         </div>
                         <h4 class="ll-name">{{ selected?.name }}</h4>
                         <p class="ll-email">{{ selected?.email }}</p>
@@ -158,6 +158,11 @@ function open(l) {
                             <div class="ib-row">
                                 <span class="ib-l">CCCD</span><span class="ib-v">{{ selected?.cccd }}</span>
                             </div>
+                            <!-- THÊM DÒNG CƠ SỞ TRỌ Ở ĐÂY -->
+                            <div class="ib-row">
+                                <span class="ib-l">Cơ sở trọ</span><span class="ib-v">{{ selected?.boarding_house_name
+                                    }}</span>
+                            </div>
                             <div class="ib-row">
                                 <span class="ib-l">Số phòng</span><span class="ib-v">{{ selected?.rooms }} phòng</span>
                             </div>
@@ -167,9 +172,10 @@ function open(l) {
                             <div class="ib-row">
                                 <span class="ib-l">Tham gia</span><span class="ib-v">{{
                                     selected?.joined
-                                    }}</span>
+                                }}</span>
                             </div>
                         </div>
+
                         <div class="cccd-preview" v-if="!selected?.verification_images?.front">
                             <i class="bi bi-card-image"></i>
                             <span>Hồ sơ đã duyệt</span>

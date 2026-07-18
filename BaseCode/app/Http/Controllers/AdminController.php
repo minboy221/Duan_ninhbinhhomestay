@@ -81,6 +81,7 @@ class AdminController extends Controller
                     'cccd' => $user->cccd_number ?? ($user->verification->id_card_number ?? 'Chưa cập nhật'),
                     'rooms' => $roomCount,
                     'plan' => 'Miễn phí', // Logic gói dịch vụ có thể mở rộng sau
+                    'boarding_house_name' => $user->boardingHouse->name ?? 'Chưa cấu hình',
                     'verified' => true,       // Vì role=landlord nên chắc chắn đã xác minh
                     'joined' => $user->created_at->format('d/m/Y'),
                 ];

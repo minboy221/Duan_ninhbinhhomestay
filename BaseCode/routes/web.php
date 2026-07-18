@@ -74,6 +74,11 @@ Route::get('/chitiettro/{id?}', [PublicListingController::class, 'show'])->name(
 
 // Route cho Trang chi tiết tin tức (lấy động theo slug)
 Route::get('/tintuc/{slug}', [PostController::class, 'show'])->name('chitiettintuc');
+//Route cho phần đếm ngược giờ đặt lịch
+Route::get('/api/user/today-appointments', [PublicListingController::class, 'getTodayAppointment'])->middleware('auth');
+
+//Route xử lý phản hồi cuộc họp xem phòng của clien
+Route::post('/api/appointments/{id}/feedback',[PublicListingController::class,'submitFeedback'])->middleware('auth');
 
 // Route cho Trang điều khoản và chính sách
 Route::get('/chitietdieukhoan', function () {
@@ -99,6 +104,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/chitiettro/{id}/book', [PublicListingController::class, 'book'])->name('rooms.book');
     //route API layas các khung giờ đã trùng
     Route::get('/chitiettro/{id}/booked_slots', [PublicListingController::class, 'getBookedSlots'])->name('rooms.booked-slots');
+
+    // Route thả tim (yêu thích) phòng trọ
+    Route::post('/rooms/{room}/favorite', [ProfileController::class, 'toggleFavorite'])->name('rooms.favorite');
+
+    // Route Đánh giá sau khi xem phòng
+    Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
+    Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
 
     // Route chung để xem file private (CCCD, Hợp đồng...)
     Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
@@ -223,6 +235,12 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
+    
+    // Đăng ký hợp đồng (Phase 3, 4, 5)
+    Route::get('/contracts/create-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'createDraft'])->name('landlord.contracts.create_draft');
+    Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
+    Route::post('/contracts/{contract}/upload-signed', [\App\Http\Controllers\Landlord\ContractController::class, 'uploadSignedContract'])->name('landlord.contracts.upload_signed');
+
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');
     Route::put('/invoices/{id}', [LandlordController::class, 'updateInvoice'])->name('landlord.invoices.update');

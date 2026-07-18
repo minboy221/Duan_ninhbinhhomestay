@@ -59,6 +59,21 @@ class PublicListingController extends Controller
 
         $room = $post->room;
 
+        $reviews = \App\Models\Review::with('tenant')
+            ->where('room_id', $room->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'rating' => $r->rating,
+                    'comment' => $r->comment,
+                    'created_at' => $r->created_at->diffForHumans(),
+                    'tenant_name' => $r->tenant->name ?? 'Người dùng ẩn danh',
+                    'tenant_avatar' => $r->tenant->avatar ?? null,
+                ];
+            });
+
         // Gộp dữ liệu post + room thành 1 object phẳng để Vue dùng
         $roomData = [
             'id' => $post->id, // dùng post_id để đặt lịch/booking
@@ -75,6 +90,8 @@ class PublicListingController extends Controller
             'description' => $post->description ?? null,
             'title' => $post->title ?? null,
             'boardingHouse' => $room->boardingHouse,
+            'services' => $room->services ?? [],
+            'reviews' => $reviews,
         ];
 
         // Danh sách phòng tương tự (cùng nhà trọ)
@@ -190,6 +207,137 @@ class PublicListingController extends Controller
         return response()->json([
             'available_slots' => $generatedSlots,
             'booked_slots' => $bookedTimes
+        ]);
+    }
+
+    // Phần lấy lịch hẹn trong ngày để thông báo đếm ngược và tự hủy
+    // Phần lấy lịch hẹn trong ngày để thông báo đếm ngược và tự hủy
+    public function getTodayAppointment()
+    {
+        $userId = auth()->id();
+        $todayStr = Carbon::today()->toDateString();
+        $nowTime = Carbon::now('Asia/Ho_Chi_Minh');
+
+        // 1. Quét và tự động chuyển các lịch hẹn quá giờ hôm nay sang 'expired'
+        $appointments = Appointment::with(['room.boardingHouse'])
+            ->where('date', $todayStr) // Lấy các lịch hẹn ngày hôm nay
+            ->where('status', 'approved')
+            ->whereNull('feedback_result')
+            ->get();
+
+        foreach ($appointments as $apt) {
+            // Lấy thời gian tự hủy từ cơ sở trọ (mặc định 30 phút nếu không có cấu hình)
+            $cancelMinutes = $apt->room->boardingHouse->cancel_after_minutes ?? 30;
+
+            // Tạo Carbon object cho thời điểm hẹn (ngày + giờ hẹn)
+            $appointmentTime = Carbon::parse($apt->date . ' ' . $apt->time, 'Asia/Ho_Chi_Minh');
+
+            // Nếu thời gian hiện tại đã vượt quá thời gian hẹn + số phút tự hủy
+            if ($nowTime->greaterThan($appointmentTime->addMinutes($cancelMinutes))) {
+                $apt->update(['status' => 'expired']);
+            }
+        }
+
+        // 2. Lấy lịch hẹn sớm nhất hôm nay chưa quá giờ tự hủy để trả về cho Client hiển thị popup
+        $activeAppointment = Appointment::with('room.boardingHouse')
+            ->where('user_id', $userId)
+            ->where('date', $todayStr)
+            ->where('status', 'approved')
+            ->whereNull('feedback_result')
+            ->orderBy('time', 'asc')
+            ->first();
+
+        if (!$activeAppointment) {
+            return response()->json(null);
+        }
+
+        return response()->json([
+            'id' => $activeAppointment->id,
+            'time' => Carbon::parse($activeAppointment->time)->format('H:i'),
+            'room_name' => $activeAppointment->room->room_number ?? 'Phòng Trọ',
+            'address' => $activeAppointment->room->boardingHouse->address_detail ?? '',
+        ]);
+    }
+
+
+
+    //phần gửi dữ liệu form feedback cho người dùng
+    public function submitFeedback(Request $request, $id)
+    {
+        //validate dữ liệu gửi lên từ form khảo sát
+        $request->validate([
+            'result' => 'required|in:like,dislike',
+            'reason' => 'nullable|string'
+        ]);
+        //tìm lịch hẹn tương ứng và kiểm tra xem có phải của user đăng nhập hay không
+        $appointment = Appointment::where('id', $id)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+        //Phần khách hàng ưng ý
+        if ($request->result === 'like') {
+            $appointment->update([
+                'status' => 'success_matched',
+                'feedback_result' => 'like',
+                'feedback_time' => now()
+            ]);
+            //gửi thông báo Notification/email cho chủ trọ
+            return response()->json([
+                'message' => 'Cảm ơn bạn đã phản hồi! HomeStay đã báo cho chủ nhà chuẩn bị hợp đồng',
+                'recommendations' => [] //thành công thì sẽ không gợi ý phòng khác
+            ]);
+        }
+
+        //Phần khách hàng không ưng ý/chưa thuê
+        $appointment->update([
+            'status' => 'false_matched',
+            'feedback_result' => 'dislike',
+            'feedback_reason' => $request->reason,
+            'feedback_time' => now()
+        ]);
+
+        //phần DEMO ĐỂ GỢI Ý PHÒNG TỚI NGƯỜI DÙNG
+
+        //tìm thông tin bài đăng của căn phòng vừa xem để lấy mốc so sánh (giá cả, khu vực)
+        $currentRoomPost = RoomPost::where('room_id', $appointment->room_id)->first();
+        if (!$currentRoomPost) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'đã ghi nhận phản hồi của bạn',
+                'recommendations' => []
+            ]);
+        }
+        $district = $currentRoomPost->room->boardingHouse->district ?? null;
+        $price = $currentRoomPost->room->price ?? 0;
+        $query = RoomPost::where('id', '!=', $currentRoomPost->id)
+            ->where('status', 'approved')
+            ->whereHas('room', function ($q) use ($district, $price, $request) {
+                if ($district) {
+                    $q->whereHas('boardingHouse', function ($bh) use ($district) {
+                        $bh->where('district', $district);
+                    });
+                }
+                switch ($request->reason) {
+                    case 'Giá cao quá':
+                        $q->where('price', '<', $price);
+                        break;
+                    case 'Xa nơi làm việc/học tập':
+                    case 'Phòng thực tế không giống với ảnh':
+                        $q->whereBetween('price', [$price * 0.8, $price * 1.2]);
+                        break;
+                }
+            });
+        if ($request->reason === 'Giá cao quá') {
+            $query->whereHas('room', function ($q) {
+                $q->orderBy('price', 'asc');
+            });
+        } else {
+            $query->orderBy('create_at', 'desc');
+        }
+        $recommendations = $query->take(3)->get();
+        //trả về JSON chứa danh sách phòng gợi ý thay thế
+        return response()->json([
+            'messeage' => 'đã ghi nhận phản hồi của bạn',
+            'recommendations' => $recommendations
         ]);
     }
 }

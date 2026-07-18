@@ -1,6 +1,6 @@
 <script setup>
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { router, useForm } from "@inertiajs/vue3";
 const props = defineProps({
     dbAppointments: { type: Array, default: () => [] },
@@ -69,6 +69,11 @@ const statusMap = {
         cls: "bg-slate-50 text-slate-500 border-slate-100",
         dot: "bg-slate-500",
     },
+    viewed: {
+        label: "Đã Xem",
+        cls: "bg-indigo-50 text-indigo-600 border-indigo-100",
+        dot: "bg-indigo-500",
+    },
 };
 
 const approveApt = (apt) => {
@@ -98,9 +103,55 @@ const submitRejection = () => {
         },
     );
 };
+
+// --- PHÂN TRANG CHO YÊU CẦU CHỜ DUYỆT ---
+const pendingPage = ref(1);
+const pendingPageSize = 5;
 const pendingList = computed(() =>
     appointments.value.filter((a) => a.status === "pending"),
 );
+const pendingTotalPages = computed(() => Math.ceil(pendingList.value.length / pendingPageSize));
+const paginatedPendingList = computed(() => {
+    const start = (pendingPage.value - 1) * pendingPageSize;
+    return pendingList.value.slice(start, start + pendingPageSize);
+});
+watch(pendingList, (newVal) => {
+    if (pendingPage.value > 1 && newVal.length <= (pendingPage.value - 1) * pendingPageSize) {
+        pendingPage.value = Math.max(1, Math.ceil(newVal.length / pendingPageSize));
+    }
+});
+
+// --- PHÂN TRANG CHO TẤT CẢ LỊCH HẸN ---
+const allPage = ref(1);
+const allPageSize = 10;
+const allTotalPages = computed(() => Math.ceil(appointments.value.length / allPageSize));
+const paginatedAllAppointments = computed(() => {
+    const start = (allPage.value - 1) * allPageSize;
+    return appointments.value.slice(start, start + allPageSize);
+});
+
+// Helper hiển thị số trang có dấu ba chấm
+const getVisiblePages = (currentPage, totalPages) => {
+    const pages = [];
+    const maxVisible = 5;
+    if (totalPages <= maxVisible) {
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+        pages.push(1);
+        if (currentPage > 3) pages.push('...');
+        
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+        
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+        
+        if (currentPage < totalPages - 2) pages.push('...');
+        pages.push(totalPages);
+    }
+    return pages;
+};
 </script>
 
 <template>
@@ -220,7 +271,7 @@ const pendingList = computed(() =>
                             Tuyệt vời! Không còn lịch hẹn nào chưa xử lý.
                         </div>
                         <div v-else class="space-y-3">
-                            <div v-for="apt in pendingList" :key="apt.id" :class="[
+                            <div v-for="apt in paginatedPendingList" :key="apt.id" :class="[
                                 'p-4 border rounded-2xl flex flex-col md:flex-row justify-between md:items-center gap-4 transition-all',
                                 hasConflict(apt)
                                     ? 'bg-rose-50/20 border-rose-200'
@@ -274,6 +325,39 @@ const pendingList = computed(() =>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Pagination for Pending Requests -->
+                        <div v-if="pendingTotalPages > 1" class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+                            <span class="text-[11px] text-slate-400 font-semibold">
+                                Hiển thị {{ (pendingPage - 1) * pendingPageSize + 1 }} - {{ Math.min(pendingPage * pendingPageSize, pendingList.length) }} trong số {{ pendingList.length }}
+                            </span>
+                            <div class="flex items-center gap-1">
+                                <button 
+                                    @click="pendingPage = Math.max(1, pendingPage - 1)" 
+                                    :disabled="pendingPage === 1"
+                                    class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
+                                    <i class="bi bi-chevron-left text-[9px]"></i>
+                                </button>
+                                <button 
+                                    v-for="p in pendingTotalPages" 
+                                    :key="p" 
+                                    @click="pendingPage = p"
+                                    :class="[
+                                        'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
+                                        pendingPage === p 
+                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
+                                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    ]">
+                                    {{ p }}
+                                </button>
+                                <button 
+                                    @click="pendingPage = Math.min(pendingTotalPages, pendingPage + 1)" 
+                                    :disabled="pendingPage === pendingTotalPages"
+                                    class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
+                                    <i class="bi bi-chevron-right text-[9px]"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- All Schedule Table -->
@@ -293,10 +377,11 @@ const pendingList = computed(() =>
                                         <th class="py-3 px-4">Phòng xem</th>
                                         <th class="py-3 px-4">Ngày & Giờ</th>
                                         <th class="py-3 px-4">Trạng thái</th>
+                                        <th class="py-3 px-4">Hợp đồng</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                                    <tr v-for="apt in appointments" :key="apt.id" class="hover:bg-slate-50/30">
+                                    <tr v-for="apt in paginatedAllAppointments" :key="apt.id" class="hover:bg-slate-50/30">
                                         <td class="py-3 px-4">
                                             <div class="flex flex-col">
                                                 <span>{{ apt.name }}</span>
@@ -320,13 +405,23 @@ const pendingList = computed(() =>
                                                 'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
                                                 statusMap[apt.status].cls,
                                             ]">
-                                                <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[apt.status]
-                                                    .dot
-                                                    "></span>
-                                                {{
-                                                    statusMap[apt.status].label
-                                                }}
+                                                <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[apt.status].dot"></span>
+                                                {{ statusMap[apt.status].label }}
                                             </span>
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            <div v-if="apt.has_contract" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded w-fit flex items-center gap-1">
+                                                <i class="bi bi-file-earmark-check"></i> Đã có HĐ
+                                            </div>
+                                            <button v-else-if="apt.feedback_result === 'interested'" @click="router.get('/landlord/contracts', { action: 'create_contract', appointment_id: apt.id })" class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm shadow-blue-500/30">
+                                                <i class="bi bi-file-earmark-plus"></i> Tạo hợp đồng
+                                            </button>
+                                            <div v-else-if="apt.feedback_result === 'not_interested'" class="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded w-fit flex items-center gap-1">
+                                                <i class="bi bi-x-circle"></i> Không ưng
+                                            </div>
+                                            <div v-else class="text-[10px] text-slate-300 font-medium italic">
+                                                -
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>

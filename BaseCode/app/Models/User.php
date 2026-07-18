@@ -39,6 +39,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'bank_name',
         'bank_account_no',
         'bank_account_name',
+        'cccd_number',
     ];
 
     /**

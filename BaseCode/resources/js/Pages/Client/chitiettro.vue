@@ -273,17 +273,14 @@ function submitBooking() {
                         </div>
                         <div class="tieude">
                             <h2>
-                                Phòng {{ room.room_number }} -
-                                {{
-                                    room.boardingHouse?.name ||
-                                    "Phòng trọ dịch vụ"
-                                }}
+                                {{ room.title || `Phòng ${room.room_number} - ${room.boardingHouse?.name || 'Phòng trọ dịch vụ'}` }}
                             </h2>
                         </div>
                         <div class="location">
                             <i class="bi bi-geo-alt-fill"></i>
                             <span>Địa điểm:
                                 {{
+                                    room.address ||
                                     room.boardingHouse?.address_detail ||
                                     "Ninh Bình"
                                 }}</span>
@@ -301,8 +298,9 @@ function submitBooking() {
                         </div>
                         <div class="thongtin_tro">
                             <h4>Thông tin mô tả:</h4>
-                            <p>
+                            <p style="white-space: pre-line; line-height: 1.6; color: #4b5563;">
                                 {{
+                                    room.description ||
                                     room.boardingHouse?.description ||
                                     "Chưa có thông tin mô tả chi tiết từ chủ nhà."
                                 }}
@@ -315,6 +313,26 @@ function submitBooking() {
                                 <div v-for="amenity in roomAmenities" :key="amenity" class="baotienich">
                                     <i class="bi bi-check-circle-fill"></i>
                                     <span>{{ amenity }}</span>
+                                </div>
+                            </div>
+
+                            <h4 v-if="room.services && room.services.length > 0" style="margin-top: 24px;">
+                                Chi phí &amp; Dịch vụ đi kèm:
+                            </h4>
+                            <div class="bang-dichvu" v-if="room.services && room.services.length > 0">
+                                <div v-for="srv in room.services" :key="srv.id" class="item-dichvu">
+                                    <div :class="['icon-dv', srv.color || 'emerald']">
+                                        <i :class="['bi', srv.icon || 'bi-lightning-charge-fill']"></i>
+                                    </div>
+                                    <div class="info-dv">
+                                        <span class="ten-dv">{{ srv.name }}</span>
+                                        <span class="gia-dv">
+                                            {{ new Intl.NumberFormat('vi-VN').format(srv.price) }}đ
+                                            <span class="dv-unit">
+                                                / {{ srv.type === 'per_kwh' ? 'kWh' : srv.type === 'per_m3' ? 'm³' : srv.type === 'per_person' ? 'người' : 'phòng' }}
+                                            </span>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -351,25 +369,6 @@ function submitBooking() {
                                 <i class="bi bi-check-circle-fill"></i>
                                 <span>Chủ Trọ Đã Xác Thực</span>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <div class="chutro-details" style="padding: 15px; margin: 10px 15px; background: rgba(255, 255, 255, 0.4); border-radius: 8px; border: 1px solid rgba(0, 0, 0, 0.05); font-size: 13.5px; color: #4b5563; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; text-align: left;">
-                        <div class="detail-item" style="display: flex; align-items: center; gap: 8px;">
-                            <i class="bi bi-person-fill" style="color: #45abe6; font-size: 15px;"></i>
-                            <span><strong>Họ tên:</strong> {{ room.boardingHouse?.user?.name || "Chủ trọ" }}</span>
-                        </div>
-                        <div class="detail-item" style="display: flex; align-items: center; gap: 8px;">
-                            <i class="bi bi-telephone-fill" style="color: #45abe6; font-size: 15px;"></i>
-                            <span><strong>SĐT:</strong> {{ room.boardingHouse?.user?.phone || "Chưa cập nhật" }}</span>
-                        </div>
-                        <div class="detail-item" style="display: flex; align-items: center; gap: 8px;">
-                            <i class="bi bi-envelope-fill" style="color: #45abe6; font-size: 15px;"></i>
-                            <span><strong>Email:</strong> {{ room.boardingHouse?.user?.email || "Chưa cập nhật" }}</span>
-                        </div>
-                        <div class="detail-item" style="display: flex; align-items: flex-start; gap: 8px;">
-                            <i class="bi bi-geo-alt-fill" style="color: #45abe6; font-size: 15px; margin-top: 3px;"></i>
-                            <span><strong>Địa chỉ:</strong> {{ room.boardingHouse?.address_detail || "Chưa cập nhật" }}</span>
                         </div>
                     </div>
 
@@ -413,13 +412,13 @@ function submitBooking() {
                     </div>
 
                     <!-- Safety Note -->
-                    <div class="safety-note" style="margin: 15px; padding: 15px; background: rgba(255, 255, 255, 0.4); border-radius: 8px; border: 1px solid rgba(0, 0, 0, 0.05); font-size: 13.5px; line-height: 1.6; color: #4b5563; text-align: left;">
+                    <div class="luu_y">
                         <h4 style="font-weight: 700; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: #1f2937;">
                             Lưu ý an toàn
                         </h4>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <div style="display: flex; align-items: flex-start; gap: 8px;">
-                                <i class="bi bi-exclamation-triangle-fill" style="color: #eab308; margin-top: 2px;"></i>
+                                <i class="bi bi-exclamation-triangle-fill" style="color: #eab308;"></i>
                                 <span>Không đặt cọc nếu chưa xem phòng</span>
                             </div>
                             <div style="display: flex; align-items: flex-start; gap: 8px;">
@@ -431,6 +430,34 @@ function submitBooking() {
                 </div>
             </section>
         </div>
+
+        <!-- Đánh giá của người dùng -->
+        <section class="tindang_tro" style="margin-top: 30px;" v-if="room.reviews && room.reviews.length > 0">
+            <h2 style="display: flex; align-items: center; gap: 8px;">
+                <i class="bi bi-star-half text-yellow-500"></i> Đánh giá của người dùng ({{ room.reviews.length }})
+            </h2>
+            <div class="reviews-list" style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+                <div v-for="review in room.reviews" :key="review.id" class="review-item" style="background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div class="review-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <div class="reviewer-info" style="display: flex; align-items: center; gap: 12px;">
+                            <div class="avatar" style="width: 40px; height: 40px; border-radius: 50%; background: #3b82f6; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px;">
+                                {{ review.tenant_name.charAt(0).toUpperCase() }}
+                            </div>
+                            <div>
+                                <div style="font-weight: 700; color: #1f2937; font-size: 15px;">{{ review.tenant_name }}</div>
+                                <div style="font-size: 12px; color: #6b7280;">{{ review.created_at }}</div>
+                            </div>
+                        </div>
+                        <div class="review-rating" style="display: flex; gap: 2px;">
+                            <i v-for="star in 5" :key="star" class="bi bi-star-fill" :class="star <= review.rating ? 'text-yellow-400' : 'text-gray-200'"></i>
+                        </div>
+                    </div>
+                    <div class="review-content" style="color: #4b5563; font-size: 14px; line-height: 1.6;">
+                        {{ review.comment || 'Người dùng không để lại bình luận.' }}
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- phần phòng tương tự -->
         <section class="tindang_tro">
@@ -578,206 +605,187 @@ function submitBooking() {
 @import "../../css/responsive/responsivechitiettro.css";
 @import "../../css/responsive/responsive.css";
 
-/* Booking Modal styling */
+/* TIỆN ÍCH */
+.tienich {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.baotienich {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1f3f5;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    transition: 0.3s;
+}
+
+.baotienich i {
+    color: #45abe6;
+}
+
+/* hover nhẹ */
+.baotienich:hover {
+    background: #e6f9f2;
+}
+
+/* Styling cho Booking Modal */
 .booking-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(15, 23, 42, 0.45);
-    backdrop-filter: blur(12px);
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(6px);
     display: flex;
-    align-items: center;
     justify-content: center;
-    z-index: 10000;
+    align-items: center;
+    z-index: 99999;
 }
 
 .booking-modal-box {
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.45);
-    border-radius: 24px;
-    width: 480px;
-    max-width: 90%;
+    background: #ffffff;
+    border-radius: 20px;
+    width: 520px;
+    max-width: 92%;
+    max-height: 90vh;
+    overflow-y: auto;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    overflow: hidden;
-    animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
 }
 
-@keyframes modalFadeIn {
+@keyframes modalSlideUp {
     from {
-        transform: translateY(40px) scale(0.96);
         opacity: 0;
+        transform: translateY(20px) scale(0.95);
     }
-
     to {
-        transform: translateY(0) scale(1);
         opacity: 1;
+        transform: translateY(0) scale(1);
     }
 }
 
 .modal-header {
-    background: linear-gradient(135deg, #1e40af, #1e3a8a);
-    color: #fff;
-    padding: 20px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 18px 24px;
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .modal-header h3 {
-    margin: 0;
     font-size: 17px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+}
+
+.modal-header h3 i {
+    color: #3b82f6;
 }
 
 .close-btn {
-    background: rgba(255, 255, 255, 0.1);
+    background: none;
     border: none;
-    color: #fff;
-    font-size: 20px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
+    font-size: 26px;
+    color: #94a3b8;
     cursor: pointer;
+    transition: all 0.2s;
+    padding: 0;
+    line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
 }
 
 .close-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-    transform: rotate(90deg);
+    color: #ef4444;
+    background: #fef2f2;
 }
 
 .modal-body {
-    padding: 28px 24px;
+    padding: 20px 24px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
 }
 
 .booking-preview-card {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    background: #eff6ff;
     border: 1px solid #bfdbfe;
-    border-radius: 16px;
-    padding: 14px 18px;
+    border-radius: 12px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
 }
 
-.text-blue {
-    color: #2563eb !important;
+.booking-preview-card i {
     font-size: 22px;
+    color: #2563eb;
+}
+
+.preview-text {
+    display: flex;
+    flex-direction: column;
 }
 
 .preview-title {
     font-size: 11px;
-    text-transform: uppercase;
-    font-weight: 700;
+    font-weight: 600;
     color: #1e40af;
-    letter-spacing: 0.05em;
-    margin: 0 0 2px;
+    text-transform: uppercase;
+    margin: 0 0 2px 0;
+    letter-spacing: 0.5px;
 }
 
 .preview-desc {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1e3a8a;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1d4ed8;
     margin: 0;
-    line-height: 1.4;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .modal-label {
-    font-size: 11.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     color: #475569;
-    margin-bottom: 8px;
-    display: block;
+    display: flex;
+    align-items: center;
 }
 
 .required {
     color: #ef4444;
+    margin-left: 3px;
 }
 
-.modal-textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    font-size: 14px;
-    outline: none;
-    resize: none;
-    transition: border-color 0.2s;
-    box-sizing: border-box;
-}
-
-.modal-textarea:focus {
-    border-color: #166ea9;
-}
-
-.modal-error {
-    color: #ef4444;
-    font-size: 12px;
-    margin-top: 4px;
-    display: block;
-}
-
-.modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-top: 8px;
-}
-
-.btn-cancel-modal {
-    padding: 10px 16px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    border-radius: 8px;
-    color: #64748b;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.btn-submit-modal {
-    padding: 10px 20px;
-    border: none;
-    background: #166ea9;
-    color: #fff;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.btn-submit-modal:hover {
-    background: #0f4f7a;
-}
-
-.btn-submit-modal:disabled {
-    background-color: #94a3b8;
-    cursor: not-allowed;
-}
-
-/* Weekly date strip design */
+/* Weekly Date Strip */
 .weekly-date-strip {
     display: flex;
     gap: 8px;
-    width: 100%;
     overflow-x: auto;
-    padding: 4px 2px;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
 }
 
 .weekly-date-strip::-webkit-scrollbar {
@@ -790,101 +798,89 @@ function submitBooking() {
 }
 
 .date-strip-card {
-    flex: 0 0 60px;
-    background: #f8fafc;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 10px 4px;
+    flex: 0 0 72px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    padding: 8px 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
 }
 
 .date-strip-card:hover {
-    border-color: #cbd5e1;
-    background: #f1f5f9;
+    border-color: #93c5fd;
+    background: #f0f7ff;
 }
 
 .date-strip-card.active {
-    background: #eff6ff;
+    background: #2563eb;
     border-color: #2563eb;
-    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.08);
+    color: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
 }
 
-.date-strip-card .strip-day {
-    font-size: 9.5px;
+.strip-day {
+    font-size: 10px;
     font-weight: 700;
-    text-transform: uppercase;
     color: #64748b;
-    margin-bottom: 2px;
+    text-transform: uppercase;
 }
 
 .date-strip-card.active .strip-day {
-    color: #2563eb;
+    color: rgba(255, 255, 255, 0.85);
 }
 
-.date-strip-card .strip-date {
-    font-size: 15px;
+.strip-date {
+    font-size: 18px;
     font-weight: 800;
     color: #1e293b;
-    line-height: 1;
+    margin: 2px 0;
 }
 
 .date-strip-card.active .strip-date {
-    color: #1e3a8a;
+    color: #ffffff;
 }
 
-.date-strip-card .strip-month {
-    font-size: 8.5px;
+.strip-month {
+    font-size: 9px;
     font-weight: 600;
     color: #94a3b8;
-    margin-top: 2px;
 }
 
 .date-strip-card.active .strip-month {
-    color: #3b82f6;
+    color: rgba(255, 255, 255, 0.8);
 }
 
-/* Time slots grid design */
+/* Time Slots Grid */
 .time-slots-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-    width: 100%;
-    max-height: 160px;
-    overflow-y: auto;
-    padding-right: 4px;
 }
 
 .time-slot {
-    background: #ffffff;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
     padding: 8px 4px;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #475569;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    border-radius: 8px;
     cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    transition: all 0.2s ease;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    transition: all 0.2s;
-}
-
-.time-slot .slot-icon {
-    font-size: 11px;
-    color: #94a3b8;
+    gap: 4px;
 }
 
 .time-slot:hover:not(.disabled) {
-    border-color: #cbd5e1;
-    background: #f8fafc;
-    color: #1e293b;
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #2563eb;
 }
 
 .time-slot.active {
@@ -893,88 +889,183 @@ function submitBooking() {
     color: #ffffff;
 }
 
-.time-slot.active .slot-icon {
-    color: #ffffff;
-}
-
 .time-slot.disabled {
-    opacity: 0.45;
     background: #f1f5f9;
     border-color: #e2e8f0;
     color: #94a3b8;
     cursor: not-allowed;
+    opacity: 0.6;
 }
 
-.similar-card-link {
-    text-decoration: none;
-    color: inherit;
-    display: block;
+.time-slot.disabled .slot-icon {
+    color: #94a3b8;
 }
 
-.flash-success-alert {
-    background-color: #f0fdf4;
-    border-left: 4px solid #15803d;
-    color: #15803d;
-    padding: 12px 16px;
+.slot-icon {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.time-slot.active .slot-icon {
+    color: #ffffff;
+}
+
+.modal-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
     border-radius: 8px;
-    margin: 16px auto;
-    max-width: 1200px;
-    font-size: 14px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: none;
+    transition: border-color 0.2s;
+}
+
+.modal-textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.modal-error {
+    font-size: 12px;
+    color: #ef4444;
     font-weight: 600;
+    margin-top: 4px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.btn-cancel-modal {
+    padding: 10px 20px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.btn-cancel-modal:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+}
+
+.btn-submit-modal {
+    padding: 10px 24px;
+    border: none;
+    background: linear-gradient(90deg, #102a6d, #45abe6);
+    color: #ffffff;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+    transition: opacity 0.2s;
+}
+
+.btn-submit-modal:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.btn-submit-modal:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Styling cho Dịch vụ đi kèm */
+.bang-dichvu {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 12px;
+    margin-bottom: 24px;
+}
+
+.item-dichvu {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    transition: all 0.25s ease;
 }
 
-.flash-error-alert {
-    background-color: #fef2f2;
-    border-left: 4px solid #b91c1c;
-    color: #b91c1c;
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin: 16px auto;
-    max-width: 1200px;
-    font-size: 14px;
-    font-weight: 600;
+.item-dichvu:hover {
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #cbd5e1;
+    transform: translateY(-2px);
+}
+
+.icon-dv {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    font-size: 18px;
+    border: 1px solid transparent;
 }
 
-/* Fix breadcrumb */
-.dieuhuong {
-    position: static !important;
-    transform: none !important;
-    width: 100% !important;
-    margin: 0 0 20px 0 !important;
-    background: none !important;
-    box-shadow: none !important;
-    border: none !important;
-    padding: 0 !important;
+.icon-dv.emerald { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+.icon-dv.blue { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+.icon-dv.amber { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+.icon-dv.cyan { background: #ecfeff; color: #0891b2; border-color: #a5f3fc; }
+.icon-dv.rose { background: #fff5f5; color: #e11d48; border-color: #fecaca; }
+.icon-dv.purple { background: #faf5ff; color: #7e22ce; border-color: #e9d5ff; }
+
+.info-dv {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.baodieuhuong {
+.ten-dv {
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.gia-dv {
     font-size: 15px;
-    color: #64748b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 800;
+    color: #0f172a;
 }
 
-.baodieuhuong a {
-    color: #0284c7;
-    text-decoration: none;
-    font-weight: 500;
+.dv-unit {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
 }
 
-.baodieuhuong a:hover {
-    text-decoration: underline;
+@media (max-width: 576px) {
+    .bang-dichvu {
+        grid-template-columns: 1fr;
+    }
 }
 
-.no-similar-rooms {
-    text-align: center;
-    padding: 30px;
-    color: #64748b;
-    font-size: 16px;
+/* Responsive cho Mobile */
+@media (max-width: 480px) {
+    .time-slots-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .modal-footer {
+        flex-direction: column-reverse;
+    }
+    .btn-cancel-modal,
+    .btn-submit-modal {
+        width: 100%;
+        text-align: center;
+    }
 }
 </style>

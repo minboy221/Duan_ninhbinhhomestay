@@ -67,7 +67,7 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         $boardingHouseId = session('selected_boarding_house_id');
-        
+
         $floors = $this->roomService->getFloorsWithRooms($landlordId, $boardingHouseId);
         $statusCounts = $this->roomService->getStatusCounts($landlordId, $boardingHouseId);
 
@@ -280,6 +280,8 @@ class LandlordController extends Controller
                     'time' => substr($apt->time, 0, 5), // Giới hạn H:i
                     'status' => $apt->status,
                     'note' => $apt->note ?? '',
+                    'feedback_result' => $apt->feedback_result,
+                    'has_contract' => \App\Models\Contract::where('tenant_id', $apt->user_id)->where('room_id', $apt->room_id)->exists(),
                 ];
             });
 
@@ -338,6 +340,7 @@ class LandlordController extends Controller
         //validate dữ liệu từ form gửi lên
         $request->validate([
             'boarding_house_id' => 'required|exists:boarding_houses,id',
+            'cancel_after_minutes' => 'required|integer|min:5|max:1440',
             'availabilities' => 'required|array',
             'availabilities.*.day_of_week' => 'required|integer|between:0,6',
             'availabilities.*.start_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i',
@@ -350,13 +353,21 @@ class LandlordController extends Controller
         $landlordId = auth()->id();
         $boardingHouseId = $request->boarding_house_id;
 
+        //cập nhật số phút tự huỷ cho mỗi cơ sở trọ
+        $boardingHouse = BoardingHouse::where('id', $boardingHouseId)
+            ->where('user_id', $landlordId)
+            ->firstOrFail();
+        $boardingHouse->update([
+            'cancel_after_minutes' => $request->cancel_after_minutes
+        ]);
+
         //xoá sạch các câu hình cũ để ghi đè câu hình mới
-        LandlordAvailability::where('boarding_house_id',$boardingHouseId)
-        ->where('landlord_id',$landlordId)
-        ->delete();
+        LandlordAvailability::where('boarding_house_id', $boardingHouseId)
+            ->where('landlord_id', $landlordId)
+            ->delete();
         //Duyệt qua mảng cấu hình gửi lên vue
-        foreach ($request->availabilities as $item){
-            if($item['is_active']){
+        foreach ($request->availabilities as $item) {
+            if ($item['is_active']) {
                 LandlordAvailability::create([
                     'landlord_id' => $landlordId,
                     'boarding_house_id' => $boardingHouseId,
@@ -366,7 +377,7 @@ class LandlordController extends Controller
                 ]);
             }
         }
-        return redirect()->back()->with('success','cập nhật khung giờ cho cơ sở thành công');
+        return redirect()->back()->with('success', 'cập nhật khung giờ cho cơ sở thành công');
     }
 
 
@@ -377,7 +388,25 @@ class LandlordController extends Controller
 
     public function contracts()
     {
-        return Inertia::render('Landlord/Contracts/index');
+        $landlordId = Auth::id();
+        
+        $contracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+        ->with(['room', 'tenant'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        // Get approved or viewed appointments to create contracts from
+        $appointments = \App\Models\Appointment::with(['user', 'room'])
+            ->where('landlord_id', $landlordId)
+            ->whereIn('status', ['approved', 'viewed'])
+            ->get();
+
+        return Inertia::render('Landlord/Contracts/index', [
+            'dbContracts' => $contracts,
+            'appointments' => $appointments
+        ]);
     }
 
     public function invoices()

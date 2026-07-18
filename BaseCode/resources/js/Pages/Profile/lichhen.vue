@@ -34,6 +34,64 @@ const statusMap = {
     pending:  { label: 'Chờ Duyệt',  cls: 'bg-amber-50 text-amber-600 border-amber-100', dot: 'bg-amber-500' },
     approved: { label: 'Đã Duyệt',   cls: 'bg-emerald-50 text-emerald-600 border-emerald-100', dot: 'bg-emerald-500' },
     rejected: { label: 'Từ Chối',    cls: 'bg-slate-50 text-slate-500 border-slate-100', dot: 'bg-slate-500' },
+    viewed:   { label: 'Đã Xem',     cls: 'bg-indigo-50 text-indigo-600 border-indigo-100', dot: 'bg-indigo-500' },
+};
+
+// Review state
+const showReviewModal = ref(false);
+const activeReviewAppointment = ref(null);
+const reviewForm = ref({ rating: 5, comment: '' });
+
+const openReviewModal = (apt) => {
+    activeReviewAppointment.value = apt;
+    reviewForm.value = { rating: 5, comment: '' };
+    showReviewModal.value = true;
+};
+
+const closeReviewModal = () => {
+    showReviewModal.value = false;
+    activeReviewAppointment.value = null;
+};
+
+const submitReview = () => {
+    if (activeReviewAppointment.value) {
+        router.post(route('appointments.review', activeReviewAppointment.value.id), reviewForm.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeReviewModal();
+            }
+        });
+    }
+};
+
+const showConfirmModal = ref(false);
+const confirmAction = ref(null);
+const confirmApt = ref(null);
+const tenantCccd = ref("");
+
+const openConfirmInterest = (apt, isInterested) => {
+    confirmApt.value = apt;
+    confirmAction.value = isInterested ? 'interested' : 'not_interested';
+    tenantCccd.value = "";
+    showConfirmModal.value = true;
+};
+
+const closeConfirmModal = () => {
+    showConfirmModal.value = false;
+    confirmApt.value = null;
+    confirmAction.value = null;
+    tenantCccd.value = "";
+};
+
+const executeInterest = () => {
+    if (!confirmApt.value || !confirmAction.value) return;
+    
+    router.post(route('appointments.interest', confirmApt.value.id), { result: confirmAction.value, cccd: tenantCccd.value }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeConfirmModal();
+        }
+    });
 };
 
 // Map state
@@ -245,17 +303,34 @@ const isToday = (dateStr) => {
                                         <Link :href="route('chitiettro', apt.room_id)" class="btn-action btn-view" title="Xem phòng">
                                             <i class="bi bi-eye-fill"></i>
                                         </Link>
-                                        <button @click="toggleFavorite(apt.room_id)" 
-                                                class="btn-action btn-fav" 
-                                                :title="isRoomFavorited(apt.room_id) ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'">
-                                            <i :class="['bi', isRoomFavorited(apt.room_id) ? 'bi-heart-fill text-red' : 'bi-heart']"></i>
-                                        </button>
                                         <button v-if="apt.status === 'approved'" 
+                                                @click="openReviewModal(apt)" 
+                                                class="btn-action btn-review" 
+                                                title="Đã xem phòng & Đánh giá">
+                                            <i class="bi bi-star-fill text-yellow-500"></i>
+                                        </button>
+                                        <button v-if="['approved', 'viewed'].includes(apt.status)" 
                                                 @click="showMap(apt)" 
                                                 class="btn-action btn-map" 
                                                 :title="isToday(apt.date) ? 'Đến ngày! Chỉ đường Google Maps' : 'Xem bản đồ'">
                                             <i class="bi bi-geo-alt-fill"></i>
                                         </button>
+                                    </div>
+                                    <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result" style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+                                        <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest" title="Ưng thuê" style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold;">
+                                            <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px;"></i> Ưng
+                                        </button>
+                                        <button @click="openConfirmInterest(apt, false)" class="btn-action btn-not-interest" title="Không ưng" style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold;">
+                                            <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i> Không ưng
+                                        </button>
+                                    </div>
+                                    <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;">
+                                        <span v-if="apt.feedback_result === 'interested'" style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
+                                            <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
+                                        </span>
+                                        <span v-else-if="apt.feedback_result === 'not_interested'" style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
+                                            <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
+                                        </span>
                                     </div>
                                 </td>
                             </tr>
@@ -278,21 +353,6 @@ const isToday = (dateStr) => {
                     </div>
 
                     <div style="position: relative; border: 1px solid #e2e8f0; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; overflow: hidden; background: #fff;">
-                        <!-- Khảo sát quan tâm -->
-                        <div class="survey-prompt-card" :class="{ favorited: isRoomFavorited(activeMapAppointment.room_id) }">
-                            <div class="survey-body">
-                                <div class="survey-text-wrapper">
-                                    <i :class="['bi', isRoomFavorited(activeMapAppointment.room_id) ? 'bi-heart-fill text-red' : 'bi-heart-pulse-fill text-red pulse-icon']"></i>
-                                    <span v-if="isRoomFavorited(activeMapAppointment.room_id)">Bạn đã lưu phòng trọ này vào danh sách quan tâm!</span>
-                                    <span v-else>Bạn đã đến địa chỉ hoặc kết thúc buổi xem phòng? Bạn có quan tâm đến trọ này không?</span>
-                                </div>
-                                <button @click="toggleFavorite(activeMapAppointment.room_id)" class="btn-survey-favorite" :class="{ active: isRoomFavorited(activeMapAppointment.room_id) }">
-                                    <i :class="['bi', isRoomFavorited(activeMapAppointment.room_id) ? 'bi-heart-fill' : 'bi-heart']"></i>
-                                    {{ isRoomFavorited(activeMapAppointment.room_id) ? 'Đã Lưu (Bỏ Thích)' : 'Thả Tim (Quan Tâm)' }}
-                                </button>
-                            </div>
-                        </div>
-
                         <div v-if="isMapLoading" class="map-loading-overlay" style="position: absolute; inset: 0; background: rgba(255,255,255,0.8); z-index: 10; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #64748b;">
                             <span class="spinner" style="margin-right: 8px;"></span> Đang tải vị trí của bạn...
                         </div>
@@ -316,9 +376,82 @@ const isToday = (dateStr) => {
                     </div>
                 </div>
 
+                <!-- Modal Đánh giá phòng -->
+                <div v-if="showReviewModal" class="review-modal-overlay" @click="closeReviewModal">
+                    <div class="review-modal-box" @click.stop>
+                        <div class="review-modal-header">
+                            <h3><i class="bi bi-star-half text-yellow-500"></i> Đánh giá phòng đã xem</h3>
+                            <button @click="closeReviewModal" class="review-close-btn">&times;</button>
+                        </div>
+                        <div class="review-modal-body">
+                            <div class="review-rating-sec">
+                                <p>Trải nghiệm của bạn như thế nào?</p>
+                                <div class="stars-container">
+                                    <button v-for="star in 5" :key="star" 
+                                            @click="reviewForm.rating = star" 
+                                            class="star-btn" 
+                                            :class="{ 'active': star <= reviewForm.rating }">
+                                        <i class="bi bi-star-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="review-comment-sec">
+                                <label>Nhận xét của bạn (Không bắt buộc)</label>
+                                <textarea v-model="reviewForm.comment" rows="4" 
+                                          placeholder="Chia sẻ thêm cảm nhận của bạn về phòng trọ này để giúp người khác nhé..."></textarea>
+                            </div>
+                            <div class="review-modal-footer">
+                                <button @click="closeReviewModal" class="btn-review-cancel">Hủy</button>
+                                <button @click="submitReview" class="btn-review-submit">
+                                    Gửi đánh giá <i class="bi bi-send-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </UserLayout>
+
+    <!-- Confirm Interest Modal -->
+    <Teleport to="body">
+        <div v-if="showConfirmModal" class="review-modal-overlay" @click.self="closeConfirmModal">
+            <div class="review-modal-box">
+                <div class="review-modal-header">
+                    <h3>
+                        <i v-if="confirmAction === 'interested'" class="bi bi-info-circle-fill text-emerald-500" style="color: #10b981;"></i>
+                        <i v-else class="bi bi-exclamation-triangle-fill text-amber-500" style="color: #f59e0b;"></i>
+                        Xác nhận thông tin
+                    </h3>
+                    <button @click="closeConfirmModal" class="review-close-btn"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="review-modal-body">
+                    <div v-if="confirmAction === 'interested'" style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0;">
+                        <p style="margin-bottom: 12px;">Bạn có chắc chắn <strong style="color: #059669;">ƯNG</strong> phòng <strong>{{ confirmApt?.room?.room_number }}</strong> và muốn tiến hành thuê không?</p>
+                        <p style="margin-bottom: 16px;">Hệ thống sẽ gửi thông báo đến chủ trọ để tạo hợp đồng cho bạn.</p>
+                        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <label style="display: block; font-weight: bold; font-size: 12px; color: #64748b; margin-bottom: 6px;">Số CCCD / CMND (Tùy chọn)</label>
+                            <input v-model="tenantCccd" @input="tenantCccd = tenantCccd.replace(/[^0-9]/g, '').slice(0, 12)" type="text" maxlength="12" placeholder="Nhập để chủ trọ tạo hợp đồng nhanh hơn..." style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; font-size: 13px; transition: all 0.2s; box-sizing: border-box;" onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 2px rgba(16, 185, 129, 0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'"/>
+                        </div>
+                    </div>
+                    <p v-else style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0;">
+                        Bạn chắc chắn <strong style="color: #e11d48;">KHÔNG ƯNG</strong> phòng <strong>{{ confirmApt?.room?.room_number }}</strong> này?<br><br>
+                        Quyết định của bạn sẽ được lưu lại để giúp chúng tôi gợi ý tốt hơn trong tương lai.
+                    </p>
+                    
+                    <div class="review-modal-footer" style="margin-top: 24px;">
+                        <button @click="closeConfirmModal" class="btn-review-cancel">Hủy bỏ</button>
+                        <button @click="executeInterest" 
+                                :style="confirmAction === 'interested' ? 'background: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);' : 'background: #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);'"
+                                class="btn-review-submit">
+                            <i class="bi bi-check-lg"></i> Xác nhận
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 </template>
 
 <style scoped>
@@ -498,5 +631,200 @@ const isToday = (dateStr) => {
 
 .btn-survey-favorite.active:hover {
     background: #e11d48;
+}
+
+/* =========================================
+   REVIEW MODAL CUSTOM STYLES
+========================================= */
+.review-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.review-modal-box {
+    background: #ffffff;
+    width: 90%;
+    max-width: 480px;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    transform: scale(0.95);
+    animation: scaleUp 0.2s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.review-modal-header {
+    background: linear-gradient(to right, #f8fafc, #ffffff);
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.review-modal-header h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.review-close-btn {
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.review-close-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.review-modal-body {
+    padding: 24px;
+}
+
+.review-rating-sec {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.review-rating-sec p {
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 12px;
+}
+
+.stars-container {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+.star-btn {
+    background: none;
+    border: none;
+    font-size: 36px;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    line-height: 1;
+    padding: 0;
+}
+
+.star-btn:hover, .star-btn.active {
+    color: #fbbf24;
+    transform: scale(1.15);
+}
+
+.star-btn:active {
+    transform: scale(0.95);
+}
+
+.review-comment-sec {
+    margin-bottom: 24px;
+}
+
+.review-comment-sec label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 8px;
+}
+
+.review-comment-sec textarea {
+    width: 100%;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #1e293b;
+    transition: all 0.2s;
+    resize: vertical;
+    min-height: 100px;
+    outline: none;
+}
+
+.review-comment-sec textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.review-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.btn-review-cancel {
+    padding: 10px 20px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-review-cancel:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.btn-review-submit {
+    padding: 10px 24px;
+    background: #3b82f6;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+}
+
+.btn-review-submit:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px -1px rgba(59, 130, 246, 0.4);
 }
 </style>
