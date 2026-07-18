@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use function Laravel\Prompts\alert;
 
 class PublicListingController extends Controller
 {
@@ -111,6 +112,11 @@ class PublicListingController extends Controller
     {
         if (!Auth::check()) {
             return redirect()->route('login')->with('error', 'Bạn phải đăng nhập để đặt lịch xem phòng.');
+        }
+
+        //check tài khoản là chủ trọ
+        if(Auth::user()->role === 'landlord'){
+            return redirect()->back()->with('error','tài khoản chủ trọ không được phép đặt lịch xem phòng');
         }
 
         $todayStr = Carbon::today()->format('Y-m-d');
@@ -292,8 +298,10 @@ class PublicListingController extends Controller
         }
         $district = $currentRoomPost->room->boardingHouse->district ?? null;
         $price = $currentRoomPost->room->price ?? 0;
-        $query = RoomPost::where('id', '!=', $currentRoomPost->id)
-            ->where('status', 'approved')
+        $query = RoomPost::select('room_posts.*')
+            ->join('rooms', 'room_posts.room_id', '=', 'rooms.id')
+            ->where('room_posts.id', '!=', $currentRoomPost->id)
+            ->where('room_posts.status', 'approved')
             ->whereHas('room', function ($q) use ($district, $price, $request) {
                 if ($district) {
                     $q->whereHas('boardingHouse', function ($bh) use ($district) {
@@ -310,12 +318,11 @@ class PublicListingController extends Controller
                         break;
                 }
             });
+
         if ($request->reason === 'Giá cao quá') {
-            $query->whereHas('room', function ($q) {
-                $q->orderBy('price', 'asc');
-            });
+            $query->orderBy('rooms.price', 'asc');
         } else {
-            $query->orderBy('create_at', 'desc');
+            $query->orderBy('room_posts.created_at', 'desc');
         }
         $recommendations = $query->take(3)->get();
         //trả về JSON chứa danh sách phòng gợi ý thay thế

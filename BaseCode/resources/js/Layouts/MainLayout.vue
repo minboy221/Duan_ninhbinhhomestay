@@ -1,7 +1,8 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3'
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useBackToTop, useDropdownMenu, useMobileDrawer } from '@/composables/main.js'
+import axios from 'axios'
 
 const { props } = usePage()
 const auth = computed(() => props.auth)
@@ -17,7 +18,7 @@ const logout = () => {
 
 const showWelcomePopup = ref(false)
 const latestNotification = ref(null)
-
+let pingInterval = null;
 const showPropertyPrompt = ref(false)
 const handleLandlordClick = (e) => {
     e.preventDefault()
@@ -38,6 +39,7 @@ const selectPropertyFromPrompt = (prop) => {
 }
 
 onMounted(() => {
+    // 1. Kiểm tra hiển thị popup thông báo (Độc lập, giữ nguyên)
     if (auth.value.notifications && auth.value.notifications.length > 0) {
         const notif = auth.value.notifications[0]
         const dismissed = sessionStorage.getItem('dismissed_notification_' + notif.id)
@@ -46,7 +48,26 @@ onMounted(() => {
             showWelcomePopup.value = true
         }
     }
+
+    // 2. Gửi tín hiệu Heartbeat ping (Đã đưa ra ngoài độc lập và gom vào if (user.value))
+    if (user.value) {
+        // Gửi ping ngay lập tức lúc vừa tải trang xong
+        axios.post(route('user.ping')).catch(err => console.error("Heartbeat error:", err));
+
+        // Thiết lập gửi ping định kỳ mỗi 1 phút
+        pingInterval = setInterval(() => {
+            axios.post(route('user.ping')).catch(err => console.error("Heartbeat error:", err));
+        }, 60000);
+    }
 })
+
+onUnmounted(() => {
+    if (pingInterval) {
+        clearInterval(pingInterval);
+    }
+})
+
+
 
 const closePopup = () => {
     showWelcomePopup.value = false
@@ -54,6 +75,15 @@ const closePopup = () => {
         sessionStorage.setItem('dismissed_notification_' + latestNotification.value.id, 'true')
     }
 }
+
+//phần kiểm tra thông báo có phải là từ chối/ huỷ lịch hẹn
+const isRejection = computed(() => {
+    if (!latestNotification.value)
+        return false;
+    const type = latestNotification.value.type;
+    const message = latestNotification.value.data?.message || '';
+    return type === 'App\\Notifications\\LandlordRejected' || (type === 'App\\Notifications\\AppointmentStatusUpdated' && (message.includes('từ chối') || message.includes('huỷ') || message.includes('hết hạn') || message.includes('quá giờ')));
+});
 
 const formatDateTime = (dateString) => {
     if (!dateString) return '';
@@ -371,7 +401,7 @@ const getAvatarUrl = (avatar) => {
 
                     <!-- Thanh màu báo hiệu (xanh/đỏ) -->
                     <div
-                        :style="latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'height: 4px; background: linear-gradient(90deg, #ef4444, #f87171);' : 'height: 4px; background: linear-gradient(90deg, #22c55e, #4ade80);'">
+                        :style="isRejection ? 'height: 4px; background: linear-gradient(90deg, #ef4444, #f87171);' : 'height: 4px; background: linear-gradient(90deg, #22c55e, #4ade80);'">
                     </div>
 
                     <div style="padding: 24px;">
@@ -386,10 +416,11 @@ const getAvatarUrl = (avatar) => {
                         <div style="display: flex; gap: 16px; align-items: flex-start;">
                             <!-- Icon -->
                             <div
-                                :style="latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'flex-shrink: 0; width: 48px; height: 48px; background: #fef2f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444;' : 'flex-shrink: 0; width: 48px; height: 48px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #22c55e;'">
-                                <i :class="latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'bi bi-x-circle-fill' : 'bi bi-check-circle-fill'"
+                                :style="isRejection ? 'flex-shrink: 0; width: 48px; height: 48px; background: #fef2f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444;' : 'flex-shrink: 0; width: 48px; height: 48px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #22c55e;'">
+                                <i :class="isRejection ? 'bi bi-x-circle-fill' : 'bi bi-check-circle-fill'"
                                     style="font-size: 24px;"></i>
                             </div>
+
 
                             <!-- Content -->
                             <div style="flex: 1;">
@@ -411,8 +442,8 @@ const getAvatarUrl = (avatar) => {
                                 <div class="popup-action">
                                     <Link :href="latestNotification?.data?.url" @click="closePopup" class="popup-btn">
                                         {{
-                                            latestNotification?.type === 'App\\Notifications\\LandlordRejected'
-                                                ? 'Xem lý do chi tiết'
+                                            isRejection
+                                        ? 'Xem lý do chi tiết'
                                         : 'Truy cập trang quản lý'
                                         }}
                                     </Link>
@@ -488,6 +519,7 @@ const getAvatarUrl = (avatar) => {
     transform: translateX(120%);
     opacity: 0;
 }
+
 .popup-action {
     display: flex;
     gap: 10px;

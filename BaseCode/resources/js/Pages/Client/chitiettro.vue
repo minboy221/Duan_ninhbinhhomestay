@@ -1,7 +1,7 @@
 <script setup>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import axios from "axios";
 
 const props = defineProps({
@@ -42,6 +42,29 @@ function prevImage() {
     activeImageIndex.value =
         (activeImageIndex.value - 1 + roomImages.value.length) %
         roomImages.value.length;
+}
+
+// Similar rooms slider state
+const sliderRef = ref(null);
+
+function slideLeft() {
+    if (sliderRef.value) {
+        const item = sliderRef.value.querySelector(".item_tindang");
+        if (item) {
+            const itemWidth = item.offsetWidth;
+            sliderRef.value.scrollBy({ left: -(itemWidth + 20), behavior: "smooth" });
+        }
+    }
+}
+
+function slideRight() {
+    if (sliderRef.value) {
+        const item = sliderRef.value.querySelector(".item_tindang");
+        if (item) {
+            const itemWidth = item.offsetWidth;
+            sliderRef.value.scrollBy({ left: itemWidth + 20, behavior: "smooth" });
+        }
+    }
 }
 
 // Split amenities
@@ -180,6 +203,38 @@ const form = useForm({
     note: "",
 });
 
+//trạng thái ẩn/ hiển thông báo khi đặt lịch
+const ShowSuccessAlert = ref(false);
+const showErrorAlert = ref(false);
+//theo dõi dữ liệu flash từ inertia gửi về để bật thông báo nổi và tắt sau 4s
+watch(
+    () => page.props.flash?.success,
+    (newVal) => {
+        if (newVal) {
+            showSuccessAlert.value = true;
+            setTimeout(() => {
+                showSuccessAlert.value = flase;
+            }, 4000);
+        }
+    },
+    { immeadiate: true },
+);
+
+watch(
+    () => {
+        (page.props.flash?.error,
+            (newVal) => {
+                if (newVal) {
+                    showErrorAlert.value = true;
+                    setTimeout(() => {
+                        showErrorAlert.value = false;
+                    }, 4000);
+                }
+            });
+    },
+    { immeadiate: true },
+);
+
 async function openBooking() {
     if (!user.value) {
         if (
@@ -191,13 +246,34 @@ async function openBooking() {
         }
         return;
     }
+    if (user.value.role === 'landlord') {
+        alert("Tài khoản chủ trọ không thể thực hiện chức năng đặt lịch xem phòng.");
+        return;
+    }
     //tải danh sách lịch trùng ngay cho ngày mặc định
     await fetchBookedSlots(form.date);
     showBookingModal.value = true;
 }
 
+//hàm xử lý khi nhấp vào sđt của chủ trọ
+function handlePhoneClick(e) {
+    if (!user.value) {
+        e.preventDefault();
+
+        if (
+            confirm(
+                "Bạn cần đăng nhập tài khoản để xem số điện thoại của chủ trọ.đi đến trang đăng nhập",
+            )
+        ) {
+            window.location.href = route("login");
+        }
+    }
+}
+
 function reportListing() {
-    alert("Cảm ơn bạn đã gửi báo cáo. Ninh Bình HomeStay sẽ tiến hành kiểm tra và xác minh thông tin phòng trọ này trong thời gian sớm nhất!");
+    alert(
+        "Cảm ơn bạn đã gửi báo cáo. Ninh Bình HomeStay sẽ tiến hành kiểm tra và xác minh thông tin phòng trọ này trong thời gian sớm nhất!",
+    );
 }
 
 function submitBooking() {
@@ -227,14 +303,27 @@ function submitBooking() {
             </div>
         </div>
 
-        <!-- Flash messages -->
-        <div v-if="$page.props.flash.success" class="flash-success-alert">
-            <i class="bi bi-check-circle-fill"></i>
-            {{ $page.props.flash.success }}
-        </div>
-        <div v-if="$page.props.flash.error" class="flash-error-alert">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            {{ $page.props.flash.error }}
+        <!-- Flash messages(thông báo góc) -->
+        <div class="flash-alert-container">
+            <div v-if="$page.props.flash.success && showSuccessAlert" class="flash-success-alert">
+                <i class="bi bi-check-circle-fill"></i>
+                <span class="flash-message">{{
+                    $page.props.flash.success
+                }}</span>
+                <button type="button" @click="showSuccessAlert = false" class="flash-close-btn">
+                    &times;
+                </button>
+                <div class="flash-progress"></div>
+            </div>
+
+            <div v-if="$page.props.flash.error && showErrorAlert" class="flash-error-alert">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span class="flash-message">{{ $page.props.flash.error }}</span>
+                <button type="button" @click="showErrorAlert = false" class="flash-close-btn">
+                    &times;
+                </button>
+                <div class="flash-progress"></div>
+            </div>
         </div>
 
         <!-- phần chi tiết phòng -->
@@ -273,7 +362,10 @@ function submitBooking() {
                         </div>
                         <div class="tieude">
                             <h2>
-                                {{ room.title || `Phòng ${room.room_number} - ${room.boardingHouse?.name || 'Phòng trọ dịch vụ'}` }}
+                                {{
+                                    room.title ||
+                                    `Phòng ${room.room_number} - ${room.boardingHouse?.name || "Phòng trọ dịch vụ"}`
+                                }}
                             </h2>
                         </div>
                         <div class="location">
@@ -298,41 +390,30 @@ function submitBooking() {
                         </div>
                         <div class="thongtin_tro">
                             <h4>Thông tin mô tả:</h4>
-                            <p style="white-space: pre-line; line-height: 1.6; color: #4b5563;">
-                                {{
-                                    room.description ||
-                                    room.boardingHouse?.description ||
-                                    "Chưa có thông tin mô tả chi tiết từ chủ nhà."
-                                }}
-                            </p>
+                            <div v-html="room.description ||
+                                room.boardingHouse?.description ||
+                                'Chưa có thông tin mô tả chi tiết từ chủ nhà.'
+                                "></div>
 
-                            <h4 v-if="roomAmenities.length > 0">
-                                Tiện ích đi kèm:
-                            </h4>
-                            <div class="tienich" v-if="roomAmenities.length > 0">
-                                <div v-for="amenity in roomAmenities" :key="amenity" class="baotienich">
-                                    <i class="bi bi-check-circle-fill"></i>
-                                    <span>{{ amenity }}</span>
+                            <!-- Phần dịch vụ đi kèm -->
+                            <div class="tienich" v-if="room.services && room.services.length > 0">
+                                <div v-for="srv in room.services" :key="srv.id" class="baotienich">
+                                    <i :class="[
+                                        'bi',
+                                        srv.icon ||
+                                        'bi-lightning-charge-fill',
+                                    ]"></i>
+
+                                    <span>
+                                        {{ srv.name }}
+                                    </span>
                                 </div>
                             </div>
 
-                            <h4 v-if="room.services && room.services.length > 0" style="margin-top: 24px;">
-                                Chi phí &amp; Dịch vụ đi kèm:
-                            </h4>
-                            <div class="bang-dichvu" v-if="room.services && room.services.length > 0">
-                                <div v-for="srv in room.services" :key="srv.id" class="item-dichvu">
-                                    <div :class="['icon-dv', srv.color || 'emerald']">
-                                        <i :class="['bi', srv.icon || 'bi-lightning-charge-fill']"></i>
-                                    </div>
-                                    <div class="info-dv">
-                                        <span class="ten-dv">{{ srv.name }}</span>
-                                        <span class="gia-dv">
-                                            {{ new Intl.NumberFormat('vi-VN').format(srv.price) }}đ
-                                            <span class="dv-unit">
-                                                / {{ srv.type === 'per_kwh' ? 'kWh' : srv.type === 'per_m3' ? 'm³' : srv.type === 'per_person' ? 'người' : 'phòng' }}
-                                            </span>
-                                        </span>
-                                    </div>
+                            <div class="tienich" v-else>
+                                <div class="baotienich">
+                                    <i class="bi bi-info-circle-fill"></i>
+                                    <span>Chưa cập nhật dịch vụ</span>
                                 </div>
                             </div>
 
@@ -357,14 +438,36 @@ function submitBooking() {
                                 room.boardingHouse.user.avatar
                                 : '/anh/banner.png'
                                 " alt="Avatar" />
-                            <span class="status1 online"></span>
+                            <span :class="[
+                                'status1',
+                                room.boardingHouse?.user?.is_online
+                                    ? 'online'
+                                    : 'offline',
+                            ]"></span>
                         </div>
                         <div class="name_chutro">
                             <h3>
                                 {{
                                     room.boardingHouse?.user?.name || "Chủ trọ"
                                 }}
+                                <span style="
+                                        font-size: 12px;
+                                        font-weight: normal;
+                                        margin-left: 8px;
+                                    " :style="{
+                                        color: room.boardingHouse?.user
+                                            ?.is_online
+                                            ? '#22c55e'
+                                            : '#94a3b8',
+                                    }">
+                                    ({{
+                                        room.boardingHouse?.user?.is_online
+                                            ? "Đang hoạt động"
+                                            : "Ngoại tuyến"
+                                    }})
+                                </span>
                             </h3>
+
                             <div class="kiem_chung">
                                 <i class="bi bi-check-circle-fill"></i>
                                 <span>Chủ Trọ Đã Xác Thực</span>
@@ -374,25 +477,34 @@ function submitBooking() {
 
                     <div class="content_chutro">
                         <div class="phone">
-                            <a class="btn_content" :href="`tel:${room.boardingHouse?.user?.phone || '0862931722'}`">
+                            <a class="btn_content" :href="user ? `tel:${room.boardingHouse?.user?.phone}` : '#'"
+                                @click="handlePhoneClick">
                                 <i class="bi bi-telephone"></i>
                                 <span>{{
-                                    room.boardingHouse?.user?.phone ||
-                                    "0862931722"
+                                    user
+                                        ? (room.boardingHouse?.user?.phone)
+                                        : (room.boardingHouse?.user?.phone ? room.boardingHouse?.user?.phone.substring(0, 6)
+                                            + 'xxxx ' : '086293xxxx')
                                 }}</span>
                             </a>
                         </div>
                         <div class="nhantin_chutro">
-                            <button @click="openBooking" class="btn_mess" style="
-                                    border: none;
-                                    width: 100%;
-                                    text-align: center;
-                                    cursor: pointer;
-                                ">
+                            <!-- Nút hiển thị cho khách thuê bình thường hoặc chưa đăng nhập -->
+                            <button v-if="!user || user.role !== 'landlord'" @click="openBooking" class="btn_mess"
+                                style="border: none; width: 100%; text-align: center; cursor: pointer;">
                                 <i class="bi bi-calendar-check-fill"></i>
                                 <span>Đặt Lịch Hẹn</span>
                             </button>
+
+                            <!-- Nút bị vô hiệu hóa khi tài khoản là Chủ trọ -->
+                            <button v-else class="btn_mess"
+                                style="border: none; width: 100%; text-align: center; cursor: not-allowed;"
+                                disabled>
+                                <i class="bi bi-calendar-x"></i>
+                                <span> Không Thể Đặt Lịch</span>
+                            </button>
                         </div>
+
                         <div class="warning">
                             <button @click="reportListing" class="btn_waring" style="
                                     border: none;
@@ -413,16 +525,36 @@ function submitBooking() {
 
                     <!-- Safety Note -->
                     <div class="luu_y">
-                        <h4 style="font-weight: 700; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: #1f2937;">
+                        <h4 style="
+                                font-weight: 700;
+                                font-size: 14px;
+                                margin-bottom: 8px;
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                color: #1f2937;
+                            ">
                             Lưu ý an toàn
                         </h4>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div style="display: flex; align-items: flex-start; gap: 8px;">
-                                <i class="bi bi-exclamation-triangle-fill" style="color: #eab308;"></i>
+                        <div style="
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                            ">
+                            <div style="
+                                    display: flex;
+                                    align-items: flex-start;
+                                    gap: 8px;
+                                ">
+                                <i class="bi bi-exclamation-triangle-fill" style="color: #eab308"></i>
                                 <span>Không đặt cọc nếu chưa xem phòng</span>
                             </div>
-                            <div style="display: flex; align-items: flex-start; gap: 8px;">
-                                <i class="bi bi-check-circle-fill" style="color: #22c55e; margin-top: 2px;"></i>
+                            <div style="
+                                    display: flex;
+                                    align-items: flex-start;
+                                    gap: 8px;
+                                ">
+                                <i class="bi bi-check-circle-fill" style="color: #22c55e; margin-top: 2px"></i>
                                 <span>Kiểm tra giấy tờ chính chủ</span>
                             </div>
                         </div>
@@ -433,8 +565,18 @@ function submitBooking() {
 
         <!-- phần phòng tương tự -->
         <section class="tindang_tro">
-            <h2>Tin đăng tương tự</h2>
-            <div class="bao_tindang">
+            <div class="tindang-header">
+                <h2>Tin đăng tương tự</h2>
+                <div class="tindang-nav" v-if="similarRooms.length > 0">
+                    <button class="nav-btn tindang-prev" @click="slideLeft" aria-label="Previous">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="nav-btn tindang-next" @click="slideRight" aria-label="Next">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="bao_tindang" ref="sliderRef">
                 <div v-if="similarRooms.length === 0" class="no-similar-rooms">
                     Chưa có phòng tương tự khác.
                 </div>
@@ -510,7 +652,7 @@ function submitBooking() {
                         </div>
                         <span v-if="form.errors.date" class="modal-error">{{
                             form.errors.date
-                            }}</span>
+                        }}</span>
                     </div>
 
                     <!-- 3. Chọn giờ (Liên kết động với khung giờ rảnh của chủ trọ) -->
@@ -521,10 +663,19 @@ function submitBooking() {
                         </label>
 
                         <!-- Trường hợp chủ trọ không có khung giờ rảnh nào vào ngày này -->
-                        <div v-if="availablSlots.length === 0" class="modal-error"
-                            style="background: #fff1f2; border: 1px solid #fecdd3; padding: 12px; border-radius: 12px; color: #e11d48; font-weight: 600; font-size: 13px; margin-bottom: 10px;">
-                            <i class="bi bi-exclamation-circle-fill"></i> Chủ trọ không nhận lịch hẹn vào ngày này hoặc
-                            chưa cấu hình giờ rảnh. Vui lòng chọn ngày khác!
+                        <div v-if="availablSlots.length === 0" class="modal-error" style="
+                                background: #fff1f2;
+                                border: 1px solid #fecdd3;
+                                padding: 12px;
+                                border-radius: 12px;
+                                color: #e11d48;
+                                font-weight: 600;
+                                font-size: 13px;
+                                margin-bottom: 10px;
+                            ">
+                            <i class="bi bi-exclamation-circle-fill"></i> Chủ
+                            trọ không nhận lịch hẹn vào ngày này hoặc chưa cấu
+                            hình giờ rảnh. Vui lòng chọn ngày khác!
                         </div>
 
                         <!-- Trường hợp có giờ rảnh, lặp qua danh sách giờ rảnh thực tế từ DB -->
@@ -533,7 +684,9 @@ function submitBooking() {
                                 <button v-if="!disabledSlots.includes(slot)" type="button" :class="[
                                     'time-slot',
                                     form.time === slot ? 'active' : '',
-                                    isTimeSlotDisabled(slot) ? 'disabled' : '',
+                                    isTimeSlotDisabled(slot)
+                                        ? 'disabled'
+                                        : '',
                                 ]" :disabled="isTimeSlotDisabled(slot)" @click="selectTime(slot)">
                                     <i class="bi bi-clock-fill slot-icon"></i>
                                     <span>{{ slot }}</span>
@@ -543,7 +696,7 @@ function submitBooking() {
 
                         <span v-if="form.errors.time" class="modal-error">{{
                             form.errors.time
-                            }}</span>
+                        }}</span>
                     </div>
 
                     <!-- 4. Ghi chú -->
@@ -553,7 +706,7 @@ function submitBooking() {
                             placeholder="Nhập ghi chú thêm cho chủ nhà biết nhu cầu của bạn..." rows="3"></textarea>
                         <span v-if="form.errors.note" class="modal-error">{{
                             form.errors.note
-                            }}</span>
+                        }}</span>
                     </div>
 
                     <!-- 5. Nút gửi -->
@@ -566,7 +719,6 @@ function submitBooking() {
                         </button>
                     </div>
                 </form>
-
             </div>
         </div>
     </MainLayout>
@@ -576,34 +728,6 @@ function submitBooking() {
 @import "../../css/chitiettro.css";
 @import "../../css/responsive/responsivechitiettro.css";
 @import "../../css/responsive/responsive.css";
-
-/* TIỆN ÍCH */
-.tienich {
-    margin-top: 15px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.baotienich {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: #f1f3f5;
-    padding: 8px 12px;
-    border-radius: 20px;
-    font-size: 13px;
-    transition: 0.3s;
-}
-
-.baotienich i {
-    color: #45abe6;
-}
-
-/* hover nhẹ */
-.baotienich:hover {
-    background: #e6f9f2;
-}
 
 /* Styling cho Booking Modal */
 .booking-modal-overlay {
@@ -639,6 +763,7 @@ function submitBooking() {
         opacity: 0;
         transform: translateY(20px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -989,12 +1114,41 @@ function submitBooking() {
     border: 1px solid transparent;
 }
 
-.icon-dv.emerald { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
-.icon-dv.blue { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
-.icon-dv.amber { background: #fffbeb; color: #d97706; border-color: #fde68a; }
-.icon-dv.cyan { background: #ecfeff; color: #0891b2; border-color: #a5f3fc; }
-.icon-dv.rose { background: #fff5f5; color: #e11d48; border-color: #fecaca; }
-.icon-dv.purple { background: #faf5ff; color: #7e22ce; border-color: #e9d5ff; }
+.icon-dv.emerald {
+    background: #ecfdf5;
+    color: #059669;
+    border-color: #a7f3d0;
+}
+
+.icon-dv.blue {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+.icon-dv.amber {
+    background: #fffbeb;
+    color: #d97706;
+    border-color: #fde68a;
+}
+
+.icon-dv.cyan {
+    background: #ecfeff;
+    color: #0891b2;
+    border-color: #a5f3fc;
+}
+
+.icon-dv.rose {
+    background: #fff5f5;
+    color: #e11d48;
+    border-color: #fecaca;
+}
+
+.icon-dv.purple {
+    background: #faf5ff;
+    color: #7e22ce;
+    border-color: #e9d5ff;
+}
 
 .info-dv {
     display: flex;
@@ -1020,6 +1174,114 @@ function submitBooking() {
     color: #94a3b8;
 }
 
+/* Toast Notification CSS */
+.flash-alert-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 100000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 380px;
+    width: calc(100% - 48px);
+}
+
+.flash-success-alert,
+.flash-error-alert {
+    position: relative;
+    padding: 16px 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow:
+        0 10px 25px -5px rgba(0, 0, 0, 0.1),
+        0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(8px);
+    overflow: hidden;
+    animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.flash-success-alert {
+    background-color: rgba(240, 253, 244, 0.95);
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+}
+
+.flash-error-alert {
+    background-color: rgba(254, 242, 242, 0.95);
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+}
+
+.flash-success-alert i {
+    font-size: 20px;
+    color: #22c55e;
+}
+
+.flash-error-alert i {
+    font-size: 20px;
+    color: #ef4444;
+}
+
+.flash-message {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.4;
+    flex-grow: 1;
+    margin-right: 8px;
+}
+
+.flash-close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: currentColor;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    padding: 0;
+    line-height: 1;
+}
+
+.flash-close-btn:hover {
+    opacity: 1;
+}
+
+.flash-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background-color: currentColor;
+    opacity: 0.45;
+    width: 100%;
+    animation: progressDecrease 4s linear forwards;
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes progressDecrease {
+    from {
+        width: 100%;
+    }
+
+    to {
+        width: 0%;
+    }
+}
+
 @media (max-width: 576px) {
     .bang-dichvu {
         grid-template-columns: 1fr;
@@ -1031,9 +1293,11 @@ function submitBooking() {
     .time-slots-grid {
         grid-template-columns: repeat(3, 1fr);
     }
+
     .modal-footer {
         flex-direction: column-reverse;
     }
+
     .btn-cancel-modal,
     .btn-submit-modal {
         width: 100%;

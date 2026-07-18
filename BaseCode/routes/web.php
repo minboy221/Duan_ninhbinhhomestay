@@ -271,6 +271,10 @@ Route::middleware(['auth'])->group(function () {
         }
         return back();
     })->name('notifications.read');
+    //phần route nhận tín hiệu heartbeat ping từ trạng thái online
+    Route::post('user/ping',function(){
+        return response()->json(['status' => 'success']);
+    })->name('user.ping');
 });
 require __DIR__ . '/auth.php';
 

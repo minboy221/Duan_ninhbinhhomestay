@@ -8,7 +8,7 @@
 
 .bao_item {
     max-width: 810px;
-    height: 1200px;
+    height: auto;
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);

@@ -11,7 +11,7 @@ let apiCheckInterval = null;
 
 //phần phục vụ cho khảo sát
 const showFeedbackModal = ref(false);
-const feedbackStep = ref(1); //hỏi ưng không => hỏi lý do => hiện phòng gợi ý
+const feedbackStep = ref(1); 
 const selectedReason = ref("");
 const recommendedRooms = ref("");
 
@@ -125,13 +125,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div
-        v-if="todayApt && !showFeedbackModal"
-        class="fixed bottom-6 left-6 z-50 bg-white border border-slate-100 shadow-2xl rounded-3xl p-4 max-w-sm flex items-start gap-3 transform transition-all duration-500 hover:scale-105"
-    >
-        <div
-            class="p-3 bg-blue-50 text-blue-500 rounded-2xl flex-shrink-0 animate-pulse"
-        >
+    <div v-if="todayApt && !showFeedbackModal"
+        class="fixed bottom-6 left-6 z-50 bg-white border border-slate-100 shadow-2xl rounded-3xl p-4 max-w-sm flex items-start gap-3 transform transition-all duration-500 hover:scale-105">
+        <div class="p-3 bg-blue-50 text-blue-500 rounded-2xl flex-shrink-0 animate-pulse">
             <i class="bi bi-geo-alt-fill text-xl"></i>
         </div>
         <div class="space-y-1">
@@ -142,156 +138,436 @@ onUnmounted(() => {
                 {{ todayApt.room_name }} — {{ todayApt.address }}
             </p>
             <div class="flex items-center gap-2 pt-1">
-                <span
-                    class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md"
-                >
+                <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
                     Giờ: {{ todayApt.time }}
                 </span>
-                <span
-                    class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md"
-                >
+                <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
                     {{ countdownText }}
                 </span>
             </div>
         </div>
     </div>
 
-    <div
-        v-if="showFeedbackModal && todayApt"
-        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
-    >
-        <div
-            class="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 border border-slate-50 shadow-2xl animate-fade-in"
-        >
-            <div v-if="feedbackStep === 1" class="text-center space-y-4 py-2">
-                <div
-                    class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-xl"
-                >
-                    <i class="bi bi-chat-heart-fill"></i>
-                </div>
-                <div class="space-y-1">
-                    <h3 class="text-sm font-bold text-slate-800">
-                        Bạn vừa đi xem phòng xong đúng không?
-                    </h3>
-                    <p class="text-xs text-slate-400 font-semibold">
-                        Căn phòng thực tế tại
-                        <span class="text-slate-600 font-bold">{{
-                            todayApt.room_name
-                        }}</span>
-                        thế nào ạ?
-                    </p>
-                </div>
-                <div class="grid grid-cols-2 gap-3 pt-3">
-                    <button
-                        @click="handleFeedbackResult('like')"
-                        class="p-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md transition-all"
-                    >
-                        👍 Mình rất ưng, thuê luôn
-                    </button>
-                    <button
-                        @click="handleFeedbackResult('dislike')"
-                        class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-all"
-                    >
-                        👎 Không hợp với mình
-                    </button>
-                </div>
+    <div v-if="showFeedbackModal && todayApt" class="feedback-modal-overlay" @click.self="closeFeedback">
+        <div class="feedback-modal-container">
+            <!-- Image positioned absolutely on the left -->
+            <div class="popup-image-wrapper">
+                <img src="/anh/popup_character.png" alt="Feedback Character" class="popup-character-img" />
             </div>
 
-            <div v-if="feedbackStep === 2" class="space-y-4">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-800">
-                        Home Stay rất tiếc...
-                    </h3>
-                    <p class="text-xs text-slate-400 font-semibold">
-                        Bạn có thể chia sẻ lý do không ưng để hệ thống cải thiện
-                        không?
-                    </p>
-                </div>
-
-                <div class="space-y-2">
-                    <label
-                        v-for="r in dislikeReasons"
-                        :key="r"
-                        class="flex items-center gap-3 p-3 border rounded-xl text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors"
-                        :class="
-                            selectedReason === r
-                                ? 'border-blue-500 bg-blue-50/20 text-blue-600'
-                                : 'border-slate-100'
-                        "
-                    >
-                        <input
-                            type="radio"
-                            v-model="selectedReason"
-                            :value="r"
-                            class="text-blue-500 focus:ring-blue-400"
-                        />
-                        <span>{{ r }}</span>
-                    </label>
-                </div>
-
-                <button
-                    @click="submitDislikeReason"
-                    class="w-full p-3 bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md transition-all"
-                >
-                    Gửi phản hồi và tìm phòng mới
+            <!-- Content container -->
+            <div class="feedback-modal-content">
+                <button class="close-btn" @click="closeFeedback" aria-label="Close">
+                    <i class="bi bi-x-lg"></i>
                 </button>
-            </div>
 
-            <div v-if="feedbackStep === 3" class="space-y-4">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-800">
-                        StayWork tìm cho bạn phòng tốt hơn nè!
-                    </h3>
-                    <p class="text-xs text-slate-400 font-semibold">
-                        Dựa vào lý do "<span class="text-blue-500 font-bold">{{
-                            selectedReason
-                        }}</span
-                        >", xem thử các phòng này nhé:
-                    </p>
-                </div>
-
-                <div class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                    <div
-                        v-if="recommendedRooms.length === 0"
-                        class="text-center py-4 text-xs font-semibold text-slate-400"
-                    >
-                        Hiện tại chưa tìm thấy phòng nào phù hợp hơn lý do này.
+                <!-- Bước 1: Hỏi ưng hay không -->
+                <div v-if="feedbackStep === 1" class="step-content step-1">
+                    <div class="step-icon">
+                        <i class="bi bi-chat-heart-fill"></i>
                     </div>
-                    <a
-                        v-else
-                        v-for="post in recommendedRooms"
-                        :key="post.id"
-                        :href="'/chitiettro/' + post.id"
-                        class="flex items-center gap-3 p-2 border border-slate-100 hover:border-blue-200 rounded-2xl hover:bg-slate-50/50 transition-all group block"
-                    >
-                        <img
-                            :src="post.thumbnail || '/images/default-room.jpg'"
-                            class="w-12 h-12 object-cover rounded-xl flex-shrink-0"
-                        />
-                        <div class="space-y-0.5 flex-1">
-                            <h4
-                                class="text-xs font-bold text-slate-700 group-hover:text-blue-600 line-clamp-1 transition-colors"
-                            >
-                                {{ post.title }}
-                            </h4>
-                            <p class="text-[11px] font-bold text-rose-500">
-                                {{ Number(post.price).toLocaleString() }}
-                                đ/tháng
-                            </p>
-                        </div>
-                        <i
-                            class="bi bi-chevron-right text-slate-300 text-sm pr-1"
-                        ></i>
-                    </a>
+                    <div class="step-header">
+                        <h3>Bạn vừa đi xem phòng xong đúng không?</h3>
+                        <p>
+                            Căn phòng thực tế tại 
+                            <span class="room-highlight">{{ todayApt.room_name }}</span> 
+                            thế nào ạ?
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 pt-4">
+                        <button @click="handleFeedbackResult('like')" class="feedback-btn btn-like">
+                            👍 Mình rất ưng, thuê luôn
+                        </button>
+                        <button @click="handleFeedbackResult('dislike')" class="feedback-btn btn-dislike">
+                            👎 Không hợp với mình
+                        </button>
+                    </div>
                 </div>
 
-                <button
-                    @click="closeFeedback"
-                    class="w-full p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs rounded-xl transition-colors"
-                >
-                    Đóng lại & tự tìm tiếp
-                </button>
+                <!-- Bước 2: Hỏi lý do -->
+                <div v-if="feedbackStep === 2" class="step-content step-2">
+                    <div class="step-header text-left">
+                        <h3>Home Stay rất tiếc...</h3>
+                        <p>Bạn có thể chia sẻ lý do không ưng để hệ thống cải thiện không?</p>
+                    </div>
+
+                    <div class="reasons-list">
+                        <label v-for="r in dislikeReasons" :key="r"
+                            class="reason-card"
+                            :class="{ active: selectedReason === r }">
+                            <input type="radio" v-model="selectedReason" :value="r" class="reason-radio" />
+                            <span>{{ r }}</span>
+                        </label>
+                    </div>
+
+                    <button @click="submitDislikeReason" class="feedback-btn btn-submit w-full mt-4">
+                        Gửi phản hồi và tìm phòng mới
+                    </button>
+                </div>
+
+                <!-- Bước 3: Gợi ý phòng thay thế -->
+                <div v-if="feedbackStep === 3" class="step-content step-3">
+                    <div class="step-header text-left">
+                        <h3>HomeStay tìm cho bạn phòng tốt hơn nè!</h3>
+                        <p>
+                            Dựa vào lý do "<span class="reason-highlight">{{ selectedReason }}</span>", xem thử các phòng này nhé:
+                        </p>
+                    </div>
+
+                    <div class="recommendations-list">
+                        <div v-if="recommendedRooms.length === 0" class="no-recommendations">
+                            Hiện tại chưa tìm thấy phòng nào phù hợp hơn lý do này.
+                        </div>
+                        <a v-else v-for="post in recommendedRooms" :key="post.id" :href="'/chitiettro/' + post.id"
+                            class="recommend-item">
+                            <img :src="post.thumbnail || '/images/default-room.jpg'" class="recommend-img" />
+                            <div class="recommend-info">
+                                <h4>{{ post.title }}</h4>
+                                <p class="recommend-price">{{ Number(post.price).toLocaleString() }} đ/tháng</p>
+                            </div>
+                            <i class="bi bi-chevron-right recommend-arrow"></i>
+                        </a>
+                    </div>
+
+                    <button @click="closeFeedback" class="feedback-btn btn-close-bottom w-full mt-4">
+                        Đóng lại & tự tìm tiếp
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 </template>
+
+<style scoped>
+.feedback-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    padding: 20px;
+}
+
+.feedback-modal-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 28px;
+    width: 100%;
+    max-width: 860px;
+    min-height: 480px;
+    position: relative;
+    box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.25),
+        inset 0 0 20px rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: stretch;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.popup-image-wrapper {
+   position: absolute;
+    left: -387px;
+    bottom: -1px;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.popup-character-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    filter: drop-shadow(-10px 15px 25px rgba(0, 0, 0, 0.2));
+}
+
+.feedback-modal-content {
+    margin-left: 260px;
+    flex: 1;
+    padding: 50px 50px 50px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(15, 23, 42, 0.05);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    color: #64748b;
+    z-index: 10;
+}
+
+.close-btn:hover {
+    background: #ef4444;
+    color: white;
+    transform: rotate(90deg);
+}
+
+.step-content {
+    animation: fadeIn 0.35s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.step-icon {
+    width: 52px;
+    height: 52px;
+    background: #ecfdf5;
+    color: #10b981;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 18px;
+}
+
+.step-header h3 {
+    font-size: 23px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.3;
+    margin: 0 0 8px 0;
+}
+
+.step-header p {
+    font-size: 15px;
+    color: #64748b;
+    font-weight: 500;
+    margin: 0;
+}
+
+.room-highlight {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.feedback-btn {
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-size: 14.5px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-like {
+    background: linear-gradient(90deg, #102a6d, #45abe6);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.btn-like:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px #45abe6;
+}
+
+.btn-dislike {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.btn-dislike:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    transform: translateY(-2px);
+}
+
+/* Step 2 reasons */
+.reasons-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.reason-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.reason-card:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+
+.reason-card.active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.reason-radio {
+    accent-color: #3b82f6;
+    width: 16px;
+    height: 16px;
+}
+
+.btn-submit {
+    background: linear-gradient(90deg, #102a6d, #45abe6);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+}
+
+/* Step 3 recommendations */
+.reason-highlight {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.recommendations-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.recommendations-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+
+.no-recommendations {
+    text-align: center;
+    padding: 20px 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.recommend-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    background: white;
+}
+
+.recommend-item:hover {
+    border-color: #3b82f6;
+    background: #f8fafc;
+    transform: translateY(-1px);
+}
+
+.recommend-img {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 12px;
+}
+
+.recommend-info {
+    flex: 1;
+}
+
+.recommend-info h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 2px 0;
+    line-clamp: 1;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+}
+
+.recommend-price {
+    font-size: 13px;
+    font-weight: 750;
+    color: #ef4444;
+    margin: 0;
+}
+
+.recommend-arrow {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.btn-close-bottom {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.btn-close-bottom:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+/* RESPONSIVE */
+@media (max-width: 860px) {
+    .feedback-modal-container {
+        max-width: 480px;
+        min-height: auto;
+    }
+    
+    .popup-image-wrapper {
+        display: none;
+    }
+    
+    .feedback-modal-content {
+        margin-left: 0;
+        padding: 30px 24px;
+    }
+}
+</style>

@@ -142,11 +142,11 @@ const closePopup = () => {
             <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100/60 h-16 flex-shrink-0">
                 <div
                     class="w-10 h-10 bg-gradient-to-tr from-emerald-600 to-teal-400 text-white rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-emerald-500/10">
-                    R
+                    N
                 </div>
                 <div v-if="sidebarOpen" class="flex flex-col overflow-hidden transition-all duration-300">
                     <span class="font-extrabold text-slate-900 text-sm tracking-tight whitespace-nowrap">Ninh Bình
-                        Stay</span>
+                        Home</span>
                     <span
                         class="text-emerald-600 text-[10px] font-extrabold tracking-wide uppercase whitespace-nowrap">Chủ
                         Trọ Panel</span>

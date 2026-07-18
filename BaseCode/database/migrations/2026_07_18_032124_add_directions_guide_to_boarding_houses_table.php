@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->timestamp('last_seen_at')->nullable();
+        Schema::table('boarding_houses', function (Blueprint $table) {
+            $table -> text('directions_guide')->nullable('chỉ dẫn đường đi chi tiết');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('last_seen_at');
+        Schema::table('boarding_houses', function (Blueprint $table) {
+            $table->dropColumn('directions_guide');
         });
     }
 };

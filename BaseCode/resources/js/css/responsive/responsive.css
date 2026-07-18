@@ -14,7 +14,7 @@
         width: 100%;
         padding: 5px 15px;
         top: 15px;
-        border-radius: 12px;
+        border-radius: 50px;
         justify-content: space-between;
     }
 
@@ -55,7 +55,7 @@
         font-size: 15px;
     }
 
-    .thongbao-btn{
+    .thongbao-btn {
         margin-left: 5px;
     }
 
@@ -92,9 +92,9 @@
     }
 
     .banner-text h1 {
-        font-size: 22px;
+        font-size: 35px;
         line-height: 1.4;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
 
     .banner-text p {
@@ -345,7 +345,7 @@
     }
 
     .baothongso::before {
-        height: 415px;
+        height: 480px;
         content: "";
         position: absolute;
         inset: 0;

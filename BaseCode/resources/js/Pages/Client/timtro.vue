@@ -22,6 +22,7 @@ const timeAgo = (date) => {
 
 const showDropdown = ref(false)
 const selectedArea = ref(null)
+const isFilterCollapsed = ref(true)
 
 // Đối tượng lưu trữ các giá trị lọc
 const form = ref({
@@ -100,88 +101,96 @@ const getAvatarUrl = (avatar) => {
             <!-- phần bộ lọc tìm kiếm -->
             <section class="filter">
                 <div class="baofilter">
-                    <h2>Bộ Lọc Tìm Kiếm</h2>
-                    <!-- Khu vực (Dữ liệu từ DB) -->
-                    <div class="select_box">
-                        <div class="select" @click="showDropdown = !showDropdown">
-                            <span class="selected">
-                                <i class="bi bi-geo-alt"></i>
-                                {{ selectedArea ? selectedArea.name : 'Chọn khu vực' }}
-                            </span>
-                            <span class="arrow"><i class="bi bi-caret-down"></i></span>
-                        </div>
-
-                        <div class="dropdown" :class="{ show: showDropdown }">
-                            <div class="dropdown-header">
-                                <span>Khu vực:</span>
-                            </div>
-                            <ul>
-                                <li v-for="area in areas" :key="area.id"
-                                    :class="{ active: selectedArea?.id === area.id }" @click="selectArea(area)">
-                                    <i :class="['bi', area.icon]"></i> {{ area.name }}
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                    <!-- khoảng giá -->
-                    <div class="select_option">
-                        <h3>Khoảng giá:</h3>
-                        <div class="price_list">
-                            <label><input type="radio" name="price" value="duoi-1-trieu" v-model="form.price"> Dưới 1
-                                triệu</label>
-                            <label><input type="radio" name="price" value="1-2-trieu" v-model="form.price"> 1 - 2
-                                triệu</label>
-                            <label><input type="radio" name="price" value="2-3-trieu" v-model="form.price"> 2 - 3
-                                triệu</label>
-                            <label><input type="radio" name="price" value="tren-3-trieu" v-model="form.price"> Trên 3
-                                triệu</label>
-                        </div>
-                    </div>
-                    <!-- Diện tích -->
-                    <div class="select_option">
-                        <h3>Diện Tích:</h3>
-                        <div class="price_list">
-                            <label><input type="radio" name="dientich" value="duoi-20" v-model="form.dientich">Dưới
-                                20m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich" value="20-30" v-model="form.dientich">20 -
-                                30m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich" value="30-50" v-model="form.dientich">30 -
-                                50m<sup>2</sup></label>
-                            <label><input type="radio" name="dientich" value="tren-50" v-model="form.dientich">Trên
-                                50m<sup>2</sup></label>
-                        </div>
-                    </div>
-                    <!-- Loại phòng (Dữ liệu từ DB) -->
-                    <div class="select_option" v-if="categories.length">
-                        <h3>Loại phòng:</h3>
-                        <div class="feature_list">
-                            <label v-for="cat in categories" :key="cat.id">
-                                <input type="checkbox" :value="cat.id" v-model="form.categories"> <i
-                                    :class="['bi', cat.icon]"></i> {{ cat.name }}
-                            </label>
-                        </div>
-                    </div>
-                    <!-- tiện ích (Dữ liệu từ DB) -->
-                    <div class="select_option" v-if="amenities.length">
-                        <h3>Tiện ích:</h3>
-                        <div class="feature_list">
-                            <label v-for="amenity in amenities" :key="amenity.id">
-                                <input type="checkbox" :value="amenity.id" v-model="form.amenities"> <i
-                                    :class="['bi', amenity.icon]"></i> {{ amenity.name }}
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Bản đồ khu vực đã chọn -->
-                    <div v-if="selectedArea?.map_embed" class="map_section">
-                        <h3><i class="bi bi-map"></i> Bản đồ: {{ selectedArea.name }}</h3>
-                        <div class="map_wrap" v-html="selectedArea.map_embed"></div>
-                    </div>
-
-                    <div class="bao_btn">
-                        <button class="btn_filter" @click="submitSearch">Tìm kiếm</button>
-                        <button class="btn_filter_mic"><i class="bi bi-mic"></i>
+                    <div class="filter-title-wrapper" @click="isFilterCollapsed = !isFilterCollapsed">
+                        <h2>Bộ Lọc Tìm Kiếm</h2>
+                        <button class="filter-toggle-btn" type="button">
+                            <i :class="['bi', isFilterCollapsed ? 'bi-chevron-down' : 'bi-chevron-up']"></i>
                         </button>
+                    </div>
+
+                    <div class="filter-body" :class="{ 'collapsed': isFilterCollapsed }">
+                        <!-- Khu vực (Dữ liệu từ DB) -->
+                        <div class="select_box">
+                            <div class="select" @click.stop="showDropdown = !showDropdown">
+                                <span class="selected">
+                                    <i class="bi bi-geo-alt"></i>
+                                    {{ selectedArea ? selectedArea.name : 'Chọn khu vực' }}
+                                </span>
+                                <span class="arrow"><i class="bi bi-caret-down"></i></span>
+                            </div>
+
+                            <div class="dropdown" :class="{ show: showDropdown }">
+                                <div class="dropdown-header">
+                                    <span>Khu vực:</span>
+                                </div>
+                                <ul>
+                                    <li v-for="area in areas" :key="area.id"
+                                        :class="{ active: selectedArea?.id === area.id }" @click="selectArea(area)">
+                                        <i :class="['bi', area.icon]"></i> {{ area.name }}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- khoảng giá -->
+                        <div class="select_option">
+                            <h3>Khoảng giá:</h3>
+                            <div class="price_list">
+                                <label><input type="radio" name="price" value="duoi-1-trieu" v-model="form.price"> Dưới
+                                    1
+                                    triệu</label>
+                                <label><input type="radio" name="price" value="1-2-trieu" v-model="form.price"> 1 - 2
+                                    triệu</label>
+                                <label><input type="radio" name="price" value="2-3-trieu" v-model="form.price"> 2 - 3
+                                    triệu</label>
+                                <label><input type="radio" name="price" value="tren-3-trieu" v-model="form.price"> Trên
+                                    3
+                                    triệu</label>
+                            </div>
+                        </div>
+                        <!-- Diện tích -->
+                        <div class="select_option">
+                            <h3>Diện Tích:</h3>
+                            <div class="price_list">
+                                <label><input type="radio" name="dientich" value="duoi-20" v-model="form.dientich">Dưới
+                                    20m<sup>2</sup></label>
+                                <label><input type="radio" name="dientich" value="20-30" v-model="form.dientich">20 -
+                                    30m<sup>2</sup></label>
+                                <label><input type="radio" name="dientich" value="30-50" v-model="form.dientich">30 -
+                                    50m<sup>2</sup></label>
+                                <label><input type="radio" name="dientich" value="tren-50" v-model="form.dientich">Trên
+                                    50m<sup>2</sup></label>
+                            </div>
+                        </div>
+                        <!-- Loại phòng (Dữ liệu từ DB) -->
+                        <div class="select_option" v-if="categories.length">
+                            <h3>Loại phòng:</h3>
+                            <div class="feature_list">
+                                <label v-for="cat in categories" :key="cat.id">
+                                    <input type="checkbox" :value="cat.id" v-model="form.categories"> <i
+                                        :class="['bi', cat.icon]"></i> {{ cat.name }}
+                                </label>
+                            </div>
+                        </div>
+                        <!-- tiện ích (Dữ liệu từ DB) -->
+                        <div class="select_option" v-if="amenities.length">
+                            <h3>Tiện ích:</h3>
+                            <div class="feature_list">
+                                <label v-for="amenity in amenities" :key="amenity.id">
+                                    <input type="checkbox" :value="amenity.id" v-model="form.amenities"> <i
+                                        :class="['bi', amenity.icon]"></i> {{ amenity.name }}
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Bản đồ khu vực đã chọn -->
+                        <div v-if="selectedArea?.map_embed" class="map_section">
+                            <h3><i class="bi bi-map"></i> Bản đồ: {{ selectedArea.name }}</h3>
+                            <div class="map_wrap" v-html="selectedArea.map_embed"></div>
+                        </div>
+
+                        <div class="bao_btn">
+                            <button class="btn_filter" @click="submitSearch">Tìm kiếm</button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -357,5 +366,85 @@ const getAvatarUrl = (avatar) => {
 .so_trang.active a,
 .so_trang.active span {
     color: white;
+}
+
+/* Responsive Collapsible Filter */
+.filter-title-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.filter-title-wrapper h2,
+.filter-title-wrapper p {
+    margin: 0;
+}
+
+.filter-toggle-btn {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .filter-title-wrapper {
+        cursor: pointer;
+        user-select: none;
+        width: 100%;
+        padding-bottom: 5px;
+    }
+
+    .filter-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(90deg, #102a6d, #45abe6);
+        border: 1px solid #e2e8f0;
+        width: 34px;
+        height: 34px;
+        border-radius: 50px;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .filter-title-wrapper:hover .filter-toggle-btn {
+       background: linear-gradient(90deg, #102a6d, #45abe6);
+        color: #fff;
+    }
+
+    .baofilter {
+        display: block !important;
+    }
+
+    .filter-body {
+        transition: max-height 0.35s ease-in-out, opacity 0.25s ease-in-out;
+        max-height: 2500px;
+        opacity: 1;
+        overflow: hidden;
+        margin-top: 15px;
+    }
+
+    .filter-body.collapsed {
+        max-height: 0;
+        opacity: 0;
+        margin-top: 0;
+        pointer-events: none;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .filter-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .filter-body.collapsed {
+        display: none !important;
+    }
+
+    .map_section,
+    .bao_btn {
+        grid-column: 1 / -1;
+    }
 }
 </style>

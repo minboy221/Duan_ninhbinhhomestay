@@ -69,6 +69,21 @@ const statusMap = {
         cls: "bg-slate-50 text-slate-500 border-slate-100",
         dot: "bg-slate-500",
     },
+    expired: {
+        label: "Quá giờ hẹn",
+        cls: "bg-rose-50 text-rose-500 border-rose-100",
+        dot: "bg-rose-500",
+    },
+    success_matched: {
+        label: "Đã thuê trọ",
+        cls: "bg-teal-50 text-teal-600 border-teal-100",
+        dot: "bg-teal-500",
+    },
+    false_matched: {
+        label: "Không thuê",
+        cls: "bg-gray-50 text-gray-500 border-gray-100",
+        dot: "bg-gray-400",
+    },
 };
 
 const approveApt = (apt) => {
@@ -83,6 +98,15 @@ const openRejectModal = (apt) => {
     rejectForm.cancellation_reason = "";
     rejectForm.clearErrors();
     isRejectModalOpen.value = true;
+};
+
+//hàm lấy trạng thái an toàn
+const getStatusData = (status) => {
+    return statusMap[status] || {
+        label: status || "Không rõ",
+        cls: 'bg-slate-50 text-slate-500 border-slate-100',
+        dot: "bg-slate-500"
+    };
 };
 
 //hàm sử lý gửi form từ chối kèm lý do lên Server
@@ -134,14 +158,14 @@ const getVisiblePages = (currentPage, totalPages) => {
     } else {
         pages.push(1);
         if (currentPage > 3) pages.push('...');
-        
+
         const start = Math.max(2, currentPage - 1);
         const end = Math.min(totalPages - 1, currentPage + 1);
-        
+
         for (let i = start; i <= end; i++) {
             pages.push(i);
         }
-        
+
         if (currentPage < totalPages - 2) pages.push('...');
         pages.push(totalPages);
     }
@@ -322,31 +346,27 @@ const getVisiblePages = (currentPage, totalPages) => {
                         </div>
 
                         <!-- Pagination for Pending Requests -->
-                        <div v-if="pendingTotalPages > 1" class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+                        <div v-if="pendingTotalPages > 1"
+                            class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
                             <span class="text-[11px] text-slate-400 font-semibold">
-                                Hiển thị {{ (pendingPage - 1) * pendingPageSize + 1 }} - {{ Math.min(pendingPage * pendingPageSize, pendingList.length) }} trong số {{ pendingList.length }}
+                                Hiển thị {{ (pendingPage - 1) * pendingPageSize + 1 }} - {{ Math.min(pendingPage *
+                                    pendingPageSize, pendingList.length) }} trong số {{ pendingList.length }}
                             </span>
                             <div class="flex items-center gap-1">
-                                <button 
-                                    @click="pendingPage = Math.max(1, pendingPage - 1)" 
+                                <button @click="pendingPage = Math.max(1, pendingPage - 1)"
                                     :disabled="pendingPage === 1"
                                     class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
                                     <i class="bi bi-chevron-left text-[9px]"></i>
                                 </button>
-                                <button 
-                                    v-for="p in pendingTotalPages" 
-                                    :key="p" 
-                                    @click="pendingPage = p"
-                                    :class="[
-                                        'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
-                                        pendingPage === p 
-                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
-                                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                                    ]">
+                                <button v-for="p in pendingTotalPages" :key="p" @click="pendingPage = p" :class="[
+                                    'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
+                                    pendingPage === p
+                                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
+                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                ]">
                                     {{ p }}
                                 </button>
-                                <button 
-                                    @click="pendingPage = Math.min(pendingTotalPages, pendingPage + 1)" 
+                                <button @click="pendingPage = Math.min(pendingTotalPages, pendingPage + 1)"
                                     :disabled="pendingPage === pendingTotalPages"
                                     class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
                                     <i class="bi bi-chevron-right text-[9px]"></i>
@@ -374,7 +394,8 @@ const getVisiblePages = (currentPage, totalPages) => {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                                    <tr v-for="apt in paginatedAllAppointments" :key="apt.id" class="hover:bg-slate-50/30">
+                                    <tr v-for="apt in paginatedAllAppointments" :key="apt.id"
+                                        class="hover:bg-slate-50/30">
                                         <td class="py-3 px-4">
                                             <div class="flex flex-col">
                                                 <span>{{ apt.name }}</span>
@@ -396,49 +417,43 @@ const getVisiblePages = (currentPage, totalPages) => {
                                         <td class="py-3 px-4">
                                             <span :class="[
                                                 'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
-                                                statusMap[apt.status].cls,
+                                                getStatusData(apt.status).cls,
                                             ]">
-                                                <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[apt.status]
-                                                    .dot
-                                                    "></span>
-                                                {{
-                                                    statusMap[apt.status].label
-                                                }}
+                                                <span class="w-1.5 h-1.5 rounded-full"
+                                                    :class="getStatusData(apt.status).dot"></span>
+                                                {{ getStatusData(apt.status).label }}
                                             </span>
                                         </td>
+
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
 
                         <!-- Pagination for All Appointments -->
-                        <div v-if="allTotalPages > 1" class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+                        <div v-if="allTotalPages > 1"
+                            class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
                             <span class="text-[11px] text-slate-400 font-semibold">
-                                Hiển thị {{ (allPage - 1) * allPageSize + 1 }} - {{ Math.min(allPage * allPageSize, appointments.length) }} trong số {{ appointments.length }}
+                                Hiển thị {{ (allPage - 1) * allPageSize + 1 }} - {{ Math.min(allPage * allPageSize,
+                                    appointments.length) }} trong số {{ appointments.length }}
                             </span>
                             <div class="flex items-center gap-1">
-                                <button 
-                                    @click="allPage = Math.max(1, allPage - 1)" 
-                                    :disabled="allPage === 1"
+                                <button @click="allPage = Math.max(1, allPage - 1)" :disabled="allPage === 1"
                                     class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
                                     <i class="bi bi-chevron-left text-[9px]"></i>
                                 </button>
-                                <button 
-                                    v-for="p in getVisiblePages(allPage, allTotalPages)" 
-                                    :key="p" 
-                                    @click="typeof p === 'number' ? allPage = p : null"
-                                    :class="[
+                                <button v-for="p in getVisiblePages(allPage, allTotalPages)" :key="p"
+                                    @click="typeof p === 'number' ? allPage = p : null" :class="[
                                         'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
-                                        allPage === p 
-                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
-                                            : p === '...' 
-                                                ? 'border-transparent text-slate-400 cursor-default' 
+                                        allPage === p
+                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
+                                            : p === '...'
+                                                ? 'border-transparent text-slate-400 cursor-default'
                                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                                     ]">
                                     {{ p }}
                                 </button>
-                                <button 
-                                    @click="allPage = Math.min(allTotalPages, allPage + 1)" 
+                                <button @click="allPage = Math.min(allTotalPages, allPage + 1)"
                                     :disabled="allPage === allTotalPages"
                                     class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
                                     <i class="bi bi-chevron-right text-[9px]"></i>

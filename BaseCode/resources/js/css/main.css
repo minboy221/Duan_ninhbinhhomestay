@@ -992,7 +992,7 @@ body {
 
 /* phần đăng ký */
 .dangky {
-    transform: translate(0%, -19%);
+    transform: translate(0%, -17%);
     display: flex;
     justify-content: space-between;
     gap: 40px;
@@ -1151,7 +1151,7 @@ body {
     width: 100px;
     background: #3f7a9c;
     border: none;
-    border-radius: 6px;
+    border-radius: 25px;
     color: #fff;
     cursor: pointer;
     font-weight: 600;

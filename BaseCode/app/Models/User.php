@@ -39,7 +39,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'bank_name',
         'bank_account_no',
         'bank_account_name',
+        'last_seen_at',
     ];
+
+    protected $appends = ['is_online'];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -74,6 +77,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $casts = [
         'email_verified_at' => 'datetime',
         'last_profile_update_at' => 'datetime',
+        'last_seen_at' => 'datetime',
     ];
 
     /**
@@ -111,5 +115,14 @@ class User extends Authenticatable implements MustVerifyEmail
     public function roomPosts()
     {
         return $this->hasMany(RoomPost::class, 'landlord_id', 'id');
+    }
+
+    //kiểm tra người dùng có đang online hay không
+    public function getIsOnlineAttribute(): bool{
+        if(!$this->last_seen_at){
+            return false;
+        }
+        //so sánh thời gian hoạt động cuối dùng có lớn hơn thời điểm cách đây 3 phút
+        return $this->last_seen_at->gt(now()->subMinutes(3));
     }
 }
