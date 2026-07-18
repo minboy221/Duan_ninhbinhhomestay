@@ -148,8 +148,8 @@ const submitAddContract = () => {
                 </div>
             </div>
 
-            <!-- Contracts Table -->
-            <div class="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+            <!-- Contracts Table (Desktop) -->
+            <div class="hidden lg:block bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse min-w-[900px]">
                         <thead>
@@ -206,13 +206,71 @@ const submitAddContract = () => {
                     </table>
                 </div>
             </div>
+
+            <!-- Contracts Mobile Card List -->
+            <div class="block lg:hidden space-y-4">
+                <div v-for="c in contracts" :key="c.id" :class="[
+                    'bg-white border border-slate-150 rounded-3xl p-5 shadow-sm space-y-3',
+                    c.status === 'expired' ? 'opacity-75' : ''
+                ]" @click="openContract(c)">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Hợp đồng: {{ c.id }}</span>
+                            <div class="text-sm font-black text-slate-800 mt-0.5">{{ c.room }}</div>
+                        </div>
+                        <span :class="['px-2 py-0.5 rounded-md text-[9px] font-bold border flex items-center gap-1 w-fit', statusMap[c.status].cls]">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[c.status].dot"></span>
+                            {{ statusMap[c.status].label }}
+                        </span>
+                    </div>
+
+                    <!-- Compact Key-Value Details -->
+                    <div class="space-y-1.5 text-xs pt-2 border-t border-slate-50 font-semibold text-slate-600">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 font-bold uppercase text-[9px]">Người thuê:</span>
+                            <span class="text-slate-700 font-bold">{{ c.tenant }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 font-bold uppercase text-[9px]">Điện thoại:</span>
+                            <span class="text-slate-500 font-mono">{{ c.phone }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 font-bold uppercase text-[9px]">Giá thuê:</span>
+                            <span class="text-slate-700 font-bold">{{ formatMoney(c.rent) }}/tháng</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 font-bold uppercase text-[9px]">Thời hạn:</span>
+                            <span class="text-slate-500">{{ formatDate(c.start) }} - {{ formatDate(c.end) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 font-bold uppercase text-[9px]">Đặt cọc:</span>
+                            <span :class="c.depositPaid ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'">
+                                {{ c.depositPaid ? 'Đã cọc' : 'Chưa cọc' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Card Actions -->
+                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-50" @click.stop>
+                        <button @click="openContract(c)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center transition-colors">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="w-8 h-8 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center transition-colors">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </button>
+                        <button @click="askDelete(c)" class="w-8 h-8 bg-slate-50 hover:bg-rose-100 text-rose-500 rounded-xl flex items-center justify-center transition-colors">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Modals -->
         <Teleport to="body">
             <!-- Details Modal -->
-            <div v-if="showModal && selectedContract" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="closeModal">
-                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div v-if="showModal && selectedContract" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" @click.self="closeModal">
+                <div class="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh]">
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                         <h3 class="text-sm font-bold text-slate-800">Chi tiết hợp đồng {{ selectedContract.id }}</h3>
                         <button @click="closeModal" class="text-slate-400 hover:text-slate-600 p-1">
@@ -220,7 +278,7 @@ const submitAddContract = () => {
                         </button>
                     </div>
 
-                    <div class="p-6 space-y-4">
+                    <div class="p-6 space-y-4 overflow-y-auto flex-1">
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-0.5">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phòng</span>
@@ -257,16 +315,16 @@ const submitAddContract = () => {
                         </div>
                     </div>
 
-                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
-                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="closeModal">Đóng</button>
-                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors">Gia hạn hợp đồng</button>
+                    <div class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 bg-slate-50/50">
+                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" @click="closeModal">Đóng</button>
+                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors text-center">Gia hạn hợp đồng</button>
                     </div>
                 </div>
             </div>
 
             <!-- Multi-step Add Contract Modal -->
-            <div v-if="showAddModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showAddModal = false">
-                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div v-if="showAddModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" @click.self="showAddModal = false">
+                <div class="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh]">
                     <!-- Head -->
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                         <div class="space-y-0.5">
@@ -349,28 +407,28 @@ const submitAddContract = () => {
                     </div>
 
                     <!-- Foot -->
-                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-2.5 bg-slate-50/50">
                         <button 
                             v-if="activeStep > 1"
-                            class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" 
+                            class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" 
                             @click="activeStep--"
                         >
                             Quay lại
                         </button>
                         <div v-else></div>
 
-                        <div class="flex items-center gap-2">
-                            <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showAddModal = false">Hủy</button>
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" @click="showAddModal = false">Hủy</button>
                             <button 
                                 v-if="activeStep < 3"
-                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors"
+                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors text-center"
                                 @click="activeStep++"
                             >
                                 Tiếp tục
                             </button>
                             <button 
                                 v-else
-                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors"
+                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors text-center"
                                 @click="submitAddContract"
                             >
                                 Ký hợp đồng
@@ -381,9 +439,9 @@ const submitAddContract = () => {
             </div>
 
             <!-- Confirm delete modal -->
-            <div v-if="showDeleteConfirm" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
-                    <div class="p-6 text-center space-y-4">
+            <div v-if="showDeleteConfirm" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+                <div class="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh]">
+                    <div class="p-6 text-center space-y-4 flex-1 overflow-y-auto">
                         <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center text-xl mx-auto">
                             <i class="bi bi-exclamation-triangle-fill"></i>
                         </div>
@@ -392,9 +450,9 @@ const submitAddContract = () => {
                             <p class="text-xs text-slate-400">Bạn có chắc chắn muốn xóa hợp đồng phòng {{ deleteTarget?.room }}? Hành động này không thể hoàn tác.</p>
                         </div>
                     </div>
-                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
-                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showDeleteConfirm = false">Hủy</button>
-                        <button class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/10 transition-colors" @click="confirmDelete">Xóa</button>
+                    <div class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 bg-slate-50/50">
+                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" @click="showDeleteConfirm = false">Hủy</button>
+                        <button class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/10 transition-colors text-center" @click="confirmDelete">Xóa</button>
                     </div>
                 </div>
             </div>

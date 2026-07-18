@@ -251,7 +251,7 @@ const closePopup = () => {
                         </button>
                         
                         <!-- Notification Dropdown -->
-                        <div v-if="notifOpen" class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
+                        <div v-if="notifOpen" class="fixed md:absolute left-4 right-4 md:left-auto md:right-0 top-16 md:top-auto md:mt-2 w-auto md:w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
                             <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                                 <h3 class="text-sm font-bold text-slate-800">Thông báo</h3>
                                 <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
@@ -311,7 +311,7 @@ const closePopup = () => {
             </header>
 
             <!-- Main view screen -->
-            <main class="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8fafc] text-sm">
+            <main class="flex-1 overflow-y-auto px-6 pt-6 pb-28 md:p-8 bg-[#f8fafc] text-sm">
                 <slot />
             </main>
         </div>

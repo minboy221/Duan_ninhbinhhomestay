@@ -283,7 +283,8 @@ const pendingList = computed(() =>
                             <span>Tất cả lịch hẹn sắp tới</span>
                         </h3>
 
-                        <div class="overflow-x-auto">
+                        <!-- Desktop Table View (hidden on mobile) -->
+                        <div class="hidden md:block overflow-x-auto">
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr
@@ -330,6 +331,36 @@ const pendingList = computed(() =>
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <!-- Mobile Card View (hidden on desktop) -->
+                        <div class="block md:hidden space-y-3">
+                            <div v-for="apt in appointments" :key="apt.id" 
+                                class="p-4 border border-slate-100 rounded-2xl bg-slate-50/30 space-y-3">
+                                <div class="flex justify-between items-start">
+                                    <div class="space-y-0.5">
+                                        <h4 class="text-xs font-bold text-slate-800">{{ apt.name }}</h4>
+                                        <p class="text-[10px] text-slate-400 font-semibold">{{ apt.phone }}</p>
+                                    </div>
+                                    <span :class="[
+                                        'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
+                                        statusMap[apt.status].cls,
+                                    ]">
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[apt.status].dot"></span>
+                                        {{ statusMap[apt.status].label }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-[11px] font-semibold text-slate-500">
+                                    <div class="flex items-center gap-1">
+                                        <i class="bi bi-house text-emerald-500"></i>
+                                        <span>Phòng {{ apt.room }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <i class="bi bi-clock text-slate-400"></i>
+                                        <span>{{ apt.time }} · {{ new Date(apt.date).toLocaleDateString("vi-VN") }}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

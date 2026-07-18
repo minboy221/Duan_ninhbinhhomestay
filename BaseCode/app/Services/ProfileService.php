@@ -100,10 +100,10 @@ class ProfileService
             // Lấy danh sách ID chủ trọ đang có hợp đồng ký kết (signed) với người dùng này
             $landlordIds = \Illuminate\Support\Facades\DB::table('contracts')
                 ->join('rooms', 'contracts.room_id', '=', 'rooms.id')
-                ->join('properties', 'rooms.property_id', '=', 'properties.id')
+                ->join('boarding_houses', 'rooms.boarding_house_id', '=', 'boarding_houses.id')
                 ->where('contracts.tenant_id', $user->id)
                 ->where('contracts.status', 'signed')
-                ->pluck('properties.landlord_id')
+                ->pluck('boarding_houses.user_id')
                 ->unique()
                 ->toArray();
 

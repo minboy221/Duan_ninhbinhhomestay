@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import MainLayout from '@/Layouts/MainLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import HomePopup from '@/Components/HomePopup.vue';
@@ -14,7 +14,20 @@ const props = defineProps({
     categories: { type: Array, default: () => [] },
     areas:      { type: Array, default: () => [] },
     amenities:  { type: Array, default: () => [] },
+    settings:   { type: Object, default: () => ({}) }
 })
+
+const activeBanners = computed(() => {
+    const list = props.settings?.banners || [];
+    const active = list.filter(b => b.active);
+    if (active.length > 0) {
+        return active.sort((a, b) => a.order - b.order);
+    }
+    return [{ id: 1, title: 'Default', img: '/anh/banner.png' }];
+});
+
+const currentBannerIndex = ref(0);
+let bannerInterval = null;
 
 // Slider Phòng Trọ
 const currentPtSlide = ref(0);
@@ -36,10 +49,18 @@ const goToPtSlide = (index) => {
 // Tự động chuyển slide sau mỗi 5s
 onMounted(() => {
     ptSlideInterval = setInterval(nextPtSlide, 5000);
+    
+    // Tự động chuyển banner sau mỗi 6s
+    bannerInterval = setInterval(() => {
+        if (activeBanners.value.length > 1) {
+            currentBannerIndex.value = (currentBannerIndex.value + 1) % activeBanners.value.length;
+        }
+    }, 6000);
 });
 
 onUnmounted(() => {
     if (ptSlideInterval) clearInterval(ptSlideInterval);
+    if (bannerInterval) clearInterval(bannerInterval);
 });
 
 // Slider Đánh Giá
@@ -56,14 +77,30 @@ const scrollReview = (direction) => {
 
     <Head title="Ninh Bình HomeStay" />
     <MainLayout>
-        <!-- BANNER -->
+        <!-- BANNER SLIDESHOW -->
         <div class="banner">
-            <img src="/anh/banner.png" alt="banner">
+            <div 
+                v-for="(banner, index) in activeBanners" 
+                :key="banner.id" 
+                :class="['banner-slide', index === currentBannerIndex ? 'active' : '']"
+            >
+                <img :src="banner.img || '/anh/banner.png'" alt="banner">
+            </div>
             <div class="banner-text">
-                <h1>Tìm Phòng Và Nhà Trọ Phù Hợp</h1>
+                <h1>{{ props.settings?.hero_title || 'Tìm Phòng Và Nhà Trọ Phù Hợp' }}</h1>
                 <p>
-                    Hệ thống tìm kiếm và quản lý phòng trọ thông minh số 1 tại Ninh Bình.
+                    {{ props.settings?.hero_subtitle || 'Hệ thống tìm kiếm và quản lý phòng trọ thông minh số 1 tại Ninh Bình.' }}
                 </p>
+            </div>
+            
+            <!-- Banner Navigation dots if there are multiple active banners -->
+            <div v-if="activeBanners.length > 1" class="banner-dots">
+                <span 
+                    v-for="(banner, index) in activeBanners" 
+                    :key="'dot-' + banner.id" 
+                    :class="['banner-dot', index === currentBannerIndex ? 'active' : '']"
+                    @click="currentBannerIndex = index"
+                ></span>
             </div>
         </div>
         <!-- phần tìm kiếm -->
@@ -371,3 +408,45 @@ const scrollReview = (direction) => {
         <HomePopup />
     </MainLayout>
 </template>
+
+<style scoped>
+.banner-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 1.2s ease-in-out;
+    z-index: 1;
+}
+.banner-slide.active {
+    opacity: 1;
+    z-index: 2;
+}
+.banner-text {
+    z-index: 10;
+}
+.banner-dots {
+    position: absolute;
+    bottom: 95px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 20;
+}
+.banner-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.banner-dot.active {
+    background: #ffffff;
+    transform: scale(1.3);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+</style>

@@ -73,6 +73,10 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
             ],
+            'settings' => \App\Models\Setting::pluck('value', 'key')->map(function($val) {
+                $decoded = json_decode($val, true);
+                return is_array($decoded) ? $decoded : $val;
+            }),
         ]);
     }
 }
