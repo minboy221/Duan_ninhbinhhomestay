@@ -382,7 +382,8 @@ const getVisiblePages = (currentPage, totalPages) => {
                             <span>Tất cả lịch hẹn sắp tới</span>
                         </h3>
 
-                        <div class="overflow-x-auto">
+                        <!-- Desktop Table View (hidden on mobile) -->
+                        <div class="hidden md:block overflow-x-auto">
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr
@@ -391,6 +392,7 @@ const getVisiblePages = (currentPage, totalPages) => {
                                         <th class="py-3 px-4">Phòng xem</th>
                                         <th class="py-3 px-4">Ngày & Giờ</th>
                                         <th class="py-3 px-4">Trạng thái</th>
+                                        <th class="py-3 px-4">Hợp đồng</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">

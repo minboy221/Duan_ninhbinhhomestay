@@ -33,7 +33,7 @@ class RoomListingController extends Controller
         //gọi services lấy danh sách bài đăng
         $listings = $this->roomPostService->getLandlordPosts(auth()->id());
         //trả dữ liệu ra giao diện
-        return Inertia::render('Landlord/Listings/Index', [
+        return Inertia::render('Landlord/Listings/index', [
             'listings' => $listings
         ]);
     }
@@ -152,7 +152,7 @@ class RoomListingController extends Controller
             abort(403, 'Bạn không có quyền đóng bài đăng này');
         }
         //chuyển trạng thái
-        $post->update(['status' => 'closed']);
+        $post->update(['status' => 'hidden']);
         return redirect()->route('landlord.listings.index')
             ->with('success', 'Đã đóng tin đăng thành công! tin đăng đã được gỡ bỏ');
     }

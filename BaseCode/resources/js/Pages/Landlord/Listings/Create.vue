@@ -347,7 +347,7 @@ const formatGeneralText = (text) => {
                                 </label>
 
                                 <button type="button" @click="toggleSpeechToText('title')"
-                                    class="flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg text-sm font-semibold"
+                                    class="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg text-sm font-semibold"
                                     :class="recordingField === 'title'
                                             ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse scale-105'
                                             : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:scale-105'
@@ -356,12 +356,13 @@ const formatGeneralText = (text) => {
                                             ? 'bi-mic-fill'
                                             : 'bi-mic'
                                         "></i>
-
-                                    {{
-                                        recordingField === "title"
-                                            ? "Đang lắng nghe..."
-                                            : "Nhập bằng giọng nói"
-                                    }}
+                                    <span class="hidden sm:inline">
+                                        {{
+                                            recordingField === "title"
+                                                ? "Đang lắng nghe..."
+                                                : "Nhập bằng giọng nói"
+                                        }}
+                                    </span>
                                 </button>
                             </div>
 
@@ -461,24 +462,6 @@ const formatGeneralText = (text) => {
                                 Phòng này hiện chưa được thiết lập tiện ích nào.
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label"> Nhà trọ </label>
-                            <select v-model="selectedHouse" class="form-input">
-                                <option :value="null">Chọn nhà trọ</option>
-                                <option v-for="house in boardingHouses" :key="house.id" :value="house">
-                                    {{ house.name }}
-                                </option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label"> Tầng </label>
-                            <select v-model="selectedFloor" class="form-input">
-                                <option :value="null">Chọn tầng</option>
-                                <option v-for="floor in availableFloors" :key="floor.id" :value="floor">
-                                    Tầng {{ floor.name }}
-                                </option>
-                            </select>
-                        </div>
 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -520,7 +503,7 @@ const formatGeneralText = (text) => {
 
                                 <!-- Nút ghi âm giọng nói -->
                                 <button type="button" @click="toggleSpeechToText('description')"
-                                    class="speech-btn flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all self-start sm:self-center"
+                                    class="speech-btn flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all self-start sm:sm:self-center"
                                     :class="recordingField === 'description'
                                             ? 'bg-red-500 text-white border-red-500 animate-pulse font-bold shadow-md'
                                             : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -529,7 +512,7 @@ const formatGeneralText = (text) => {
                                             ? 'bi-mic-fill'
                                             : 'bi-mic'
                                         "></i>
-                                    <span>
+                                    <span class="hidden sm:inline">
                                         {{
                                             recordingField === "description"
                                                 ? "Đang ghi âm..."
@@ -685,7 +668,7 @@ const formatGeneralText = (text) => {
 
             <!-- Submit -->
             <div class="submit-bar">
-                <Link :href="route('landlord.listings.index')">Hủy</Link>
+                <Link :href="route('landlord.listings.index')" class="btn-cancel">Hủy</Link>
                 <button type="button" class="btn-draft" @click="submitForm('draft')">
                     <i class="bi bi-save"></i> Lưu Nháp
                 </button>
@@ -1158,6 +1141,61 @@ form.price {
 
     .amenity-grid {
         grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .create-wrap {
+        gap: 12px;
+        padding-bottom: 70px; /* space for the sticky bottom bar */
+    }
+
+    .form-card {
+        padding: 14px 16px;
+        gap: 12px;
+    }
+
+    .form-row-2,
+    .form-row-3 {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .amenity-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+    }
+
+    .submit-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+        border-top: 1px solid #e2e8f0;
+        padding: 10px 16px;
+        display: grid;
+        grid-template-columns: auto 1fr 1fr;
+        gap: 8px;
+    }
+
+    .btn-cancel,
+    .btn-draft,
+    .btn-submit {
+        padding: 8px 10px;
+        font-size: 13px;
+        text-align: center;
+        justify-content: center;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .btn-cancel {
+        display: inline-flex;
+        align-items: center;
     }
 }
 

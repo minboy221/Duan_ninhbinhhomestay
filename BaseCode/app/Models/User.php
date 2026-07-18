@@ -40,6 +40,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'bank_account_no',
         'bank_account_name',
         'last_seen_at',
+        'cccd_number',
     ];
 
     protected $appends = ['is_online'];

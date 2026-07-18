@@ -105,6 +105,13 @@ Route::middleware('auth')->group(function () {
     //route API layas các khung giờ đã trùng
     Route::get('/chitiettro/{id}/booked_slots', [PublicListingController::class, 'getBookedSlots'])->name('rooms.booked-slots');
 
+    // Route thả tim (yêu thích) phòng trọ
+    Route::post('/rooms/{room}/favorite', [ProfileController::class, 'toggleFavorite'])->name('rooms.favorite');
+
+    // Route Đánh giá sau khi xem phòng
+    Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
+    Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
+
     // Route chung để xem file private (CCCD, Hợp đồng...)
     Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
         ->name('files.private');
@@ -156,6 +163,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/roles', [AdminController::class, 'roles'])->name('admin.roles');
     Route::get('/auditlog', [AdminController::class, 'auditlog'])->name('admin.auditlog');
     Route::get('/website', [AdminController::class, 'website'])->name('admin.website');
+    Route::post('/website', [AdminController::class, 'updateWebsite'])->name('admin.website.update');
     Route::get('/ads', [AdminController::class, 'ads'])->name('admin.ads');
     Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     //Phần route để xác minh thông tin chủ trọ
@@ -227,6 +235,12 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
+    
+    // Đăng ký hợp đồng (Phase 3, 4, 5)
+    Route::get('/contracts/create-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'createDraft'])->name('landlord.contracts.create_draft');
+    Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
+    Route::post('/contracts/{contract}/upload-signed', [\App\Http\Controllers\Landlord\ContractController::class, 'uploadSignedContract'])->name('landlord.contracts.upload_signed');
+
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');
     Route::put('/invoices/{id}', [LandlordController::class, 'updateInvoice'])->name('landlord.invoices.update');
