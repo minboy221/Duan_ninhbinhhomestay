@@ -103,6 +103,7 @@ const activeTab = ref("all"); // 'all' | 'active' | 'inactive'
 const searchQuery = ref("");
 const floorFilter = ref("");
 const statusFilter = ref("");
+const viewMode = ref("grid"); // 'grid' | 'compact' | 'list'
 
 const isRoomActive = (status) => {
     return [
@@ -924,6 +925,31 @@ const getAutoCoordinates = () => {
                         {{ cfg.label }}
                     </option>
                 </select>
+
+                <!-- Chế độ xem -->
+                <div class="flex items-center bg-slate-50 border border-slate-150 rounded-xl p-1 gap-0.5 ml-auto">
+                    <button @click="viewMode = 'grid'" 
+                        :class="['px-2.5 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1 font-bold', 
+                                 viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600']"
+                        title="Dạng lưới lớn">
+                        <i class="bi bi-grid-fill"></i>
+                        <span class="hidden sm:inline">Lưới</span>
+                    </button>
+                    <button @click="viewMode = 'compact'" 
+                        :class="['px-2.5 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1 font-bold', 
+                                 viewMode === 'compact' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600']"
+                        title="Dạng lưới thu gọn">
+                        <i class="bi bi-grid-3x3-gap-fill"></i>
+                        <span class="hidden sm:inline">Thu gọn</span>
+                    </button>
+                    <button @click="viewMode = 'list'" 
+                        :class="['px-2.5 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1 font-bold', 
+                                 viewMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600']"
+                        title="Dạng danh sách dòng">
+                        <i class="bi bi-list-ul"></i>
+                        <span class="hidden sm:inline">Danh sách</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Rooms Table -->
@@ -933,7 +959,8 @@ const getAutoCoordinates = () => {
                     <i class="bi bi-inbox text-3xl text-slate-300 block"></i>
                     <span>Không tìm thấy phòng nào phù hợp bộ lọc.</span>
                 </div>
-                <div v-else class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- 1. Chế độ xem Lưới Lớn (viewMode === 'grid') -->
+                <div v-else-if="viewMode === 'grid'" class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     <div v-for="room in allFilteredRooms" :key="room.id"
                         class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200 cursor-pointer group"
                         @click="openDetail(room)">
@@ -1019,6 +1046,98 @@ const getAutoCoordinates = () => {
                                     room.current_people < room.capacity
                                 " class="text-[10px] font-bold text-blue-500">Còn chỗ</span>
                                 <span v-else class="text-[10px] font-bold text-rose-500">Đã đầy</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Chế độ xem Thu Gọn (viewMode === 'compact') -->
+                <div v-else-if="viewMode === 'compact'" class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                    <div v-for="room in allFilteredRooms" :key="room.id"
+                        class="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200 cursor-pointer group relative overflow-hidden"
+                        @click="openDetail(room)">
+                        <div class="space-y-2">
+                            <!-- Header: Tên phòng và Tầng -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-sm border border-emerald-100 flex-shrink-0">
+                                        P
+                                    </div>
+                                    <div class="min-w-0">
+                                        <h4 class="text-xs font-bold text-slate-800 truncate" :title="room.name">
+                                            {{ room.name }}
+                                        </h4>
+                                    </div>
+                                </div>
+                                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider truncate max-w-[45px]">{{ room.floor_name }}</span>
+                            </div>
+
+                            <!-- Trạng thái phòng gọn nhẹ -->
+                            <div class="flex flex-wrap gap-1">
+                                <span :class="[
+                                    'px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 w-fit',
+                                    statusConfig[room.status]?.cls ||
+                                    'bg-slate-50 text-slate-600 border-slate-200',
+                                ]">
+                                    <span class="w-1 h-1 rounded-full"
+                                        :class="statusConfig[room.status]?.dot"></span>
+                                    {{ statusConfig[room.status]?.label || "Không rõ" }}
+                                </span>
+                            </div>
+
+                            <!-- Giá gọn nhẹ -->
+                            <div class="bg-slate-50/50 rounded-xl p-2 text-center">
+                                <span class="text-xs font-extrabold text-slate-800 block">{{ fmtMoney(room.price) }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Footer: Người ở -->
+                        <div class="pt-1.5 mt-2 border-t border-slate-50 flex items-center justify-between text-[9px] font-semibold text-slate-500">
+                            <span>
+                                <i class="bi bi-people-fill text-slate-400 mr-0.5"></i>
+                                {{ room.current_people }}/{{ room.capacity }}
+                            </span>
+                            <span v-if="room.current_people === 0" class="text-emerald-500 font-bold">Trống</span>
+                            <span v-else-if="room.current_people < room.capacity" class="text-blue-500 font-bold">Còn chỗ</span>
+                            <span v-else class="text-rose-500 font-bold">Đầy</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Chế độ xem Danh Sách Dòng (viewMode === 'list') -->
+                <div v-else-if="viewMode === 'list'" class="p-4 flex flex-col gap-2">
+                    <div v-for="room in allFilteredRooms" :key="room.id"
+                        class="bg-white border border-slate-100 hover:border-slate-200 rounded-2xl p-3 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between hover:shadow-md transition-all duration-200 cursor-pointer gap-2"
+                        @click="openDetail(room)">
+                        <!-- Left block: Name, floor, people -->
+                        <div class="flex items-center gap-3">
+                            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :class="statusConfig[room.status]?.dot"></span>
+                            <div class="flex items-baseline gap-2">
+                                <h4 class="text-sm font-black text-slate-800">Phòng {{ room.name }}</h4>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{{ room.floor_name }}</span>
+                            </div>
+                            <span class="text-xs text-slate-400 font-semibold">
+                                <i class="bi bi-people-fill mr-0.5"></i>
+                                {{ room.current_people }}/{{ room.capacity }}
+                            </span>
+                        </div>
+
+                        <!-- Right block: Price, status, actions -->
+                        <div class="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-50">
+                            <span class="text-xs font-bold text-slate-400 sm:hidden">Giá thuê:</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-black text-slate-800">{{ fmtMoney(room.price) }}</span>
+                                <span :class="[
+                                    'px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 w-fit',
+                                    statusConfig[room.status]?.cls ||
+                                    'bg-slate-50 text-slate-600 border-slate-200',
+                                ]">
+                                    {{ statusConfig[room.status]?.label || "Không rõ" }}
+                                </span>
+                                <button @click.stop="openDetail(room)"
+                                    class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
                             </div>
                         </div>
                     </div>

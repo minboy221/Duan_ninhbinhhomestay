@@ -169,7 +169,65 @@ class AdminController extends Controller
 
     public function website()
     {
-        return Inertia::render('Admin/WebEditor/index');
+        $settings = \App\Models\Setting::pluck('value', 'key')->map(function($val) {
+            $decoded = json_decode($val, true);
+            return is_array($decoded) ? $decoded : $val;
+        });
+
+        return Inertia::render('Admin/WebEditor/index', [
+            'initialSettings' => $settings
+        ]);
+    }
+
+    public function updateWebsite(Request $request)
+    {
+        $request->validate([
+            'hero_title' => 'required|string|max:255',
+            'hero_subtitle' => 'required|string|max:500',
+            'contact_phone' => 'required|string|max:20',
+            'contact_email' => 'required|email|max:100',
+            'contact_address' => 'required|string|max:255',
+            'contact_map' => 'nullable|string|max:1000',
+            'banners' => 'nullable|array',
+        ], [
+            'hero_title.required' => 'Tiêu đề chính không được để trống.',
+            'hero_subtitle.required' => 'Mô tả phụ không được để trống.',
+            'contact_phone.required' => 'Số điện thoại không được để trống.',
+            'contact_email.required' => 'Email không được để trống.',
+            'contact_email.email' => 'Email không đúng định dạng.',
+            'contact_address.required' => 'Địa chỉ không được để trống.',
+        ]);
+
+        \App\Models\Setting::updateOrCreate(['key' => 'hero_title'], ['value' => $request->hero_title]);
+        \App\Models\Setting::updateOrCreate(['key' => 'hero_subtitle'], ['value' => $request->hero_subtitle]);
+        \App\Models\Setting::updateOrCreate(['key' => 'contact_phone'], ['value' => $request->contact_phone]);
+        \App\Models\Setting::updateOrCreate(['key' => 'contact_email'], ['value' => $request->contact_email]);
+        \App\Models\Setting::updateOrCreate(['key' => 'contact_address'], ['value' => $request->contact_address]);
+        \App\Models\Setting::updateOrCreate(['key' => 'contact_map'], ['value' => $request->contact_map]);
+
+        $banners = $request->input('banners', []);
+        $files = $request->file('banners');
+
+        if (is_array($files)) {
+            foreach ($banners as $index => &$banner) {
+                if (isset($files[$index]['file']) && $files[$index]['file']->isValid()) {
+                    $path = $files[$index]['file']->store('banners', 'public');
+                    $banner['img'] = '/storage/' . $path;
+                }
+            }
+        }
+
+        foreach ($banners as &$banner) {
+            unset($banner['file']);
+            // Đảm bảo active là boolean
+            $banner['active'] = filter_var($banner['active'], FILTER_VALIDATE_BOOLEAN);
+            // Đảm bảo order là integer
+            $banner['order'] = (int)$banner['order'];
+        }
+
+        \App\Models\Setting::updateOrCreate(['key' => 'banners'], ['value' => json_encode(array_values($banners), JSON_UNESCAPED_UNICODE)]);
+
+        return redirect()->back()->with('success', 'Đã cập nhật cấu hình giao diện website thành công!');
     }
 
     public function ads()

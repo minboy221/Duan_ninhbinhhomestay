@@ -367,7 +367,8 @@ const getVisiblePages = (currentPage, totalPages) => {
                             <span>Tất cả lịch hẹn sắp tới</span>
                         </h3>
 
-                        <div class="overflow-x-auto">
+                        <!-- Desktop Table View (hidden on mobile) -->
+                        <div class="hidden md:block overflow-x-auto">
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr
@@ -427,38 +428,33 @@ const getVisiblePages = (currentPage, totalPages) => {
                             </table>
                         </div>
 
-                        <!-- Pagination for All Appointments -->
-                        <div v-if="allTotalPages > 1" class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
-                            <span class="text-[11px] text-slate-400 font-semibold">
-                                Hiển thị {{ (allPage - 1) * allPageSize + 1 }} - {{ Math.min(allPage * allPageSize, appointments.length) }} trong số {{ appointments.length }}
-                            </span>
-                            <div class="flex items-center gap-1">
-                                <button 
-                                    @click="allPage = Math.max(1, allPage - 1)" 
-                                    :disabled="allPage === 1"
-                                    class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
-                                    <i class="bi bi-chevron-left text-[9px]"></i>
-                                </button>
-                                <button 
-                                    v-for="p in getVisiblePages(allPage, allTotalPages)" 
-                                    :key="p" 
-                                    @click="typeof p === 'number' ? allPage = p : null"
-                                    :class="[
-                                        'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
-                                        allPage === p 
-                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
-                                            : p === '...' 
-                                                ? 'border-transparent text-slate-400 cursor-default' 
-                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        <!-- Mobile Card View (hidden on desktop) -->
+                        <div class="block md:hidden space-y-3">
+                            <div v-for="apt in appointments" :key="apt.id" 
+                                class="p-4 border border-slate-100 rounded-2xl bg-slate-50/30 space-y-3">
+                                <div class="flex justify-between items-start">
+                                    <div class="space-y-0.5">
+                                        <h4 class="text-xs font-bold text-slate-800">{{ apt.name }}</h4>
+                                        <p class="text-[10px] text-slate-400 font-semibold">{{ apt.phone }}</p>
+                                    </div>
+                                    <span :class="[
+                                        'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
+                                        statusMap[apt.status].cls,
                                     ]">
-                                    {{ p }}
-                                </button>
-                                <button 
-                                    @click="allPage = Math.min(allTotalPages, allPage + 1)" 
-                                    :disabled="allPage === allTotalPages"
-                                    class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
-                                    <i class="bi bi-chevron-right text-[9px]"></i>
-                                </button>
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[apt.status].dot"></span>
+                                        {{ statusMap[apt.status].label }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-[11px] font-semibold text-slate-500">
+                                    <div class="flex items-center gap-1">
+                                        <i class="bi bi-house text-emerald-500"></i>
+                                        <span>Phòng {{ apt.room }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <i class="bi bi-clock text-slate-400"></i>
+                                        <span>{{ apt.time }} · {{ new Date(apt.date).toLocaleDateString("vi-VN") }}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -152,7 +152,7 @@ class RoomListingController extends Controller
             abort(403, 'Bạn không có quyền đóng bài đăng này');
         }
         //chuyển trạng thái
-        $post->update(['status' => 'closed']);
+        $post->update(['status' => 'hidden']);
         return redirect()->route('landlord.listings.index')
             ->with('success', 'Đã đóng tin đăng thành công! tin đăng đã được gỡ bỏ');
     }

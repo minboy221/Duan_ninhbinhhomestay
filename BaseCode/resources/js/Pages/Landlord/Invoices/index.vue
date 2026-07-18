@@ -300,6 +300,33 @@ const closeViewModal = () => {
     showViewModal.value = false
     selectedInvoice.value = null
 }
+
+const copyInvoiceText = (inv) => {
+    if (!inv) return
+    let text = `--- HÓA ĐƠN TIỀN NHÀ ---\n`;
+    text += `Phòng: ${inv.contract?.room?.room_number || ''}\n`;
+    text += `Khách thuê: ${inv.contract?.tenant?.name || ''}\n`;
+    text += `Kỳ thanh toán: Tháng ${inv.billing_month || ''}\n`;
+    text += `Hạn đóng: ${inv.due_date || ''}\n`;
+    text += `-------------------------\n`;
+    inv.details.forEach(d => {
+        let calc = '';
+        if (d.old_index !== null) {
+            calc = ` (${d.new_index} - ${d.old_index} = ${d.quantity})`;
+        } else if (d.quantity > 1) {
+            calc = ` (${d.quantity}x)`;
+        }
+        text += `${d.item_name}${calc}: ${formatMoney(d.subtotal)}\n`;
+    });
+    text += `-------------------------\n`;
+    text += `TỔNG CỘNG: ${formatMoney(inv.total_amount)}\n`;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Đã sao chép nội dung hóa đơn để gửi Zalo/SMS!');
+    }).catch(err => {
+        alert('Không thể sao chép: ' + err);
+    });
+}
 </script>
 
 <template>
@@ -490,22 +517,22 @@ const closeViewModal = () => {
             <div class="flex flex-col md:flex-row gap-6 items-start">
                 <!-- Left Form Card -->
                 <div class="w-full md:w-2/3 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6">
-                    <div class="flex justify-between items-center border-b border-slate-50 pb-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg font-bold">
+                    <div class="flex justify-between items-center border-b border-slate-50 pb-4 gap-4">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg font-bold shrink-0">
                                 <i class="bi bi-house"></i>
                             </div>
-                            <div>
-                                <h3 class="font-bold text-slate-800 text-sm">
+                            <div class="min-w-0">
+                                <h3 class="font-bold text-slate-800 text-sm truncate">
                                     {{ currentView === 'create' ? 'Tạo hóa đơn tháng' : 'Sửa hóa đơn' }}
                                 </h3>
-                                <p class="text-[10px] text-slate-400 font-semibold mt-0.5">Vui lòng cập nhật các chỉ số sử dụng</p>
+                                <p class="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">Vui lòng cập nhật các chỉ số sử dụng</p>
                             </div>
                         </div>
                         
-                        <div class="text-right">
-                            <span class="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Tổng cộng</span>
-                            <span class="text-2xl font-black text-rose-500">{{ formatMoney(formTotal) }}</span>
+                        <div class="text-right shrink-0">
+                            <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Tổng cộng</span>
+                            <span class="text-lg sm:text-2xl font-black text-rose-500 whitespace-nowrap">{{ formatMoney(formTotal) }}</span>
                         </div>
                     </div>
 
@@ -717,38 +744,51 @@ const closeViewModal = () => {
 
         <!-- DETAIL MODAL -->
         <Teleport to="body">
-            <div v-if="showViewModal && selectedInvoice" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="closeViewModal">
-                <div class="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div v-if="showViewModal && selectedInvoice" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" @click.self="closeViewModal">
+                <div class="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh]">
                     <!-- Head -->
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                        <h3 class="text-sm font-bold text-slate-800">Chi tiết hóa đơn #{{ selectedInvoice.invoice_code }}</h3>
+                        <h3 class="text-xs sm:text-sm font-bold text-slate-800">Chi tiết hóa đơn #{{ selectedInvoice.invoice_code }}</h3>
                         <button @click="closeViewModal" class="text-slate-400 hover:text-slate-600 p-1">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
 
                     <!-- Body -->
-                    <div class="p-8 space-y-6 overflow-y-auto flex-1 bg-white">
+                    <div class="p-5 sm:p-8 space-y-6 overflow-y-auto flex-1 bg-white scrollbar-thin">
                         <div class="text-center space-y-2">
-                            <h2 class="text-xl font-extrabold text-slate-800">Hóa đơn tiền nhà</h2>
+                            <h2 class="text-lg sm:text-xl font-extrabold text-slate-800">Hóa đơn tiền nhà</h2>
                             
-                            <div class="max-w-md mx-auto grid grid-cols-2 gap-y-2 text-xs font-semibold text-slate-600 text-left pt-4">
+                            <!-- Payment Status Badge -->
+                            <div class="flex justify-center mt-1">
+                                <span v-if="selectedInvoice.status === 'paid'" class="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[11px] font-extrabold flex items-center gap-1 uppercase tracking-wide">
+                                    <i class="bi bi-check-circle-fill"></i> Đã thanh toán
+                                </span>
+                                <span v-else class="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[11px] font-extrabold flex items-center gap-1 uppercase tracking-wide animate-pulse">
+                                    <i class="bi bi-clock-fill"></i> Chưa thanh toán
+                                </span>
+                            </div>
+                            
+                            <div class="max-w-md mx-auto grid grid-cols-2 gap-y-2.5 text-xs font-semibold text-slate-600 text-left pt-5 border-b border-dashed border-slate-200 pb-5">
                                 <div class="text-slate-400">Kỳ thanh toán:</div>
                                 <div class="text-slate-800 text-right">Tháng {{ selectedInvoice.billing_month }}</div>
                                 
                                 <div class="text-slate-400">Mã hóa đơn:</div>
-                                <div class="text-slate-800 text-right">#{{ selectedInvoice.invoice_code }}</div>
+                                <div class="text-slate-800 text-right font-mono font-bold">#{{ selectedInvoice.invoice_code }}</div>
                                 
                                 <div class="text-slate-400">Phòng:</div>
-                                <div class="text-slate-800 text-right font-bold text-emerald-600">Phòng {{ selectedInvoice.contract?.room?.room_number }}</div>
+                                <div class="text-slate-800 text-right font-black text-emerald-600">Phòng {{ selectedInvoice.contract?.room?.room_number }}</div>
                                 
                                 <div class="text-slate-400">Khách hàng:</div>
-                                <div class="text-slate-800 text-right font-bold text-slate-800">{{ selectedInvoice.contract?.tenant?.name }}</div>
+                                <div class="text-slate-800 text-right font-bold text-slate-700">{{ selectedInvoice.contract?.tenant?.name }}</div>
+
+                                <div v-if="selectedInvoice.due_date" class="text-slate-400">Hạn đóng tiền:</div>
+                                <div v-if="selectedInvoice.due_date" class="text-right text-rose-500 font-bold">{{ selectedInvoice.due_date }}</div>
                             </div>
                         </div>
 
-                        <!-- Bill table -->
-                        <div class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                        <!-- Bill table (Desktop) -->
+                        <div class="hidden sm:block border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                             <table class="w-full text-xs text-left border-collapse">
                                 <thead>
                                     <tr class="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -764,7 +804,7 @@ const closeViewModal = () => {
                                         <td class="py-3 px-4 text-center text-slate-400">{{ index + 1 }}</td>
                                         <td class="py-3 px-4 font-bold text-slate-800">
                                             {{ detail.item_name }}
-                                            <span v-if="detail.old_index !== null">({{ detail.new_index }} - {{ detail.old_index }})</span>
+                                            <span v-if="detail.old_index !== null" class="text-slate-400 font-normal"> ({{ detail.new_index }} - {{ detail.old_index }})</span>
                                         </td>
                                         <td class="py-3 px-4 text-center">{{ detail.quantity }}</td>
                                         <td class="py-3 px-4 text-right">{{ formatMoney(detail.price) }}</td>
@@ -774,18 +814,54 @@ const closeViewModal = () => {
                             </table>
                         </div>
 
-                        <!-- Grand Total -->
-                        <div class="flex flex-col items-end gap-1.5 pt-2">
-                            <div class="flex items-center gap-12 text-sm font-bold text-slate-700">
-                                <span>Tổng cộng</span>
-                                <span class="text-lg font-extrabold text-emerald-600">{{ formatMoney(selectedInvoice.total_amount) }}</span>
+                        <!-- Receipt Rows list (Mobile-First Receipt View) -->
+                        <div class="block sm:hidden space-y-4">
+                            <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1.5">Chi tiết chi phí</div>
+                            <div v-for="detail in selectedInvoice.details" :key="detail.id" class="flex justify-between items-start py-1.5 text-xs font-semibold">
+                                <div class="space-y-0.5">
+                                    <div class="text-slate-800 font-bold">{{ detail.item_name }}</div>
+                                    <!-- Detailed calculations under item name -->
+                                    <div class="text-[10px] text-slate-400 font-medium">
+                                        <span v-if="detail.old_index !== null">
+                                            Chỉ số: {{ detail.new_index }} - {{ detail.old_index }} = {{ detail.quantity }} &times; {{ formatMoney(detail.price) }}
+                                        </span>
+                                        <span v-else-if="detail.quantity > 1">
+                                            Số lượng: {{ detail.quantity }} &times; {{ formatMoney(detail.price) }}
+                                        </span>
+                                        <span v-else>
+                                            Đơn giá: {{ formatMoney(detail.price) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="text-slate-800 font-bold text-right">{{ formatMoney(detail.subtotal) }}</div>
                             </div>
+                        </div>
+
+                        <!-- Tear-off dashed divider line -->
+                        <div class="border-t-2 border-dashed border-slate-200 pt-4 mt-6"></div>
+
+                        <!-- Grand Total -->
+                        <div class="flex justify-between items-center py-3 bg-slate-50 rounded-2xl px-5">
+                            <span class="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Tổng cộng</span>
+                            <span class="text-lg font-black text-rose-500">{{ formatMoney(selectedInvoice.total_amount) }}</span>
                         </div>
                     </div>
 
                     <!-- Foot -->
-                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
-                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="closeViewModal">Đóng</button>
+                    <div class="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2.5 bg-slate-50/50">
+                        <!-- Action buttons for Mobile and Desktop -->
+                        <button @click="copyInvoiceText(selectedInvoice)" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors">
+                            <i class="bi bi-send-fill text-emerald-600"></i> Gửi Zalo / SMS
+                        </button>
+                        
+                        <button v-if="selectedInvoice.status !== 'paid'" @click="changeStatus(selectedInvoice, 'paid'); closeViewModal()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm shadow-emerald-600/10">
+                            <i class="bi bi-check-lg"></i> Xác nhận đã thu
+                        </button>
+                        <button v-else @click="changeStatus(selectedInvoice, 'unpaid'); closeViewModal()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors">
+                             Chưa thu tiền
+                        </button>
+                        
+                        <button class="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" @click="closeViewModal">Đóng</button>
                     </div>
                 </div>
             </div>
