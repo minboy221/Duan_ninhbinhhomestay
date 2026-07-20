@@ -74,9 +74,9 @@ const getStatusText = (status) => {
                                     <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở
                                 </button>
                                 <!-- Future features: Edit, Delete etc. -->
-                                <button class="text-slate-400 hover:text-emerald-500 p-2 transition-colors">
-                                    <i class="bi bi-three-dots-vertical"></i>
-                                </button>
+                                <Link :href="route('landlord.boarding-houses.show', house.id)" class="text-slate-400 hover:text-emerald-500 p-2 transition-colors" title="Xem chi tiết">
+                                    <i class="bi bi-eye"></i>
+                                </Link>
                             </td>
                         </tr>
                         <tr v-if="!boardingHouses.length">

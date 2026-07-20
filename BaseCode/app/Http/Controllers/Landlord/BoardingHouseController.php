@@ -109,4 +109,39 @@ class BoardingHouseController extends Controller
 
         return back()->with('success', 'Đã chuyển sang quản lý cơ sở: ' . $house->name);
     }
+
+    public function show($id)
+    {
+        $house = BoardingHouse::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Thống kê đồng bộ với trang "Nhà & Phòng"
+        $roomService = app(\App\Services\RoomService::class);
+        $floors = $roomService->getFloorsWithRooms(Auth::id(), $house->id);
+        
+        $floorCount = count($floors);
+        $roomCount = 0;
+        $roomIds = [];
+        
+        foreach ($floors as $floor) {
+            $roomCount += count($floor['rooms']);
+            foreach ($floor['rooms'] as $room) {
+                $roomIds[] = $room['id'];
+            }
+        }
+        
+        $postCount = \App\Models\RoomPost::whereIn('room_id', $roomIds)->count();
+
+        $stats = [
+            'room_count' => $roomCount,
+            'floor_count' => $floorCount,
+            'post_count' => $postCount,
+        ];
+
+        return Inertia::render('Landlord/BoardingHouses/Show', [
+            'house' => $house,
+            'stats' => $stats
+        ]);
+    }
 }

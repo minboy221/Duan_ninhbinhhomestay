@@ -1,12 +1,22 @@
 <?php
-require 'vendor/autoload.php';
-$app = require_once 'bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+require __DIR__.'/vendor/autoload.php';
+$app = require_once __DIR__.'/bootstrap/app.php';
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$kernel->bootstrap();
 
-$lastVerification = \App\Models\UserVerification::latest('id')->first();
-dump('Last user verification user_id: ' . $lastVerification->user_id);
-dump('Last user verification kyc_status: ' . $lastVerification->kyc_status);
+$landlordId = 21; // Assuming the logged-in user is 21
+$boardingHouseId = 7;
+$data = [
+    'floor_id' => 6,
+    'room_number' => 'Phòng Test',
+    'price' => 1000,
+    'area' => 20,
+    'capacity' => 2,
+    'status' => 'available',
+];
+$imageFiles = [];
 
-$lastBoardingHouse = \App\Models\BoardingHouse::latest('id')->first();
-dump('Last boarding house user_id: ' . $lastBoardingHouse->user_id);
-dump('Last boarding house status: ' . $lastBoardingHouse->status);
+$roomService = app(\App\Services\RoomService::class);
+$room = $roomService->createRoom($landlordId, $data, $imageFiles, $boardingHouseId);
+
+echo json_encode($room);

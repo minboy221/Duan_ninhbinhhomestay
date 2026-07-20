@@ -2,7 +2,7 @@
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import RoomFormModal from "./RoomFormModal.vue";
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
-import { router } from "@inertiajs/vue3";
+import { router, usePage } from "@inertiajs/vue3";
 import axios from "axios";
 import { HA_NAM_COMMUNES } from "@/constants/locations.js";
 
@@ -12,6 +12,14 @@ const props = defineProps({
     services: { type: Array, default: () => [] },
 });
 const floors = computed(() => props.floors);
+
+const page = usePage();
+const selectedPropertyName = computed(() => {
+    const houses = page.props.auth?.boarding_houses || [];
+    const selectedId = page.props.auth?.selected_boarding_house_id;
+    const house = houses.find(h => h.id === selectedId) || houses[0];
+    return house ? house.name : 'Chưa có cơ sở';
+});
 
 const statusConfig = {
     available: {
@@ -788,8 +796,11 @@ const getAutoCoordinates = () => {
             <!-- Page Title -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div class="space-y-1">
-                    <h2 class="text-lg font-bold text-slate-800">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
                         Quản lý Phòng trọ
+                        <span class="text-xs font-medium px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg whitespace-nowrap">
+                            <i class="bi bi-building mr-1"></i> {{ selectedPropertyName }}
+                        </span>
                     </h2>
                     <p class="text-xs text-slate-400">
                         Danh sách các tầng và các phòng cho thuê hiện tại
