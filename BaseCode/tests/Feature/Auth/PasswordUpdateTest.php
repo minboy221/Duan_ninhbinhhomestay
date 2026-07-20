@@ -11,9 +11,26 @@ class PasswordUpdateTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected $seed = true;
+
     public function test_password_can_be_updated(): void
     {
+        \Illuminate\Support\Facades\Mail::fake();
         $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->from('/profile')
+            ->post('/password/request-otp', [
+                'current_password' => 'password',
+                'password' => 'new-password',
+                'password_confirmation' => 'new-password',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $otp = $user->refresh()->otp_code;
+        $this->assertNotNull($otp);
 
         $response = $this
             ->actingAs($user)
@@ -22,6 +39,7 @@ class PasswordUpdateTest extends TestCase
                 'current_password' => 'password',
                 'password' => 'new-password',
                 'password_confirmation' => 'new-password',
+                'otp' => $otp,
             ]);
 
         $response

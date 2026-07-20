@@ -223,7 +223,7 @@ const typeClass = {
     margin-bottom: 20px;
     background: #fff;
     padding: 6px;
-    border-radius: 14px;
+    border-radius: 8px;
     border: 1px solid #f1f5f9;
     width: fit-content;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -231,7 +231,7 @@ const typeClass = {
 
 .tab-btn {
     padding: 8px 18px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: none;
     background: none;
     cursor: pointer;
@@ -281,7 +281,7 @@ const typeClass = {
     padding: 60px;
     color: #94a3b8;
     background: #fff;
-    border-radius: 16px;
+    border-radius: 8px;
     border: 1px solid #f1f5f9;
 }
 
@@ -293,7 +293,7 @@ const typeClass = {
 
 .post-card {
     background: #fff;
-    border-radius: 14px;
+    border-radius: 8px;
     border: 1px solid #f1f5f9;
     padding: 18px;
     display: flex;
@@ -310,7 +310,7 @@ const typeClass = {
 .post-thumb {
     width: 70px;
     height: 70px;
-    border-radius: 12px;
+    border-radius: 8px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     display: flex;
@@ -392,7 +392,7 @@ const typeClass = {
 
 .act-view {
     padding: 7px 14px;
-    border-radius: 9px;
+    border-radius: 6px;
     border: 1px solid #e2e8f0;
     background: #fff;
     color: #64748b;
@@ -412,7 +412,7 @@ const typeClass = {
 
 .act-approve {
     padding: 7px 14px;
-    border-radius: 9px;
+    border-radius: 6px;
     border: none;
     background: #22c55e;
     color: #fff;
@@ -431,7 +431,7 @@ const typeClass = {
 
 .act-reject {
     padding: 7px 14px;
-    border-radius: 9px;
+    border-radius: 6px;
     border: none;
     background: #fef2f2;
     color: #ef4444;
@@ -481,7 +481,7 @@ const typeClass = {
 
 .modal-box {
     background: #fff;
-    border-radius: 20px;
+    border-radius: 10px;
     width: 520px;
     max-width: 92vw;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
@@ -510,7 +510,7 @@ const typeClass = {
 .modal-close {
     width: 32px;
     height: 32px;
-    border-radius: 8px;
+    border-radius: 6px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -529,7 +529,7 @@ const typeClass = {
     width: 100%;
     height: 140px;
     background: #f8fafc;
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid #e2e8f0;
     display: flex;
     flex-direction: column;
@@ -584,7 +584,7 @@ const typeClass = {
     width: 100%;
     padding: 10px;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 6px;
     font-size: 13px;
     resize: none;
     outline: none;
@@ -605,7 +605,7 @@ const typeClass = {
 .btn-cancel {
     flex: 1;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: 1px solid #e2e8f0;
     background: #fff;
     color: #64748b;
@@ -617,7 +617,7 @@ const typeClass = {
 .btn-reject-confirm {
     flex: 1;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: none;
     background: #fef2f2;
     color: #ef4444;
@@ -638,7 +638,7 @@ const typeClass = {
 .btn-approve-confirm {
     flex: 2;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: none;
     background: #7c3aed;
     color: #fff;

@@ -1,7 +1,7 @@
 <script setup>
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, usePage, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 
 const { props } = usePage();
 const user = computed(() => props.auth.user);
@@ -18,6 +18,82 @@ const form = useForm({
     job: user.value.job || '',
     dob: user.value.dob || '',
     gender: user.value.gender || '',
+});
+
+const provinces = ref([]);
+const wards = ref([]);
+const selectedProvinceCode = ref('');
+const selectedWardCode = ref('');
+const addressDetail = ref('');
+
+const fetchProvinces = async () => {
+    try {
+        const res = await fetch('https://provinces.open-api.vn/api/v2/p/');
+        provinces.value = await res.json();
+        
+        // Phân tách địa chỉ cũ để tự động map vào dropdown
+        if (form.address) {
+            const parts = form.address.split(',').map(s => s.trim());
+            if (parts.length >= 2) {
+                const provName = parts[parts.length - 1];
+                const matchedProv = provinces.value.find(p => p.name === provName);
+                if (matchedProv) {
+                    selectedProvinceCode.value = matchedProv.code;
+                    await fetchWards(matchedProv.code);
+                    
+                    const wardName = parts[parts.length - 2];
+                    const matchedWard = wards.value.find(w => w.name === wardName);
+                    if (matchedWard) {
+                        selectedWardCode.value = matchedWard.code;
+                    }
+                    
+                    addressDetail.value = parts.slice(0, parts.length - 2).join(', ');
+                } else {
+                    addressDetail.value = form.address;
+                }
+            } else {
+                addressDetail.value = form.address;
+            }
+        }
+    } catch (e) {
+        console.error('Lỗi tải danh sách Tỉnh/Thành:', e);
+    }
+};
+
+const fetchWards = async (provinceCode) => {
+    try {
+        const res = await fetch(`https://provinces.open-api.vn/api/v2/p/${provinceCode}?depth=2`);
+        const data = await res.json();
+        wards.value = data.wards || [];
+    } catch (e) {
+        console.error('Lỗi tải danh sách Phường/Xã:', e);
+    }
+};
+
+const onProvinceChange = async () => {
+    selectedWardCode.value = '';
+    wards.value = [];
+    if (selectedProvinceCode.value) {
+        await fetchWards(selectedProvinceCode.value);
+    }
+    updateAddressField();
+};
+
+const updateAddressField = () => {
+    const prov = provinces.value.find(p => p.code === selectedProvinceCode.value);
+    const ward = wards.value.find(w => w.code === selectedWardCode.value);
+    
+    if (prov && ward) {
+        form.address = `${addressDetail.value ? addressDetail.value + ', ' : ''}${ward.name}, ${prov.name}`;
+    } else if (prov) {
+        form.address = `${addressDetail.value ? addressDetail.value + ', ' : ''}${prov.name}`;
+    } else {
+        form.address = addressDetail.value;
+    }
+};
+
+onMounted(() => {
+    fetchProvinces();
 });
 
 const submit = () => {
@@ -91,9 +167,31 @@ const submit = () => {
                                 <span v-if="form.errors.phone" class="text-red-500 text-sm">{{ form.errors.phone }}</span>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Địa Chỉ Thường Trú:</label>
-                            <input type="text" v-model="form.address" placeholder="Địa chỉ" :disabled="!canUpdateProfile">
+                        <div class="row">
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label>Tỉnh / Thành phố:</label>
+                                <select v-model="selectedProvinceCode" @change="onProvinceChange" :disabled="!canUpdateProfile">
+                                    <option value="">-- Chọn Tỉnh / Thành phố --</option>
+                                    <option v-for="prov in provinces" :key="prov.code" :value="prov.code">
+                                        {{ prov.name }}
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label>Phường / Xã / Thị trấn:</label>
+                                <select v-model="selectedWardCode" @change="updateAddressField" :disabled="!canUpdateProfile || !selectedProvinceCode">
+                                    <option value="">-- Chọn Phường / Xã / Thị trấn --</option>
+                                    <option v-for="w in wards" :key="w.code" :value="w.code">
+                                        {{ w.name }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Thôn / Xóm / Số nhà / Đường:</label>
+                            <input type="text" v-model="addressDetail" @input="updateAddressField" placeholder="Nhập thôn, xóm, số nhà, tên đường..." :disabled="!canUpdateProfile">
                             <span v-if="form.errors.address" class="text-red-500 text-sm">{{ form.errors.address }}</span>
                         </div>
 
@@ -114,7 +212,6 @@ const submit = () => {
                                 <option value="">-- Chọn Giới Tính --</option>
                                 <option value="male">Nam</option>
                                 <option value="female">Nữ</option>
-                                <option value="other">Khác</option>
                             </select>
                             <span v-if="form.errors.gender" class="text-red-500 text-sm">{{ form.errors.gender }}</span>
                         </div>
@@ -137,7 +234,7 @@ const submit = () => {
     gap: 12px;
     background-color: #fff9db;
     border-left: 4px solid #fcc419;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 16px;
     margin-bottom: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -171,7 +268,7 @@ const submit = () => {
 .alert-profile-error {
     background-color: #fff5f5;
     border-left: 4px solid #ff8787;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 12px 16px;
     color: #e03131;
 }

@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title inertia>{{ config('app.name', 'Ninh Bình StayWork') }}</title>
 
@@ -93,14 +94,15 @@
                     "surface-container-high": "#dfe3e6"
                 },
                 "borderRadius": {
-                    "DEFAULT": "1rem",
-                    "lg": "2rem",
-                    "xl": "3rem",
+                    "DEFAULT": "6px",
+                    "md": "8px",
+                    "lg": "10px",
+                    "xl": "14px",
                     "full": "9999px"
                 },
                 "fontFamily": {
-                    "headline": ["Plus Jakarta Sans"],
-                    "body": ["Inter"],
+                    "headline": ["Cormorant Garamond"],
+                    "body": ["Poppins"],
                     "label": ["Inter"]
                 }
             },
@@ -108,15 +110,32 @@
     }
 </script>
 <style>
-    body {
-        font-family: 'Inter', sans-serif;
+    body,
+    * {
+        font-family: 'Poppins', sans-serif;
     }
 
-    h1,
-    h2,
-    h3,
-    .font-headline {
-        font-family: 'Plus Jakarta Sans', sans-serif;
+    .title span,
+    .title1 span,
+    .item_thongso h2,
+    .pt-header h2 span {
+        font-family: 'Cormorant Garamond', serif !important;
+    }
+
+    .navbar,
+    .btn,
+    .btn_xem,
+    .dropdown,
+    .title1 h2 {
+        font-family: 'Inter', sans-serif !important;
+    }
+
+    .banner-text {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    }
+
+    .infor_dangky h2 {
+        font-family: 'Roboto', sans-serif !important;
     }
 
     .glass-card {

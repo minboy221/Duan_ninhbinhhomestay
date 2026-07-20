@@ -122,9 +122,9 @@ function assignRole(user) {
 <style scoped>
 .page-title{font-size:18px;font-weight:700;color:#0f172a;margin:0}.page-sub{font-size:12px;color:#94a3b8;margin:2px 0 0}
 .roles-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:20px}
-.role-card{background:#fff;border-radius:14px;border:1px solid #f1f5f9;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.role-card{background:#fff;border-radius:8px;border:1px solid #f1f5f9;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .role-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.role-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.role-icon{width:42px;height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .role-name{font-size:14px;font-weight:700;color:#0f172a;margin:0}
 .role-desc{font-size:11px;color:#94a3b8;margin:2px 0 0}
 .user-count{margin-left:auto;font-size:11px;font-weight:600;background:#f1f5f9;color:#64748b;padding:3px 9px;border-radius:99px;white-space:nowrap}
@@ -133,7 +133,7 @@ function assignRole(user) {
 .perm-on{}
 .perm-off{background:#f8fafc;color:#94a3b8}
 .perm-chip:disabled{cursor:default}
-.assign-card{background:#fff;border-radius:14px;border:1px solid #f1f5f9;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.assign-card{background:#fff;border-radius:8px;border:1px solid #f1f5f9;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .card-title{font-size:14px;font-weight:700;color:#0f172a;margin:0;padding:16px 16px 0}
 .data-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
 .data-table th{text-align:left;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:10px 16px;background:#f8fafc;border-bottom:1px solid #f1f5f9;letter-spacing:.04em}
@@ -144,9 +144,9 @@ function assignRole(user) {
 .rc-red{background:#fef2f2;color:#dc2626}.rc-blue{background:#eff6ff;color:#2563eb}
 .rc-purple{background:#faf5ff;color:#7c3aed}.rc-green{background:#f0fdf4;color:#16a34a}
 .inline-assign{display:flex;align-items:center;gap:6px;justify-content:center}
-.role-select{padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none}
-.btn-assign{padding:6px 12px;border-radius:8px;border:none;background:#7c3aed;color:#fff;font-size:12px;font-weight:600;cursor:pointer}
-.btn-cancel-sm{padding:6px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:12px;cursor:pointer}
-.act-btn{padding:7px 12px;border-radius:9px;border:1px solid #e2e8f0;background:#fff;color:#7c3aed;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.role-select{padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;outline:none}
+.btn-assign{padding:6px 12px;border-radius:6px;border:none;background:#7c3aed;color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+.btn-cancel-sm{padding:6px 10px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:12px;cursor:pointer}
+.act-btn{padding:7px 12px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#7c3aed;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .act-btn:hover{background:#faf5ff}
 </style>

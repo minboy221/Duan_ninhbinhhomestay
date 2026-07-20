@@ -368,7 +368,7 @@ class RoomService
     public function removePerson(int $landlordId, int $roomId)
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->landlord_id !== $landlordId)
+        if (!$room || $room->boardingHouse->user_id !== $landlordId)
             return false;
 
         if (!in_array($room->status, ['pending_renewal', 'expiring_soon'])) {

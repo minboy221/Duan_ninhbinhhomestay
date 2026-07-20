@@ -38,6 +38,23 @@ const selectProperty = (prop) => {
     router.post(route('landlord.select-boarding-house'), { id: prop.id }, { preserveScroll: true })
 }
 
+const openSubmenus = ref(['Lịch Hẹn'])
+const toggleSubmenu = (label) => {
+    const index = openSubmenus.value.indexOf(label)
+    if (index > -1) {
+        openSubmenus.value.splice(index, 1)
+    } else {
+        openSubmenus.value.push(label)
+    }
+}
+const isChildActive = (item) => {
+    if (!item.children) return false
+    return item.children.some(child => isActive(child.path))
+}
+const isSubmenuOpen = (item) => {
+    return openSubmenus.value.includes(item.label)
+}
+
 const navGroups = [
     {
         label: 'NGHIỆP VỤ',
@@ -45,8 +62,14 @@ const navGroups = [
             { label: 'Tổng Quan', path: '/landlord/dashboard', icon: 'bi-grid-1x2-fill' },
             { label: 'Hóa Đơn', path: '/landlord/invoices', icon: 'bi-receipt' },
             { label: 'Tin Đăng', path: '/landlord/listings', icon: 'bi-megaphone' },
-            { label: 'Lịch Hẹn', path: '/landlord/appointments', icon: 'bi-calendar-event' },
-            { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
+            { 
+                label: 'Lịch Hẹn', 
+                icon: 'bi-calendar-event',
+                children: [
+                    { label: 'Lịch Đặt Hẹn', path: '/landlord/appointments', icon: 'bi-calendar-check' },
+                    { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
+                ]
+            },
         ]
     },
     {
@@ -81,6 +104,17 @@ const showWelcomePopup = ref(false)
 const latestNotification = ref(null)
 
 onMounted(() => {
+    // Tự động mở các menu con nếu có trang con đang active lúc load trang
+    navGroups.forEach(group => {
+        group.items.forEach(item => {
+            if (item.children && isChildActive(item)) {
+                if (!openSubmenus.value.includes(item.label)) {
+                    openSubmenus.value.push(item.label)
+                }
+            }
+        })
+    })
+
     if (page.props.auth?.notifications && page.props.auth.notifications.length > 0) {
         const notif = page.props.auth.notifications[0]
         const dismissed = sessionStorage.getItem('dismissed_landlord_notification_' + notif.id)
@@ -108,11 +142,11 @@ const closePopup = () => {
             <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100/60 h-16 flex-shrink-0">
                 <div
                     class="w-10 h-10 bg-gradient-to-tr from-emerald-600 to-teal-400 text-white rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-emerald-500/10">
-                    R
+                    N
                 </div>
                 <div v-if="sidebarOpen" class="flex flex-col overflow-hidden transition-all duration-300">
                     <span class="font-extrabold text-slate-900 text-sm tracking-tight whitespace-nowrap">Ninh Bình
-                        Stay</span>
+                        Home</span>
                     <span
                         class="text-emerald-600 text-[10px] font-extrabold tracking-wide uppercase whitespace-nowrap">Chủ
                         Trọ Panel</span>
@@ -129,33 +163,69 @@ const closePopup = () => {
                     <div v-else-if="group.label && !sidebarOpen" class="h-px bg-slate-100/80 my-4 mx-2"></div>
 
                     <div class="space-y-1">
-                        <component :is="item.path === '#' ? 'div' : Link" v-for="item in group.items" :key="item.label"
-                            :href="item.path !== '#' ? item.path : undefined" :class="[
-                                'flex items-center transition-all duration-300 group relative w-full rounded-xl',
-                                sidebarOpen ? 'gap-3.5 px-4 py-3' : 'justify-center py-3 px-2',
-                                item.path === '#' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:translate-x-0.5',
-                                isActive(item.path)
-                                    ? 'bg-emerald-50/70 border border-emerald-100/50 text-emerald-700 font-bold shadow-[0_2px_12px_rgba(16,185,129,0.04)] before:absolute before:left-0 before:top-2.5 before:bottom-2.5 before:w-1 before:bg-emerald-500 before:rounded-full'
-                                    : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-900'
-                            ]" :title="!sidebarOpen ? item.label : ''">
-                            <i
-                                :class="['bi', item.icon, 'text-2xl transition-colors duration-300', isActive(item.path) ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-700']"></i>
-                            <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{ item.label
-                                }}</span>
+                        <div v-for="item in group.items" :key="item.label" class="space-y-1">
+                            <!-- Parent Item (No Children) -->
+                            <component v-if="!item.children" :is="item.path === '#' ? 'div' : Link"
+                                :href="item.path !== '#' ? item.path : undefined" :class="[
+                                    'flex items-center transition-all duration-300 group relative w-full rounded-xl',
+                                    sidebarOpen ? 'gap-3.5 px-4 py-3' : 'justify-center py-3 px-2',
+                                    item.path === '#' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:translate-x-0.5',
+                                    isActive(item.path)
+                                        ? 'bg-emerald-50/70 border border-emerald-100/50 text-emerald-700 font-bold shadow-[0_2px_12px_rgba(16,185,129,0.04)] before:absolute before:left-0 before:top-2.5 before:bottom-2.5 before:w-1 before:bg-emerald-500 before:rounded-full'
+                                        : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-900'
+                                ]" :title="!sidebarOpen ? item.label : ''">
+                                <i :class="['bi', item.icon, 'text-2xl transition-colors duration-300', isActive(item.path) ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-700']"></i>
+                                <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{ item.label }}</span>
+                                <span v-if="item.isPro && sidebarOpen" class="ml-auto px-1.5 py-0.5 text-[8px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md uppercase">PRO</span>
+                                <div v-if="!sidebarOpen" class="absolute left-16 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                                    {{ item.label }}
+                                </div>
+                            </component>
 
-                            <!-- Pro badge -->
-                            <span v-if="item.isPro && sidebarOpen"
-                                class="ml-auto px-1.5 py-0.5 text-[8px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md uppercase">
-                                PRO
-                            </span>
+                            <!-- Parent Item (Has Children) -->
+                            <div v-else class="space-y-1">
+                                <button type="button" @click="toggleSubmenu(item.label)" :class="[
+                                    'flex items-center transition-all duration-300 group relative w-full rounded-xl',
+                                    sidebarOpen ? 'gap-3.5 px-4 py-3' : 'justify-center py-3 px-2',
+                                    isChildActive(item)
+                                        ? 'bg-emerald-50/20 text-emerald-700 font-bold'
+                                        : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-900'
+                                ]" :title="!sidebarOpen ? item.label : ''">
+                                    <i :class="['bi', item.icon, 'text-2xl transition-colors duration-300', isChildActive(item) ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-700']"></i>
+                                    <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{ item.label }}</span>
+                                    
+                                    <!-- Chấm đỏ/Badge số lượng cho menu Lịch Hẹn -->
+                                    <span v-if="item.label === 'Lịch Hẹn' && page.props.auth?.pending_appointments_count > 0" 
+                                        :class="sidebarOpen ? 'ml-auto mr-2 px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]' : 'absolute top-2 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white'">
+                                        {{ sidebarOpen ? page.props.auth.pending_appointments_count : '' }}
+                                    </span>
 
-                            <!-- Tooltip when collapsed -->
-                            <div v-if="!sidebarOpen"
-                                class="absolute left-16 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                                {{ item.label }} <span v-if="item.isPro"
-                                    class="text-[8px] text-amber-400 ml-1">(PRO)</span>
+                                    <i v-if="sidebarOpen" :class="['bi text-xs transition-transform duration-200', isSubmenuOpen(item) ? 'bi-chevron-up' : 'bi-chevron-down', item.label === 'Lịch Hẹn' && page.props.auth?.pending_appointments_count > 0 ? '' : 'ml-auto']"></i>
+                                    
+                                    <div v-if="!sidebarOpen" class="absolute left-16 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                                        {{ item.label }}
+                                    </div>
+                                </button>
+
+                                <!-- Children submenu links -->
+                                <div v-if="sidebarOpen && isSubmenuOpen(item)" class="pl-6 space-y-1">
+                                    <Link v-for="child in item.children" :key="child.label" :href="child.path" :class="[
+                                        'flex items-center gap-3 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 border border-transparent',
+                                        isActive(child.path)
+                                            ? 'text-emerald-700 font-bold bg-emerald-50/50'
+                                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50/50'
+                                    ]">
+                                        <i :class="['bi', child.icon, 'text-base', isActive(child.path) ? 'text-emerald-600' : 'text-slate-400']"></i>
+                                        <span>{{ child.label }}</span>
+                                        <!-- Badge số lượng cho menu con Lịch Đặt Hẹn -->
+                                        <span v-if="child.label === 'Lịch Đặt Hẹn' && page.props.auth?.pending_appointments_count > 0" 
+                                            class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[16px] h-[16px]">
+                                            {{ page.props.auth.pending_appointments_count }}
+                                        </span>
+                                    </Link>
+                                </div>
                             </div>
-                        </component>
+                        </div>
                     </div>
                 </div>
             </nav>
@@ -251,7 +321,7 @@ const closePopup = () => {
                         </button>
                         
                         <!-- Notification Dropdown -->
-                        <div v-if="notifOpen" class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
+                        <div v-if="notifOpen" class="fixed md:absolute left-4 right-4 md:left-auto md:right-0 top-16 md:top-auto md:mt-2 w-auto md:w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
                             <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                                 <h3 class="text-sm font-bold text-slate-800">Thông báo</h3>
                                 <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
@@ -311,7 +381,7 @@ const closePopup = () => {
             </header>
 
             <!-- Main view screen -->
-            <main class="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8fafc] text-sm">
+            <main class="flex-1 overflow-y-auto px-6 pt-6 pb-28 md:p-8 bg-[#f8fafc] text-sm">
                 <slot />
             </main>
         </div>
@@ -345,20 +415,56 @@ const closePopup = () => {
                             {{ group.label }}
                         </p>
                         <div class="space-y-0.5">
-                            <component :is="item.path === '#' ? 'div' : Link" v-for="item in group.items"
-                                :key="item.label" :href="item.path !== '#' ? item.path : undefined" :class="[
-                                    'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
-                                    item.path === '#' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer',
-                                    isActive(item.path)
-                                        ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm'
-                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-                                ]" @click="closeDrawer">
-                                <i
-                                    :class="['bi', item.icon, 'text-xl', isActive(item.path) ? 'text-emerald-500' : 'text-slate-400']"></i>
-                                <span class="text-sm font-bold">{{ item.label }}</span>
-                                <span v-if="item.isPro"
-                                    class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 rounded uppercase">PRO</span>
-                            </component>
+                            <div v-for="item in group.items" :key="item.label" class="space-y-0.5">
+                                <component v-if="!item.children" :is="item.path === '#' ? 'div' : Link"
+                                    :href="item.path !== '#' ? item.path : undefined" :class="[
+                                        'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
+                                        item.path === '#' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer',
+                                        isActive(item.path)
+                                            ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm'
+                                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                    ]" @click="closeDrawer">
+                                    <i
+                                        :class="['bi', item.icon, 'text-xl', isActive(item.path) ? 'text-emerald-500' : 'text-slate-400']"></i>
+                                    <span class="text-sm font-bold">{{ item.label }}</span>
+                                    <span v-if="item.isPro"
+                                        class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 rounded uppercase">PRO</span>
+                                </component>
+
+                                 <div v-else class="space-y-0.5">
+                                    <button type="button" @click="toggleSubmenu(item.label)" class="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full transition-all duration-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800">
+                                        <i :class="['bi', item.icon, 'text-xl', isChildActive(item) ? 'text-emerald-500' : 'text-slate-400']"></i>
+                                        <span class="text-sm font-bold text-left">{{ item.label }}</span>
+                                        
+                                        <!-- Chấm đỏ/Badge số lượng cho mobile Lịch Hẹn -->
+                                        <span v-if="item.label === 'Lịch Hẹn' && page.props.auth?.pending_appointments_count > 0" 
+                                            class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]">
+                                            {{ page.props.auth.pending_appointments_count }}
+                                        </span>
+
+                                        <i :class="['bi text-xs transition-transform duration-200', isSubmenuOpen(item) ? 'bi-chevron-up' : 'bi-chevron-down', item.label === 'Lịch Hẹn' && page.props.auth?.pending_appointments_count > 0 ? '' : 'ml-auto']"></i>
+                                    </button>
+
+                                    <div v-if="isSubmenuOpen(item)" class="pl-6 space-y-0.5">
+                                        <Link v-for="child in item.children" :key="child.label" :href="child.path"
+                                            class="flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200"
+                                            :class="[
+                                                isActive(child.path)
+                                                    ? 'bg-emerald-50 text-emerald-600 font-semibold shadow-sm'
+                                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                            ]" @click="closeDrawer">
+                                            <i :class="['bi', child.icon, 'text-lg', isActive(child.path) ? 'text-emerald-500' : 'text-slate-400']"></i>
+                                            <span class="text-xs font-bold">{{ child.label }}</span>
+                                            
+                                            <!-- Badge số lượng cho mobile Lịch Đặt Hẹn -->
+                                            <span v-if="child.label === 'Lịch Đặt Hẹn' && page.props.auth?.pending_appointments_count > 0" 
+                                                class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[16px] h-[16px]">
+                                                {{ page.props.auth.pending_appointments_count }}
+                                            </span>
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </nav>
@@ -420,7 +526,7 @@ const closePopup = () => {
         <!-- Popup thông báo góc phải dưới -->
         <Transition name="toast-slide">
             <div v-if="showWelcomePopup" style="position: fixed; bottom: 30px; right: 30px; z-index: 99999;">
-                <div style="background: white; border-radius: 16px; width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; position: relative;">
+                <div style="background: white; border-radius: 8px; width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; overflow: hidden; position: relative;">
                     
                     <!-- Thanh màu báo hiệu (xanh/đỏ) -->
                     <div :style="latestNotification?.type === 'listing_rejected' || latestNotification?.type === 'App\\Notifications\\LandlordRejected' ? 'height: 4px; background: linear-gradient(90deg, #ef4444, #f87171);' : 'height: 4px; background: linear-gradient(90deg, #22c55e, #4ade80);'"></div>
@@ -446,10 +552,10 @@ const closePopup = () => {
                                     {{ latestNotification?.data?.message || latestNotification?.data?.content || '' }}
                                 </p>
                                 <div style="display: flex; gap: 10px;">
-                                    <Link v-if="latestNotification?.data?.url" :href="latestNotification.data.url" @click="closePopup" style="flex: 1; text-align: center; padding: 10px 0; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; font-weight: 600; text-decoration: none; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#2563eb'" onmouseout="this.style.background='#f8fafc'; this.style.color='#3b82f6'">
+                                    <Link v-if="latestNotification?.data?.url" :href="latestNotification.data.url" @click="closePopup" style="flex: 1; text-align: center; padding: 10px 0; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; font-weight: 600; text-decoration: none; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#2563eb'" onmouseout="this.style.background='#f8fafc'; this.style.color='#3b82f6'">
                                         Xem chi tiết
                                     </Link>
-                                    <Link v-else href="/landlord/dashboard" @click="closePopup" style="flex: 1; text-align: center; padding: 10px 0; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; font-weight: 600; text-decoration: none; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#2563eb'" onmouseout="this.style.background='#f8fafc'; this.style.color='#3b82f6'">
+                                    <Link v-else href="/landlord/dashboard" @click="closePopup" style="flex: 1; text-align: center; padding: 10px 0; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; font-weight: 600; text-decoration: none; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#2563eb'" onmouseout="this.style.background='#f8fafc'; this.style.color='#3b82f6'">
                                         Đóng
                                     </Link>
                                 </div>

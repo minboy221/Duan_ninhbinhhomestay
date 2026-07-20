@@ -66,9 +66,10 @@ export default {
                 "on-secondary-fixed-variant": "#245a71"
             },
             borderRadius: {
-                "DEFAULT": "1rem",
-                "lg": "2rem",
-                "xl": "3rem",
+                "DEFAULT": "6px",
+                "md": "8px",
+                "lg": "10px",
+                "xl": "14px",
                 "full": "9999px"
             },
             fontFamily: {
