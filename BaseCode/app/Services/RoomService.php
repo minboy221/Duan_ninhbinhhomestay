@@ -195,18 +195,22 @@ class RoomService
 
         $imagePaths = $this->uploadImages($imageFiles);
 
-        // Kiểm tra trùng số phòng trong cùng tầng
-        $exists = Room::where('floor_id', $data['floor_id'])
-            ->where('room_number', $data['room_number'])
-            ->exists();
-        if ($exists)
-            return null;
-
         if ($boardingHouseId) {
             $boardingHouse = \App\Models\BoardingHouse::where('id', $boardingHouseId)->where('user_id', $landlordId)->first();
         } else {
             $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
         }
+
+        // Kiểm tra trùng số phòng trong cùng tầng và cùng cơ sở
+        $query = Room::where('floor_id', $data['floor_id'])
+            ->where('room_number', $data['room_number']);
+        if ($boardingHouse) {
+            $query->where('boarding_house_id', $boardingHouse->id);
+        }
+        $exists = $query->exists();
+        
+        if ($exists)
+            return null;
 
         if (!$boardingHouse) {
             $boardingHouse = \App\Models\BoardingHouse::create([
@@ -257,12 +261,17 @@ class RoomService
         if (isset($data['status']) && !in_array($data['status'], Room::STATUSES))
             return false;
 
-        // Kiểm tra trùng số phòng trong cùng tầng (bỏ qua chính nó)
+        // Kiểm tra trùng số phòng trong cùng tầng và cùng cơ sở (bỏ qua chính nó)
         if (isset($data['room_number'])) {
-            $exists = Room::where('floor_id', $room->floor_id)
+            $query = Room::where('floor_id', $room->floor_id)
                 ->where('room_number', $data['room_number'])
-                ->where('id', '!=', $roomId)
-                ->exists();
+                ->where('id', '!=', $roomId);
+                
+            if ($room->boarding_house_id) {
+                $query->where('boarding_house_id', $room->boarding_house_id);
+            }
+                
+            $exists = $query->exists();
             if ($exists)
                 return false;
         }
