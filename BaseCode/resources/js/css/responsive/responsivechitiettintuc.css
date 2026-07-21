@@ -9,10 +9,7 @@
     }
 
     .dieuhuong {
-        margin-top: 70px;
-        margin-left: 20px;
-        height: 45px;
-        position: fixed;
+        display: none;
     }
 
     .left_section {

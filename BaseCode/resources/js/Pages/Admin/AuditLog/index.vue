@@ -118,15 +118,15 @@ const filtered = computed(() => logs.value.filter(l => {
 
 <style scoped>
 .page-title{font-size:18px;font-weight:700;color:#0f172a;margin:0}.page-sub{font-size:12px;color:#94a3b8;margin:2px 0 0}
-.alert-banner{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;color:#92400e;margin-bottom:16px}
+.alert-banner{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;color:#92400e;margin-bottom:16px}
 .alert-banner i{font-size:18px;color:#f59e0b;flex-shrink:0}
 .filter-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
 .search-wrap{position:relative;flex:1;min-width:180px}.si{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:14px}
-.search-input{width:100%;padding:9px 12px 9px 36px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box}
+.search-input{width:100%;padding:9px 12px 9px 36px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;outline:none;box-sizing:border-box}
 .search-input:focus{border-color:#7c3aed}
-.filter-select{padding:9px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;color:#334155;background:#fff;outline:none}
-.export-btn{padding:9px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap}
-.table-card{background:#fff;border-radius:14px;border:1px solid #f1f5f9;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.filter-select{padding:9px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#334155;background:#fff;outline:none}
+.export-btn{padding:9px 14px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.table-card{background:#fff;border-radius:8px;border:1px solid #f1f5f9;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
 .data-table th{text-align:left;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:13px 16px;background:#f8fafc;border-bottom:1px solid #f1f5f9;letter-spacing:.04em}
 .data-table td{padding:11px 16px;border-bottom:1px solid #f8fafc;vertical-align:middle}
@@ -134,9 +134,9 @@ const filtered = computed(() => logs.value.filter(l => {
 .row-sensitive td{background:#fffbeb !important}.row-sensitive:hover td{background:#fef3c7 !important}
 .idx{color:#cbd5e1;font-size:12px;font-weight:600}
 .user-cell{display:flex;align-items:center;gap:8px}
-.user-dot{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.user-dot{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .fw{font-weight:600;color:#0f172a}
-.ip-code{font-family:monospace;font-size:12px;background:#f1f5f9;padding:2px 7px;border-radius:5px;color:#475569}
+.ip-code{font-family:monospace;font-size:12px;background:#f1f5f9;padding:2px 7px;border-radius:4px;color:#475569}
 .action-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px}
 .target-cell{font-size:12px;color:#334155;max-width:220px}
 .sm-gray{color:#94a3b8;font-size:12px}

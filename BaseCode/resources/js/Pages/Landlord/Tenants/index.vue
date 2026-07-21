@@ -176,46 +176,91 @@ const submitAdd = () => {
                     <i class="bi bi-inbox text-3xl text-slate-300 block"></i>
                     <span>Không có khách hàng nào.</span>
                 </div>
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                <th class="py-3.5 px-6">Họ tên khách</th>
-                                <th class="py-3.5 px-4">Số điện thoại</th>
-                                <th class="py-3.5 px-4">Phòng cư trú</th>
-                                <th class="py-3.5 px-4">Ngày vào ở</th>
-                                <th class="py-3.5 px-4">Tình trạng</th>
-                                <th class="py-3.5 px-6 text-right">Xem</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                            <tr v-for="(t, i) in filteredTenants" :key="t.id" class="hover:bg-slate-50/40 cursor-pointer" @click="openDetail(t)">
-                                <td class="py-4 px-6 font-bold text-slate-800 flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs" :style="{ backgroundColor: avatarColor(i) }">
+                <div v-else>
+                    <!-- Desktop Table View (hidden on mobile) -->
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    <th class="py-3.5 px-6">Họ tên khách</th>
+                                    <th class="py-3.5 px-4">Số điện thoại</th>
+                                    <th class="py-3.5 px-4">Phòng cư trú</th>
+                                    <th class="py-3.5 px-4">Ngày vào ở</th>
+                                    <th class="py-3.5 px-4">Tình trạng</th>
+                                    <th class="py-3.5 px-6 text-right">Xem</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
+                                <tr v-for="(t, i) in filteredTenants" :key="t.id" class="hover:bg-slate-50/40 cursor-pointer" @click="openDetail(t)">
+                                    <td class="py-4 px-6 font-bold text-slate-800 flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs" :style="{ backgroundColor: avatarColor(i) }">
+                                            {{ t.avatar }}
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span>{{ t.name }}</span>
+                                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CCCD: {{ t.cccd }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 px-4">{{ t.phone }}</td>
+                                    <td class="py-4 px-4 font-bold text-emerald-600">{{ t.room }}</td>
+                                    <td class="py-4 px-4 text-slate-400">{{ formatDate(t.moveIn) }}</td>
+                                    <td class="py-4 px-4">
+                                        <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', statusMap[t.status].cls]">
+                                            <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[t.status].dot"></span>
+                                            {{ statusMap[t.status].label }}
+                                        </span>
+                                    </td>
+                                    <td class="py-4 px-6 text-right" @click.stop>
+                                        <button @click="openDetail(t)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-500 inline-flex items-center justify-center transition-colors">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Mobile Cards View (hidden on desktop) -->
+                    <div class="block md:hidden divide-y divide-slate-100">
+                        <div v-for="(t, i) in filteredTenants" :key="t.id" 
+                            class="p-4 space-y-3 cursor-pointer hover:bg-slate-50/50" 
+                            @click="openDetail(t)">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-white text-xs shrink-0" 
+                                        :style="{ backgroundColor: avatarColor(i) }">
                                         {{ t.avatar }}
                                     </div>
-                                    <div class="flex flex-col">
-                                        <span>{{ t.name }}</span>
-                                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CCCD: {{ t.cccd }}</span>
+                                    <div class="space-y-0.5">
+                                        <h4 class="text-xs font-bold text-slate-800">{{ t.name }}</h4>
+                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CCCD: {{ t.cccd }}</p>
                                     </div>
-                                </td>
-                                <td class="py-4 px-4">{{ t.phone }}</td>
-                                <td class="py-4 px-4 font-bold text-emerald-600">{{ t.room }}</td>
-                                <td class="py-4 px-4 text-slate-400">{{ formatDate(t.moveIn) }}</td>
-                                <td class="py-4 px-4">
-                                    <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', statusMap[t.status].cls]">
-                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[t.status].dot"></span>
-                                        {{ statusMap[t.status].label }}
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6 text-right" @click.stop>
-                                    <button @click="openDetail(t)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-500 inline-flex items-center justify-center transition-colors">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </div>
+                                <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', statusMap[t.status].cls]">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[t.status].dot"></span>
+                                    {{ statusMap[t.status].label }}
+                                </span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500 pt-1">
+                                <div class="flex items-center gap-1.5">
+                                    <i class="bi bi-telephone text-slate-400"></i>
+                                    <span>{{ t.phone }}</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <i class="bi bi-house text-emerald-500"></i>
+                                    <span class="font-bold text-emerald-600">{{ t.room }}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between text-[10px] font-semibold text-slate-400 border-t border-slate-100/50 pt-2">
+                                <span>Ngày vào ở: {{ formatDate(t.moveIn) }}</span>
+                                <button @click.stop="openDetail(t)" class="text-slate-500 hover:text-slate-700 flex items-center gap-0.5 font-bold">
+                                    Chi tiết <i class="bi bi-chevron-right text-[8px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

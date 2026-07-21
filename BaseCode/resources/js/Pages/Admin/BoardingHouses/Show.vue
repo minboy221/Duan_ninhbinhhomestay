@@ -104,16 +104,6 @@ const confirmReject = () => {
                     <div v-else class="text-gray-500 text-sm italic">Không có ảnh nào.</div>
                 </div>
 
-                <!-- Giấy tờ / Hợp đồng -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <h2 class="text-lg font-bold text-gray-800 border-b border-gray-100 pb-3 mb-4">Giấy Tờ Hợp Lệ</h2>
-                    <div v-if="contractImages.length" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div v-for="(img, idx) in contractImages" :key="idx" class="aspect-square rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
-                            <img :src="`/storage/${img}`" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="window.open(this.src, '_blank')" />
-                        </div>
-                    </div>
-                    <div v-else class="text-gray-500 text-sm italic">Không có giấy tờ nào.</div>
-                </div>
             </div>
 
             <!-- Cột phải: Thông tin Chủ trọ & Thao tác -->

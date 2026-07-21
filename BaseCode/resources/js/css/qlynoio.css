@@ -5,7 +5,6 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .bao_item {
@@ -14,7 +13,7 @@
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 50px;
+    border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -48,11 +47,10 @@
     background: #d3f7ea;
     color: #fff;
     padding: 10px 25px;
-    border-radius: 15px;
+    border-radius: 8px;
 }
 
 .status p {
-    color: #00b894;
     font-size: 15px;
     font-weight: 600;
 }
@@ -90,7 +88,7 @@ form {
 /* Input */
 .form-group input {
     padding: 12px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: none;
     background: #f3f4f6;
     font-size: 15px;
@@ -108,7 +106,7 @@ form {
 .hopdong {
     margin-top: 25px;
     padding: 10px;
-    border-radius: 15px;
+    border-radius: 8px;
     display: flex;
     justify-content: space-between;
 }
@@ -136,7 +134,7 @@ form {
     color: #fff;
     padding: 10px 16px;
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
     font-size: 15px;
@@ -155,7 +153,7 @@ form {
 .history_thanhtoan {
     margin-top: 25px;
     padding: 10px;
-    border-radius: 15px;
+    border-radius: 8px;
     display: flex;
     justify-content: space-between;
 }
@@ -194,7 +192,7 @@ form {
     height: 80%;
     margin: 5% auto;
     background: #fff;
-    border-radius: 12px;
+    border-radius: 8px;
     overflow: hidden;
     animation: fadeIn 0.3s ease;
 }

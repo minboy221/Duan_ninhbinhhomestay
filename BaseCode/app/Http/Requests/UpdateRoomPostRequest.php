@@ -35,7 +35,7 @@ class UpdateRoomPostRequest extends FormRequest
             $rules['description'] = 'required|string|min:20';
             //nếu không giữ ảnh cũ thì bắt buộc phải chọn ảnh mới tải lên
             if (empty($this->input('existing_images'))) {
-                $rules['image'] = 'required|array|min:1';
+                $rules['images'] = 'required|array|min:1';
             } else {
                 $rules['images'] = 'nullable|array';
             }

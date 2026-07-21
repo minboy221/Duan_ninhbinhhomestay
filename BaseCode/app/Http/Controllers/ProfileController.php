@@ -47,16 +47,31 @@ class ProfileController extends Controller
     //trang quản lý nơi ở
     public function quanlynoio(Request $request): Response
     {
+        $contract = \App\Models\Contract::where('tenant_id', $request->user()->id)
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active'])
+            ->with(['room.boardingHouse.user', 'invoices'])
+            ->orderBy('created_at', 'desc')
+            ->first();
+
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
+            'contract' => $contract,
         ]);
     }
 
     //trang thanh toán
     public function lichsuthanhtoan(Request $request): Response
     {
+        $invoices = \App\Models\Invoice::whereHas('contract', function ($q) use ($request) {
+            $q->where('tenant_id', $request->user()->id);
+        })
+        ->with(['details.service', 'contract.room.boardingHouse.user'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
         return Inertia::render('Profile/listthanhtoan', [
             'user' => $request->user(),
+            'invoices' => $invoices,
         ]);
     }
 
@@ -178,5 +193,125 @@ class ProfileController extends Controller
             'user' => $request->user(),
             'favoriteRooms' => $favoriteRooms
         ]);
+    }
+
+    /**
+     * Toggle favorite status for a room
+     */
+    public function toggleFavorite(Request $request, $roomId): RedirectResponse
+    {
+        $user = $request->user();
+        
+        // Kiểm tra xem phòng đã được yêu thích chưa
+        if ($user->favoriteRooms()->where('room_id', $roomId)->exists()) {
+            // Bỏ yêu thích
+            $user->favoriteRooms()->detach($roomId);
+            $message = 'Đã bỏ yêu thích phòng trọ này.';
+        } else {
+            // Thêm vào yêu thích
+            $user->favoriteRooms()->attach($roomId);
+            $message = 'Đã lưu phòng trọ vào danh sách quan tâm.';
+        }
+
+        return Redirect::back()->with('success', $message);
+    }
+
+    /**
+     * Submit a review for a room after viewing it
+     */
+    public function submitReview(Request $request, \App\Models\Appointment $appointment): RedirectResponse
+    {
+        $user = $request->user();
+
+        // Kiểm tra quyền (chỉ người tạo lịch mới được đánh giá)
+        if ($appointment->user_id !== $user->id) {
+            abort(403, 'Bạn không có quyền thực hiện thao tác này.');
+        }
+
+        // Kiểm tra xem lịch hẹn đã được đánh giá chưa
+        if ($appointment->status === 'viewed') {
+            return Redirect::back()->with('error', 'Lịch hẹn này đã được đánh giá.');
+        }
+
+        $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string|max:1000'
+        ]);
+
+        // Tạo đánh giá
+        \App\Models\Review::create([
+            'tenant_id' => $user->id,
+            'room_id' => $appointment->room_id,
+            'appointment_id' => $appointment->id,
+            'rating' => $request->rating,
+            'comment' => $request->comment,
+        ]);
+
+        // Cập nhật trạng thái lịch hẹn thành 'viewed'
+        $appointment->update(['status' => 'viewed']);
+
+        return Redirect::back()->with('success', 'Đánh giá phòng trọ thành công!');
+    }
+
+    /**
+     * Submit interest decision after viewing room
+     */
+    public function submitInterest(Request $request, \App\Models\Appointment $appointment): RedirectResponse
+    {
+        $user = $request->user();
+
+        if ($appointment->user_id !== $user->id) {
+            abort(403, 'Bạn không có quyền thực hiện thao tác này.');
+        }
+
+        $request->validate([
+            'result' => 'required|in:interested,not_interested',
+            'cccd' => 'nullable|string|max:20',
+        ]);
+
+        $appointment->update([
+            'feedback_result' => $request->result,
+            'feedback_time' => now()
+        ]);
+
+        if ($request->filled('cccd')) {
+            $user->update(['cccd_number' => $request->cccd]);
+        }
+
+        if ($request->result === 'interested') {
+            $landlord = $appointment->room->boardingHouse->user ?? null;
+            if ($landlord) {
+                $landlord->notify(new \App\Notifications\TenantInterestedNotification($appointment));
+            }
+        }
+
+        return Redirect::back()->with('success', 'Đã ghi nhận lựa chọn của bạn!');
+    }
+
+    /**
+     * Gửi thông báo đã thanh toán cho chủ trọ
+     */
+    public function notifyPayment(Request $request, $id)
+    {
+        $request->validate([
+            'payment_method' => 'required|string|in:qr,cash'
+        ]);
+
+        $invoice = \App\Models\Invoice::where('id', $id)
+            ->whereHas('contract', function ($q) use ($request) {
+                $q->where('tenant_id', $request->user()->id);
+            })
+            ->with(['contract.room.boardingHouse.user'])
+            ->firstOrFail();
+
+        // Cập nhật trạng thái hoặc gửi thông báo
+        // Giao dịch được coi là đã thông báo, chờ landlord duyệt
+        $landlord = $invoice->contract->room->boardingHouse->user ?? null;
+        if ($landlord) {
+            $methodLabel = $request->payment_method === 'qr' ? 'QR Code' : 'Tiền mặt';
+            $landlord->notify(new \App\Notifications\TenantPaidInvoiceNotification($invoice, $methodLabel));
+        }
+
+        return Redirect::back()->with('success', 'Đã gửi thông báo đã chuyển khoản thành công tới Chủ trọ!');
     }
 }

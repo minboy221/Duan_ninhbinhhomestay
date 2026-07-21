@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import MainLayout from '@/Layouts/MainLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import HomePopup from '@/Components/HomePopup.vue';
@@ -14,7 +14,20 @@ const props = defineProps({
     categories: { type: Array, default: () => [] },
     areas:      { type: Array, default: () => [] },
     amenities:  { type: Array, default: () => [] },
+    settings:   { type: Object, default: () => ({}) }
 })
+
+const activeBanners = computed(() => {
+    const list = props.settings?.banners || [];
+    const active = list.filter(b => b.active);
+    if (active.length > 0) {
+        return active.sort((a, b) => a.order - b.order);
+    }
+    return [{ id: 1, title: 'Default', img: '/anh/banner.png' }];
+});
+
+const currentBannerIndex = ref(0);
+let bannerInterval = null;
 
 // Slider Phòng Trọ
 const currentPtSlide = ref(0);
@@ -26,7 +39,8 @@ const nextPtSlide = () => {
 };
 
 const prevPtSlide = () => {
-    currentPtSlide.value = (currentPtSlide.value - 1 + totalPtSlides) % totalPtSlides;
+    currentPtSlide.value =
+        (currentPtSlide.value - 1 + totalPtSlides) % totalPtSlides;
 };
 
 const goToPtSlide = (index) => {
@@ -36,10 +50,18 @@ const goToPtSlide = (index) => {
 // Tự động chuyển slide sau mỗi 5s
 onMounted(() => {
     ptSlideInterval = setInterval(nextPtSlide, 5000);
+    
+    // Tự động chuyển banner sau mỗi 6s
+    bannerInterval = setInterval(() => {
+        if (activeBanners.value.length > 1) {
+            currentBannerIndex.value = (currentBannerIndex.value + 1) % activeBanners.value.length;
+        }
+    }, 6000);
 });
 
 onUnmounted(() => {
     if (ptSlideInterval) clearInterval(ptSlideInterval);
+    if (bannerInterval) clearInterval(bannerInterval);
 });
 
 // Slider Đánh Giá
@@ -49,21 +71,37 @@ const maxReviewIndex = 3; // Tổng 6 card, hiển thị 3 card cùng lúc -> ma
 const scrollReview = (direction) => {
     currentReviewIndex.value += direction;
     if (currentReviewIndex.value < 0) currentReviewIndex.value = 0;
-    if (currentReviewIndex.value > maxReviewIndex) currentReviewIndex.value = maxReviewIndex;
+    if (currentReviewIndex.value > maxReviewIndex)
+        currentReviewIndex.value = maxReviewIndex;
 };
 </script>
 <template>
-
     <Head title="Ninh Bình HomeStay" />
     <MainLayout>
-        <!-- BANNER -->
+        <!-- BANNER SLIDESHOW -->
         <div class="banner">
-            <img src="/anh/banner.png" alt="banner">
+            <div 
+                v-for="(banner, index) in activeBanners" 
+                :key="banner.id" 
+                :class="['banner-slide', index === currentBannerIndex ? 'active' : '']"
+            >
+                <img :src="banner.img || '/anh/banner.png'" alt="banner">
+            </div>
             <div class="banner-text">
-                <h1>Tìm Phòng Và Nhà Trọ Phù Hợp</h1>
+                <h1>{{ props.settings?.hero_title || 'Tìm Phòng Và Nhà Trọ Phù Hợp' }}</h1>
                 <p>
-                    Hệ thống tìm kiếm và quản lý phòng trọ thông minh số 1 tại Ninh Bình.
+                    {{ props.settings?.hero_subtitle || 'Hệ thống tìm kiếm và quản lý phòng trọ thông minh số 1 tại Ninh Bình.' }}
                 </p>
+            </div>
+            
+            <!-- Banner Navigation dots if there are multiple active banners -->
+            <div v-if="activeBanners.length > 1" class="banner-dots">
+                <span 
+                    v-for="(banner, index) in activeBanners" 
+                    :key="'dot-' + banner.id" 
+                    :class="['banner-dot', index === currentBannerIndex ? 'active' : '']"
+                    @click="currentBannerIndex = index"
+                ></span>
             </div>
         </div>
         <!-- phần tìm kiếm -->
@@ -73,7 +111,13 @@ const scrollReview = (direction) => {
                     <label for="">Khu Vực:</label>
                     <select>
                         <option value="">--Chọn khu vực--</option>
-                        <option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</option>
+                        <option
+                            v-for="area in areas"
+                            :key="area.id"
+                            :value="area.id"
+                        >
+                            {{ area.name }}
+                        </option>
                     </select>
                 </div>
                 <div class="price_select">
@@ -90,15 +134,23 @@ const scrollReview = (direction) => {
                     <label for="">Chọn Loại Phòng:</label>
                     <select>
                         <option value="">--Chọn Loại Phòng--</option>
-                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                        <option
+                            v-for="cat in categories"
+                            :key="cat.id"
+                            :value="cat.id"
+                        >
+                            {{ cat.name }}
+                        </option>
                     </select>
                 </div>
-                <button class="login-btn"><i class="bi bi-search"></i> <span>Tìm Kiếm</span></button>
+                <button class="login-btn">
+                    <i class="bi bi-search"></i> <span>Tìm Kiếm</span>
+                </button>
             </div>
         </div>
         <section class="section_noidung">
             <div class="image_noidung">
-                <img src="/anh/image_noidung.png" alt="">
+                <img src="/anh/image_noidung.png" alt="" />
             </div>
             <div class="noidung">
                 <div class="text_support">
@@ -107,17 +159,21 @@ const scrollReview = (direction) => {
                 <div class="title">
                     <h2>Ninh Bình <span>HomeStay.</span></h2>
                 </div>
-                <p>Ninh Bình HomeStay là nền tảng chuyên biệt giúp bạn tìm kiếm và quản lý nhà trọ một cách minh bạch,
-                    an
-                    toàn tại Ninh Bình. chúng tôi kết nối người thuê với hệ thống chủ trọ uy tín, đồng thời cung cấp
-                    giải
-                    pháp quản lý vận hành thông minh cho các hộ kinh doanh lưu trú.
-                    <br>
-                    Với giao diện thân thiện, công cụ tìm kiếm thông minh và thông tin được cập nhật liên tục, Ninh Bình
-                    HomeStay giúp bạn dễ dàng tìm được nơi ở phù hợp trong thời gian ngắn nhất.
+                <p>
+                    Ninh Bình HomeStay là nền tảng chuyên biệt giúp bạn tìm kiếm
+                    và quản lý nhà trọ một cách minh bạch, an toàn tại Ninh
+                    Bình. chúng tôi kết nối người thuê với hệ thống chủ trọ uy
+                    tín, đồng thời cung cấp giải pháp quản lý vận hành thông
+                    minh cho các hộ kinh doanh lưu trú.
+                    <br />
+                    Với giao diện thân thiện, công cụ tìm kiếm thông minh và
+                    thông tin được cập nhật liên tục, Ninh Bình HomeStay giúp
+                    bạn dễ dàng tìm được nơi ở phù hợp trong thời gian ngắn
+                    nhất.
                 </p>
-                <button class="btn"> Xem Thêm <i class="bi bi-arrow-right"></i></button>
-
+                <button class="btn">
+                    Xem Thêm <i class="bi bi-arrow-right"></i>
+                </button>
             </div>
         </section>
         <section class="phongtro">
@@ -128,64 +184,114 @@ const scrollReview = (direction) => {
 
             <!-- Slider fullscreen background -->
             <div class="pt-slider" id="ptSlider">
-
                 <!-- Slide 1 -->
-                <div class="pt-slide" :class="{ active: currentPtSlide === 0 }"
-                    style="background-image: url('anh/phong1.jpg')">
+                <div
+                    class="pt-slide"
+                    :class="{ active: currentPtSlide === 0 }"
+                    style="background-image: url(&quot;anh/phong1.jpg&quot;)"
+                >
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
                         <span class="pt-badge">Nổi Bật</span>
                         <h3 class="pt-name">Phòng số 1</h3>
-                        <p class="pt-addr"><i class="bi bi-geo-alt-fill"></i> Duy Tiên, Ninh Bình</p>
+                        <p class="pt-addr">
+                            <i class="bi bi-geo-alt-fill"></i> Duy Tiên, Ninh
+                            Bình
+                        </p>
                         <div class="pt-meta">
-                            <span class="pt-price">1.500.000 <small>/Tháng</small></span>
-                            <span class="pt-area"><i class="bi bi-aspect-ratio"></i> 20m²</span>
+                            <span class="pt-price"
+                                >1.500.000 <small>/Tháng</small></span
+                            >
+                            <span class="pt-area"
+                                ><i class="bi bi-aspect-ratio"></i> 20m²</span
+                            >
                         </div>
-                        <a class="pt-btn" href="#">Xem Chi Tiết <i class="bi bi-arrow-right"></i></a>
+                        <a class="pt-btn" href="#"
+                            >Xem Chi Tiết <i class="bi bi-arrow-right"></i
+                        ></a>
                     </div>
                 </div>
 
                 <!-- Slide 2 -->
-                <div class="pt-slide" :class="{ active: currentPtSlide === 1 }"
-                    style="background-image: url('anh/phong1.jpg')">
+                <div
+                    class="pt-slide"
+                    :class="{ active: currentPtSlide === 1 }"
+                    style="background-image: url(&quot;anh/phong1.jpg&quot;)"
+                >
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
                         <span class="pt-badge">Hot</span>
                         <h3 class="pt-name">Phòng số 2</h3>
-                        <p class="pt-addr"><i class="bi bi-geo-alt-fill"></i> Hoa Lư, Ninh Bình</p>
+                        <p class="pt-addr">
+                            <i class="bi bi-geo-alt-fill"></i> Hoa Lư, Ninh Bình
+                        </p>
                         <div class="pt-meta">
-                            <span class="pt-price">2.000.000 <small>/Tháng</small></span>
-                            <span class="pt-area"><i class="bi bi-aspect-ratio"></i> 25m²</span>
+                            <span class="pt-price"
+                                >2.000.000 <small>/Tháng</small></span
+                            >
+                            <span class="pt-area"
+                                ><i class="bi bi-aspect-ratio"></i> 25m²</span
+                            >
                         </div>
-                        <a class="pt-btn" href="#">Xem Chi Tiết <i class="bi bi-arrow-right"></i></a>
+                        <a class="pt-btn" href="#"
+                            >Xem Chi Tiết <i class="bi bi-arrow-right"></i
+                        ></a>
                     </div>
                 </div>
 
                 <!-- Slide 3 -->
-                <div class="pt-slide" :class="{ active: currentPtSlide === 2 }"
-                    style="background-image: url('anh/phong1.jpg')">
+                <div
+                    class="pt-slide"
+                    :class="{ active: currentPtSlide === 2 }"
+                    style="background-image: url(&quot;anh/phong1.jpg&quot;)"
+                >
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
                         <span class="pt-badge">Mới</span>
                         <h3 class="pt-name">Phòng số 3</h3>
-                        <p class="pt-addr"><i class="bi bi-geo-alt-fill"></i> Gia Viễn, Ninh Bình</p>
+                        <p class="pt-addr">
+                            <i class="bi bi-geo-alt-fill"></i> Gia Viễn, Ninh
+                            Bình
+                        </p>
                         <div class="pt-meta">
-                            <span class="pt-price">1.800.000 <small>/Tháng</small></span>
-                            <span class="pt-area"><i class="bi bi-aspect-ratio"></i> 22m²</span>
+                            <span class="pt-price"
+                                >1.800.000 <small>/Tháng</small></span
+                            >
+                            <span class="pt-area"
+                                ><i class="bi bi-aspect-ratio"></i> 22m²</span
+                            >
                         </div>
-                        <a class="pt-btn" href="#">Xem Chi Tiết <i class="bi bi-arrow-right"></i></a>
+                        <a class="pt-btn" href="#"
+                            >Xem Chi Tiết <i class="bi bi-arrow-right"></i
+                        ></a>
                     </div>
                 </div>
 
                 <!-- Nút điều hướng -->
-                <button class="pt-nav pt-prev" @click="prevPtSlide"><i class="bi bi-chevron-left"></i></button>
-                <button class="pt-nav pt-next" @click="nextPtSlide"><i class="bi bi-chevron-right"></i></button>
+                <button class="pt-nav pt-prev" @click="prevPtSlide">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button class="pt-nav pt-next" @click="nextPtSlide">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
 
                 <!-- Dots -->
                 <div class="pt-dots">
-                    <span class="pt-dot" :class="{ active: currentPtSlide === 0 }" @click="goToPtSlide(0)"></span>
-                    <span class="pt-dot" :class="{ active: currentPtSlide === 1 }" @click="goToPtSlide(1)"></span>
-                    <span class="pt-dot" :class="{ active: currentPtSlide === 2 }" @click="goToPtSlide(2)"></span>
+                    <span
+                        class="pt-dot"
+                        :class="{ active: currentPtSlide === 0 }"
+                        @click="goToPtSlide(0)"
+                    ></span>
+                    <span
+                        class="pt-dot"
+                        :class="{ active: currentPtSlide === 1 }"
+                        @click="goToPtSlide(1)"
+                    ></span>
+                    <span
+                        class="pt-dot"
+                        :class="{ active: currentPtSlide === 2 }"
+                        @click="goToPtSlide(2)"
+                    ></span>
                 </div>
             </div>
         </section>
@@ -203,54 +309,64 @@ const scrollReview = (direction) => {
                     <div class="timeline">
                         <div class="item">
                             <div class="icon">
-                                <img src="anh/iconhome.png" alt="">
+                                <img src="anh/iconhome.png" alt="" />
                             </div>
                             <div class="content">
                                 <h2>Thông Tin Minh Bạch</h2>
-                                <p>Tất cả thông tin nhà trọ và việc làm đều được đăng tải rõ ràng, giúp người dùng dễ
-                                    dàng
-                                    tìm
-                                    hiểu và lựa chọn.</p>
+                                <p>
+                                    Tất cả thông tin nhà trọ và việc làm đều
+                                    được đăng tải rõ ràng, giúp người dùng dễ
+                                    dàng tìm hiểu và lựa chọn.
+                                </p>
                             </div>
                         </div>
                         <div class="item">
                             <div class="icon">
-                                <img src="anh/iconsearch.png" alt="">
+                                <img src="anh/iconsearch.png" alt="" />
                             </div>
                             <div class="content">
                                 <h2>Tìm Kiếm Nhanh Chóng</h2>
-                                <p>Hệ thống tìm kiếm thông minh giúp bạn nhanh chóng tìm được phòng trọ phù hợp
-                                    với mọi nhu cầu.</p>
+                                <p>
+                                    Hệ thống tìm kiếm thông minh giúp bạn nhanh
+                                    chóng tìm được phòng trọ phù hợp với mọi nhu
+                                    cầu.
+                                </p>
                             </div>
                         </div>
                         <div class="item">
                             <div class="icon">
-                                <img src="anh/iconhandshake.png" alt="">
+                                <img src="anh/iconhandshake.png" alt="" />
                             </div>
                             <div class="content">
                                 <h2>Kết Nối Uy Tín</h2>
-                                <p>Nền tảng kết nối minh bạch giữa người tìm trọ và chủ cho thuê. Hệ thống quản lý thông
-                                    minh giúp tối ưu hóa việc tìm kiếm nơi ở và vận hành nhà trọ chuyên nghiệp.</p>
+                                <p>
+                                    Nền tảng kết nối minh bạch giữa người tìm
+                                    trọ và chủ cho thuê. Hệ thống quản lý thông
+                                    minh giúp tối ưu hóa việc tìm kiếm nơi ở và
+                                    vận hành nhà trọ chuyên nghiệp.
+                                </p>
                             </div>
                         </div>
                         <div class="item">
                             <div class="icon">
-                                <img src="anh/iconstar.png" alt="">
+                                <img src="anh/iconstar.png" alt="" />
                             </div>
                             <div class="content">
                                 <h2>Trải Nghiệm Tiện Lợi</h2>
-                                <p>Giao diện thân thiện, dễ sử dụng giúp người dùng tìm kiếm và tiếp cận thông tin một
-                                    cách
-                                    nhanh chóng.</p>
+                                <p>
+                                    Giao diện thân thiện, dễ sử dụng giúp người
+                                    dùng tìm kiếm và tiếp cận thông tin một cách
+                                    nhanh chóng.
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="img_camket">
-                    <img src="anh/camket.png" alt="">
+                    <img src="anh/camket.png" alt="" />
                 </div>
                 <div class="house_3d">
-                    <img src="anh/3d-house.png" alt="">
+                    <img src="anh/3d-house.png" alt="" />
                 </div>
             </div>
         </section>
@@ -278,19 +394,29 @@ const scrollReview = (direction) => {
             <div class="title">
                 <p class="sub">Đánh Giá Dịch Vụ</p>
                 <h2>ĐÁNH GIÁ KHÁCH HÀNG</h2>
-                <p class="desc">Chúng tôi tự hào khi nhận được phản hồi tích cực từ khách hàng</p>
+                <p class="desc">
+                    Chúng tôi tự hào khi nhận được phản hồi tích cực từ khách
+                    hàng
+                </p>
             </div>
 
             <div class="review-container">
-                <div class="review-track" :style="{ transform: `translateX(-${currentReviewIndex * 380}px)` }">
-
+                <div
+                    class="review-track"
+                    :style="{
+                        transform: `translateX(-${currentReviewIndex * 380}px)`,
+                    }"
+                >
                     <!-- card -->
                     <div class="card">
                         <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
+                        <p>
+                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
+                            chuyên nghiệp.
+                        </p>
                         <div class="user">
-                            <img src="anh/banner.png">
+                            <img src="anh/banner.png" />
                             <div class="name_user">
                                 <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
@@ -300,22 +426,12 @@ const scrollReview = (direction) => {
                     <div class="card">
                         <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
+                        <p>
+                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
+                            chuyên nghiệp.
+                        </p>
                         <div class="user">
-                            <img src="anh/banner.png">
-                            <div class="name_user">
-                                <b>Phúc Phúc</b>
-                                <span>Khách hàng</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h3>Rất tốt</h3>
-                        <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
-                        <div class="user">
-                            <img src="anh/banner.png">
+                            <img src="anh/banner.png" />
                             <div class="name_user">
                                 <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
@@ -326,9 +442,28 @@ const scrollReview = (direction) => {
                     <div class="card">
                         <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
+                        <p>
+                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
+                            chuyên nghiệp.
+                        </p>
                         <div class="user">
-                            <img src="anh/banner.png">
+                            <img src="anh/banner.png" />
+                            <div class="name_user">
+                                <b>Phúc Phúc</b>
+                                <span>Khách hàng</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Rất tốt</h3>
+                        <div class="stars">★★★★★</div>
+                        <p>
+                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
+                            chuyên nghiệp.
+                        </p>
+                        <div class="user">
+                            <img src="anh/banner.png" />
                             <div class="name_user">
                                 <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
@@ -338,9 +473,12 @@ const scrollReview = (direction) => {
                     <div class="card">
                         <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
+                        <p>
+                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
+                            chuyên nghiệp.
+                        </p>
                         <div class="user">
-                            <img src="anh/banner.png">
+                            <img src="anh/banner.png" />
                             <div class="name_user">
                                 <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
@@ -350,9 +488,12 @@ const scrollReview = (direction) => {
                     <div class="card">
                         <h3>Rất tốt</h3>
                         <div class="stars">★★★★★</div>
-                        <p>Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ chuyên nghiệp.</p>
+                        <p>
+                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
+                            chuyên nghiệp.
+                        </p>
                         <div class="user">
-                            <img src="anh/banner.png">
+                            <img src="anh/banner.png" />
                             <div class="name_user">
                                 <b>Phúc Phúc</b>
                                 <span>Khách hàng</span>
@@ -369,5 +510,48 @@ const scrollReview = (direction) => {
             </div>
         </section>
         <HomePopup />
+        <AppointmentCountdown />
     </MainLayout>
 </template>
+
+<style scoped>
+.banner-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 1.2s ease-in-out;
+    z-index: 1;
+}
+.banner-slide.active {
+    opacity: 1;
+    z-index: 2;
+}
+.banner-text {
+    z-index: 10;
+}
+.banner-dots {
+    position: absolute;
+    bottom: 95px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 20;
+}
+.banner-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.banner-dot.active {
+    background: #ffffff;
+    transform: scale(1.3);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+</style>

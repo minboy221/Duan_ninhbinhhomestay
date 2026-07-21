@@ -18,6 +18,10 @@ class Appointment extends Model
         'note',
         'status',
         'notified',
+        'feedback_result',
+        'feedback_reason',
+        'feedback_time',
+        'cancellation_reason',
     ];
 
     protected $casts = [
