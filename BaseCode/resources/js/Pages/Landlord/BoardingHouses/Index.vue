@@ -102,7 +102,28 @@ const getStatusText = (status) => {
                                         class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] rounded uppercase font-black">
                                         <i class="bi bi-geo-alt-fill"></i> Đang Chọn
                                     </span>
-<<<<<<< HEAD
+<<<<<<<<< Temporary merge branch 1
+                                </h4>
+                            </div>
+                            <button class="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="text-[11px] text-slate-600 flex items-start gap-1">
+                            <i class="bi bi-map text-slate-400 mt-0.5"></i>
+                            <span>{{ house.address_detail }}, {{ house.district }}</span>
+                        </div>
+                        
+                        <div v-if="$page.props.auth.selected_boarding_house_id !== house.id" class="pt-2 border-t border-slate-100/50 flex justify-end">
+                            <button @click="selectHouse(house.id)"
+                                class="text-xs font-bold bg-white border border-emerald-250 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 w-full justify-center">
+                                <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở này
+                            </button>
+                        </div>
+                    </div>
+                </div>
+=========
                                 </div>
                             </td>
                             <td class="px-5 py-4">
@@ -128,28 +149,7 @@ const getStatusText = (status) => {
                         </tr>
                     </tbody>
                 </table>
-=======
-                                </h4>
-                            </div>
-                            <button class="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
-                                <i class="bi bi-three-dots-vertical"></i>
-                            </button>
-                        </div>
-                        
-                        <div class="text-[11px] text-slate-600 flex items-start gap-1">
-                            <i class="bi bi-map text-slate-400 mt-0.5"></i>
-                            <span>{{ house.address_detail }}, {{ house.district }}</span>
-                        </div>
-                        
-                        <div v-if="$page.props.auth.selected_boarding_house_id !== house.id" class="pt-2 border-t border-slate-100/50 flex justify-end">
-                            <button @click="selectHouse(house.id)"
-                                class="text-xs font-bold bg-white border border-emerald-250 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 w-full justify-center">
-                                <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở này
-                            </button>
-                        </div>
-                    </div>
-                </div>
->>>>>>> fd46a913d48bf66d2ef48d8bf883bd2fd1f0e388
+>>>>>>>>> Temporary merge branch 2
             </div>
         </div>
     </LandlordLayout>
