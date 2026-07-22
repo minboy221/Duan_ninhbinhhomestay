@@ -47,36 +47,6 @@ const openContract  = (c) => { selectedContract.value = c; showModal.value = tru
 const closeModal    = () => { showModal.value = false; selectedContract.value = null }
 const askDelete     = (c) => { deleteTarget.value = c; showDeleteConfirm.value = true }
 
-const showImagesModal = ref(false);
-const currentImageIndex = ref(0);
-
-const signedImages = computed(() => {
-    if (!selectedContract.value?.original_contract?.signed_contract_image) return [];
-    try {
-        const parsed = JSON.parse(selectedContract.value.original_contract.signed_contract_image);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-        return [];
-    }
-});
-
-const nextImage = () => {
-    if (currentImageIndex.value < signedImages.value.length - 1) {
-        currentImageIndex.value++;
-    }
-};
-
-const prevImage = () => {
-    if (currentImageIndex.value > 0) {
-        currentImageIndex.value--;
-    }
-};
-
-const openImagesModal = (c) => {
-    selectedContract.value = c;
-    currentImageIndex.value = 0;
-    showImagesModal.value = true;
-};
 const confirmDelete = () => { contracts.value = contracts.value.filter(c => c.id !== deleteTarget.value.id); showDeleteConfirm.value = false }
 const formatMoney   = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ'
 const formatDate    = (d) => new Date(d).toLocaleDateString('vi-VN')
@@ -113,7 +83,8 @@ const addForm = ref({
     start_date: '',
     end_date: '',
     billing_cycle: 1, // month
-    depositPaid: true
+    depositPaid: true,
+    signed_image: []
 })
 
 watch(() => addForm.value.appointment_id, (newVal) => {
@@ -171,7 +142,8 @@ const openAddContract = (appointmentId = '') => {
         start_date: '',
         end_date: '',
         billing_cycle: 1,
-        depositPaid: true
+        depositPaid: true,
+        signed_image: []
     }
     showAddModal.value = true
 }
@@ -195,48 +167,48 @@ onMounted(() => {
 
 const submitAddContract = () => {
     if(!addForm.value.appointment_id || !addForm.value.start_date || !addForm.value.end_date) {
-        alert('Vui lòng hoàn thành toàn bộ thông tin hợp đồng.')
+        alert('Vui lòng hoàn thành toàn bộ thông tin bắt buộc của hợp đồng.')
         return
     }
     
-    // Convert current data to form
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/landlord/contracts/store-draft';
-    form.target = '_blank'; // Open PDF in new tab
-    
-    const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content || '';
-    
-    const inputs = {
-        _token: csrfToken,
-        appointment_id: addForm.value.appointment_id,
-        start_date: addForm.value.start_date,
-        end_date: addForm.value.end_date,
-        monthly_rent: addForm.value.rent,
-        deposit: addForm.value.deposit || 0,
-        tenant_cccd: addForm.value.tenant_cccd,
-        billing_cycle: addForm.value.billing_cycle
-    };
-    
-    for (const key in inputs) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = inputs[key];
-        form.appendChild(input);
-    }
-    
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-    
-    showAddModal.value = false
-    
-    // Reload data after a short delay since it opens in a new tab
-    setTimeout(() => {
-        router.reload({ only: ['dbContracts'] });
-    }, 1500);
+    router.post('/landlord/contracts/store-draft', addForm.value, {
+        forceFormData: true, // Needed for file uploads
+        onSuccess: () => {
+            showAddModal.value = false;
+        }
+    });
 }
+
+const showExtendModal = ref(false);
+const extendForm = ref({ new_end_date: '' });
+const openExtendModal = () => {
+    if (!selectedContract.value) return;
+    extendForm.value.new_end_date = selectedContract.value.original_contract?.end_date?.split('T')[0] || '';
+    showExtendModal.value = true;
+};
+const submitExtendContract = () => {
+    if (!extendForm.value.new_end_date) {
+        alert('Vui lòng chọn ngày hết hạn mới.');
+        return;
+    }
+    router.post(`/landlord/contracts/${selectedContract.value.id}/extend`, extendForm.value, {
+        onSuccess: () => {
+            showExtendModal.value = false;
+            showModal.value = false;
+        }
+    });
+};
+
+const submitTerminateContract = () => {
+    if (!selectedContract.value) return;
+    if (confirm('Bạn có chắc chắn muốn hủy/thanh lý hợp đồng này? Hành động này sẽ chuyển trạng thái phòng về Còn trống và khôi phục lại tin đăng phòng.')) {
+        router.post(`/landlord/contracts/${selectedContract.value.id}/terminate`, {}, {
+            onSuccess: () => {
+                showModal.value = false;
+            }
+        });
+    }
+};
 </script>
 
 <template>
@@ -377,7 +349,6 @@ const submitAddContract = () => {
                                     <div class="flex items-center justify-end gap-1.5">
                                         <button @click="openContract(c)" class="w-7 h-7 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-eye"></i></button>
                                         <a v-if="c.original_contract?.contract_file_path" :href="`/storage/${c.original_contract.contract_file_path}`" target="_blank" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-file-earmark-pdf"></i></a>
-                                        <button v-if="c.original_contract?.signed_contract_image" @click="openImagesModal(c)" class="w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-images"></i></button>
                                         <button v-if="c.status === 'awaiting_upload'" @click="openUploadModal(c)" class="w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center transition-colors"><i class="bi bi-upload"></i></button>
                                     </div>
                                 </td>
@@ -435,9 +406,9 @@ const submitAddContract = () => {
                         <button @click="openContract(c)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center transition-colors">
                             <i class="bi bi-eye"></i>
                         </button>
-                        <button class="w-8 h-8 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center transition-colors">
+                        <a v-if="c.original_contract?.contract_file_path" :href="`/storage/${c.original_contract.contract_file_path}`" target="_blank" class="w-8 h-8 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center transition-colors">
                             <i class="bi bi-file-earmark-pdf"></i>
-                        </button>
+                        </a>
                         <button @click="askDelete(c)" class="w-8 h-8 bg-slate-50 hover:bg-rose-100 text-rose-500 rounded-xl flex items-center justify-center transition-colors">
                             <i class="bi bi-trash"></i>
                         </button>
@@ -497,7 +468,8 @@ const submitAddContract = () => {
 
                     <div class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 bg-slate-50/50">
                         <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" @click="closeModal">Đóng</button>
-                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors text-center">Gia hạn hợp đồng</button>
+                        <button v-if="selectedContract?.status === 'active' || selectedContract?.status === 'awaiting_upload'" @click="submitTerminateContract" class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/10 transition-colors text-center">Thanh lý hợp đồng</button>
+                        <button v-if="selectedContract?.status === 'active'" @click="openExtendModal" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors text-center">Gia hạn hợp đồng</button>
                     </div>
                 </div>
             </div>
@@ -509,7 +481,7 @@ const submitAddContract = () => {
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                         <div class="space-y-0.5">
                             <h3 class="text-sm font-bold text-slate-800">Tạo hợp đồng thuê mới</h3>
-                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Bước {{ activeStep }} / 3</span>
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Bước {{ activeStep }} / 4</span>
                         </div>
                         <button @click="showAddModal=false" class="text-slate-400 hover:text-slate-600 p-1">
                             <i class="bi bi-x-lg"></i>
@@ -518,11 +490,13 @@ const submitAddContract = () => {
 
                     <!-- Step Indicators -->
                     <div class="px-6 py-3 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center text-[10px] font-bold text-slate-400">
-                        <span :class="activeStep >= 1 ? 'text-emerald-500' : ''">1. Phòng & Giá</span>
+                        <span :class="activeStep >= 1 ? 'text-emerald-500' : ''">1. Phòng</span>
                         <i class="bi bi-chevron-right"></i>
-                        <span :class="activeStep >= 2 ? 'text-emerald-500' : ''">2. Khách thuê</span>
+                        <span :class="activeStep >= 2 ? 'text-emerald-500' : ''">2. Khách</span>
                         <i class="bi bi-chevron-right"></i>
                         <span :class="activeStep >= 3 ? 'text-emerald-500' : ''">3. Hợp đồng</span>
+                        <i class="bi bi-chevron-right"></i>
+                        <span :class="activeStep >= 4 ? 'text-emerald-500' : ''">4. Tải ảnh</span>
                     </div>
 
                     <!-- Form Body -->
@@ -593,6 +567,21 @@ const submitAddContract = () => {
                                 <input v-model.number="addForm.billing_cycle" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
                             </div>
                         </div>
+                        <!-- Step 4: Upload Image -->
+                        <div v-if="activeStep === 4" class="space-y-4">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">Ảnh hợp đồng ký tay (Không bắt buộc lúc này)</label>
+                                <p class="text-[10px] text-slate-400 mb-2">Bạn có thể tải ảnh lên sau. Nếu tải lên bây giờ, hợp đồng sẽ được kích hoạt ngay lập tức.</p>
+                                <input 
+                                    type="file" 
+                                    accept="image/*"
+                                    multiple
+                                    capture="environment"
+                                    @input="addForm.signed_image = Array.from($event.target.files)"
+                                    class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Foot -->
@@ -609,7 +598,7 @@ const submitAddContract = () => {
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" @click="showAddModal = false">Hủy</button>
                             <button 
-                                v-if="activeStep < 3"
+                                v-if="activeStep < 4"
                                 class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors text-center"
                                 @click="activeStep++"
                             >
@@ -620,7 +609,7 @@ const submitAddContract = () => {
                                 class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors text-center"
                                 @click="submitAddContract"
                             >
-                                Tạo & Xuất PDF
+                                {{ addForm.signed_image.length > 0 ? 'Tạo & Kích Hoạt' : 'Tạo Hợp Đồng' }}
                             </button>
                         </div>
                     </div>
@@ -689,38 +678,26 @@ const submitAddContract = () => {
                 </div>
             </div>
 
-            <!-- Image Gallery Modal -->
-            <div v-if="showImagesModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-                <div class="relative w-full max-w-4xl flex flex-col items-center justify-center h-full">
-                    <!-- Nút đóng -->
-                    <button @click="showImagesModal = false" class="absolute top-4 right-4 text-white hover:text-slate-300 p-2 text-3xl font-bold z-50">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                    
-                    <div v-if="signedImages.length > 0" class="relative flex items-center justify-center w-full h-[85vh]">
-                        <!-- Nút Previous -->
-                        <button v-if="signedImages.length > 1" @click="prevImage" :disabled="currentImageIndex === 0" 
-                                class="absolute left-0 lg:-left-12 p-3 lg:p-4 text-white bg-white/10 hover:bg-white/20 rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed z-10 backdrop-blur-sm">
-                            <i class="bi bi-chevron-left text-xl lg:text-2xl"></i>
-                        </button>
-                        
-                        <!-- Ảnh hiện tại -->
-                        <img :src="'/storage/' + signedImages[currentImageIndex]" alt="Trang hợp đồng" 
-                             class="max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-all duration-300" />
-                        
-                        <!-- Nút Next -->
-                        <button v-if="signedImages.length > 1" @click="nextImage" :disabled="currentImageIndex === signedImages.length - 1" 
-                                class="absolute right-0 lg:-right-12 p-3 lg:p-4 text-white bg-white/10 hover:bg-white/20 rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed z-10 backdrop-blur-sm">
-                            <i class="bi bi-chevron-right text-xl lg:text-2xl"></i>
-                        </button>
+            <!-- Extend Contract Modal -->
+            <div v-if="showExtendModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-6 text-center space-y-6">
+                    <div class="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto text-emerald-500 text-3xl">
+                        <i class="bi bi-calendar-plus"></i>
                     </div>
-                    
-                    <!-- Dòng trạng thái số trang -->
-                    <div v-if="signedImages.length > 1" class="mt-6 text-white font-semibold text-sm bg-slate-900/50 px-4 py-2 rounded-full backdrop-blur-md">
-                        Trang {{ currentImageIndex + 1 }} / {{ signedImages.length }}
+                    <div class="space-y-2">
+                        <h3 class="text-lg font-bold text-slate-800">Gia hạn hợp đồng</h3>
+                        <p class="text-sm text-slate-500 font-medium">Vui lòng chọn ngày hết hạn mới cho hợp đồng này.</p>
+                        <input type="date" v-model="extendForm.new_end_date" class="w-full mt-4 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-sm font-medium outline-none transition-all" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button @click="showExtendModal = false" class="py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-sm rounded-xl transition-colors">Hủy</button>
+                        <button @click="submitExtendContract" class="py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-500/20 transition-colors text-center">
+                            Xác nhận
+                        </button>
                     </div>
                 </div>
             </div>
+
         </Teleport>
     </LandlordLayout>
 </template>

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use App\Events\ContractSignedEvent;
+use App\Models\RoomPost;
 use Inertia\Inertia;
 
 class ContractController extends Controller
@@ -35,7 +36,7 @@ class ContractController extends Controller
     }
 
     /**
-     * Store draft contract and export PDF (Giai đoạn 3)
+     * Tự tạo hợp đồng lưu nháp hoặc tải ảnh lên để tạo hợp đồng PDF trực tiếp
      */
     public function storeDraftAndExport(Request $request)
     {
@@ -47,6 +48,8 @@ class ContractController extends Controller
             'deposit' => 'nullable|numeric|min:0',
             'tenant_cccd' => 'nullable|string|max:20',
             'billing_cycle' => 'nullable|integer|min:1',
+            'signed_image' => 'nullable|array',
+            'signed_image.*' => 'image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
         $appointment = Appointment::findOrFail($request->appointment_id);
@@ -63,7 +66,7 @@ class ContractController extends Controller
             }
         }
 
-        // Create contract
+        // Create contract (status is awaiting_upload by default)
         $contract = Contract::create([
             'tenant_id' => $appointment->user_id,
             'room_id' => $appointment->room_id,
@@ -74,39 +77,51 @@ class ContractController extends Controller
             'status' => 'awaiting_upload',
         ]);
 
-        // Tự động chuyển trạng thái phòng sang Đã đặt cọc và tăng số người
+        // Tự động chuyển trạng thái phòng sang Đã đặt cọc và ẩn tin đăng
         $room = $appointment->room;
         if ($room) {
             $room->update([
                 'status' => 'deposited',
                 'current_people' => min($room->capacity, $room->current_people + 1)
             ]);
+            
+            // Ẩn tin đăng phòng
+            RoomPost::where('room_id', $room->id)->update(['status' => 'hidden']);
         }
 
-        // Generate PDF
-        $pdf = Pdf::loadView('pdf.contract_template', [
-            'contract' => $contract,
-            'landlord' => Auth::user(),
-            'tenant' => $appointment->user,
-            'room' => $appointment->room,
-        ]);
+        // Nếu chủ trọ upload ảnh ký tay luôn
+        if ($request->hasFile('signed_image')) {
+            $paths = [];
+            foreach ($request->file('signed_image') as $file) {
+                $paths[] = $file->store('contracts/signed', 'public');
+            }
+            
+            // Generate PDF từ ảnh
+            $pdf = Pdf::loadView('pdf.images_to_pdf', ['images' => $paths]);
+            $fileName = 'contracts/contract_' . $contract->id . '_' . time() . '.pdf';
+            Storage::disk('public')->put($fileName, $pdf->output());
 
-        $fileName = 'contracts/contract_' . $contract->id . '_' . time() . '.pdf';
-        Storage::disk('public')->put($fileName, $pdf->output());
+            $contract->update([
+                'signed_contract_image' => json_encode($paths),
+                'contract_file_path' => $fileName,
+            ]);
 
-        $contract->update(['contract_file_path' => $fileName]);
+            // Kích hoạt hợp đồng
+            event(new ContractSignedEvent($contract));
+            
+            return redirect()->back()->with('success', 'Hợp đồng đã được tạo và kích hoạt thành công!');
+        }
 
-        // Gửi thông báo cho khách thuê
+        // Gửi thông báo cho khách thuê nếu chỉ tạo nháp
         if ($appointment->user) {
             $appointment->user->notify(new \App\Notifications\ContractCreatedNotification($contract));
         }
 
-        // Trả về file PDF để tải xuống ngay
-        return response()->download(storage_path('app/public/' . $fileName));
+        return redirect()->back()->with('success', 'Đã lưu thông tin hợp đồng. Vui lòng tải ảnh lên sau để kích hoạt.');
     }
 
     /**
-     * Upload signed original contract image (Giai đoạn 5)
+     * Upload signed original contract image
      */
     public function uploadSignedContract(Request $request, Contract $contract)
     {
@@ -126,16 +141,72 @@ class ContractController extends Controller
                 $paths[] = $file->store('contracts/signed', 'public');
             }
             
+            // Generate PDF từ ảnh
+            $pdf = Pdf::loadView('pdf.images_to_pdf', ['images' => $paths]);
+            $fileName = 'contracts/contract_' . $contract->id . '_' . time() . '.pdf';
+            Storage::disk('public')->put($fileName, $pdf->output());
+
             $contract->update([
-                'signed_contract_image' => json_encode($paths)
+                'signed_contract_image' => json_encode($paths),
+                'contract_file_path' => $fileName,
             ]);
 
             // Fire event to activate contract and room
             event(new ContractSignedEvent($contract));
 
+            // Ẩn tin đăng phòng
+            RoomPost::where('room_id', $contract->room_id)->update(['status' => 'hidden']);
+
             return redirect()->back()->with('success', 'Hợp đồng đã được tải lên và kích hoạt thành công!');
         }
 
         return redirect()->back()->with('error', 'Không tìm thấy file ảnh.');
+    }
+
+    /**
+     * Gia hạn hợp đồng
+     */
+    public function extendContract(Request $request, Contract $contract)
+    {
+        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'new_end_date' => 'required|date|after:' . $contract->end_date,
+        ]);
+
+        $contract->update([
+            'end_date' => $request->new_end_date,
+        ]);
+
+        return redirect()->back()->with('success', 'Đã gia hạn hợp đồng thành công đến ' . date('d/m/Y', strtotime($request->new_end_date)));
+    }
+
+    /**
+     * Hủy/Thanh lý hợp đồng
+     */
+    public function terminateContract(Contract $contract)
+    {
+        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $contract->update([
+            'status' => 'cancelled'
+        ]);
+
+        $room = $contract->room;
+        if ($room) {
+            $room->update([
+                'status' => 'available',
+                'current_people' => max(0, $room->current_people - 1)
+            ]);
+
+            // Khôi phục tin đăng về nháp
+            RoomPost::where('room_id', $room->id)->update(['status' => 'draft']);
+        }
+
+        return redirect()->back()->with('success', 'Hợp đồng đã được hủy và bài đăng phòng đã được chuyển về dạng Nháp.');
     }
 }
