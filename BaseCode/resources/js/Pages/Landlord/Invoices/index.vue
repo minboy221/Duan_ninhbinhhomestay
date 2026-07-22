@@ -2,6 +2,7 @@
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, computed, reactive, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
+import { showSuccess, showError, showWarning, showConfirm, showToast } from '@/Utils/swal'
 
 const props = defineProps({
     invoices: {
@@ -47,6 +48,26 @@ const invoiceForm = reactive({
     management: 0,
     dueDate: new Date().toISOString().split('T')[0]
 })
+
+const makeMoneyComputed = (field) => computed({
+    get() {
+        const val = invoiceForm[field]
+        if (val === null || val === undefined || val === '') return ''
+        return new Intl.NumberFormat('en-US').format(val)
+    },
+    set(v) {
+        const raw = String(v).replace(/\D/g, '')
+        invoiceForm[field] = raw ? parseInt(raw, 10) : 0
+    }
+})
+
+const displayRentPrice = makeMoneyComputed('rent')
+const displayElecPrice = makeMoneyComputed('elecPrice')
+const displayWaterPrice = makeMoneyComputed('waterPrice')
+const displayInternetPrice = makeMoneyComputed('internetPrice')
+const displayTrashPrice = makeMoneyComputed('trashPrice')
+const displayParkingPrice = makeMoneyComputed('parkingPrice')
+const displayManagementPrice = makeMoneyComputed('management')
 
 // Find services lookup helper
 const elecService = computed(() => props.services.find(s => s.type === 'per_kwh' || s.name.includes('Điện')))
@@ -182,7 +203,7 @@ const submitForm = useForm({
 
 const saveInvoice = () => {
     if (!selectedContractId.value) {
-        alert('Vui lòng chọn hợp đồng!')
+        showWarning('Thiếu thông tin', 'Vui lòng chọn hợp đồng!')
         return
     }
 
@@ -253,33 +274,41 @@ const saveInvoice = () => {
     if (currentView.value === 'create') {
         submitForm.post(route('landlord.invoices.store'), {
             onSuccess: () => {
+                showSuccess('Thành công', 'Lưu hóa đơn thành công!')
                 currentView.value = 'list'
             }
         })
     } else {
         submitForm.put(route('landlord.invoices.update', selectedInvoiceId.value), {
             onSuccess: () => {
+                showSuccess('Thành công', 'Cập nhật hóa đơn thành công!')
                 currentView.value = 'list'
             }
         })
     }
 }
 
-const changeStatus = (inv, newStatus) => {
-    const statusForm = useForm({ status: newStatus })
+const updateInvoiceStatus = (inv, status) => {
+    const statusForm = useForm({ status: status })
     statusForm.patch(route('landlord.invoices.status', inv.id), {
         onSuccess: () => {
-            alert('Cập nhật trạng thái thành công!')
+            showSuccess('Thành công', 'Cập nhật trạng thái thành công!')
         }
     })
 }
 
-const deleteInvoice = (id) => {
-    if (confirm('Bạn có chắc chắn muốn xóa hóa đơn này?')) {
+const deleteInvoice = async (id) => {
+    const confirmed = await showConfirm(
+        'Xóa hóa đơn',
+        'Bạn có chắc chắn muốn xóa hóa đơn này?',
+        'Xóa hóa đơn',
+        'Hủy'
+    );
+    if (confirmed) {
         const deleteForm = useForm({})
         deleteForm.delete(route('landlord.invoices.delete', id), {
             onSuccess: () => {
-                alert('Xóa hóa đơn thành công!')
+                showSuccess('Đã xóa', 'Xóa hóa đơn thành công!')
                 if (selectedInvoice.value && selectedInvoice.value.id === id) {
                     closeViewModal()
                 }
@@ -301,7 +330,7 @@ const closeViewModal = () => {
     selectedInvoice.value = null
 }
 
-const copyInvoiceText = (inv) => {
+const copyInvoiceToClipboard = (inv) => {
     if (!inv) return
     let text = `--- HÓA ĐƠN TIỀN NHÀ ---\n`;
     text += `Phòng: ${inv.contract?.room?.room_number || ''}\n`;
@@ -322,9 +351,9 @@ const copyInvoiceText = (inv) => {
     text += `TỔNG CỘNG: ${formatMoney(inv.total_amount)}\n`;
     
     navigator.clipboard.writeText(text).then(() => {
-        alert('Đã sao chép nội dung hóa đơn để gửi Zalo/SMS!');
+        showToast('Đã sao chép nội dung hóa đơn để gửi Zalo/SMS!');
     }).catch(err => {
-        alert('Không thể sao chép: ' + err);
+        showError('Không thể sao chép', err.toString());
     });
 }
 </script>
@@ -574,7 +603,7 @@ const copyInvoiceText = (inv) => {
                             </div>
                             <div class="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
                                 <span>Thành tiền:</span>
-                                <input type="number" v-model.number="invoiceForm.rent" class="w-28 px-2 py-1 text-right border border-slate-200 focus:border-emerald-500 rounded-lg outline-none font-bold text-slate-800 bg-white" />
+                                <input type="text" v-model="displayRentPrice" class="w-32 px-2 py-1 text-right border border-slate-200 focus:border-emerald-500 rounded-lg outline-none font-bold text-slate-800 bg-white" />
                             </div>
                         </div>
 
@@ -599,7 +628,7 @@ const copyInvoiceText = (inv) => {
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="number" v-model.number="invoiceForm.elecPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <input type="text" v-model="displayElecPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                                 </div>
                                 <div class="space-y-1 sm:col-span-1 col-span-2">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -629,7 +658,7 @@ const copyInvoiceText = (inv) => {
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="number" v-model.number="invoiceForm.waterPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <input type="text" v-model="displayWaterPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                                 </div>
                                 <div class="space-y-1 sm:col-span-1 col-span-2">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -651,7 +680,7 @@ const copyInvoiceText = (inv) => {
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="number" v-model.number="invoiceForm.internetPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <input type="text" v-model="displayInternetPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                                 </div>
                                 <div class="space-y-1 col-span-2 sm:col-span-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -673,7 +702,7 @@ const copyInvoiceText = (inv) => {
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="number" v-model.number="invoiceForm.trashPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <input type="text" v-model="displayTrashPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                                 </div>
                                 <div class="space-y-1 col-span-2 sm:col-span-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -695,7 +724,7 @@ const copyInvoiceText = (inv) => {
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="number" v-model.number="invoiceForm.parkingPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-teal-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <input type="text" v-model="displayParkingPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-teal-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                                 </div>
                                 <div class="space-y-1 col-span-2 sm:col-span-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -712,7 +741,7 @@ const copyInvoiceText = (inv) => {
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-slate-400">Thành tiền (đ)</label>
-                                <input type="number" v-model.number="invoiceForm.management" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold outline-none bg-slate-50/40" placeholder="0" />
+                                <input type="text" v-model="displayManagementPrice" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold outline-none bg-slate-50/40" placeholder="0" />
                             </div>
                         </div>
                     </div>

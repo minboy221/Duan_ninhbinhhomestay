@@ -2,10 +2,13 @@
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, computed, watch, onMounted } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
+import { showSuccess, showWarning, showConfirm } from '@/Utils/swal'
+import axios from 'axios'
 
 const props = defineProps({
     dbContracts: Array,
-    appointments: Array
+    appointments: Array,
+    boardingHouses: Array
 })
 
 const contracts = computed(() => {
@@ -33,13 +36,13 @@ const deleteTarget   = ref(null)
 
 const daysLeft  = (endDate) => Math.ceil((new Date(endDate) - new Date()) / (1000 * 60 * 60 * 24))
 const statusMap = {
-    awaiting_upload: { label: '1. Chờ Upload', cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
-    active:   { label: '2. Đang Hiệu Lực', cls: 'bg-emerald-50 text-emerald-600 border-emerald-150', dot: 'bg-emerald-500' },
-    expiring: { label: '3. Sắp Hết Hạn',   cls: 'bg-orange-50 text-orange-600 border-orange-150', dot: 'bg-orange-500' },
-    expired:  { label: '4. Đã Hết Hạn',    cls: 'bg-rose-50 text-rose-600 border-rose-150', dot: 'bg-rose-500' },
-    terminated:{ label: '5. Đã Thanh Lý',  cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
-    cancelled:{ label: '5. Đã Hủy',        cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
-    draft:    { label: 'Bản Nháp',      cls: 'bg-slate-50 text-slate-600 border-slate-150', dot: 'bg-slate-500' },
+    awaiting_upload: { label: '1', title: '1. Chờ Upload', cls: 'bg-amber-50 text-amber-600 border-amber-200', dot: 'bg-amber-500' },
+    active:   { label: '2', title: '2. Đang Hiệu Lực', cls: 'bg-emerald-50 text-emerald-600 border-emerald-200', dot: 'bg-emerald-500' },
+    expiring: { label: '3', title: '3. Sắp Hết Hạn',   cls: 'bg-orange-50 text-orange-600 border-orange-200', dot: 'bg-orange-500' },
+    expired:  { label: '4', title: '4. Đã Hết Hạn',    cls: 'bg-rose-50 text-rose-600 border-rose-200', dot: 'bg-rose-500' },
+    terminated:{ label: '5', title: '5. Đã Thanh Lý',  cls: 'bg-slate-50 text-slate-500 border-slate-200', dot: 'bg-slate-500' },
+    cancelled:{ label: '5', title: '5. Đã Hủy',        cls: 'bg-slate-50 text-slate-500 border-slate-200', dot: 'bg-slate-500' },
+    draft:    { label: '0', title: 'Bản Nháp',      cls: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-500' },
 }
 
 const expiringCount = computed(() => contracts.value.filter(c => c.status === 'expiring').length)
@@ -66,23 +69,76 @@ const submitUpload = () => {
         onSuccess: () => {
             showUploadModal.value = false;
             uploadForm.reset();
+            showSuccess('Thành công', 'Đã tải lên và kích hoạt hợp đồng!');
         }
     })
 }
 
 // Multi-step create contract state
-const activeStep = ref(1) // 1: Room & Price, 2: Tenant Info, 3: Terms & Services
+const activeStep = ref(1) // 1: Room & Price, 2: Tenant Info, 3: Terms, 4: Upload Photos
+
+// Tra cứu người thuê
+const tenantSearchQuery = ref('')
+const tenantSearchResults = ref([])
+const isSearchingTenant = ref(false)
+const selectedTenantUser = ref(null)
+
+const searchTenants = async () => {
+    if (!tenantSearchQuery.value.trim()) {
+        tenantSearchResults.value = []
+        return
+    }
+    isSearchingTenant.value = true
+    try {
+        const response = await axios.get('/landlord/search-tenant', {
+            params: { q: tenantSearchQuery.value }
+        })
+        tenantSearchResults.value = response.data || []
+    } catch (e) {
+        console.error(e)
+    } finally {
+        isSearchingTenant.value = false
+    }
+}
+
+const selectTenantUser = (user) => {
+    selectedTenantUser.value = user
+    addForm.value.tenant_id = user.id
+    addForm.value.tenant_name = user.name
+    addForm.value.tenant_phone = user.phone
+    addForm.value.tenant_email = user.email || ''
+    addForm.value.tenant_cccd = user.cccd_number || ''
+    tenantSearchQuery.value = `${user.name} (${user.phone})`
+    tenantSearchResults.value = []
+}
+
+const clearTenantUser = () => {
+    selectedTenantUser.value = null
+    addForm.value.tenant_id = ''
+    tenantSearchQuery.value = ''
+}
+
+const imagePreviews = ref([])
+const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files)
+    addForm.value.signed_image = files
+    imagePreviews.value = files.map(file => URL.createObjectURL(file))
+}
+
 const addForm = ref({
     appointment_id: '',
+    room_id: '',
     room: '',
     rent: 3000000,
     deposit: 3000000,
+    tenant_id: '',
     tenant_name: '',
     tenant_phone: '',
+    tenant_email: '',
     tenant_cccd: '',
     start_date: '',
     end_date: '',
-    billing_cycle: 1, // month
+    billing_cycle: 1,
     depositPaid: true,
     signed_image: []
 })
@@ -91,11 +147,15 @@ watch(() => addForm.value.appointment_id, (newVal) => {
     if (newVal) {
         const apt = props.appointments.find(a => a.id === newVal)
         if (apt) {
+            addForm.value.room_id = apt.room_id || ''
             addForm.value.room = apt.room ? apt.room.room_number : ''
+            addForm.value.tenant_id = apt.user_id || ''
             addForm.value.tenant_name = apt.user ? apt.user.name : ''
             addForm.value.tenant_phone = apt.user ? apt.user.phone : ''
+            addForm.value.tenant_email = apt.user ? apt.user.email || '' : ''
             addForm.value.tenant_cccd = apt.user ? apt.user.cccd_number || '' : ''
-            addForm.value.rent = apt.room ? apt.room.price : 3000000
+            addForm.value.rent = apt.room ? Math.round(Number(apt.room.price)) : 3000000
+            addForm.value.deposit = apt.room ? Math.round(Number(apt.room.price)) : 3000000
         }
     }
 })
@@ -108,6 +168,28 @@ watch(() => addForm.value.start_date, (newVal) => {
         if (!addForm.value.end_date || addForm.value.end_date < newMinEndDate) {
             addForm.value.end_date = newMinEndDate;
         }
+    }
+})
+
+const displayRent = computed({
+    get() {
+        if (addForm.value.rent === null || addForm.value.rent === undefined || addForm.value.rent === '') return ''
+        return new Intl.NumberFormat('en-US').format(addForm.value.rent)
+    },
+    set(val) {
+        const raw = String(val).replace(/\D/g, '')
+        addForm.value.rent = raw ? parseInt(raw, 10) : 0
+    }
+})
+
+const displayDeposit = computed({
+    get() {
+        if (addForm.value.deposit === null || addForm.value.deposit === undefined || addForm.value.deposit === '') return ''
+        return new Intl.NumberFormat('en-US').format(addForm.value.deposit)
+    },
+    set(val) {
+        const raw = String(val).replace(/\D/g, '')
+        addForm.value.deposit = raw ? parseInt(raw, 10) : 0
     }
 })
 
@@ -131,19 +213,43 @@ const minStartDate = computed(() => {
 
 const openAddContract = (appointmentId = '') => {
     activeStep.value = 1
+    tenantSearchQuery.value = ''
+    tenantSearchResults.value = []
+    selectedTenantUser.value = null
+    imagePreviews.value = []
+
     addForm.value = {
         appointment_id: appointmentId,
+        room_id: '',
         room: '',
         rent: 3000000,
         deposit: 3000000,
+        tenant_id: '',
         tenant_name: '',
         tenant_phone: '',
+        tenant_email: '',
         tenant_cccd: '',
         start_date: '',
         end_date: '',
         billing_cycle: 1,
         depositPaid: true,
         signed_image: []
+    }
+
+    if (appointmentId) {
+        const apt = props.appointments.find(a => a.id === appointmentId)
+        if (apt) {
+            addForm.value.appointment_id = appointmentId
+            addForm.value.room_id = apt.room_id || ''
+            addForm.value.room = apt.room ? apt.room.room_number : ''
+            addForm.value.tenant_id = apt.user_id || ''
+            addForm.value.tenant_name = apt.user ? apt.user.name : ''
+            addForm.value.tenant_phone = apt.user ? apt.user.phone : ''
+            addForm.value.tenant_email = apt.user ? apt.user.email || '' : ''
+            addForm.value.tenant_cccd = apt.user ? apt.user.cccd_number || '' : ''
+            addForm.value.rent = apt.room ? Math.round(Number(apt.room.price)) : 3000000
+            addForm.value.deposit = apt.room ? Math.round(Number(apt.room.price)) : 3000000
+        }
     }
     showAddModal.value = true
 }
@@ -166,15 +272,31 @@ onMounted(() => {
 })
 
 const submitAddContract = () => {
-    if(!addForm.value.appointment_id || !addForm.value.start_date || !addForm.value.end_date) {
-        alert('Vui lòng hoàn thành toàn bộ thông tin bắt buộc của hợp đồng.')
+    if (!addForm.value.appointment_id) {
+        showWarning('Thiếu thông tin', 'Vui lòng chọn Lịch hẹn khách xem phòng!')
         return
     }
-    
-    router.post('/landlord/contracts/store-draft', addForm.value, {
-        forceFormData: true, // Needed for file uploads
+
+    const payload = new FormData()
+    payload.append('appointment_id', addForm.value.appointment_id)
+    if (addForm.value.tenant_cccd) payload.append('tenant_cccd', addForm.value.tenant_cccd)
+    if (addForm.value.start_date) payload.append('start_date', addForm.value.start_date)
+    if (addForm.value.end_date) payload.append('end_date', addForm.value.end_date)
+    payload.append('monthly_rent', addForm.value.rent)
+    payload.append('deposit', addForm.value.deposit)
+    if (addForm.value.billing_cycle) payload.append('billing_cycle', addForm.value.billing_cycle)
+
+    if (addForm.value.signed_image && addForm.value.signed_image.length > 0) {
+        addForm.value.signed_image.forEach(file => {
+            payload.append('signed_image[]', file)
+        })
+    }
+
+    router.post('/landlord/contracts/store-draft', payload, {
+        forceFormData: true,
         onSuccess: () => {
             showAddModal.value = false;
+            showSuccess('Thành công', 'Tạo hợp đồng thuê trọ thành công!');
         }
     });
 }
@@ -188,7 +310,7 @@ const openExtendModal = () => {
 };
 const submitExtendContract = () => {
     if (!extendForm.value.new_end_date) {
-        alert('Vui lòng chọn ngày hết hạn mới.');
+        showWarning('Thiếu thông tin', 'Vui lòng chọn ngày hết hạn mới.');
         return;
     }
     router.post(`/landlord/contracts/${selectedContract.value.id}/extend`, extendForm.value, {
@@ -199,9 +321,15 @@ const submitExtendContract = () => {
     });
 };
 
-const submitTerminateContract = () => {
+const submitTerminateContract = async () => {
     if (!selectedContract.value) return;
-    if (confirm('Bạn có chắc chắn muốn hủy/thanh lý hợp đồng này? Hành động này sẽ chuyển trạng thái phòng về Còn trống và khôi phục lại tin đăng phòng.')) {
+    const confirmed = await showConfirm(
+        'Thanh lý hợp đồng',
+        'Bạn có chắc chắn muốn hủy/thanh lý hợp đồng này? Hành động này sẽ chuyển trạng thái phòng về Còn trống và khôi phục lại tin đăng phòng.',
+        'Thanh lý',
+        'Hủy'
+    );
+    if (confirmed) {
         router.post(`/landlord/contracts/${selectedContract.value.id}/terminate`, {}, {
             onSuccess: () => {
                 showModal.value = false;
@@ -340,8 +468,8 @@ const submitTerminateContract = () => {
                                     </span>
                                 </td>
                                 <td class="py-4 px-4">
-                                    <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', statusMap[c.status].cls]">
-                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[c.status].dot"></span>
+                                    <span :class="['px-3.5 py-1.5 rounded-xl text-base font-black border flex items-center justify-center gap-2 w-fit shadow-sm', statusMap[c.status].cls]" :title="statusMap[c.status].title">
+                                        <span class="w-2.5 h-2.5 rounded-full" :class="statusMap[c.status].dot"></span>
                                         {{ statusMap[c.status].label }}
                                     </span>
                                 </td>
@@ -369,8 +497,8 @@ const submitTerminateContract = () => {
                             <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Hợp đồng: {{ c.id }}</span>
                             <div class="text-sm font-black text-slate-800 mt-0.5">{{ c.room }}</div>
                         </div>
-                        <span :class="['px-2 py-0.5 rounded-md text-[9px] font-bold border flex items-center gap-1 w-fit', statusMap[c.status].cls]">
-                            <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[c.status].dot"></span>
+                        <span :class="['px-3 py-1 rounded-xl text-base font-black border flex items-center gap-2 w-fit shadow-sm', statusMap[c.status].cls]" :title="statusMap[c.status].title">
+                            <span class="w-2.5 h-2.5 rounded-full" :class="statusMap[c.status].dot"></span>
                             {{ statusMap[c.status].label }}
                         </span>
                     </div>
@@ -481,7 +609,7 @@ const submitTerminateContract = () => {
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                         <div class="space-y-0.5">
                             <h3 class="text-sm font-bold text-slate-800">Tạo hợp đồng thuê mới</h3>
-                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Bước {{ activeStep }} / 4</span>
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Bước {{ activeStep }} / 3</span>
                         </div>
                         <button @click="showAddModal=false" class="text-slate-400 hover:text-slate-600 p-1">
                             <i class="bi bi-x-lg"></i>
@@ -490,96 +618,91 @@ const submitTerminateContract = () => {
 
                     <!-- Step Indicators -->
                     <div class="px-6 py-3 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center text-[10px] font-bold text-slate-400">
-                        <span :class="activeStep >= 1 ? 'text-emerald-500' : ''">1. Phòng</span>
+                        <span :class="activeStep >= 1 ? 'text-emerald-500 font-bold' : ''">1. Thông tin phòng</span>
                         <i class="bi bi-chevron-right"></i>
-                        <span :class="activeStep >= 2 ? 'text-emerald-500' : ''">2. Khách</span>
+                        <span :class="activeStep >= 2 ? 'text-emerald-500 font-bold' : ''">2. Thông tin khách</span>
                         <i class="bi bi-chevron-right"></i>
-                        <span :class="activeStep >= 3 ? 'text-emerald-500' : ''">3. Hợp đồng</span>
-                        <i class="bi bi-chevron-right"></i>
-                        <span :class="activeStep >= 4 ? 'text-emerald-500' : ''">4. Tải ảnh</span>
+                        <span :class="activeStep >= 3 ? 'text-emerald-500 font-bold' : ''">3. Ảnh hợp đồng</span>
                     </div>
 
                     <!-- Form Body -->
                     <div class="p-6 space-y-4 overflow-y-auto flex-1">
-                        <!-- Step 1: Room & Price -->
+                        <!-- Step 1: Room Selection & Dates -->
                         <div v-if="activeStep === 1" class="space-y-4">
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Chọn lịch hẹn khách ký HĐ <span class="text-rose-500">*</span></label>
-                                <select v-model="addForm.appointment_id" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all">
-                                    <option value="" disabled>-- Chọn khách đã hẹn --</option>
-                                    <option v-for="apt in props.appointments" :key="apt.id" :value="apt.id">
-                                        Phòng {{ apt.room?.room_number }} - {{ apt.user?.name }} ({{ apt.user?.phone }})
-                                    </option>
-                                </select>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Số phòng thuê <span class="text-rose-500">*</span></label>
-                                <input v-model="addForm.room" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-3">
                                 <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Tiền thuê (đ/tháng)</label>
-                                    <input v-model.number="addForm.rent" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                                    <label class="text-xs font-bold text-slate-500">Chọn lịch hẹn khách ký HĐ <span class="text-rose-500">*</span></label>
+                                    <select v-model="addForm.appointment_id" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all">
+                                        <option value="" disabled>-- Chọn khách đã hẹn --</option>
+                                        <option v-for="apt in props.appointments" :key="apt.id" :value="apt.id">
+                                            Phòng {{ apt.room?.room_number }} - {{ apt.user?.name }} ({{ apt.user?.phone }})
+                                        </option>
+                                    </select>
                                 </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Tiền cọc (đ)</label>
-                                    <input v-model.number="addForm.deposit" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                                <div class="space-y-1" v-if="addForm.room">
+                                    <label class="text-xs font-bold text-slate-500">Phòng đã chọn</label>
+                                    <input v-model="addForm.room" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-emerald-600 outline-none"/>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 pt-2">
-                                <button @click="addForm.depositPaid = !addForm.depositPaid" :class="['w-11 h-6 rounded-full transition-all relative flex items-center p-0.5', addForm.depositPaid ? 'bg-emerald-500' : 'bg-slate-200']">
-                                    <span :class="['w-5 h-5 rounded-full bg-white shadow-sm transition-all transform', addForm.depositPaid ? 'translate-x-5' : 'translate-x-0']"></span>
-                                </button>
-                                <span class="text-xs font-bold text-slate-600">Đã thanh toán tiền đặt cọc</span>
+
+                            <div class="grid grid-cols-2 gap-4 pt-1">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Giá thuê (đ/tháng)</label>
+                                    <input v-model="displayRent" type="text" placeholder="0" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none transition-all"/>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Tiền đã đặt cọc (đ)</label>
+                                    <input v-model="displayDeposit" type="text" placeholder="0" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none transition-all"/>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Step 2: Tenant Info -->
                         <div v-if="activeStep === 2" class="space-y-4">
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Họ và tên khách thuê <span class="text-rose-500">*</span></label>
-                                <input v-model="addForm.tenant_name" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Số điện thoại <span class="text-rose-500">*</span></label>
-                                <input v-model="addForm.tenant_phone" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Căn cước công dân (CCCD)</label>
-                                <input v-model="addForm.tenant_cccd" @input="addForm.tenant_cccd = addForm.tenant_cccd.replace(/[^0-9]/g, '').slice(0, 12)" maxlength="12" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: 036091234567"/>
+                            <div class="space-y-3">
+                                <div class="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-700 font-semibold flex items-center gap-2">
+                                    <i class="bi bi-person-check-fill text-lg"></i>
+                                    <span>Thông tin khách thuê từ Lịch hẹn đã chọn</span>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Họ và tên khách thuê</label>
+                                    <input v-model="addForm.tenant_name" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-medium outline-none"/>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Số điện thoại</label>
+                                    <input v-model="addForm.tenant_phone" readonly class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-medium outline-none"/>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Số CCCD (Nói người thuê bổ sung nếu thiếu)</label>
+                                    <input v-model="addForm.tenant_cccd" maxlength="12" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none" placeholder="VD: 036091234567"/>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Step 3: Terms & Services -->
+                        <!-- Step 3: Upload Image -->
                         <div v-if="activeStep === 3" class="space-y-4">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Ngày hiệu lực <span class="text-rose-500">*</span></label>
-                                    <input v-model="addForm.start_date" type="date" :min="minStartDate" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Ngày hết hạn (ít nhất 30 ngày) <span class="text-rose-500">*</span></label>
-                                    <input v-model="addForm.end_date" type="date" :min="minEndDate" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                                </div>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Chu kỳ đóng tiền (tháng/lần)</label>
-                                <input v-model.number="addForm.billing_cycle" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                            </div>
-                        </div>
-                        <!-- Step 4: Upload Image -->
-                        <div v-if="activeStep === 4" class="space-y-4">
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Ảnh hợp đồng ký tay (Không bắt buộc lúc này)</label>
-                                <p class="text-[10px] text-slate-400 mb-2">Bạn có thể tải ảnh lên sau. Nếu tải lên bây giờ, hợp đồng sẽ được kích hoạt ngay lập tức.</p>
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold text-slate-500">Upload Ảnh Hợp Đồng Giấy Ký Tay</label>
+                                <p class="text-[11px] text-slate-500 leading-relaxed">
+                                    Chụp ảnh các trang hợp đồng giấy đã ký ngoài đời. Hệ thống sẽ tự động ghép các hình ảnh này thành <strong>1 file PDF chính thức</strong> để cả bạn và người thuê xem/tải về.
+                                </p>
                                 <input 
                                     type="file" 
                                     accept="image/*"
                                     multiple
-                                    capture="environment"
-                                    @input="addForm.signed_image = Array.from($event.target.files)"
-                                    class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
+                                    @change="handleImageSelect"
+                                    class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all cursor-pointer bg-slate-50"
                                 />
+
+                                <!-- Image Previews Grid -->
+                                <div v-if="imagePreviews.length > 0" class="grid grid-cols-3 gap-2 pt-2">
+                                    <div v-for="(src, i) in imagePreviews" :key="i" class="relative group rounded-xl overflow-hidden border border-slate-200 aspect-[3/4]">
+                                        <img :src="src" class="w-full h-full object-cover"/>
+                                        <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
+                                            Trang {{ i + 1 }}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -598,7 +721,7 @@ const submitTerminateContract = () => {
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" @click="showAddModal = false">Hủy</button>
                             <button 
-                                v-if="activeStep < 4"
+                                v-if="activeStep < 3"
                                 class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors text-center"
                                 @click="activeStep++"
                             >

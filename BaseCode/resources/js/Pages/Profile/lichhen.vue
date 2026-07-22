@@ -79,6 +79,51 @@ const isToday = (dateStr) => {
     const today = new Date().toISOString().split("T")[0];
     return dateStr === today;
 };
+
+import { usePage } from "@inertiajs/vue3";
+import { showSuccess, showError } from "@/Utils/swal";
+
+const page = usePage();
+
+// State cho Modal xác nhận Ưng / Không ưng
+const showConfirmModal = ref(false);
+const confirmAction = ref("interested"); // 'interested' hoặc 'not_interested'
+const confirmApt = ref(null);
+const tenantCccd = ref("");
+
+function openConfirmInterest(apt, isInterested) {
+    confirmApt.value = apt;
+    confirmAction.value = isInterested ? "interested" : "not_interested";
+    tenantCccd.value = page.props.auth?.user?.cccd_number || "";
+    showConfirmModal.value = true;
+}
+
+function closeConfirmModal() {
+    showConfirmModal.value = false;
+    confirmApt.value = null;
+}
+
+function executeInterest() {
+    if (!confirmApt.value) return;
+
+    router.post(
+        route("appointments.interest", confirmApt.value.id),
+        {
+            result: confirmAction.value,
+            cccd: tenantCccd.value,
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeConfirmModal();
+                showSuccess("Thành công", "Đã ghi nhận lựa chọn của bạn!");
+            },
+            onError: () => {
+                showError("Lỗi", "Không thể thực hiện thao tác. Vui lòng thử lại!");
+            },
+        }
+    );
+}
 </script>
 
 <template>
@@ -227,18 +272,18 @@ const isToday = (dateStr) => {
                                         </button>
                                     </div>
                                     <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result" style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
-                                        <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest" title="Ưng thuê" style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold;">
+                                        <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest" title="Ưng thuê" style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
                                             <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px;"></i> Ưng
                                         </button>
-                                        <button @click="openConfirmInterest(apt, false)" class="btn-action btn-not-interest" title="Không ưng" style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold;">
+                                        <button @click="openConfirmInterest(apt, false)" class="btn-action btn-not-interest" title="Không ưng" style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
                                             <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i> Không ưng
                                         </button>
                                     </div>
                                     <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;">
-                                        <span v-if="apt.feedback_result === 'interested'" style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
+                                        <span v-if="['interested', 'like'].includes(apt.feedback_result)" style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
                                             <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
                                         </span>
-                                        <span v-else-if="apt.feedback_result === 'not_interested'" style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
+                                        <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)" style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
                                             <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
                                         </span>
                                     </div>
@@ -391,6 +436,118 @@ const isToday = (dateStr) => {
 <style scoped>
 @import "../../css/user.css";
 @import "../../css/responsive/responsivetranguser.css";
+
+/* Review Confirm Modal Styles */
+.review-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+}
+
+.review-modal-box {
+    background: #ffffff;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 440px;
+    padding: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid #f1f5f9;
+    animation: modalPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalPop {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.review-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.review-modal-header h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.review-close-btn {
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.review-close-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.review-modal-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.btn-review-cancel {
+    padding: 10px 18px;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-review-cancel:hover {
+    background: #e2e8f0;
+}
+
+.btn-review-submit {
+    padding: 10px 20px;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
 
 /* Guide Modal Styles & Transitions */
 .modal-enter-active,

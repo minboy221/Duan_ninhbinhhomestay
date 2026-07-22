@@ -2,6 +2,7 @@
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
+import { showConfirm } from "@/Utils/swal";
 
 const props = defineProps({
     listings: Array,
@@ -51,12 +52,14 @@ function openDetail(post) {
 }
 
 //Phần kết nối với DB để gọi lệnh phê duyệt bài viết lên
-function approvePost(post) {
-    if (
-        confirm(
-            `Bạn có chắc chắn muốn phê duyệt bài đăng:"${post.title}" không`,
-        )
-    ) {
+async function approvePost(post) {
+    const confirmed = await showConfirm(
+        "Phê duyệt bài đăng",
+        `Bạn có chắc chắn muốn phê duyệt bài đăng: "${post.title}" không?`,
+        "Phê duyệt",
+        "Hủy"
+    );
+    if (confirmed) {
         router.post(
             route("admin.listings.approve", post.id),
             {},

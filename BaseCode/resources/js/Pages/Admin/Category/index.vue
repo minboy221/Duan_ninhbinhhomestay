@@ -2,6 +2,7 @@
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Head, router } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
+import { showConfirm } from '@/Utils/swal'
 
 // Props nhận dữ liệu từ CategoryController (Server → Inertia)
 const props = defineProps({
@@ -104,8 +105,14 @@ function toggleActive(item) {
     })
 }
 
-function deleteItem(item) {
-    if (!confirm(`Bạn có chắc muốn xóa "${item.name}"?`)) return
+async function deleteItem(item) {
+    const confirmed = await showConfirm(
+        "Xác nhận xóa",
+        `Bạn có chắc chắn muốn xóa "${item.name}"?`,
+        "Xóa",
+        "Hủy"
+    );
+    if (!confirmed) return;
 
     // Xóa: DELETE request → Controller.delete → Service.delete → Repository.delete
     const prefix = routeMap[activeTab.value]
