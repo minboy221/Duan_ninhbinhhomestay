@@ -49,15 +49,51 @@ class LandlordController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
             'email' => 'nullable|email|max:255',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'bank_name' => 'nullable|string|max:100',
             'bank_account_no' => 'nullable|string|max:50',
             'bank_account_name' => 'nullable|string|max:100',
         ]);
 
         $user = Auth::user();
-        $user->update($request->only('name', 'phone', 'email', 'bank_name', 'bank_account_no', 'bank_account_name'));
+        $data = $request->only('name', 'phone', 'email', 'bank_name', 'bank_account_no', 'bank_account_name');
+
+        if ($request->hasFile('avatar')) {
+            if ($user->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->avatar)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+            }
+            $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
+        }
+
+        $user->update($data);
 
         return redirect()->back()->with('success', 'Cập nhật thông tin thành công!');
+    }
+
+    public function bankSettings()
+    {
+        $user = Auth::user();
+        return Inertia::render('Landlord/BankSettings', [
+            'userData' => $user
+        ]);
+    }
+
+    public function updateBankSettings(Request $request)
+    {
+        $request->validate([
+            'bank_name' => 'required|string|max:100',
+            'bank_account_no' => 'required|string|max:50',
+            'bank_account_name' => 'required|string|max:100',
+        ], [
+            'bank_name.required' => 'Vui lòng chọn hoặc nhập tên ngân hàng',
+            'bank_account_no.required' => 'Vui lòng nhập số tài khoản ngân hàng',
+            'bank_account_name.required' => 'Vui lòng nhập tên chủ tài khoản ngân hàng',
+        ]);
+
+        $user = Auth::user();
+        $user->update($request->only('bank_name', 'bank_account_no', 'bank_account_name'));
+
+        return redirect()->back()->with('success', 'Cập nhật thông tin tài khoản ngân hàng thành công!');
     }
 
     /**
@@ -432,18 +468,21 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         
-        $invoices = \App\Models\Invoice::whereHas('contract.room.boardingHouse', function($q) use($landlordId) {
+        $baseQuery = \App\Models\Invoice::whereHas('contract.room.boardingHouse', function($q) use($landlordId) {
             $q->where('user_id', $landlordId);
         })
-        ->with(['contract.room', 'contract.tenant', 'details.service'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+        ->with(['contract.room', 'contract.tenant', 'details.service']);
+
+        $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->get();
+        $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->get();
 
         $activeContracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
             $q->where('user_id', $landlordId);
         })
         ->where('status', '!=', 'terminated')
-        ->with(['room.services', 'tenant'])
+        ->with(['room.services', 'tenant', 'invoices' => function($q) {
+            $q->orderBy('billing_month', 'desc')->with('details');
+        }])
         ->get();
 
         // Get landlord services
@@ -453,6 +492,7 @@ class LandlordController extends Controller
 
         return Inertia::render('Landlord/Invoices/index', [
             'invoices' => $invoices,
+            'archivedInvoices' => $archivedInvoices,
             'activeContracts' => $activeContracts,
             'services' => $services,
         ]);
@@ -472,9 +512,13 @@ class LandlordController extends Controller
             'details.*.old_index' => 'nullable|integer',
             'details.*.new_index' => 'nullable|integer',
             'details.*.service_id' => 'nullable|exists:services,id',
+            'elec_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'elec_old_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'water_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'water_old_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
         ]);
 
-        $contract = \App\Models\Contract::findOrFail($request->contract_id);
+        $contract = \App\Models\Contract::with('room')->findOrFail($request->contract_id);
         
         // Tránh trùng hóa đơn trong cùng kỳ thanh toán
         $exists = \App\Models\Invoice::where('contract_id', $request->contract_id)
@@ -484,7 +528,95 @@ class LandlordController extends Controller
             return redirect()->back()->with('error', 'Hóa đơn cho hợp đồng này trong kỳ này đã tồn tại!');
         }
 
-        $totalAmount = collect($request->details)->sum('subtotal');
+        // Lấy hóa đơn kỳ trước để khóa chỉ số điện / nước cũ server-side
+        $lastInv = \App\Models\Invoice::where('contract_id', $request->contract_id)
+            ->orderBy('billing_month', 'desc')
+            ->with('details')
+            ->first();
+
+        // Xử lý upload ảnh chỉ số công tơ
+        $elecImgPath = null;
+        $elecOldImgPath = null;
+        if ($request->hasFile('elec_meter_image')) {
+            $elecImgPath = '/storage/' . $request->file('elec_meter_image')->store('meter_readings', 'public');
+        }
+        if ($request->hasFile('elec_old_meter_image')) {
+            $elecOldImgPath = '/storage/' . $request->file('elec_old_meter_image')->store('meter_readings', 'public');
+        }
+
+        $waterImgPath = null;
+        $waterOldImgPath = null;
+        if ($request->hasFile('water_meter_image')) {
+            $waterImgPath = '/storage/' . $request->file('water_meter_image')->store('meter_readings', 'public');
+        }
+        if ($request->hasFile('water_old_meter_image')) {
+            $waterOldImgPath = '/storage/' . $request->file('water_old_meter_image')->store('meter_readings', 'public');
+        }
+
+        // Khóa giá phòng chuẩn theo Hợp đồng
+        $roomPrice = $contract->room ? (float) $contract->room->price : 0;
+
+        $processedDetails = [];
+        foreach ($request->details as $d) {
+            $itemName = $d['item_name'];
+            $price = (float) $d['price'];
+            $quantity = (float) $d['quantity'];
+            $oldIndex = isset($d['old_index']) ? (int) $d['old_index'] : null;
+            $newIndex = isset($d['new_index']) ? (int) $d['new_index'] : null;
+            $meterImg = null;
+            $oldMeterImg = null;
+
+            if ($itemName === 'Tiền thuê nhà') {
+                $price = $roomPrice;
+                $quantity = 1;
+            } elseif (str_contains($itemName, 'Điện')) {
+                if ($lastInv) {
+                    $lastElec = $lastInv->details->first(fn($dt) => str_contains($dt->item_name, 'Điện'));
+                    if ($lastElec && $lastElec->new_index !== null) {
+                        $oldIndex = (int) $lastElec->new_index;
+                        if (!$elecOldImgPath && $lastElec->meter_image_path) {
+                            $oldMeterImg = $lastElec->meter_image_path;
+                        }
+                    }
+                }
+                if ($newIndex !== null && $oldIndex !== null) {
+                    $quantity = max(0, $newIndex - $oldIndex);
+                }
+                $meterImg = $elecImgPath;
+                if ($elecOldImgPath) $oldMeterImg = $elecOldImgPath;
+            } elseif (str_contains($itemName, 'Nước')) {
+                if ($lastInv) {
+                    $lastWater = $lastInv->details->first(fn($dt) => str_contains($dt->item_name, 'Nước'));
+                    if ($lastWater && $lastWater->new_index !== null) {
+                        $oldIndex = (int) $lastWater->new_index;
+                        if (!$waterOldImgPath && $lastWater->meter_image_path) {
+                            $oldMeterImg = $lastWater->meter_image_path;
+                        }
+                    }
+                }
+                if ($newIndex !== null && $oldIndex !== null) {
+                    $quantity = max(0, $newIndex - $oldIndex);
+                }
+                $meterImg = $waterImgPath;
+                if ($waterOldImgPath) $oldMeterImg = $waterOldImgPath;
+            }
+
+            $subtotal = $price * $quantity;
+
+            $processedDetails[] = [
+                'service_id' => $d['service_id'] ?? null,
+                'item_name' => $itemName,
+                'old_index' => $oldIndex,
+                'new_index' => $newIndex,
+                'meter_image_path' => $meterImg,
+                'old_meter_image_path' => $oldMeterImg,
+                'quantity' => $quantity,
+                'price' => $price,
+                'subtotal' => $subtotal,
+            ];
+        }
+
+        $totalAmount = collect($processedDetails)->sum('subtotal');
 
         $invoice = \App\Models\Invoice::create([
             'contract_id' => $request->contract_id,
@@ -495,17 +627,9 @@ class LandlordController extends Controller
             'due_date' => $request->due_date,
         ]);
 
-        foreach ($request->details as $d) {
-            \App\Models\InvoiceDetail::create([
-                'invoice_id' => $invoice->id,
-                'service_id' => $d['service_id'] ?? null,
-                'item_name' => $d['item_name'],
-                'old_index' => $d['old_index'] ?? null,
-                'new_index' => $d['new_index'] ?? null,
-                'quantity' => $d['quantity'],
-                'price' => $d['price'],
-                'subtotal' => $d['subtotal'],
-            ]);
+        foreach ($processedDetails as $pd) {
+            $pd['invoice_id'] = $invoice->id;
+            \App\Models\InvoiceDetail::create($pd);
         }
 
         // Gửi thông báo cho khách thuê
@@ -521,6 +645,10 @@ class LandlordController extends Controller
     {
         $invoice = \App\Models\Invoice::findOrFail($id);
 
+        if ($invoice->status === 'paid') {
+            return redirect()->back()->with('error', 'Không thể chỉnh sửa hóa đơn đã hoàn thành thanh toán!');
+        }
+
         $request->validate([
             'due_date' => 'required|date',
             'details' => 'required|array',
@@ -531,9 +659,81 @@ class LandlordController extends Controller
             'details.*.old_index' => 'nullable|integer',
             'details.*.new_index' => 'nullable|integer',
             'details.*.service_id' => 'nullable|exists:services,id',
+            'elec_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'elec_old_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'water_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'water_old_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
         ]);
 
-        $totalAmount = collect($request->details)->sum('subtotal');
+        $contract = \App\Models\Contract::with('room')->findOrFail($invoice->contract_id);
+        $roomPrice = $contract->room ? (float) $contract->room->price : 0;
+
+        // Fetch existing details lookup for images fallback
+        $oldDetailsMap = $invoice->details->keyBy('item_name');
+
+        $elecImgPath = null;
+        $elecOldImgPath = null;
+        if ($request->hasFile('elec_meter_image')) {
+            $elecImgPath = '/storage/' . $request->file('elec_meter_image')->store('meter_readings', 'public');
+        }
+        if ($request->hasFile('elec_old_meter_image')) {
+            $elecOldImgPath = '/storage/' . $request->file('elec_old_meter_image')->store('meter_readings', 'public');
+        }
+
+        $waterImgPath = null;
+        $waterOldImgPath = null;
+        if ($request->hasFile('water_meter_image')) {
+            $waterImgPath = '/storage/' . $request->file('water_meter_image')->store('meter_readings', 'public');
+        }
+        if ($request->hasFile('water_old_meter_image')) {
+            $waterOldImgPath = '/storage/' . $request->file('water_old_meter_image')->store('meter_readings', 'public');
+        }
+
+        $processedDetails = [];
+        foreach ($request->details as $d) {
+            $itemName = $d['item_name'];
+            $price = (float) $d['price'];
+            $quantity = (float) $d['quantity'];
+            $oldIndex = isset($d['old_index']) ? (int) $d['old_index'] : null;
+            $newIndex = isset($d['new_index']) ? (int) $d['new_index'] : null;
+            
+            $existing = $oldDetailsMap->get($itemName);
+            $meterImg = $existing ? $existing->meter_image_path : null;
+            $oldMeterImg = $existing ? $existing->old_meter_image_path : null;
+
+            if ($itemName === 'Tiền thuê nhà') {
+                $price = $roomPrice;
+                $quantity = 1;
+            } elseif (str_contains($itemName, 'Điện')) {
+                if ($elecImgPath) $meterImg = $elecImgPath;
+                if ($elecOldImgPath) $oldMeterImg = $elecOldImgPath;
+                if ($newIndex !== null && $oldIndex !== null) {
+                    $quantity = max(0, $newIndex - $oldIndex);
+                }
+            } elseif (str_contains($itemName, 'Nước')) {
+                if ($waterImgPath) $meterImg = $waterImgPath;
+                if ($waterOldImgPath) $oldMeterImg = $waterOldImgPath;
+                if ($newIndex !== null && $oldIndex !== null) {
+                    $quantity = max(0, $newIndex - $oldIndex);
+                }
+            }
+
+            $subtotal = $price * $quantity;
+
+            $processedDetails[] = [
+                'service_id' => $d['service_id'] ?? null,
+                'item_name' => $itemName,
+                'old_index' => $oldIndex,
+                'new_index' => $newIndex,
+                'meter_image_path' => $meterImg,
+                'old_meter_image_path' => $oldMeterImg,
+                'quantity' => $quantity,
+                'price' => $price,
+                'subtotal' => $subtotal,
+            ];
+        }
+
+        $totalAmount = collect($processedDetails)->sum('subtotal');
 
         $invoice->update([
             'total_amount' => $totalAmount,
@@ -543,17 +743,9 @@ class LandlordController extends Controller
         // Recreate details
         $invoice->details()->delete();
 
-        foreach ($request->details as $d) {
-            \App\Models\InvoiceDetail::create([
-                'invoice_id' => $invoice->id,
-                'service_id' => $d['service_id'] ?? null,
-                'item_name' => $d['item_name'],
-                'old_index' => $d['old_index'] ?? null,
-                'new_index' => $d['new_index'] ?? null,
-                'quantity' => $d['quantity'],
-                'price' => $d['price'],
-                'subtotal' => $d['subtotal'],
-            ]);
+        foreach ($processedDetails as $pd) {
+            $pd['invoice_id'] = $invoice->id;
+            \App\Models\InvoiceDetail::create($pd);
         }
 
         return redirect()->back()->with('success', 'Cập nhật hóa đơn thành công!');
@@ -574,9 +766,30 @@ class LandlordController extends Controller
         return redirect()->back()->with('success', 'Cập nhật trạng thái hóa đơn thành công!');
     }
 
+    public function archiveInvoice($id)
+    {
+        $invoice = \App\Models\Invoice::findOrFail($id);
+        $invoice->update(['archived_at' => now()]);
+
+        return redirect()->back()->with('success', 'Đã lưu trữ hóa đơn!');
+    }
+
+    public function restoreInvoice($id)
+    {
+        $invoice = \App\Models\Invoice::findOrFail($id);
+        $invoice->update(['archived_at' => null]);
+
+        return redirect()->back()->with('success', 'Đã khôi phục hóa đơn!');
+    }
+
     public function deleteInvoice($id)
     {
         $invoice = \App\Models\Invoice::findOrFail($id);
+        
+        if ($invoice->status === 'paid') {
+            return redirect()->back()->with('error', 'Không thể xóa hóa đơn đã hoàn thành thanh toán! Vui lòng lưu trữ.');
+        }
+
         $invoice->details()->delete();
         $invoice->delete();
 

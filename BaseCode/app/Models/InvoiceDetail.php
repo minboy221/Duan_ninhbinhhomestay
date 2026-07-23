@@ -17,6 +17,7 @@ class InvoiceDetail extends Model
         'old_index',
         'new_index',
         'meter_image_path',
+        'old_meter_image_path',
         'quantity',
         'price',
         'subtotal',

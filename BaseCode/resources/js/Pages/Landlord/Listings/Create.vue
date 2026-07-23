@@ -687,9 +687,15 @@ const formatGeneralText = (text) => {
 
 .create-cols {
     display: grid;
-    grid-template-columns: 1fr 360px;
+    grid-template-columns: 1fr;
     gap: 20px;
     align-items: flex-start;
+}
+
+@media (min-width: 1024px) {
+    .create-cols {
+        grid-template-columns: 1fr 360px;
+    }
 }
 
 .form-col,
@@ -697,17 +703,20 @@ const formatGeneralText = (text) => {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
 }
 
 .form-card {
     background: #fff;
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     border: 1px solid #f0fdf4;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .fc-title {
@@ -724,18 +733,23 @@ const formatGeneralText = (text) => {
     display: flex;
     flex-direction: column;
     gap: 5px;
+    width: 100%;
 }
 
-.form-row-2 {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-}
-
+.form-row-2,
 .form-row-3 {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: 12px;
+}
+
+@media (min-width: 640px) {
+    .form-row-2 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .form-row-3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 form.price {

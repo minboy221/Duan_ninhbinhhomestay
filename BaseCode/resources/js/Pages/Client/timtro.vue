@@ -1,7 +1,7 @@
 <script setup>
 import MainLayout from '@/Layouts/MainLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 // Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Controller → Inertia)
 const props = defineProps({
@@ -22,7 +22,15 @@ const timeAgo = (date) => {
 
 const showDropdown = ref(false)
 const selectedArea = ref(null)
+const areaSearchQuery = ref('')
 const isFilterCollapsed = ref(true)
+const areaDropdownRef = ref(null)
+
+const filteredAreas = computed(() => {
+    if (!areaSearchQuery.value.trim()) return props.areas || [];
+    const q = areaSearchQuery.value.toLowerCase().trim();
+    return (props.areas || []).filter(area => area.name.toLowerCase().includes(q));
+});
 
 // Đối tượng lưu trữ các giá trị lọc
 const form = ref({
@@ -35,9 +43,23 @@ const form = ref({
 
 function selectArea(area) {
     selectedArea.value = area
-    form.value.area_id = area.id
+    form.value.area_id = area ? area.id : null
     showDropdown.value = false
 }
+
+const handleClickOutside = (event) => {
+    if (areaDropdownRef.value && !areaDropdownRef.value.contains(event.target)) {
+        showDropdown.value = false;
+    }
+};
+
+onMounted(() => {
+    window.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('click', handleClickOutside);
+});
 
 //Phần hiển thị trạng thái của phòng trọ
 const getStatusLabel = (status) => {
@@ -109,24 +131,49 @@ const getAvatarUrl = (avatar) => {
                     </div>
 
                     <div class="filter-body" :class="{ 'collapsed': isFilterCollapsed }">
-                        <!-- Khu vực (Dữ liệu từ DB) -->
-                        <div class="select_box">
-                            <div class="select" @click.stop="showDropdown = !showDropdown">
-                                <span class="selected">
-                                    <i class="bi bi-geo-alt"></i>
+                        <!-- Khu vực (Searchable Dropdown) -->
+                        <div class="select_box relative" ref="areaDropdownRef">
+                            <div class="select cursor-pointer flex items-center justify-between" @click.stop="showDropdown = !showDropdown">
+                                <span class="selected flex items-center gap-2">
+                                    <i class="bi bi-geo-alt text-blue-600"></i>
                                     {{ selectedArea ? selectedArea.name : 'Chọn khu vực' }}
                                 </span>
                                 <span class="arrow"><i class="bi bi-caret-down"></i></span>
                             </div>
 
                             <div class="dropdown" :class="{ show: showDropdown }">
-                                <div class="dropdown-header">
-                                    <span>Khu vực:</span>
+                                <!-- Search Input -->
+                                <div class="p-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
+                                    <div class="relative flex items-center">
+                                        <i class="bi bi-search absolute left-3 text-slate-400 text-xs"></i>
+                                        <input 
+                                            v-model="areaSearchQuery"
+                                            type="text"
+                                            placeholder="Gõ tìm phường, xã..."
+                                            class="w-full pl-8 pr-3 py-1.5 text-xs bg-white rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            @click.stop
+                                        />
+                                    </div>
                                 </div>
-                                <ul>
-                                    <li v-for="area in areas" :key="area.id"
-                                        :class="{ active: selectedArea?.id === area.id }" @click="selectArea(area)">
-                                        <i :class="['bi', area.icon]"></i> {{ area.name }}
+
+                                <ul class="max-h-56 overflow-y-auto py-1 custom-scrollbar">
+                                    <li 
+                                        class="px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                                        :class="{ 'active': !selectedArea }" 
+                                        @click="selectArea(null)"
+                                    >
+                                        <span>-- Tất cả khu vực --</span>
+                                    </li>
+                                    <li 
+                                        v-for="area in filteredAreas" 
+                                        :key="area.id"
+                                        :class="{ active: selectedArea?.id === area.id }" 
+                                        @click="selectArea(area)"
+                                    >
+                                        <i :class="['bi', area.icon || 'bi-geo-alt']"></i> {{ area.name }}
+                                    </li>
+                                    <li v-if="filteredAreas.length === 0" class="px-3 py-4 text-center text-xs text-slate-400">
+                                        Không tìm thấy khu vực
                                     </li>
                                 </ul>
                             </div>

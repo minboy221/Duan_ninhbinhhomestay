@@ -34,16 +34,20 @@ const selectedContract = ref(null)
 const showDeleteConfirm = ref(false)
 const deleteTarget   = ref(null)
 
-const daysLeft  = (endDate) => Math.ceil((new Date(endDate) - new Date()) / (1000 * 60 * 60 * 24))
 const statusMap = {
-    awaiting_upload: { label: '1', title: '1. Chờ Upload', cls: 'bg-amber-50 text-amber-600 border-amber-200', dot: 'bg-amber-500' },
-    active:   { label: '2', title: '2. Đang Hiệu Lực', cls: 'bg-emerald-50 text-emerald-600 border-emerald-200', dot: 'bg-emerald-500' },
-    expiring: { label: '3', title: '3. Sắp Hết Hạn',   cls: 'bg-orange-50 text-orange-600 border-orange-200', dot: 'bg-orange-500' },
-    expired:  { label: '4', title: '4. Đã Hết Hạn',    cls: 'bg-rose-50 text-rose-600 border-rose-200', dot: 'bg-rose-500' },
-    terminated:{ label: '5', title: '5. Đã Thanh Lý',  cls: 'bg-slate-50 text-slate-500 border-slate-200', dot: 'bg-slate-500' },
-    cancelled:{ label: '5', title: '5. Đã Hủy',        cls: 'bg-slate-50 text-slate-500 border-slate-200', dot: 'bg-slate-500' },
-    draft:    { label: '0', title: 'Bản Nháp',      cls: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-500' },
+    pending:         { label: 'Chờ ký/duyệt', cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
+    signed:          { label: 'Đã ký kết',   cls: 'bg-blue-50 text-blue-600 border-blue-150', dot: 'bg-blue-500' },
+    awaiting_upload: { label: '1. Chờ Upload', cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
+    active:          { label: '2. Đang Hiệu Lực', cls: 'bg-emerald-50 text-emerald-600 border-emerald-150', dot: 'bg-emerald-500' },
+    expiring:        { label: '3. Sắp Hết Hạn',   cls: 'bg-orange-50 text-orange-600 border-orange-150', dot: 'bg-orange-500' },
+    expired:         { label: '4. Đã Hết Hạn',    cls: 'bg-rose-50 text-rose-600 border-rose-150', dot: 'bg-rose-500' },
+    terminated:      { label: '5. Đã Thanh Lý',  cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
+    cancelled:       { label: '5. Đã Hủy',        cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
+    draft:           { label: 'Bản Nháp',        cls: 'bg-slate-50 text-slate-600 border-slate-150', dot: 'bg-slate-500' },
 }
+
+const defaultStatus = { label: 'Khác', cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-400' };
+const getStatusConfig = (status) => statusMap[status] || defaultStatus;
 
 const expiringCount = computed(() => contracts.value.filter(c => c.status === 'expiring').length)
 const openContract  = (c) => { selectedContract.value = c; showModal.value = true }
@@ -468,9 +472,9 @@ const submitTerminateContract = async () => {
                                     </span>
                                 </td>
                                 <td class="py-4 px-4">
-                                    <span :class="['px-3.5 py-1.5 rounded-xl text-base font-black border flex items-center justify-center gap-2 w-fit shadow-sm', statusMap[c.status].cls]" :title="statusMap[c.status].title">
-                                        <span class="w-2.5 h-2.5 rounded-full" :class="statusMap[c.status].dot"></span>
-                                        {{ statusMap[c.status].label }}
+                                    <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', getStatusConfig(c.status).cls]">
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="getStatusConfig(c.status).dot"></span>
+                                        {{ getStatusConfig(c.status).label }}
                                     </span>
                                 </td>
                                 <td class="py-4 px-6 text-right" @click.stop>
@@ -497,9 +501,9 @@ const submitTerminateContract = async () => {
                             <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Hợp đồng: {{ c.id }}</span>
                             <div class="text-sm font-black text-slate-800 mt-0.5">{{ c.room }}</div>
                         </div>
-                        <span :class="['px-3 py-1 rounded-xl text-base font-black border flex items-center gap-2 w-fit shadow-sm', statusMap[c.status].cls]" :title="statusMap[c.status].title">
-                            <span class="w-2.5 h-2.5 rounded-full" :class="statusMap[c.status].dot"></span>
-                            {{ statusMap[c.status].label }}
+                        <span :class="['px-2 py-0.5 rounded-md text-[9px] font-bold border flex items-center gap-1 w-fit', getStatusConfig(c.status).cls]">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="getStatusConfig(c.status).dot"></span>
+                            {{ getStatusConfig(c.status).label }}
                         </span>
                     </div>
 
