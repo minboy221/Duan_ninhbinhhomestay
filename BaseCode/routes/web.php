@@ -198,6 +198,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/boarding-houses/history', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'history'])->name('landlord.boarding-houses.history');
     Route::get('/boarding-houses/create', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'create'])->name('landlord.boarding-houses.create');
     Route::post('/boarding-houses', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'store'])->name('landlord.boarding-houses.store');
+    Route::get('/boarding-houses/{id}', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'show'])->name('landlord.boarding-houses.show');
     Route::post('/select-boarding-house', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'selectBoardingHouse'])->name('landlord.select-boarding-house');
     Route::get('/profile', [LandlordController::class, 'profile'])->name('landlord.profile');
     Route::post('/profile', [LandlordController::class, 'updateProfile'])->name('landlord.profile.update');
@@ -241,9 +242,12 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
     
     // Đăng ký hợp đồng (Phase 3, 4, 5)
+    Route::get('/search-tenant', [\App\Http\Controllers\Landlord\ContractController::class, 'searchTenant'])->name('landlord.tenants.search');
     Route::get('/contracts/create-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'createDraft'])->name('landlord.contracts.create_draft');
     Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
     Route::post('/contracts/{contract}/upload-signed', [\App\Http\Controllers\Landlord\ContractController::class, 'uploadSignedContract'])->name('landlord.contracts.upload_signed');
+    Route::post('/contracts/{contract}/extend', [\App\Http\Controllers\Landlord\ContractController::class, 'extendContract'])->name('landlord.contracts.extend');
+    Route::post('/contracts/{contract}/terminate', [\App\Http\Controllers\Landlord\ContractController::class, 'terminateContract'])->name('landlord.contracts.terminate');
 
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');

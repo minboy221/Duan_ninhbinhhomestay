@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import { usePage, Link } from "@inertiajs/vue3";
 import axios from "axios";
+import { showSuccess, showWarning } from "@/Utils/swal";
 
 const page = usePage();
 const todayApt = ref(null);
@@ -72,8 +73,9 @@ const handleFeedbackResult = async (result) => {
                 `/api/appointments/${todayApt.value.id}/feedback`,
                 { result: "like" },
             );
-            alert(
-                "StayWork chúc mừng bạn! Hệ thống đã thông báo cho chủ trọ chuẩn bị hợp đồng.",
+            showSuccess(
+                "Chúc mừng bạn!",
+                "Hệ thống đã thông báo cho chủ trọ chuẩn bị hợp đồng."
             );
             showFeedbackModal.value = false;
             todayApt.value = null; // Ẩn hoàn toàn popup nhắc nhở
@@ -88,8 +90,10 @@ const handleFeedbackResult = async (result) => {
 
 // Hàm gửi lý do từ chối lên và nhận danh sách phòng gợi ý từ Backend "AI cơm"
 const submitDislikeReason = async () => {
-    if (!selectedReason.value)
-        return alert("Vui lòng chọn một lý do để hệ thống tìm phòng tốt hơn.");
+    if (!selectedReason.value) {
+        showWarning("Thông báo", "Vui lòng chọn một lý do để hệ thống tìm phòng tốt hơn.");
+        return;
+    }
 
     try {
         const response = await axios.post(

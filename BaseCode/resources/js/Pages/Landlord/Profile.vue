@@ -1,7 +1,8 @@
 <script setup>
-import LandlordLayout from "@/Layouts/LandlordLayout.vue";
-import { ref, reactive, onMounted } from "vue";
-import { useForm } from "@inertiajs/vue3";
+import LandlordLayout from '@/Layouts/LandlordLayout.vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useForm } from '@inertiajs/vue3'
+import { showSuccess } from '@/Utils/swal'
 
 const props = defineProps({
     userData: {
@@ -75,10 +76,10 @@ const saveInfo = () => {
 
     form.post(route("landlord.profile.update"), {
         onSuccess: () => {
-            alert("Lưu thông tin chủ trọ thành công!");
-        },
-    });
-};
+            alert('Lưu thông tin chủ trọ thành công!')
+        }
+    })
+}
 
 const statusConfig = {
     unverified: {

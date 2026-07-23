@@ -2,6 +2,7 @@
 import { Head, router } from "@inertiajs/vue3";
 import { ref } from "vue";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
+import { showWarning } from "@/Utils/swal";
 
 const props = defineProps({
     user: Object,
@@ -42,7 +43,7 @@ const openImage = (url) => {
 // Xử lý gửi request
 const submitAction = (action) => {
     if (action === "reject" && !rejectReason.value.trim()) {
-        alert("Vui lòng nhập lý do từ chối!");
+        showWarning("Thiếu lý do", "Vui lòng nhập lý do từ chối!");
         return;
     }
 
