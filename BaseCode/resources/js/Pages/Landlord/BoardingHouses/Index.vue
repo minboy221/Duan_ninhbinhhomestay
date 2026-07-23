@@ -102,6 +102,7 @@ const getStatusText = (status) => {
                                         class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] rounded uppercase font-black">
                                         <i class="bi bi-geo-alt-fill"></i> Đang Chọn
                                     </span>
+<<<<<<<<< Temporary merge branch 1
                                 </h4>
                             </div>
                             <button class="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
@@ -122,6 +123,33 @@ const getStatusText = (status) => {
                         </div>
                     </div>
                 </div>
+=========
+                                </div>
+                            </td>
+                            <td class="px-5 py-4">
+                                <div class="text-sm text-slate-600">{{ house.address_detail }}, {{ house.district }}</div>
+                            </td>
+                            <td class="px-5 py-4 text-right">
+                                <button v-if="$page.props.auth.selected_boarding_house_id !== house.id" 
+                                    @click="selectHouse(house.id)"
+                                    class="text-xs font-bold bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 mr-2">
+                                    <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở
+                                </button>
+                                <!-- Future features: Edit, Delete etc. -->
+                                <Link :href="route('landlord.boarding-houses.show', house.id)" class="text-slate-400 hover:text-emerald-500 p-2 transition-colors" title="Xem chi tiết">
+                                    <i class="bi bi-eye"></i>
+                                </Link>
+                            </td>
+                        </tr>
+                        <tr v-if="!boardingHouses.length">
+                            <td colspan="5" class="px-5 py-8 text-center text-slate-500">
+                                <i class="bi bi-buildings text-4xl text-slate-300 mb-3 block"></i>
+                                Bạn chưa có cơ sở nào. Hãy thêm cơ sở mới.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+>>>>>>>>> Temporary merge branch 2
             </div>
         </div>
     </LandlordLayout>
