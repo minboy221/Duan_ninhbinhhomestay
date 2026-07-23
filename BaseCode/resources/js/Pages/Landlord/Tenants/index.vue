@@ -1,6 +1,7 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, computed } from 'vue'
+import { showWarning } from '@/Utils/swal'
 
 const tenants = ref([
     { id: 1, name: 'Nguyễn Văn A', phone: '0912 345 678', cccd: '036091234567', room: 'Phòng 101', floor: 1, moveIn: '2025-06-01', people: 2, status: 'active', avatar: 'A' },
@@ -56,7 +57,7 @@ const addForm = ref({
 
 const submitAdd = () => {
     if(!addForm.value.name || !addForm.value.phone || !addForm.value.room) {
-        alert('Vui lòng điền đủ các thông tin bắt buộc.')
+        showWarning('Thiếu thông tin', 'Vui lòng điền đủ các thông tin bắt buộc.')
         return
     }
     const nextId = tenants.value.length ? Math.max(...tenants.value.map(t=>t.id)) + 1 : 1

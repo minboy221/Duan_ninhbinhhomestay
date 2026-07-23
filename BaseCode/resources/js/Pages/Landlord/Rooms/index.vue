@@ -5,6 +5,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { router, usePage } from "@inertiajs/vue3";
 import axios from "axios";
 import { HA_NAM_COMMUNES } from "@/constants/locations.js";
+import { showSuccess, showError, showWarning } from "@/Utils/swal";
 
 const props = defineProps({
     floors: { type: Array, default: () => [] },
@@ -271,7 +272,7 @@ const openEditFloor = (fl) => {
 
 const getCurrentFloorPosition = () => {
     if (!navigator.geolocation) {
-        alert("Trình duyệt của bạn không hỗ trợ chức năng định vị GPS");
+        showWarning("Lỗi GPS", "Trình duyệt của bạn không hỗ trợ chức năng định vị GPS");
         return;
     }
     isLocatingFloor.value = true;
@@ -330,7 +331,7 @@ const getCurrentFloorPosition = () => {
                 }
             } catch (error) {
                 console.error("Lỗi dịch toạ độ sang địa chỉ:", error);
-                alert("Đã lấy được toạ độ nhưng không thể dịch thành địa chỉ");
+                showWarning("Cảnh báo", "Đã lấy được toạ độ nhưng không thể dịch thành địa chỉ.");
             } finally {
                 isLocatingFloor.value = false;
             }
@@ -339,16 +340,16 @@ const getCurrentFloorPosition = () => {
             isLocatingFloor.value = false;
             switch (error.code) {
                 case error.PERMISSION_DENIED:
-                    alert("Bạn đã từ chối cấp quyền truy cập GPS");
+                    showWarning("Từ chối truy cập", "Bạn đã từ chối cấp quyền truy cập GPS.");
                     break;
                 case error.POSITION_UNAVAILABLE:
-                    alert("Không thể xác định được vị trí hiện tại");
+                    showError("Lỗi vị trí", "Không thể xác định được vị trí hiện tại.");
                     break;
                 case error.TIMEOUT:
-                    alert("Quá thời gian yêu cầu lấy vị trí.");
+                    showWarning("Hết thời gian", "Quá thời gian yêu cầu lấy vị trí.");
                     break;
                 default:
-                    alert("Đã xảy ra lỗi không xác định khi lấy vị trí.");
+                    showError("Lỗi không xác định", "Đã xảy ra lỗi không xác định khi lấy vị trí.");
                     break;
             }
         },
@@ -664,18 +665,16 @@ const addPerson = (room) => {
         "pending_renewal",
     ];
     if (!allowedStatuses.includes(room.status)) {
-        showAlert(
+        showWarning(
             "Không hợp lệ",
             "Trạng thái phòng không cho phép thêm người!",
-            "warning",
         );
         return;
     }
     if (room.current_people >= room.capacity) {
-        showAlert(
+        showWarning(
             "Không thể thêm",
             "Phòng đã đủ số lượng người tối đa.",
-            "warning",
         );
         return;
     }
@@ -689,22 +688,29 @@ const addPerson = (room) => {
                 if (selRoom.value && selRoom.value.id === room.id) {
                     selRoom.value.current_people = room.current_people;
                 }
+                props.floors.forEach(f => {
+                    const r = f.rooms?.find(rm => rm.id === room.id);
+                    if (r) r.current_people = room.current_people;
+                });
+                showSuccess("Thành công", `Đã thêm 1 người vào phòng! (Hiện tại: ${room.current_people}/${room.capacity} người)`);
             },
+            onError: () => {
+                showWarning("Lỗi", "Không thể thêm người vào phòng.");
+            }
         },
     );
 };
 
 const removePerson = (room) => {
     if (!["pending_renewal", "expiring_soon"].includes(room.status)) {
-        showAlert(
+        showWarning(
             "Không hợp lệ",
             "Chỉ có thể bớt người ở trạng thái sắp hết hạn HĐ hoặc chờ gia hạn!",
-            "warning",
         );
         return;
     }
     if (room.current_people <= 0) {
-        showAlert("Không thể bớt", "Phòng hiện không có người.", "warning");
+        showWarning("Không thể bớt", "Phòng hiện không có người.");
         return;
     }
     router.patch(
@@ -717,7 +723,15 @@ const removePerson = (room) => {
                 if (selRoom.value && selRoom.value.id === room.id) {
                     selRoom.value.current_people = room.current_people;
                 }
+                props.floors.forEach(f => {
+                    const r = f.rooms?.find(rm => rm.id === room.id);
+                    if (r) r.current_people = room.current_people;
+                });
+                showSuccess("Thành công", `Đã bớt 1 người khỏi phòng! (Hiện tại: ${room.current_people}/${room.capacity} người)`);
             },
+            onError: () => {
+                showWarning("Lỗi", "Không thể bớt người khỏi phòng.");
+            }
         },
     );
 };
@@ -788,7 +802,7 @@ const handleConfirm = () => {
 //Hàm tự động kích hoạt GPS để lấy toạ độ
 const getAutoCoordinates = () => {
     if (!navigator.geolocation) {
-        alert("Trình duyệt của bạn không hỗ trợ định vị");
+        showWarning("Lỗi GPS", "Trình duyệt của bạn không hỗ trợ định vị.");
         return;
     }
     //gọi GPS của thiết bị
@@ -803,17 +817,18 @@ const getAutoCoordinates = () => {
                 map.setView([lat, lng], 16);
                 marker.setLatLng([lat, lng]);
             }
-            alert(
-                "Đã tự động cập nhật toạ độ vị trí hiện tại của bạn thành công",
+            showSuccess(
+                "Đã định vị",
+                "Đã tự động cập nhật toạ độ vị trí hiện tại của bạn thành công."
             );
         },
         (error) => {
             console.error("lỗi định vị", error);
             //báo lỗi
             if (error.code === error.PERMISSION_DENIED) {
-                alert("bạn đã từ chối cấp quyền vị trí");
+                showWarning("Từ chối truy cập", "Bạn đã từ chối cấp quyền vị trí.");
             } else {
-                alert("Thiết bị không phản hồi toạ độ GPS");
+                showError("Lỗi định vị", "Thiết bị không phản hồi toạ độ GPS.");
             }
         },
         {

@@ -7,6 +7,7 @@ import { computed } from "vue";
 //phần soạn thảo văn bản
 import { QuillEditor } from "@vueup/vue-quill";
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
+import { showWarning, showError } from "@/Utils/swal";
 const props = defineProps({
     boardingHouses: Array,
 });
@@ -148,7 +149,7 @@ const formatMoney = (n) =>
 //hàm kích hoạt GPS để lấy địa chỉ tự động
 const getCurrentPosition = () => {
     if (!navigator.geolocation) {
-        alert("Trình duyệt của bạn không hỗ trợ trức năng định vị GPS");
+        showWarning("Lỗi GPS", "Trình duyệt của bạn không hỗ trợ chức năng định vị GPS.");
         return;
     }
     isLocating.value = true;
@@ -174,7 +175,7 @@ const getCurrentPosition = () => {
                 }
             } catch (error) {
                 console.error("Lỗi dịch toạ độ sang địa chỉ:", error);
-                alert("Đã lấy được toạ độ nhưng không thể dịc thành địa chỉ");
+                showWarning("Cảnh báo", "Đã lấy được toạ độ nhưng không thể dịch thành địa chỉ.");
             } finally {
                 isLocating.value = false;
             }
@@ -183,16 +184,16 @@ const getCurrentPosition = () => {
             isLocating.value = false;
             switch (error.code) {
                 case error.PERMISSION_DENIED:
-                    alert("Bạn đã từ chối cấp quyền truy cập GPS");
+                    showWarning("Từ chối truy cập", "Bạn đã từ chối cấp quyền truy cập GPS.");
                     break;
                 case error.POSITION_UNAVAILABLE:
-                    alert("Không thể xác định được vị trí hiện tại");
+                    showError("Lỗi vị trí", "Không thể xác định được vị trí hiện tại.");
                     break;
                 case error.TIMEOUT:
-                    alert("Quá thời gian yêu cầu lấy vị trí.");
+                    showWarning("Hết thời gian", "Quá thời gian yêu cầu lấy vị trí.");
                     break;
                 default:
-                    alert("Đã xảy ra lỗi không xác định khi lấy vị trí.");
+                    showError("Lỗi không xác định", "Đã xảy ra lỗi không xác định khi lấy vị trí.");
                     break;
             }
         },
@@ -223,35 +224,30 @@ const typeUnits = {
 
 // Phần chức năng chuyển giọng nói sang văn bản
 const recordingField = ref(null);
-
-//khởi tạo đối tượng SpeechRecognition từ trình duyệt
-let recognition = null;
 const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
 
+let recognition = null;
+
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
-    recognition.lang = "vi-VN"; // Cấu hình sang nhận diện bằng tiếng Việt
-    recognition.continuous = false; // Nói xong một câu ngắn sẽ tự động dừng
-    recognition.interimResults = false; // Chỉ lấy kết quả cuối cùng sau khi xử lý
+    recognition.lang = "vi-VN";
+    recognition.continuous = true;
+    recognition.interimResults = false;
 
+    //khi micro bắt được giọng nói
     recognition.onresult = (event) => {
-        const textResult = event.results[0][0].transcript;
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
 
-        if (recordingField.value === "title") {
-            form.title = formatGeneralText(
-                form.title ? `${form.title} ${textResult}` : textResult,
-            );
-        } else if (recordingField.value === "description") {
-            form.description = formatGeneralText(
-                form.description
-                    ? `${form.description}\n${textResult}`
-                    : textResult,
-            );
+        if (recordingField.value) {
+            const currentVal = form[recordingField.value] || "";
+            form[recordingField.value] = (currentVal + " " + transcript).trim();
         }
     };
 
-    // Dừng ghi âm khi người dùng im lặng quá lâu
     recognition.onend = () => {
         recordingField.value = null;
     };
@@ -261,7 +257,8 @@ if (SpeechRecognition) {
         console.error("Lỗi Speech API:", event.error);
 
         if (event.error === "not-allowed") {
-            alert(
+            showWarning(
+                "Quyền Microphone",
                 "Vui lòng cấp quyền truy cập Microphone trên trình duyệt để sử dụng tính năng này!",
             );
         }
@@ -272,7 +269,8 @@ if (SpeechRecognition) {
 //phần bật tắt micro
 const toggleSpeechToText = (fieldName) => {
     if (!recognition) {
-        alert(
+        showWarning(
+            "Trình duyệt không hỗ trợ",
             "Trình duyệt của bạn quá cũ hoặc không hỗ trợ Web Speech API. Vui lòng dùng Google Chrome hoặc Microsoft Edge mới nhất!",
         );
         return;

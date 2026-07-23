@@ -332,6 +332,10 @@ class RoomService
         }
 
         $updateData = ['status' => $status];
+        if (in_array($status, ['rented', 'deposited']) && $room->current_people <= 0) {
+            $updateData['current_people'] = 1;
+        }
+
         if ($status === 'maintenance') {
             $updateData['maintenance_reason'] = $reason;
         } else {

@@ -3,6 +3,7 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
 import { ref, computed, watch } from "vue";
 import axios from "axios";
+import { showSuccess, showWarning, showConfirm } from "@/Utils/swal";
 
 const props = defineProps({
     room: { type: Object, required: true },
@@ -213,41 +214,41 @@ watch(
         if (newVal) {
             showSuccessAlert.value = true;
             setTimeout(() => {
-                showSuccessAlert.value = flase;
+                showSuccessAlert.value = false;
             }, 4000);
         }
     },
-    { immeadiate: true },
+    { immediate: true },
 );
 
 watch(
-    () => {
-        (page.props.flash?.error,
-            (newVal) => {
-                if (newVal) {
-                    showErrorAlert.value = true;
-                    setTimeout(() => {
-                        showErrorAlert.value = false;
-                    }, 4000);
-                }
-            });
+    () => page.props.flash?.error,
+    (newVal) => {
+        if (newVal) {
+            showErrorAlert.value = true;
+            setTimeout(() => {
+                showErrorAlert.value = false;
+            }, 4000);
+        }
     },
-    { immeadiate: true },
+    { immediate: true },
 );
 
-async function openBooking() {
+async function openBookingModal() {
     if (!user.value) {
-        if (
-            confirm(
-                "Bạn cần đăng nhập tài khoản khách thuê để đặt lịch xem phòng. Đi đến trang đăng nhập?",
-            )
-        ) {
+        const confirmed = await showConfirm(
+            "Yêu cầu đăng nhập",
+            "Bạn cần đăng nhập tài khoản khách thuê để đặt lịch xem phòng.",
+            "Đăng nhập",
+            "Đóng"
+        );
+        if (confirmed) {
             window.location.href = route("login");
         }
         return;
     }
     if (user.value.role === 'landlord') {
-        alert("Tài khoản chủ trọ không thể thực hiện chức năng đặt lịch xem phòng.");
+        showWarning("Thông báo", "Tài khoản chủ trọ không thể thực hiện chức năng đặt lịch xem phòng.");
         return;
     }
     //tải danh sách lịch trùng ngay cho ngày mặc định
@@ -256,22 +257,25 @@ async function openBooking() {
 }
 
 //hàm xử lý khi nhấp vào sđt của chủ trọ
-function handlePhoneClick(e) {
+async function handlePhoneClick(e) {
     if (!user.value) {
         e.preventDefault();
 
-        if (
-            confirm(
-                "Bạn cần đăng nhập tài khoản để xem số điện thoại của chủ trọ.đi đến trang đăng nhập",
-            )
-        ) {
+        const confirmed = await showConfirm(
+            "Yêu cầu đăng nhập",
+            "Bạn cần đăng nhập tài khoản để xem số điện thoại của chủ trọ.",
+            "Đăng nhập",
+            "Hủy"
+        );
+        if (confirmed) {
             window.location.href = route("login");
         }
     }
 }
 
 function reportListing() {
-    alert(
+    showSuccess(
+        "Đã gửi báo cáo",
         "Cảm ơn bạn đã gửi báo cáo. Ninh Bình HomeStay sẽ tiến hành kiểm tra và xác minh thông tin phòng trọ này trong thời gian sớm nhất!",
     );
 }
@@ -282,7 +286,8 @@ function submitBooking() {
         onSuccess: () => {
             showBookingModal.value = false;
             form.reset();
-            alert(
+            showSuccess(
+                "Thành công",
                 "Gửi yêu cầu đặt lịch hẹn thành công! Vui lòng đợi chủ trọ phản hồi.",
             );
         },
@@ -490,7 +495,7 @@ function submitBooking() {
                         </div>
                         <div class="nhantin_chutro">
                             <!-- Nút hiển thị cho khách thuê bình thường hoặc chưa đăng nhập -->
-                            <button v-if="!user || user.role !== 'landlord'" @click="openBooking" class="btn_mess"
+                            <button v-if="!user || user.role !== 'landlord'" @click="openBookingModal" class="btn_mess"
                                 style="border: none; width: 100%; text-align: center; cursor: pointer;">
                                 <i class="bi bi-calendar-check-fill"></i>
                                 <span>Đặt Lịch Hẹn</span>

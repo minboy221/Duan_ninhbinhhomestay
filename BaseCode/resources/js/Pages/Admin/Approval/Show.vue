@@ -42,10 +42,14 @@ const getStatusClass = (status) => {
 };
 
 // Hàm gọi lệnh Phê duyệt bài viết
-function approvePost() {
-    if (
-        confirm(`Bạn có chắc chắn muốn phê duyệt xuất bản bài đăng này không?`)
-    ) {
+async function approvePost() {
+    const confirmed = await showConfirm(
+        "Phê duyệt bài đăng",
+        "Bạn có chắc chắn muốn phê duyệt xuất bản bài đăng này không?",
+        "Phê duyệt",
+        "Hủy"
+    );
+    if (confirmed) {
         router.post(route("admin.listings.approve", props.post.id));
     }
 }
