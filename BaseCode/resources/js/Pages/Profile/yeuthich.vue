@@ -2,6 +2,7 @@
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { showConfirm } from '@/Utils/swal';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -9,8 +10,14 @@ const props = defineProps({
 });
 
 // Remove from favorites
-function unfavorite(roomId) {
-    if (confirm('Bạn có chắc chắn muốn bỏ lưu phòng trọ này khỏi danh sách quan tâm?')) {
+async function unfavorite(roomId) {
+    const confirmed = await showConfirm(
+        'Bỏ quan tâm phòng trọ',
+        'Bạn có chắc chắn muốn bỏ lưu phòng trọ này khỏi danh sách quan tâm?',
+        'Bỏ quan tâm',
+        'Hủy'
+    );
+    if (confirmed) {
         router.post(route('rooms.favorite', roomId), {}, {
             preserveScroll: true
         });

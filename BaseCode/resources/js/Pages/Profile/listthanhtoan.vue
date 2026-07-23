@@ -2,6 +2,7 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import axios from 'axios'
+import { showWarning, showSuccess } from '@/Utils/swal'
 
 const props = defineProps({
     user: Object,
@@ -224,10 +225,10 @@ const confirmPayment = () => {
 // Submit report handler
 const submitReport = () => {
     if (!reportText.value.trim()) {
-        alert('Vui lòng nhập lý do báo cáo!')
+        showWarning('Thiếu lý do', 'Vui lòng nhập lý do báo cáo!')
         return
     }
-    alert('Báo cáo của bạn đã được ghi nhận. Chủ trọ sẽ liên hệ lại với bạn sớm nhất.')
+    showSuccess('Đã nhận báo cáo', 'Báo cáo của bạn đã được ghi nhận. Chủ trọ sẽ liên hệ lại với bạn sớm nhất.')
     closeReport()
 }
 </script>

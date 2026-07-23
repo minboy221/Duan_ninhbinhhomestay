@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
+import { showWarning } from '@/Utils/swal'
 
 const form = useForm({
     name: '',
@@ -38,11 +39,11 @@ const getLocation = () => {
                 form.longitude = position.coords.longitude.toString();
             },
             (error) => {
-                alert("Không thể lấy vị trí. Vui lòng nhập thủ công hoặc cho phép quyền truy cập vị trí.");
+                showWarning("Lỗi GPS", "Không thể lấy vị trí. Vui lòng nhập thủ công hoặc cho phép quyền truy cập vị trí.");
             }
         );
     } else {
-        alert("Trình duyệt không hỗ trợ Geolocation.");
+        showWarning("Lỗi trình duyệt", "Trình duyệt không hỗ trợ Geolocation.");
     }
 }
 

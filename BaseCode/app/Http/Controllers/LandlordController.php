@@ -433,15 +433,34 @@ class LandlordController extends Controller
         ->orderBy('created_at', 'desc')
         ->get();
 
-        // Get approved or viewed appointments to create contracts from
+        // Danh sách ID phòng đã có hợp đồng còn hiệu lực / chờ upload
+        $existingContractRoomIds = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+        ->whereIn('status', ['awaiting_upload', 'active', 'signed'])
+        ->pluck('room_id')
+        ->toArray();
+
+        // Chỉ lấy những lịch hẹn mà:
+        // 1. Trạng thái là approved hoặc viewed
+        // 2. Khách đã phản hồi "ƯNG" (feedback_result = 'interested')
+        // 3. Phòng chưa có hợp đồng hiệu lực
         $appointments = \App\Models\Appointment::with(['user', 'room'])
             ->where('landlord_id', $landlordId)
             ->whereIn('status', ['approved', 'viewed'])
+            ->where('feedback_result', 'interested')
+            ->whereNotIn('room_id', $existingContractRoomIds)
+            ->get();
+
+        // Lấy danh sách Nhà trọ kèm các Tầng và Phòng trọ
+        $boardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)
+            ->with(['floors.rooms'])
             ->get();
 
         return Inertia::render('Landlord/Contracts/index', [
             'dbContracts' => $contracts,
-            'appointments' => $appointments
+            'appointments' => $appointments,
+            'boardingHouses' => $boardingHouses
         ]);
     }
 

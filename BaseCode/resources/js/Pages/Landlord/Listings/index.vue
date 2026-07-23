@@ -2,6 +2,7 @@
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { ref, computed } from "vue";
 import { Link, usePage, router } from "@inertiajs/vue3";
+import { showConfirm } from "@/Utils/swal";
 
 const props = defineProps({
     listings: Object,
@@ -38,30 +39,41 @@ const statusMap = {
 };
 
 const formatMoney = (n) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
-const deleteListing = (id) => {
-    if (confirm("Bạn có chắc chắn muốn xóa bài đăng này?")) {
+
+const deleteListing = async (id) => {
+    const confirmed = await showConfirm(
+        "Xác nhận xóa",
+        "Bạn có chắc chắn muốn xóa bài đăng này?",
+        "Xóa tin",
+        "Hủy"
+    );
+    if (confirmed) {
         router.delete(route("landlord.listings.destroy", id));
     }
 };
 
 // Hàm đóng tin đăng
-const closeListing = (id, title) => {
-    if (
-        confirm(
-            `xác nhận xoá tin đăng: "${title}"?\nSau khi đóng khách thuê sẽ không tìm thấy tin đăng này nữa`,
-        )
-    ) {
+const closeListing = async (id, title) => {
+    const confirmed = await showConfirm(
+        "Xác nhận đóng tin đăng",
+        `Sau khi đóng, khách thuê sẽ không tìm thấy tin đăng "${title}" này nữa.`,
+        "Đóng tin",
+        "Hủy"
+    );
+    if (confirmed) {
         router.post(route("landlord.listings.close", id));
     }
 };
 
 //Hàm xoá tin đăng
-const handleDeletePost = (id) => {
-    if (
-        confirm(
-            "Bạn có chắc chắn muốn xoá vĩnh viễn bài đăng này không? Hành động này không thể hoàn tác ",
-        )
-    ) {
+const handleDeletePost = async (id) => {
+    const confirmed = await showConfirm(
+        "Xác nhận xóa vĩnh viễn",
+        "Bạn có chắc chắn muốn xoá vĩnh viễn bài đăng này không? Hành động này không thể hoàn tác.",
+        "Xóa vĩnh viễn",
+        "Hủy"
+    );
+    if (confirmed) {
         router.delete(route("landlord.listings.destroy", id));
     }
 };

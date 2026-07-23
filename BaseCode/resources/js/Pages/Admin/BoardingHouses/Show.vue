@@ -2,6 +2,7 @@
 import { Head, router, Link } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { ref } from 'vue'
+import { showWarning } from '@/Utils/swal'
 
 const props = defineProps({
     house: Object
@@ -32,7 +33,10 @@ const confirmApprove = () => {
 }
 
 const confirmReject = () => {
-    if (!rejectReason.value) return alert('Vui lòng nhập lý do từ chối!')
+    if (!rejectReason.value) {
+        showWarning('Thiếu lý do', 'Vui lòng nhập lý do từ chối!')
+        return
+    }
     router.post(route('admin.boarding-houses.reject', props.house.id), {
         reason: rejectReason.value
     }, {

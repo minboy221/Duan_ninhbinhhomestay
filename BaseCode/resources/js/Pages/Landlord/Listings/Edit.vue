@@ -6,6 +6,7 @@ import axios from "axios";
 // Phần soạn thảo văn bản
 import { QuillEditor } from "@vueup/vue-quill";
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
+import { showWarning, showError } from "@/Utils/swal";
 
 const props = defineProps({
     post: Object,
@@ -159,7 +160,7 @@ const removeNewImage = (index) => {
 // Hàm định vị GPS
 const getCurrentPosition = () => {
     if (!navigator.geolocation) {
-        alert("Trình duyệt của bạn không hỗ trợ chức năng định vị GPS");
+        showWarning("Lỗi GPS", "Trình duyệt của bạn không hỗ trợ chức năng định vị GPS.");
         return;
     }
     isLocating.value = true;
@@ -181,7 +182,7 @@ const getCurrentPosition = () => {
                 }
             } catch (error) {
                 console.error("Lỗi dịch toạ độ sang địa chỉ:", error);
-                alert("Đã lấy được toạ độ nhưng không thể dịch thành địa chỉ");
+                showWarning("Cảnh báo", "Đã lấy được toạ độ nhưng không thể dịch thành địa chỉ.");
             } finally {
                 isLocating.value = false;
             }
@@ -190,16 +191,16 @@ const getCurrentPosition = () => {
             isLocating.value = false;
             switch (error.code) {
                 case error.PERMISSION_DENIED:
-                    alert("Bạn đã từ chối cấp quyền truy cập GPS");
+                    showWarning("Từ chối truy cập", "Bạn đã từ chối cấp quyền truy cập GPS.");
                     break;
                 case error.POSITION_UNAVAILABLE:
-                    alert("Không thể xác định được vị trí hiện tại");
+                    showError("Lỗi vị trí", "Không thể xác định được vị trí hiện tại.");
                     break;
                 case error.TIMEOUT:
-                    alert("Quá thời gian yêu cầu lấy vị trí.");
+                    showWarning("Hết thời gian", "Quá thời gian yêu cầu lấy vị trí.");
                     break;
                 default:
-                    alert("Đã xảy ra lỗi không xác định khi lấy vị trí.");
+                    showError("Lỗi không xác định", "Đã xảy ra lỗi không xác định khi lấy vị trí.");
                     break;
             }
         },

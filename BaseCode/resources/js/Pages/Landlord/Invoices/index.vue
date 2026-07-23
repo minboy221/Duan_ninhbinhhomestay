@@ -80,6 +80,26 @@ const invoiceForm = reactive({
     dueDate: new Date().toISOString().split('T')[0]
 })
 
+const makeMoneyComputed = (field) => computed({
+    get() {
+        const val = invoiceForm[field]
+        if (val === null || val === undefined || val === '') return ''
+        return new Intl.NumberFormat('en-US').format(val)
+    },
+    set(v) {
+        const raw = String(v).replace(/\D/g, '')
+        invoiceForm[field] = raw ? parseInt(raw, 10) : 0
+    }
+})
+
+const displayRentPrice = makeMoneyComputed('rent')
+const displayElecPrice = makeMoneyComputed('elecPrice')
+const displayWaterPrice = makeMoneyComputed('waterPrice')
+const displayInternetPrice = makeMoneyComputed('internetPrice')
+const displayTrashPrice = makeMoneyComputed('trashPrice')
+const displayParkingPrice = makeMoneyComputed('parkingPrice')
+const displayManagementPrice = makeMoneyComputed('management')
+
 // Find services lookup helper
 const elecService = computed(() => props.services.find(s => s.type === 'per_kwh' || s.name.includes('Điện')))
 const waterService = computed(() => props.services.find(s => s.type === 'per_m3' || s.name.includes('Nước')))
@@ -273,7 +293,7 @@ const goEdit = (inv) => {
 
 const saveInvoice = () => {
     if (!selectedContractId.value) {
-        alert('Vui lòng chọn hợp đồng!')
+        showWarning('Thiếu thông tin', 'Vui lòng chọn hợp đồng!')
         return
     }
 
@@ -350,23 +370,25 @@ const saveInvoice = () => {
     if (currentView.value === 'create') {
         form.post(route('landlord.invoices.store'), {
             onSuccess: () => {
+                showSuccess('Thành công', 'Lưu hóa đơn thành công!')
                 currentView.value = 'list'
             }
         })
     } else {
         form.post(route('landlord.invoices.update', selectedInvoiceId.value), {
             onSuccess: () => {
+                showSuccess('Thành công', 'Cập nhật hóa đơn thành công!')
                 currentView.value = 'list'
             }
         })
     }
 }
 
-const changeStatus = (inv, newStatus) => {
-    const statusForm = useForm({ status: newStatus })
+const updateInvoiceStatus = (inv, status) => {
+    const statusForm = useForm({ status: status })
     statusForm.patch(route('landlord.invoices.status', inv.id), {
         onSuccess: () => {
-            alert('Cập nhật trạng thái thành công!')
+            showSuccess('Thành công', 'Cập nhật trạng thái thành công!')
         }
     })
 }
@@ -418,7 +440,7 @@ const closeViewModal = () => {
     selectedInvoice.value = null
 }
 
-const copyInvoiceText = (inv) => {
+const copyInvoiceToClipboard = (inv) => {
     if (!inv) return
     let text = `--- HÓA ĐƠN TIỀN NHÀ ---\n`;
     text += `Phòng: ${inv.contract?.room?.room_number || ''}\n`;
@@ -831,7 +853,7 @@ const printDisputeReport = (inv) => {
                             <div class="grid grid-cols-2 gap-3 items-end">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="number" v-model.number="invoiceForm.trashPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <input type="text" v-model="displayTrashPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
