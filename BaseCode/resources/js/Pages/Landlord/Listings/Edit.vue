@@ -685,9 +685,15 @@ const submitForm = (actionType) => {
 
 .create-cols {
     display: grid;
-    grid-template-columns: 1fr 360px;
+    grid-template-columns: 1fr;
     gap: 20px;
     align-items: flex-start;
+}
+
+@media (min-width: 1024px) {
+    .create-cols {
+        grid-template-columns: 1fr 360px;
+    }
 }
 
 .form-col,
@@ -695,17 +701,20 @@ const submitForm = (actionType) => {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
 }
 
 .form-card {
     background: #fff;
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     border: 1px solid #f0fdf4;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .fc-title {
@@ -722,18 +731,23 @@ const submitForm = (actionType) => {
     display: flex;
     flex-direction: column;
     gap: 5px;
+    width: 100%;
 }
 
-.form-row-2 {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-}
-
+.form-row-2,
 .form-row-3 {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: 12px;
+}
+
+@media (min-width: 640px) {
+    .form-row-2 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .form-row-3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 .form-label {
@@ -745,7 +759,7 @@ const submitForm = (actionType) => {
 .form-input {
     padding: 9px 12px;
     border: 1.5px solid #e2e8f0;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 14px;
     outline: none;
     width: 100%;
@@ -770,7 +784,7 @@ const submitForm = (actionType) => {
     gap: 8px;
     border: 2px dashed #d1fae5;
     border-radius: 8px;
-    padding: 24px;
+    padding: 20px;
     cursor: pointer;
     transition: border-color 0.15s;
     color: #6b7280;
@@ -845,6 +859,7 @@ const submitForm = (actionType) => {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    width: 100%;
 }
 
 .map-placeholder {
@@ -858,8 +873,7 @@ const submitForm = (actionType) => {
 /* Preview Box */
 .preview-box {
     background: #fdfdfd;
-    border: 1px border;
-    border-color: #e2e8f0;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 16px;
 }
@@ -878,6 +892,9 @@ const submitForm = (actionType) => {
     margin-top: 10px;
     border-top: 1px solid #e2e8f0;
     padding-top: 16px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 16px 20px;
 }
 
 .btn-cancel {
@@ -890,6 +907,7 @@ const submitForm = (actionType) => {
     text-decoration: none;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
 }
 
 .btn-cancel:hover {
@@ -907,6 +925,7 @@ const submitForm = (actionType) => {
     cursor: pointer;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
 }
 
@@ -925,6 +944,7 @@ const submitForm = (actionType) => {
     cursor: pointer;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
 }
 
@@ -936,6 +956,8 @@ const submitForm = (actionType) => {
     background: white;
     border-radius: 6px;
     border: 1.5px solid #e2e8f0;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 :deep(.ql-container.ql-snow) {
@@ -946,5 +968,47 @@ const submitForm = (actionType) => {
 :deep(.ql-toolbar.ql-snow) {
     border: none;
     border-bottom: 1.5px solid #e2e8f0;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .create-wrap {
+        gap: 14px;
+        padding-bottom: 80px;
+    }
+
+    .form-card {
+        padding: 14px 16px;
+        gap: 12px;
+    }
+
+    .submit-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 99;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+        border-top: 1px solid #e2e8f0;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(8px);
+        padding: 10px 16px;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+    }
+
+    .btn-cancel,
+    .btn-draft,
+    .btn-submit {
+        flex: 1;
+        padding: 10px 8px;
+        font-size: 13px;
+        text-align: center;
+        justify-content: center;
+        box-sizing: border-box;
+    }
 }
 </style>

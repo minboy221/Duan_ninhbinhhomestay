@@ -47,6 +47,9 @@ const profile = reactive({
 const handleFile = (field, e) => {
     const f = e.target.files[0]
     if (!f) return
+    if (field === 'avatar') {
+        profile.avatarFile = f
+    }
     const reader = new FileReader()
     reader.onload = (ev) => profile[field] = ev.target.result
     reader.readAsDataURL(f)
@@ -56,6 +59,7 @@ const form = useForm({
     name: '',
     phone: '',
     email: '',
+    avatar: null,
     bank_name: '',
     bank_account_no: '',
     bank_account_name: '',
@@ -65,11 +69,13 @@ const saveInfo = () => {
     form.name = profile.name
     form.phone = profile.phone
     form.email = profile.email
+    form.avatar = profile.avatarFile || null
     form.bank_name = profile.bank_name
     form.bank_account_no = profile.bank_account_no
     form.bank_account_name = profile.bank_account_name
     
     form.post(route('landlord.profile.update'), {
+        preserveScroll: true,
         onSuccess: () => {
             alert('Lưu thông tin chủ trọ thành công!')
         }
@@ -128,18 +134,7 @@ const statusConfig = {
                             <label class="form-label">Địa chỉ nhà trọ</label>
                             <input v-model="profile.address" class="form-input" />
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Tên ngân hàng (ví dụ: MBBank, Vietcombank...)</label>
-                            <input v-model="profile.bank_name" class="form-input" placeholder="MBBank, Vietcombank, Techcombank..." />
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Số tài khoản ngân hàng</label>
-                            <input v-model="profile.bank_account_no" class="form-input" placeholder="0912345678" />
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Tên chủ tài khoản ngân hàng (viết hoa không dấu)</label>
-                            <input v-model="profile.bank_account_name" class="form-input" placeholder="NGUYEN VAN A" />
-                        </div>
+
                         <div class="form-group">
                             <label class="form-label">Giới thiệu bản thân</label>
                             <textarea v-model="profile.bio" class="form-input form-textarea" rows="3" placeholder="Mô tả ngắn về bạn và nhà trọ..."></textarea>
@@ -180,14 +175,7 @@ const statusConfig = {
                             </div>
                         </div>
 
-                        <!-- Business license -->
-                        <div class="doc-section">
-                            <div class="doc-label">Hợp đồng kinh doanh / Sổ đỏ</div>
-                            <div class="doc-upload doc-wide" :class="{ 'doc-uploaded': profile.businessLicense }">
-                                <img v-if="profile.businessLicense" :src="profile.businessLicense" class="doc-img" />
-                                <div v-else class="doc-placeholder"><i class="bi bi-file-earmark-text"></i><span>Chưa có file</span></div>
-                            </div>
-                        </div>
+
 
                         <!-- Room photos -->
                         <div class="doc-section">

@@ -1,3 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Sử dụng 100% font chữ Arial cho giao diện chủ trọ */
+body.landlord-theme,
+body.landlord-theme *,
+.landlord-layout,
+.landlord-layout * {
+    font-family: Arial, sans-serif !important;
+}
+
+body.landlord-theme .font-black,
+body.landlord-theme .font-extrabold {
+    font-weight: 700 !important;
+}
+
