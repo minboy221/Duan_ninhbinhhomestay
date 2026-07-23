@@ -224,12 +224,18 @@ const getAvatarUrl = (avatar) => {
 
                                 <!-- THÊM BADGE TRẠNG THÁI PHÒNG Ở ĐÂY -->
                                 <div v-if="post.room?.status" style="margin-top: 4px;">
-                                    <span :class="[
-                                        'inline-flex items-center px-4 py-1.5 rounded-full text-[13px] font-semibold border',
-                                        getStatusClass(post.room.status)
-                                    ]">
-                                        {{ getStatusLabel(post.room.status) }}
-                                    </span>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span :class="[
+                                            'inline-flex items-center px-4 py-1.5 rounded-full text-[13px] font-semibold border',
+                                            getStatusClass(post.room.status)
+                                        ]">
+                                            {{ getStatusLabel(post.room.status) }}
+                                        </span>
+                                        <span v-if="post.room?.boarding_house?.average_rating > 0" class="text-yellow-500 font-bold" style="font-size: 13px;">
+                                            <i class="bi bi-star-fill"></i> {{ post.room.boarding_house.average_rating }}
+                                        </span>
+                                        <span v-else class="text-gray-400 italic" style="font-size: 13px;">Chưa có đánh giá</span>
+                                    </div>
                                     <div class="about_room">
                                         <p
                                             v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'">

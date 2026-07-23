@@ -124,7 +124,7 @@ class RoomListingController extends Controller
             'boardingHouses' => $boardingHouses
         ]);
     }
-    //Phần xoá tin đăng
+    // Phần xoá tin đăng
     public function destroy($id)
     {
         $post = RoomPost::findOrFail($id);
@@ -141,6 +141,13 @@ class RoomListingController extends Controller
         $this->roomPostService->deletePost($post);
         return redirect()->route('landlord.listings.index')
             ->with('success', 'Đã xoá bài đăng thành công!');
+    }
+
+    public function show($id)
+    {
+        $data = $this->roomPostService->getPostDetailsForLandlord($id, auth()->id());
+
+        return inertia('Landlord/Listings/Show', $data);
     }
 
     //Phần đóng tin đăng
