@@ -1,19 +1,34 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { Head } from '@inertiajs/vue3'
+import { Head,useForm } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
 
 const search     = ref('')
 const typeFilter = ref('all')
 const statusFilter = ref('all')
+const props = defineProps({
+    reports: {
+        type: Array,
+        default: () => []
+    },
+    negotiationDays: {
+        type: Number,
+        default: 2
+    }
+})
 
-const reports = ref([
-    { id:1, from:'Nguyễn Văn An', fromEmail:'vanan@gmail.com', target:'Tin đăng #1023 - Phòng trọ Hoa Lư', type:'tin_ao', date:'19/05/2026', status:'pending', note:'' },
-    { id:2, from:'Trần Thị Bình', fromEmail:'thibinh@gmail.com', target:'Chủ trọ: Lê Văn Cường', type:'ghosting', date:'18/05/2026', status:'resolved', note:'Đã cảnh cáo chủ trọ.' },
-    { id:3, from:'Phạm Thị Dung',  fromEmail:'thidung@gmail.com', target:'Tin đăng #1456 - Studio trung tâm', type:'lua_dao', date:'17/05/2026', status:'pending', note:'' },
-    { id:4, from:'Hoàng Văn Em',   fromEmail:'vanem@gmail.com',  target:'Chủ trọ: Đặng Thị Fang', type:'ghosting', date:'16/05/2026', status:'ignored', note:'' },
-    { id:5, from:'Bùi Văn Giang',  fromEmail:'vangiang@gmail.com', target:'Tin đăng #2001 - Nhà nguyên căn', type:'tin_ao', date:'15/05/2026', status:'pending', note:'' },
-])
+const settingsForm = useForm({
+    days: props.negotiationDays
+})
+
+function saveSettings() {
+    settingsForm.post(route('admin.reports.update-days'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            alert('Cập nhật thời hạn thương lượng thành công!')
+        }
+    })
+}
 
 const typeMap = {
     tin_ao:  { label:'Tin ảo',   class:'type-orange' },
@@ -27,14 +42,23 @@ const statusMap = {
     ignored:  { label:'Bỏ qua',   class:'s-gray'   },
 }
 
-const filtered = computed(() => reports.value.filter(r => {
+const filtered = computed(() => props.reports.filter(r => {
     const q = search.value.toLowerCase()
     const mSearch = !q || r.from.toLowerCase().includes(q) || r.target.toLowerCase().includes(q)
-    const mType   = typeFilter.value === 'all' || r.type === typeFilter.value
+    const mType   = typeFilter.value === 'all' || (
+        (typeFilter.value === 'tin_ao' && r.reason.toLowerCase().includes('ảo')) ||
+        (typeFilter.value === 'lua_dao' && r.reason.toLowerCase().includes('lừa đảo')) ||
+        (typeFilter.value === 'ghosting' && r.reason.toLowerCase().includes('chủ trọ')) ||
+        (r.reason && r.reason.toLowerCase().includes(typeFilter.value.toLowerCase()))
+    )
     const mStatus = statusFilter.value === 'all' || r.status === statusFilter.value
     return mSearch && mType && mStatus
 }))
 
+const updateForm = useForm({
+    status: '',
+    admin_note: ''
+})
 const showModal = ref(false)
 const selected  = ref(null)
 const adminNote = ref('')
@@ -42,10 +66,26 @@ const action    = ref('')
 
 function openReport(r) { selected.value = r; adminNote.value = r.note; showModal.value = true }
 function handleAction(act) {
-    action.value = act
-    selected.value.note   = adminNote.value
-    selected.value.status = act === 'resolve' ? 'resolved' : 'ignored'
-    showModal.value = false
+   //ánh xạ hành động sang trạng thái database
+   const statusMapAction = {
+        'resolve': 'resolved',
+        'ignore': 'ignored'
+   }
+
+   updateForm.status = statusMapAction[act] || 'resolved';
+   updateForm.admin_note = adminNote.value;
+
+   updateForm.patch(route('admin.reports.update',
+    selected.value.id),{
+        preserveScroll:true,
+        onSuccess: () => {
+            showModal.value = false;
+            alert('xử lý báo cáo thành công!');
+        },
+        onError: (errors) => {
+            alert(Object.values(errors).join('\n'));
+        }
+    });
 }
 </script>
 
@@ -59,23 +99,37 @@ function handleAction(act) {
             </div>
         </template>
 
+        <!-- Cấu hình thời hạn thương lượng -->
+        <div class="settings-box mb-6 p-4 bg-white rounded-lg border border-slate-200 flex justify-between items-center" style="background: #fff; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h3 class="font-bold text-slate-800 text-sm" style="margin: 0; font-size: 14px; font-weight: 700;">Hạn Tự Thương Lượng Của Hệ Thống</h3>
+                <p class="text-xs text-slate-400" style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">Số ngày tối đa để Chủ trọ và Khách thuê tự thương lượng khắc phục trước khi Admin can thiệp.</p>
+            </div>
+            <div class="flex items-center gap-2" style="display: flex; align-items: center; gap: 8px;">
+                <input v-model="settingsForm.days" type="number" min="1" max="30" class="border rounded p-1.5 w-20 text-center font-bold" style="width: 80px; padding: 6px; text-align: center; border: 1px solid #cbd5e1; border-radius: 6px;" />
+                <button @click="saveSettings" class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition" :disabled="settingsForm.processing" style="background: #4f46e5; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                    Lưu cấu hình
+                </button>
+            </div>
+        </div>
+
         <!-- Summary cards -->
         <div class="summary-row">
             <div class="sum-card sum-orange">
                 <i class="bi bi-hourglass-split"></i>
-                <div><p class="sum-num">{{ reports.filter(r=>r.status==='pending').length }}</p><p class="sum-lbl">Chờ xử lý</p></div>
+                <div><p class="sum-num">{{ props.reports.filter(r=>r.status==='pending').length }}</p><p class="sum-lbl">Chờ xử lý</p></div>
             </div>
             <div class="sum-card sum-green">
                 <i class="bi bi-check-circle-fill"></i>
-                <div><p class="sum-num">{{ reports.filter(r=>r.status==='resolved').length }}</p><p class="sum-lbl">Đã xử lý</p></div>
+                <div><p class="sum-num">{{ props.reports.filter(r=>r.status==='resolved').length }}</p><p class="sum-lbl">Đã xử lý</p></div>
             </div>
             <div class="sum-card sum-gray">
                 <i class="bi bi-dash-circle-fill"></i>
-                <div><p class="sum-num">{{ reports.filter(r=>r.status==='ignored').length }}</p><p class="sum-lbl">Bỏ qua</p></div>
+                <div><p class="sum-num">{{ props.reports.filter(r=>r.status==='ignored').length }}</p><p class="sum-lbl">Bỏ qua</p></div>
             </div>
             <div class="sum-card sum-blue">
                 <i class="bi bi-flag-fill"></i>
-                <div><p class="sum-num">{{ reports.length }}</p><p class="sum-lbl">Tổng cộng</p></div>
+                <div><p class="sum-num">{{ props.reports.length }}</p><p class="sum-lbl">Tổng cộng</p></div>
             </div>
         </div>
 
@@ -122,7 +176,7 @@ function handleAction(act) {
                             <p class="sm-gray">{{ r.fromEmail }}</p>
                         </td>
                         <td class="sm-target">{{ r.target }}</td>
-                        <td><span :class="['type-badge', typeMap[r.type]?.class]">{{ typeMap[r.type]?.label }}</span></td>
+                        <td><span class="type-badge type-gray">{{ r.reason }}</span></td>
                         <td class="sm-gray">{{ r.date }}</td>
                         <td><span :class="['status-chip', statusMap[r.status]?.class]">{{ statusMap[r.status]?.label }}</span></td>
                         <td style="text-align:center">

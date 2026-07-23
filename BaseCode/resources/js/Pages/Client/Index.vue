@@ -510,7 +510,6 @@ const scrollReview = (direction) => {
             </div>
         </section>
         <HomePopup />
-        <AppointmentCountdown />
     </MainLayout>
 </template>
 

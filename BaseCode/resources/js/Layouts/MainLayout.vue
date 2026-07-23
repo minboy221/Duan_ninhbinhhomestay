@@ -3,6 +3,7 @@ import { Link, usePage, router } from '@inertiajs/vue3'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useBackToTop, useDropdownMenu, useMobileDrawer } from '@/composables/main.js'
 import axios from 'axios'
+import AppointmentCountdown from '@/Components/AppointmentCountdown.vue';
 
 const { props } = usePage()
 const auth = computed(() => props.auth)
@@ -334,6 +335,7 @@ const getAvatarUrl = (avatar) => {
     </header>
     <main>
         <slot />
+        <AppointmentCountdown v-if="user" />
     </main>
     <!-- phần đăng ký -->
     <section class="dangky">

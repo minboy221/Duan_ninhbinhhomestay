@@ -213,7 +213,7 @@ watch(
         if (newVal) {
             showSuccessAlert.value = true;
             setTimeout(() => {
-                showSuccessAlert.value = flase;
+                showSuccessAlert.value = false;
             }, 4000);
         }
     },

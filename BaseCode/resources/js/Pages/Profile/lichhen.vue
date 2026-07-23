@@ -79,6 +79,20 @@ const isToday = (dateStr) => {
     const today = new Date().toISOString().split("T")[0];
     return dateStr === today;
 };
+
+// Cấu hình phân trang phía Client
+const currentPage = ref(1);
+const pageSize = ref(7);
+
+const totalPages = computed(() => {
+    return Math.ceil(props.appointments.length / pageSize.value);
+});
+
+const paginatedAppointments = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value;
+    const end = start + pageSize.value;
+    return props.appointments.slice(start, end);
+});
 </script>
 
 <template>
@@ -135,7 +149,7 @@ const isToday = (dateStr) => {
                                     Bạn chưa có lịch hẹn xem phòng nào.
                                 </td>
                             </tr>
-                            <tr v-for="apt in appointments" :key="apt.id" style="border-bottom: 1px solid #f1f5f9">
+                            <tr v-for="apt in paginatedAppointments" :key="apt.id" style="border-bottom: 1px solid #f1f5f9">
                                 <td style="padding: 12px 16px">
                                     <div style="font-weight: 600; color: #1e293b">
                                         Phòng {{ apt.room?.room_number }}
@@ -246,6 +260,38 @@ const isToday = (dateStr) => {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Phân trang -->
+                <div v-if="totalPages > 1" class="flex items-center justify-between border-t border-slate-100 pt-4 mt-4" style="display: flex; justify-content: space-between; align-items: center; padding-top: 16px; margin-top: 16px; border-top: 1px solid #f1f5f9;">
+                    <span class="text-xs text-slate-400 font-semibold" style="color: #94a3b8; font-size: 12px; font-weight: 600;">
+                        Hiển thị {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize, appointments.length) }} trong số {{ appointments.length }}
+                    </span>
+                    <div class="flex items-center gap-1" style="display: flex; gap: 4px; align-items: center;">
+                        <button @click="currentPage = Math.max(1, currentPage - 1)" :disabled="currentPage === 1"
+                            class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+                            style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; background: white; cursor: pointer; transition: all 0.2s;">
+                            <i class="bi bi-chevron-left" style="font-size: 10px;"></i>
+                        </button>
+                        
+                        <button v-for="p in totalPages" :key="p"
+                            @click="currentPage = p" :class="[
+                                'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
+                                currentPage === p
+                                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ]"
+                            style="width: 28px; height: 28px; border-radius: 8px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;"
+                            :style="currentPage === p ? 'background-color: #2563eb; border-color: #2563eb; color: white;' : 'background-color: white; border-color: #e2e8f0; color: #475569;'">
+                            {{ p }}
+                        </button>
+                        
+                        <button @click="currentPage = Math.min(totalPages, currentPage + 1)" :disabled="currentPage === totalPages"
+                            class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+                            style="width: 28px; height: 28px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; background: white; cursor: pointer; transition: all 0.2s;">
+                            <i class="bi bi-chevron-right" style="font-size: 10px;"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Leaflet Routing Map container -->

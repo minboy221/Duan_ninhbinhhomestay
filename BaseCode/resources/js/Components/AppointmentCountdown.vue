@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
-import { usePage } from "@inertiajs/vue3";
+import { usePage, Link } from "@inertiajs/vue3";
 import axios from "axios";
 
 const page = usePage();
@@ -11,7 +11,7 @@ let apiCheckInterval = null;
 
 //phần phục vụ cho khảo sát
 const showFeedbackModal = ref(false);
-const feedbackStep = ref(1); 
+const feedbackStep = ref(1);
 const selectedReason = ref("");
 const recommendedRooms = ref("");
 
@@ -53,7 +53,7 @@ const startCountdown = (apiTime) => {
             // Trường hợp 1: Sắp đến giờ hẹn
             const diffMins = Math.floor(diffMs / 60000);
             const diffSecs = Math.floor((diffMs % 60000) / 1000);
-            countdownText.value = `Còn ${diffMins}phút ${diffSecs}giây`;
+            countdownText.value = `Còn ${diffMins} phút ${diffSecs} giây`;
         } else {
             // Trường hợp 2: Đang diễn ra hoặc đã quá giờ hẹn
             countdownText.value = `Đang trong giờ hẹn xem phòng`;
@@ -125,28 +125,60 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div v-if="todayApt && !showFeedbackModal"
-        class="fixed bottom-6 left-6 z-50 bg-white border border-slate-100 shadow-2xl rounded-3xl p-4 max-w-sm flex items-start gap-3 transform transition-all duration-500 hover:scale-105">
-        <div class="p-3 bg-blue-50 text-blue-500 rounded-2xl flex-shrink-0 animate-pulse">
-            <i class="bi bi-geo-alt-fill text-xl"></i>
-        </div>
-        <div class="space-y-1">
-            <h4 class="text-xs font-bold text-slate-800">
-                Hôm nay bạn có lịch xem phòng!
-            </h4>
-            <p class="text-[11px] text-slate-500 font-semibold line-clamp-1">
-                {{ todayApt.room_name }} — {{ todayApt.address }}
-            </p>
-            <div class="flex items-center gap-2 pt-1">
-                <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                    Giờ: {{ todayApt.time }}
-                </span>
-                <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    {{ countdownText }}
-                </span>
+    <Link v-if="todayApt && !showFeedbackModal"
+        :href="route('profile.appointments')"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 sm:left-6 sm:translate-x-0 z-[999] w-[92%] sm:w-[380px] overflow-hidden rounded-2xl sm:rounded-3xl border border-white/40 bg-white/95 backdrop-blur-xl shadow-[0_15px_40px_rgba(15,23,42,0.15)] transition-all duration-300 hover:-translate-y-1 block cursor-pointer hover:no-underline text-slate-700">
+        <!-- Top gradient -->
+        <div class="h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400"></div>
+
+        <div class="flex items-center gap-3 p-3 sm:p-5">
+            <!-- Icon -->
+            <div
+                class="relative flex h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 text-white shadow-lg">
+                <i class="bi bi-house-door-fill text-lg sm:text-2xl"></i>
+
+                <span
+                    class="absolute -top-1 -right-1 h-3 w-3 sm:h-4 sm:w-4 rounded-full bg-red-500 border-2 border-white animate-pulse"></span>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                    <span
+                        class="rounded-full bg-blue-100 px-2 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-[10px] font-bold uppercase text-blue-700">
+                        Hôm nay
+                    </span>
+                </div>
+
+                <h3 class="mt-1 text-sm sm:text-base font-bold text-slate-800 truncate">
+                    Bạn có lịch xem phòng
+                </h3>
+
+                <p class="text-xs sm:text-sm font-semibold text-slate-700 truncate">
+                    {{ todayApt.room_name }}
+                </p>
+
+                <p class="hidden sm:block text-xs text-slate-500 truncate">
+                    <i class="bi bi-geo-alt-fill mr-1 text-blue-500"></i>
+                    {{ todayApt.address }}
+                </p>
+
+                <div class="mt-2 flex flex-wrap gap-2">
+                    <span
+                        class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] sm:text-xs font-semibold text-blue-700">
+                        <i class="bi bi-clock-fill"></i>
+                        {{ todayApt.time }}
+                    </span>
+
+                    <span
+                        class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] sm:text-xs font-semibold text-emerald-700">
+                        <i class="bi bi-hourglass-split"></i>
+                        {{ countdownText }}
+                    </span>
+                </div>
             </div>
         </div>
-    </div>
+    </Link>
 
     <div v-if="showFeedbackModal && todayApt" class="feedback-modal-overlay" @click.self="closeFeedback">
         <div class="feedback-modal-container">
@@ -169,8 +201,10 @@ onUnmounted(() => {
                     <div class="step-header">
                         <h3>Bạn vừa đi xem phòng xong đúng không?</h3>
                         <p>
-                            Căn phòng thực tế tại 
-                            <span class="room-highlight">{{ todayApt.room_name }}</span> 
+                            Căn phòng thực tế tại
+                            <span class="room-highlight">{{
+                                todayApt.room_name
+                                }}</span>
                             thế nào ạ?
                         </p>
                     </div>
@@ -188,12 +222,14 @@ onUnmounted(() => {
                 <div v-if="feedbackStep === 2" class="step-content step-2">
                     <div class="step-header text-left">
                         <h3>Home Stay rất tiếc...</h3>
-                        <p>Bạn có thể chia sẻ lý do không ưng để hệ thống cải thiện không?</p>
+                        <p>
+                            Bạn có thể chia sẻ lý do không ưng để hệ thống cải
+                            thiện không?
+                        </p>
                     </div>
 
                     <div class="reasons-list">
-                        <label v-for="r in dislikeReasons" :key="r"
-                            class="reason-card"
+                        <label v-for="r in dislikeReasons" :key="r" class="reason-card"
                             :class="{ active: selectedReason === r }">
                             <input type="radio" v-model="selectedReason" :value="r" class="reason-radio" />
                             <span>{{ r }}</span>
@@ -210,20 +246,27 @@ onUnmounted(() => {
                     <div class="step-header text-left">
                         <h3>HomeStay tìm cho bạn phòng tốt hơn nè!</h3>
                         <p>
-                            Dựa vào lý do "<span class="reason-highlight">{{ selectedReason }}</span>", xem thử các phòng này nhé:
+                            Dựa vào lý do "<span class="reason-highlight">{{
+                                selectedReason
+                                }}</span>", xem thử các phòng này nhé:
                         </p>
                     </div>
 
                     <div class="recommendations-list">
                         <div v-if="recommendedRooms.length === 0" class="no-recommendations">
-                            Hiện tại chưa tìm thấy phòng nào phù hợp hơn lý do này.
+                            Hiện tại chưa tìm thấy phòng nào phù hợp hơn lý do
+                            này.
                         </div>
                         <a v-else v-for="post in recommendedRooms" :key="post.id" :href="'/chitiettro/' + post.id"
                             class="recommend-item">
-                            <img :src="post.thumbnail || '/images/default-room.jpg'" class="recommend-img" />
+                            <img :src="post.thumbnail || '/images/default-room.jpg'
+                                " class="recommend-img" />
                             <div class="recommend-info">
                                 <h4>{{ post.title }}</h4>
-                                <p class="recommend-price">{{ Number(post.price).toLocaleString() }} đ/tháng</p>
+                                <p class="recommend-price">
+                                    {{ Number(post.price).toLocaleString() }}
+                                    đ/tháng
+                                </p>
                             </div>
                             <i class="bi bi-chevron-right recommend-arrow"></i>
                         </a>
@@ -264,16 +307,19 @@ onUnmounted(() => {
     max-width: 860px;
     min-height: 480px;
     position: relative;
-    box-shadow: 
+    box-shadow:
         0 25px 50px -12px rgba(0, 0, 0, 0.25),
         inset 0 0 20px rgba(255, 255, 255, 0.5);
     display: flex;
     align-items: stretch;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family:
+        system-ui,
+        -apple-system,
+        sans-serif;
 }
 
 .popup-image-wrapper {
-   position: absolute;
+    position: absolute;
     left: -387px;
     bottom: -1px;
     width: 100%;
@@ -332,6 +378,7 @@ onUnmounted(() => {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -341,8 +388,8 @@ onUnmounted(() => {
 .step-icon {
     width: 52px;
     height: 52px;
-    background: #ecfdf5;
-    color: #10b981;
+    background: #c5eaff;
+    color: #45abe6;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -560,11 +607,11 @@ onUnmounted(() => {
         max-width: 480px;
         min-height: auto;
     }
-    
+
     .popup-image-wrapper {
         display: none;
     }
-    
+
     .feedback-modal-content {
         margin-left: 0;
         padding: 30px 24px;

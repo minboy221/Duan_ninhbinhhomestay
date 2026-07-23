@@ -5,7 +5,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="apple-touch-icon" href="/anh/logoPWA192x192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
     <title inertia>{{ config('app.name', 'Ninh Bình StayWork') }}</title>
 
     <link rel="icon" type="image/png" href="{{ asset('anh/logo_icon.png') }}">

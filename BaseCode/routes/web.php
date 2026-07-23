@@ -1,5 +1,4 @@
 <?php
-
 use App\Http\Controllers\AdminVerificationController;
 // Phần hồ sơ
 use App\Http\Controllers\ProfileController;
@@ -17,13 +16,15 @@ use App\Http\Controllers\AuthController;
 use Illuminate\Foundation\Application;
 // Phần xác minh thông tin chủ trọ
 use App\Http\Controllers\Api\VerificationController;
-
 //Phần đặt lịch xem phòng
 use App\Http\Controllers\Client\PublicListingController;
+//Phần nhận báo cáo
+use App\Http\Controllers\ReportController;
 
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\AdminPostController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Response;
 use Inertia\Inertia;
 
 /*
@@ -158,6 +159,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::patch('/categories/amenities/{id}/toggle', [CategoryController::class, 'toggleAmenity'])->name('admin.categories.amenities.toggle');
 
     Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
+    Route::patch('/reports/{id}', [AdminController::class, 'updateReport'])->name('admin.reports.update');
+    Route::post('/reports/settings/days', [AdminController::class, 'updateReportDays'])->name('admin.reports.update-days');
     Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
     Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
     Route::get('/roles', [AdminController::class, 'roles'])->name('admin.roles');
@@ -200,6 +203,8 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::post('/profile', [LandlordController::class, 'updateProfile'])->name('landlord.profile.update');
     Route::get('/rooms', [LandlordController::class, 'rooms'])->name('landlord.rooms');
 
+    //Phần tiếp nhận báo cáo của chủ trọ
+    Route::get('/reports', [ReportController::class,'landlordIndex'])->name('landlord.reports.index');
     // CRUD routes cho Tầng
     Route::post('/floors', [LandlordController::class, 'storeFloor'])->name('landlord.floors.store');
     Route::put('/floors/{id}', [LandlordController::class, 'updateFloor'])->name('landlord.floors.update');
@@ -232,7 +237,6 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::post('/appointments/{id}/reject', [LandlordController::class, 'rejectAppointment'])->name('landlord.appointments.reject');
     Route::get('/appointments/availabilities', [LandlordController::class, 'editAvailabilities'])->name('landlord.availabilities.edit');
     Route::post('/appointments/availabilities', [LandlordController::class, 'storeAvailabilities'])->name('landlord.availabilities.store');
-
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
     
@@ -290,5 +294,26 @@ Route::middleware(['auth'])->group(function () {
         return response()->json(['status' => 'success']);
     })->name('user.ping');
 });
+
+//Phần dành cho báo cáo
+Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
+    Route::get('/',[ReportController::class, 'index'])->name('index');
+    Route::post('/',[ReportController::class,'store'])->name('store');
+    Route::post('/{id}/self-resolve',[ReportController::class, 'resolveSelf'])->name('self-resolve');
+});
+
+// Phần dành cho PWA 
+Route::get('/sw.js',function(){
+    return response()->file(public_path('build/sw.js'), [
+        'Content-Type' => 'application/javascript',
+    ]);
+});
+
+Route::get('/manifest.webmanifest', function () {
+    return response()->file(public_path('build/manifest.webmanifest'), [
+        'Content-Type' => 'application/manifest+json',
+    ]);
+});
+
 require __DIR__ . '/auth.php';
 

@@ -37,4 +37,9 @@ class Property extends Model
     {
         return $this->hasMany(Floor::class)->orderBy('sort_order');
     }
+
+     //phần nhận báo cáo
+    public function reports(){
+        return $this->morphMany(\App\Models\Report::class,'reportable');
+    }
 }

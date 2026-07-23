@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Report;
 use App\Models\RoomPost;
 use App\Services\RoomListingService;
 use Illuminate\Http\Request;
@@ -142,9 +143,83 @@ class AdminController extends Controller
         return Inertia::render('Admin/Category/index');
     }
 
+    //Phần tiếp nhận báo cáo
     public function reports()
     {
-        return Inertia::render('Admin/Reports/index');
+        $negotiationDays = \App\Models\Setting::where('key', 'report_negotiation_days')->value('value') ?? 2;
+
+        //lấy toàn bộ báo cáo cùng các quan hệ liên quan
+        $reports = Report::with(['reportable', 'reporter', 'resolver'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($report) {
+                // Tạo tên hiển thị cho đối tượng bị báo cáo (phòng trọ, hóa đơn, hợp đồng)
+                $targetText = 'N/A';
+                if ($report->reportable) {
+                    if ($report->reportable_type === \App\Models\Room::class) {
+                        $targetText = 'Phòng ' . $report->reportable->room_number . ' - ' . ($report->reportable->boardingHouse->name ?? '');
+                    } elseif ($report->reportable_type === \App\Models\Invoice::class) {
+                        $targetText = 'Hóa đơn #' . $report->reportable->invoice_code;
+                    } elseif ($report->reportable_type === \App\Models\Contract::class) {
+                        $targetText = 'Hợp đồng #' . $report->reportable->id;
+                    } else {
+                        $targetText = class_basename($report->reportable_type) . ' #' . $report->reportable->id;
+                    }
+                }
+
+                $isExpired = $report->negotiation_deadline ? now()->gt($report->negotiation_deadline) : false;
+                $canAdminResolve = ($isExpired && $report->status === 'pending') || ($report->status === 'pending' && $report->target_resolved);
+
+                return [
+                    'id' => $report->id,
+                    'from' => $report->reporter->name ?? 'Người dùng ẩn danh',
+                    'fromEmail' => $report->reporter->email ?? '',
+                    'target' => $targetText,
+                    'reason' => $report->reason,
+                    'description' => $report->description,
+                    'date' => $report->created_at->format('d/m/Y'),
+                    'status' => $report->status, // pending, investigating, resolved, rejected
+                    'note' => $report->admin_note ?? '',
+                    'is_expired' => $isExpired,
+                    'can_admin_resolve' => $canAdminResolve,
+                ];
+            });
+
+        return Inertia::render('Admin/Reports/index', [
+            'reports' => $reports,
+            'negotiationDays' => (int) $negotiationDays
+        ]);
+    }
+
+    //phương thức cập nhật trạng thái báo cáo cho admin
+    public function updateReport(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|in:resolved,ignored,rejected',
+            'admin_note' => 'nullable|string|max:1000',
+        ]);
+        $report = Report::findOrFail($id);
+        $report->update([
+            'status' => $request->status,
+            'admin_note' => $request->admin_note,
+            'resolved_by' => auth()->id(),
+            'resolved_at' => now(),
+        ]);
+        return redirect()->back()->with('success', 'Cập nhật trạng thái báo cáo thành công');
+    }
+
+    public function updateReportDays(Request $request)
+    {
+        $request->validate([
+            'days' => 'required|integer|min:1|max:30'
+        ]);
+
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'report_negotiation_days'],
+            ['value' => $request->days]
+        );
+
+        return redirect()->back()->with('success', 'Cập nhật thời hạn thương lượng thành công.');
     }
 
     public function reviews()
@@ -169,7 +244,7 @@ class AdminController extends Controller
 
     public function website()
     {
-        $settings = \App\Models\Setting::pluck('value', 'key')->map(function($val) {
+        $settings = \App\Models\Setting::pluck('value', 'key')->map(function ($val) {
             $decoded = json_decode($val, true);
             return is_array($decoded) ? $decoded : $val;
         });
@@ -189,6 +264,8 @@ class AdminController extends Controller
             'contact_address' => 'required|string|max:255',
             'contact_map' => 'nullable|string|max:1000',
             'banners' => 'nullable|array',
+            //cấu hình thời hạn báo cáo
+            'report_negotiation_dáy' => 'required|integer|min:1|max:30',
         ], [
             'hero_title.required' => 'Tiêu đề chính không được để trống.',
             'hero_subtitle.required' => 'Mô tả phụ không được để trống.',
@@ -196,8 +273,11 @@ class AdminController extends Controller
             'contact_email.required' => 'Email không được để trống.',
             'contact_email.email' => 'Email không đúng định dạng.',
             'contact_address.required' => 'Địa chỉ không được để trống.',
+            'report_negotiation_days.required' => 'Thời hạn thương lượng không được để trống.',
+            'report_negotiation_days.integer' => 'Thời hạn thương lượng phải là số nguyên.',
+            'report_negotiation_days.min' => 'Thời hạn tối thiểu là 1 ngày.',
         ]);
-
+        \App\Models\Setting::updateOrCreate(['key' => 'report_negotiation_days'],['value' => $request->report_negotiation_days]);
         \App\Models\Setting::updateOrCreate(['key' => 'hero_title'], ['value' => $request->hero_title]);
         \App\Models\Setting::updateOrCreate(['key' => 'hero_subtitle'], ['value' => $request->hero_subtitle]);
         \App\Models\Setting::updateOrCreate(['key' => 'contact_phone'], ['value' => $request->contact_phone]);
@@ -222,7 +302,7 @@ class AdminController extends Controller
             // Đảm bảo active là boolean
             $banner['active'] = filter_var($banner['active'], FILTER_VALIDATE_BOOLEAN);
             // Đảm bảo order là integer
-            $banner['order'] = (int)$banner['order'];
+            $banner['order'] = (int) $banner['order'];
         }
 
         \App\Models\Setting::updateOrCreate(['key' => 'banners'], ['value' => json_encode(array_values($banners), JSON_UNESCAPED_UNICODE)]);

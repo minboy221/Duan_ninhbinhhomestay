@@ -70,6 +70,7 @@ const navGroups = [
                     { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
                 ]
             },
+            { label: 'Khiếu Nại', path: '/landlord/reports', icon: 'bi-exclamation-triangle' },
         ]
     },
     {

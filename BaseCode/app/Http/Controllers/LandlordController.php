@@ -346,6 +346,10 @@ class LandlordController extends Controller
             'availabilities.*.start_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i',
             'availabilities.*.end_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i|after:availabilities.*.start_time',
         ], [
+            'cancel_after_minutes.required' => 'Vui lòng nhập thời gian tự động hủy lịch.',
+            'cancel_after_minutes.integer' => 'Thời gian tự động hủy lịch phải là số phút.',
+            'cancel_after_minutes.min' => 'Thời gian tự động hủy lịch hẹn phải tối thiểu là 5 phút.',
+            'cancel_after_minutes.max' => 'Thời gian tự động hủy lịch hẹn không được vượt quá 1440 phút (24 giờ).',
             'availabilities.*.end_time.after' => 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu.',
             'availabilities.*.start_time.required_if' => 'Vui lòng chọn giờ bắt đầu.',
             'availabilities.*.end_time.required_if' => 'Vui lòng chọn giờ kết thúc.',
@@ -379,7 +383,6 @@ class LandlordController extends Controller
         }
         return redirect()->back()->with('success', 'cập nhật khung giờ cho cơ sở thành công');
     }
-
 
     public function tenants()
     {

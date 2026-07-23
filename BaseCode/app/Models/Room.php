@@ -44,7 +44,7 @@ class Room extends Model
     // quan hệ phòng thuộc về một nhà trọ
     public function boardingHouse()
     {
-        return $this->belongsTo(boardingHouse::class, 'boarding_house_id');
+        return $this->belongsTo(BoardingHouse::class, 'boarding_house_id');
     }
 
     //quan hệ:phòng thuộc về 1 tầng
