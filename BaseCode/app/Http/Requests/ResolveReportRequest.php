@@ -22,7 +22,7 @@ class ResolveReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'response_note' => 'required|string|max:1000',
+            'response_note' => 'nullable|string|max:1000',
             'response_evidence' => 'nullable|array|max:5',
             'response_evidence.*' => 'image|mimes:jpeg,png,jpg|max:2048',
             'action' => 'required|in:target_resolve,reporter_accept,escalate_admin',

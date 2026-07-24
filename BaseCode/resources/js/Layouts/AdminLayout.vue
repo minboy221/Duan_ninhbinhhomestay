@@ -69,6 +69,16 @@ const navGroups = [
                 label: "Báo Cáo & Khiếu Nại",
                 path: "/admin/reports",
                 icon: "bi-flag-fill",
+                children: [
+                    {
+                        label: "Danh Sách Khiếu Nại",
+                        path: "/admin/reports",
+                    },
+                    {
+                        label: "Lý Do Báo Cáo",
+                        path: "/admin/report-reasons",
+                    }
+                ]
             },
             { label: "Đánh Giá", path: "/admin/reviews", icon: "bi-star-fill" },
         ],
@@ -109,6 +119,24 @@ const navGroups = [
         ],
     },
 ];
+
+const expandedMenus = ref({})
+
+const isMenuExpanded = (item) => {
+    if (expandedMenus.value[item.path] !== undefined) {
+        return expandedMenus.value[item.path]
+    }
+    return item.children && item.children.some(c => isActive(c.path))
+}
+
+const toggleMenu = (path) => {
+    if (expandedMenus.value[path] === undefined) {
+        const item = navGroups.flatMap(g => g.items).find(i => i.path === path)
+        expandedMenus.value[path] = !(item && item.children && item.children.some(c => isActive(c.path)))
+    } else {
+        expandedMenus.value[path] = !expandedMenus.value[path]
+    }
+}
 </script>
 
 <template>
@@ -142,21 +170,50 @@ const navGroups = [
                         v-else-if="group.label && !sidebarOpen"
                         class="nav-divider"
                     ></div>
-                    <Link
-                        v-for="item in group.items"
-                        :key="item.path"
-                        :href="item.path"
-                        :class="[
-                            'nav-item',
-                            isActive(item.path) ? 'nav-item-active' : '',
-                        ]"
-                        :title="!sidebarOpen ? item.label : ''"
-                    >
-                        <i :class="['bi', item.icon, 'nav-icon']"></i>
-                        <span v-if="sidebarOpen" class="nav-label">{{
-                            item.label
-                        }}</span>
-                    </Link>
+                    <div v-for="item in group.items" :key="item.path" class="flex flex-col" style="display: flex; flex-direction: column; position: relative;">
+                        <Link
+                            :href="item.path"
+                            :class="[
+                                'nav-item',
+                                isActive(item.path) && !item.children ? 'nav-item-active' : '',
+                                (item.children && item.children.some(c => isActive(c.path))) ? 'bg-white/5 text-slate-200' : ''
+                            ]"
+                            :style="item.children && sidebarOpen ? 'padding-right: 36px;' : ''"
+                            :title="!sidebarOpen ? item.label : ''"
+                        >
+                            <i :class="['bi', item.icon, 'nav-icon']"></i>
+                            <span v-if="sidebarOpen" class="nav-label">{{
+                                item.label
+                            }}</span>
+                        </Link>
+
+                        <!-- Nút mũi tên đóng/mở Dropdown -->
+                        <button
+                            v-if="item.children && sidebarOpen"
+                            @click.prevent.stop="toggleMenu(item.path)"
+                            class="absolute right-2 top-[5px] w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all z-10"
+                            style="border: none; background: transparent; cursor: pointer;"
+                        >
+                            <i :class="['bi', isMenuExpanded(item) ? 'bi-chevron-up' : 'bi-chevron-down']" style="font-size: 11px;"></i>
+                        </button>
+                        
+                        <!-- Submenu (Chỉ hiển thị khi mở rộng dropdown) -->
+                        <div v-if="item.children && sidebarOpen && isMenuExpanded(item)" class="pl-6 flex flex-col gap-1 mt-1" style="display: flex; flex-direction: column; gap: 4px; padding-left: 24px; margin-top: 4px;">
+                            <Link
+                                v-for="sub in item.children"
+                                :key="sub.path"
+                                :href="sub.path"
+                                :class="[
+                                    'nav-item py-1 text-xs border-l border-slate-700/50',
+                                    isActive(sub.path) ? 'text-blue-400 font-bold border-blue-500' : 'text-slate-400 hover:text-slate-200'
+                                ]"
+                                style="background: transparent; box-shadow: none; padding-top: 4px; padding-bottom: 4px; padding-left: 12px; font-size: 12px; border-left: 2px solid rgba(255,255,255,0.15);"
+                                :style="isActive(sub.path) ? 'color: #3b82f6; border-left-color: #3b82f6;' : 'color: #94a3b8;'"
+                            >
+                                {{ sub.label }}
+                            </Link>
+                        </div>
+                    </div>
                 </template>
             </nav>
 

@@ -1,6 +1,6 @@
 <script setup>
 import UserLayout from "@/Layouts/UserLayout.vue";
-import { Head, useForm } from "@inertiajs/vue3";
+import { Head, Link, useForm } from "@inertiajs/vue3";
 import { ref } from "vue";
 
 const props = defineProps({
@@ -52,7 +52,7 @@ function handleSelfResolve(actionType) {
         preserveScroll: true,
         onSuccess: () => {
             showDetailModal.value = false;
-            alert("Cập nhật trạng thái thành công!");
+            // alert("Cập nhật trạng thái thành công!");
         },
         onError: (err) => {
             alert(Object.values(err).join("\n"));
@@ -103,12 +103,10 @@ function handleSelfResolve(actionType) {
                                 <td class="text-xs text-slate-600">
                                     <span class="type-pill">
                                         {{
-                                            r.reportable_type ===
-                                                "App\\Models\\Room"
-                                                ? "Phòng trọ"
-                                                : "Hóa đơn"
+                                            r.reportable_type === "App\\Models\\Room"
+                                                ? ("Phòng " + (r.reportable?.room_number || r.reportable_id))
+                                                : ("Hóa đơn #" + (r.reportable?.invoice_code || r.reportable_id))
                                         }}
-                                        #{{ r.reportable_id }}
                                     </span>
                                 </td>
                                 <td class="text-xs text-slate-500">
@@ -136,13 +134,36 @@ function handleSelfResolve(actionType) {
                     </table>
                 </div>
 
-                <!-- Modal xem chi tiết và tự xử lý thương lượng -->
+                <!-- Phân trang -->
+                <div class="flex justify-center items-center gap-1.5 mt-6" v-if="reports.links && reports.links.length > 3">
+                    <template v-for="(link, index) in reports.links" :key="index">
+                        <div :class="[
+                            'border border-slate-200 rounded-lg overflow-hidden transition-all text-xs font-semibold',
+                            {
+                                'bg-indigo-600 border-indigo-600 text-white': link.active,
+                                'bg-white text-slate-700 hover:bg-slate-50': !link.active && link.url,
+                                'bg-slate-50 text-slate-400 cursor-not-allowed': !link.url
+                            }
+                        ]">
+                            <Link v-if="link.url" :href="link.url" v-html="link.label" class="px-3.5 py-2 block text-white" :style="!link.active ? 'color: #334155;' : ''"></Link>
+                            <span v-else v-html="link.label" class="px-3.5 py-2 block text-slate-400"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </UserLayout>
+    <!-- Modal xem chi tiết và tự xử lý thương lượng -->
                 <div v-if="showDetailModal && selectedReport" class="modal-backdrop">
                     <div class="modal-content-box">
                         <div class="modal-header-custom">
                             <h3>
                                 <i class="bi bi-flag-fill text-indigo-500"></i>
-                                Chi Tiết Báo Cáo #{{ selectedReport.id }}
+                                {{
+                                    selectedReport.reportable_type === 'App\\Models\\Room'
+                                        ? ("Chi Tiết Báo Cáo Phòng " + (selectedReport.reportable?.room_number || selectedReport.reportable_id))
+                                        : ("Chi Tiết Báo Cáo Hóa Đơn #" + (selectedReport.reportable?.invoice_code || selectedReport.reportable_id))
+                                }}
                             </h3>
                             <button @click="showDetailModal = false" class="btn-close">
                                 &times;
@@ -172,7 +193,7 @@ function handleSelfResolve(actionType) {
                                 <span class="field-label">Ảnh bằng bằng chứng</span>
                                 <div class="image-grid mt-2">
                                     <img v-for="(
-img, index
+                                            img, index
                                         ) in selectedReport.evidence_images" :key="index" :src="'/storage/' + img"
                                         class="evidence-image" />
                                 </div>
@@ -199,7 +220,7 @@ img, index
                                     <span class="field-label text-indigo-600">Ảnh chứng minh đã khắc phục:</span>
                                     <div class="image-grid mt-1">
                                         <img v-for="(
-img, idx
+                                            img, idx
                                             ) in selectedReport.response_evidence" :key="idx" :src="'/storage/' + img"
                                             class="evidence-image border-indigo-200" />
                                     </div>
@@ -231,9 +252,6 @@ img, idx
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </UserLayout>
 </template>
 <style scoped>
 @import "../../css/listbaocao.css";

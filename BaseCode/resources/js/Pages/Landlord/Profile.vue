@@ -50,31 +50,34 @@ const profile = reactive({
 });
 
 const handleFile = (field, e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => (profile[field] = ev.target.result);
-    reader.readAsDataURL(f);
-};
+    const f = e.target.files[0]
+    if (!f) return
+    if (field === 'avatar') {
+        profile.avatarFile = f
+    }
+    const reader = new FileReader()
+    reader.onload = (ev) => profile[field] = ev.target.result
+    reader.readAsDataURL(f)
+}
 
 const form = useForm({
-    name: "",
-    phone: "",
-    email: "",
-    bank_name: "",
-    bank_account_no: "",
-    bank_account_name: "",
-});
+    name: '',
+    phone: '',
+    email: '',
+    bank_name: '',
+    bank_account_no: '',
+    bank_account_name: '',
+})
 
 const saveInfo = () => {
-    form.name = profile.name;
-    form.phone = profile.phone;
-    form.email = profile.email;
-    form.bank_name = profile.bank_name;
-    form.bank_account_no = profile.bank_account_no;
-    form.bank_account_name = profile.bank_account_name;
-
-    form.post(route("landlord.profile.update"), {
+    form.name = profile.name
+    form.phone = profile.phone
+    form.email = profile.email
+    form.bank_name = profile.bank_name
+    form.bank_account_no = profile.bank_account_no
+    form.bank_account_name = profile.bank_account_name
+    
+    form.post(route('landlord.profile.update'), {
         onSuccess: () => {
             alert('Lưu thông tin chủ trọ thành công!')
         }
@@ -159,18 +162,15 @@ const statusConfig = {
                             <input v-model="profile.address" class="form-input" />
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Tên ngân hàng (ví dụ: MBBank,
-                                Vietcombank...)</label>
-                            <input v-model="profile.bank_name" class="form-input"
-                                placeholder="MBBank, Vietcombank, Techcombank..." />
+                            <label class="form-label">Tên ngân hàng (ví dụ: MBBank, Vietcombank...)</label>
+                            <input v-model="profile.bank_name" class="form-input" placeholder="MBBank, Vietcombank, Techcombank..." />
                         </div>
                         <div class="form-group">
                             <label class="form-label">Số tài khoản ngân hàng</label>
                             <input v-model="profile.bank_account_no" class="form-input" placeholder="0912345678" />
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Tên chủ tài khoản ngân hàng (viết hoa không
-                                dấu)</label>
+                            <label class="form-label">Tên chủ tài khoản ngân hàng (viết hoa không dấu)</label>
                             <input v-model="profile.bank_account_name" class="form-input" placeholder="NGUYEN VAN A" />
                         </div>
                         <div class="form-group">
@@ -237,16 +237,10 @@ const statusConfig = {
 
                         <!-- Business license -->
                         <div class="doc-section">
-                            <div class="doc-label">
-                                Hợp đồng kinh doanh / Sổ đỏ
-                            </div>
-                            <div class="doc-upload doc-wide" :class="{
-                                'doc-uploaded': profile.businessLicense,
-                            }">
+                            <div class="doc-label">Hợp đồng kinh doanh / Sổ đỏ</div>
+                            <div class="doc-upload doc-wide" :class="{ 'doc-uploaded': profile.businessLicense }">
                                 <img v-if="profile.businessLicense" :src="profile.businessLicense" class="doc-img" />
-                                <div v-else class="doc-placeholder">
-                                    <i class="bi bi-file-earmark-text"></i><span>Chưa có file</span>
-                                </div>
+                                <div v-else class="doc-placeholder"><i class="bi bi-file-earmark-text"></i><span>Chưa có file</span></div>
                             </div>
                         </div>
 
@@ -268,337 +262,5 @@ const statusConfig = {
 </template>
 
 <style scoped>
-.prof-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-/* Verify Banner */
-.verify-banner {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    border-radius: 8px;
-    padding: 14px 20px;
-    font-size: 14px;
-}
-
-.verify-banner i {
-    font-size: 24px;
-    flex-shrink: 0;
-}
-
-.vb-text {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.vb-label {
-    font-weight: 600;
-}
-
-.vb-desc {
-    font-size: 12px;
-    opacity: 0.85;
-}
-
-.vs-unverified {
-    background: #fef2f2;
-    color: #b91c1c;
-    border: 1.5px solid #fecaca;
-}
-
-.vs-pending {
-    background: #fffbeb;
-    color: #92400e;
-    border: 1.5px solid #fcd34d;
-}
-
-.vs-verified {
-    background: #f0fdf4;
-    color: #065f46;
-    border: 1.5px solid #6ee7b7;
-}
-
-/* Layout */
-.prof-cols {
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    gap: 20px;
-    align-items: flex-start;
-}
-
-.prof-left,
-.prof-right {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.prof-card {
-    background: #fff;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    border: 1px solid #f0fdf4;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-/* Avatar */
-.avatar-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid #f0fdf4;
-}
-
-.avatar-box {
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
-    overflow: hidden;
-    border: 3px solid #6ee7b7;
-}
-
-.avatar-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.avatar-placeholder {
-    width: 100%;
-    height: 100%;
-    background: #0f766e;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 36px;
-}
-
-.avatar-change {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    background: #f0fdf4;
-    color: #0f766e;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid #d1fae5;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.form-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #374151;
-}
-
-.form-input {
-    padding: 9px 12px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 14px;
-    outline: none;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.form-input:focus {
-    border-color: #0f766e;
-}
-
-.form-textarea {
-    resize: vertical;
-    font-family: inherit;
-}
-
-.btn-save-info {
-    padding: 10px;
-    background: #0f766e;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.btn-save-info:hover {
-    background: #0d9488;
-}
-
-/* Docs */
-.sec-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #064e3b;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-
-.sec-desc {
-    font-size: 13px;
-    color: #6b7280;
-    margin: 0;
-}
-
-.doc-section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid #f0fdf4;
-}
-
-.doc-section:last-of-type {
-    border-bottom: none;
-}
-
-.doc-label {
-    font-size: 12px;
-    font-weight: 700;
-    color: #374151;
-}
-
-.doc-row {
-    display: flex;
-    gap: 10px;
-}
-
-.doc-upload {
-    flex: 1;
-    border: 2px dashed #d1fae5;
-    border-radius: 6px;
-    min-height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    overflow: hidden;
-    transition: border-color 0.15s;
-    position: relative;
-}
-
-.doc-upload:hover {
-    border-color: #0f766e;
-}
-
-.doc-uploaded {
-    border-color: #0f766e !important;
-    border-style: solid !important;
-}
-
-.doc-portrait {
-    height: 120px;
-    max-width: 150px;
-}
-
-.doc-wide {
-    width: 100%;
-    height: 100px;
-}
-
-.doc-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    color: #9ca3af;
-}
-
-.doc-placeholder i {
-    font-size: 28px;
-    color: #6ee7b7;
-}
-
-.doc-placeholder span {
-    font-size: 12px;
-    text-align: center;
-}
-
-.doc-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.room-photo-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-}
-
-.rp-img {
-    width: 100%;
-    aspect-ratio: 1;
-    object-fit: cover;
-    border-radius: 6px;
-}
-
-.btn-submit-verify {
-    padding: 12px;
-    background: #0f766e;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.btn-submit-verify:hover {
-    background: #0d9488;
-}
-
-.pending-info {
-    background: #fffbeb;
-    color: #92400e;
-    border-radius: 6px;
-    padding: 12px;
-    font-size: 13px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.verified-info {
-    background: #f0fdf4;
-    color: #065f46;
-    border-radius: 6px;
-    padding: 12px;
-    font-size: 13px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-@media (max-width: 1024px) {
-    .prof-cols {
-        grid-template-columns: 1fr;
-    }
-}
+@import '../../css/profile_landbord.css';
 </style>

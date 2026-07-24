@@ -1,11 +1,15 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
-import { ref, computed, reactive, watch } from 'vue'
-import { useForm } from '@inertiajs/vue3'
-import { showSuccess, showError, showWarning, showConfirm, showToast } from '@/Utils/swal'
+import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
+import { useForm, router } from '@inertiajs/vue3'
+import { showSuccess, showWarning } from "@/Utils/swal"
 
 const props = defineProps({
     invoices: {
+        type: Array,
+        default: () => []
+    },
+    archivedInvoices: {
         type: Array,
         default: () => []
     },
@@ -19,6 +23,23 @@ const props = defineProps({
     }
 })
 
+// Tự động làm mới dữ liệu Hóa đơn mỗi 5s để cập nhật ngay khi khách thanh toán
+let autoRefreshTimer = null
+onMounted(() => {
+    autoRefreshTimer = setInterval(() => {
+        if (currentView.value === 'list' && !showViewModal.value) {
+            router.reload({ preserveScroll: true, only: ['invoices', 'archivedInvoices'] })
+        }
+    }, 5000)
+})
+
+onUnmounted(() => {
+    if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer)
+        autoRefreshTimer = null
+    }
+})
+
 const currentView = ref('list') // 'list' | 'create' | 'edit'
 const selectedContractId = ref(null)
 const selectedInvoiceId = ref(null)
@@ -28,7 +49,18 @@ const houseFilter = ref('all')
 const startDate = ref('')
 const endDate = ref('')
 const searchQ = ref('')
-const activeTab = ref('all') // 'all' | 'open' | 'completed'
+const activeTab = ref('all') // 'all' | 'open' | 'completed' | 'archived'
+
+// Meter Photo Files State
+const elecMeterFile = ref(null)
+const elecOldMeterFile = ref(null)
+const waterMeterFile = ref(null)
+const waterOldMeterFile = ref(null)
+
+const elecMeterPreview = ref(null)
+const elecOldMeterPreview = ref(null)
+const waterMeterPreview = ref(null)
+const waterOldMeterPreview = ref(null)
 
 // Form state
 const invoiceForm = reactive({
@@ -83,20 +115,30 @@ watch(selectedContractId, (newContractId) => {
     if (contract) {
         invoiceForm.rent = contract.room?.price || 0
         
-        // Find last invoice for old indexes
+        // Find last invoice for old indexes and photo inheritance
         const lastInv = props.invoices.find(i => i.contract_id === newContractId)
         
         // Electricity
         const lastElecDetail = lastInv?.details?.find(d => d.item_name.includes('Điện'))
-        invoiceForm.elecOld = lastElecDetail ? (lastElecDetail.new_index ?? lastElecDetail.new_index ?? 0) : 0
+        invoiceForm.elecOld = lastElecDetail ? (lastElecDetail.new_index ?? 0) : 0
         invoiceForm.elecNew = invoiceForm.elecOld + 100
         invoiceForm.elecPrice = elecService.value ? Number(elecService.value.price) : 3000
+        if (lastElecDetail?.meter_image_path) {
+            elecOldMeterPreview.value = lastElecDetail.meter_image_path
+        } else {
+            elecOldMeterPreview.value = null
+        }
 
         // Water
         const lastWaterDetail = lastInv?.details?.find(d => d.item_name.includes('Nước'))
-        invoiceForm.waterOld = lastWaterDetail ? (lastWaterDetail.new_index ?? lastWaterDetail.new_index ?? 0) : 0
+        invoiceForm.waterOld = lastWaterDetail ? (lastWaterDetail.new_index ?? 0) : 0
         invoiceForm.waterNew = invoiceForm.waterOld + 10
         invoiceForm.waterPrice = waterService.value ? Number(waterService.value.price) : 15000
+        if (lastWaterDetail?.meter_image_path) {
+            waterOldMeterPreview.value = lastWaterDetail.meter_image_path
+        } else {
+            waterOldMeterPreview.value = null
+        }
 
         // Fixed services
         invoiceForm.internetPrice = internetService.value ? Number(internetService.value.price) : 50000
@@ -109,6 +151,26 @@ watch(selectedContractId, (newContractId) => {
         invoiceForm.management = 0
     }
 })
+
+// Photo handlers
+const handlePhotoUpload = (event, type) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    if (type === 'elec_new') {
+        elecMeterFile.value = file
+        elecMeterPreview.value = URL.createObjectURL(file)
+    } else if (type === 'elec_old') {
+        elecOldMeterFile.value = file
+        elecOldMeterPreview.value = URL.createObjectURL(file)
+    } else if (type === 'water_new') {
+        waterMeterFile.value = file
+        waterMeterPreview.value = URL.createObjectURL(file)
+    } else if (type === 'water_old') {
+        waterOldMeterFile.value = file
+        waterOldMeterPreview.value = URL.createObjectURL(file)
+    }
+}
 
 // Calculations
 const elecDiff = computed(() => Math.max(0, invoiceForm.elecNew - invoiceForm.elecOld))
@@ -133,73 +195,102 @@ const formTotal = computed(() => {
 
 // Filters
 const filteredInvoices = computed(() => {
-    return props.invoices.filter(inv => {
-        if (activeTab.value !== 'all') {
+    const sourceList = (activeTab.value === 'archived' ? props.archivedInvoices : props.invoices) || []
+
+    return sourceList.filter(inv => {
+        if (!inv) return false
+
+        // Lọc theo Tab trạng thái
+        if (activeTab.value !== 'all' && activeTab.value !== 'archived') {
             const isPaid = inv.status === 'paid'
             if (activeTab.value === 'open' && isPaid) return false
             if (activeTab.value === 'completed' && !isPaid) return false
         }
+        // Lọc theo Kỳ thanh toán (tháng)
+        if (month.value && inv.billing_month) {
+            if (inv.billing_month !== month.value) return false
+        }
+        // Lọc theo Khoảng ngày
+        if (startDate.value && inv.created_at) {
+            const invDate = String(inv.created_at).substring(0, 10)
+            if (invDate < startDate.value) return false
+        }
+        if (endDate.value && inv.created_at) {
+            const invDate = String(inv.created_at).substring(0, 10)
+            if (invDate > endDate.value) return false
+        }
+        // Lọc theo từ khóa tìm kiếm
         if (searchQ.value) {
             const q = searchQ.value.toLowerCase()
-            const roomNum = inv.contract?.room?.room_number?.toLowerCase() || ''
-            const tenantName = inv.contract?.tenant?.name?.toLowerCase() || ''
-            return roomNum.includes(q) || tenantName.includes(q)
+            const roomNum = inv.contract?.room?.room_number ? String(inv.contract.room.room_number).toLowerCase() : ''
+            const tenantName = inv.contract?.tenant?.name ? String(inv.contract.tenant.name).toLowerCase() : ''
+            const code = inv.invoice_code ? String(inv.invoice_code).toLowerCase() : ''
+            return roomNum.includes(q) || tenantName.includes(q) || code.includes(q)
         }
         return true
     })
 })
 
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(n) + ' đ'
+const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    return String(dateStr).substring(0, 10)
+}
 
 // Action triggers
 const goCreate = () => {
     currentView.value = 'create'
     selectedContractId.value = props.activeContracts[0]?.id || null
     invoiceForm.dueDate = new Date().toISOString().split('T')[0]
+    elecMeterFile.value = null
+    elecOldMeterFile.value = null
+    waterMeterFile.value = null
+    waterOldMeterFile.value = null
+    elecMeterPreview.value = null
+    elecOldMeterPreview.value = null
+    waterMeterPreview.value = null
+    waterOldMeterPreview.value = null
 }
 
 const goEdit = (inv) => {
     selectedInvoiceId.value = inv.id
     selectedContractId.value = inv.contract_id
     
-    invoiceForm.rent = Number(inv.details.find(d => d.item_name === 'Tiền thuê nhà')?.price || 0)
+    invoiceForm.rent = Number(inv.details?.find(d => d.item_name === 'Tiền thuê nhà')?.price || 0)
     
-    const elec = inv.details.find(d => d.item_name.includes('Điện'))
+    const elec = inv.details?.find(d => d.item_name.includes('Điện'))
     invoiceForm.elecOld = elec ? (elec.old_index ?? 0) : 0
-    invoiceForm.elecNew = elec ? (elec.new_index ?? elec.new_index ?? 0) : 0
+    invoiceForm.elecNew = elec ? (elec.new_index ?? 0) : 0
     invoiceForm.elecPrice = elec ? Number(elec.price) : 3000
+    elecMeterPreview.value = elec?.meter_image_path || null
+    elecOldMeterPreview.value = elec?.old_meter_image_path || null
 
-    const water = inv.details.find(d => d.item_name.includes('Nước'))
+    const water = inv.details?.find(d => d.item_name.includes('Nước'))
     invoiceForm.waterOld = water ? (water.old_index ?? 0) : 0
-    invoiceForm.waterNew = water ? (water.new_index ?? water.new_index ?? 0) : 0
+    invoiceForm.waterNew = water ? (water.new_index ?? 0) : 0
     invoiceForm.waterPrice = water ? Number(water.price) : 15000
+    waterMeterPreview.value = water?.meter_image_path || null
+    waterOldMeterPreview.value = water?.old_meter_image_path || null
 
-    const internet = inv.details.find(d => d.item_name.includes('internet'))
+    const internet = inv.details?.find(d => d.item_name.includes('internet'))
     invoiceForm.internetQty = internet ? Number(internet.quantity) : 1
     invoiceForm.internetPrice = internet ? Number(internet.price) : 50000
 
-    const trash = inv.details.find(d => d.item_name.includes('rác'))
+    const trash = inv.details?.find(d => d.item_name.includes('rác'))
     invoiceForm.trashQty = trash ? Number(trash.quantity) : 1
     invoiceForm.trashPrice = trash ? Number(trash.price) : 30000
 
-    const parking = inv.details.find(d => d.item_name.includes('gửi xe'))
+    const parking = inv.details?.find(d => d.item_name.includes('gửi xe'))
     invoiceForm.parkingQty = parking ? Number(parking.quantity) : 1
     invoiceForm.parkingPrice = parking ? Number(parking.price) : 15000
 
-    const management = inv.details.find(d => d.item_name.includes('khác') || d.item_name.includes('Quản lý') || d.item_name.includes('dịch vụ'))
+    const management = inv.details?.find(d => d.item_name.includes('khác') || d.item_name.includes('Quản lý') || d.item_name.includes('dịch vụ'))
     invoiceForm.management = management ? Number(management.price) : 0
 
-    invoiceForm.dueDate = inv.due_date || new Date().toISOString().split('T')[0]
+    invoiceForm.dueDate = formatDate(inv.due_date) || new Date().toISOString().split('T')[0]
     
     currentView.value = 'edit'
 }
-
-const submitForm = useForm({
-    contract_id: null,
-    billing_month: '',
-    due_date: '',
-    details: []
-})
 
 const saveInvoice = () => {
     if (!selectedContractId.value) {
@@ -266,20 +357,26 @@ const saveInvoice = () => {
         })
     }
 
-    submitForm.contract_id = selectedContractId.value
-    submitForm.billing_month = month.value
-    submitForm.due_date = invoiceForm.dueDate
-    submitForm.details = details
+    const form = useForm({
+        contract_id: selectedContractId.value,
+        billing_month: month.value,
+        due_date: invoiceForm.dueDate,
+        details: details,
+        elec_meter_image: elecMeterFile.value,
+        elec_old_meter_image: elecOldMeterFile.value,
+        water_meter_image: waterMeterFile.value,
+        water_old_meter_image: waterOldMeterFile.value
+    })
 
     if (currentView.value === 'create') {
-        submitForm.post(route('landlord.invoices.store'), {
+        form.post(route('landlord.invoices.store'), {
             onSuccess: () => {
                 showSuccess('Thành công', 'Lưu hóa đơn thành công!')
                 currentView.value = 'list'
             }
         })
     } else {
-        submitForm.put(route('landlord.invoices.update', selectedInvoiceId.value), {
+        form.post(route('landlord.invoices.update', selectedInvoiceId.value), {
             onSuccess: () => {
                 showSuccess('Thành công', 'Cập nhật hóa đơn thành công!')
                 currentView.value = 'list'
@@ -297,19 +394,33 @@ const updateInvoiceStatus = (inv, status) => {
     })
 }
 
-const deleteInvoice = async (id) => {
-    const confirmed = await showConfirm(
-        'Xóa hóa đơn',
-        'Bạn có chắc chắn muốn xóa hóa đơn này?',
-        'Xóa hóa đơn',
-        'Hủy'
-    );
-    if (confirmed) {
-        const deleteForm = useForm({})
-        deleteForm.delete(route('landlord.invoices.delete', id), {
+const archiveInvoice = (inv) => {
+    if (confirm(`Bạn có chắc chắn muốn chuyển hóa đơn mã #${inv.invoice_code} vào Kho lưu trữ?`)) {
+        const form = useForm({})
+        form.patch(route('landlord.invoices.archive', inv.id), {
             onSuccess: () => {
-                showSuccess('Đã xóa', 'Xóa hóa đơn thành công!')
-                if (selectedInvoice.value && selectedInvoice.value.id === id) {
+                alert('Đã chuyển hóa đơn vào kho lưu trữ thành công!')
+            }
+        })
+    }
+}
+
+const restoreInvoice = (inv) => {
+    const form = useForm({})
+    form.patch(route('landlord.invoices.restore', inv.id), {
+        onSuccess: () => {
+            alert('Đã khôi phục hóa đơn từ kho lưu trữ!')
+        }
+    })
+}
+
+const deleteInvoice = (inv) => {
+    if (confirm('Bạn có chắc chắn muốn xóa hóa đơn này?')) {
+        const deleteForm = useForm({})
+        deleteForm.delete(route('landlord.invoices.delete', inv.id), {
+            onSuccess: () => {
+                alert('Xóa hóa đơn thành công!')
+                if (selectedInvoice.value && selectedInvoice.value.id === inv.id) {
                     closeViewModal()
                 }
             }
@@ -336,11 +447,11 @@ const copyInvoiceToClipboard = (inv) => {
     text += `Phòng: ${inv.contract?.room?.room_number || ''}\n`;
     text += `Khách thuê: ${inv.contract?.tenant?.name || ''}\n`;
     text += `Kỳ thanh toán: Tháng ${inv.billing_month || ''}\n`;
-    text += `Hạn đóng: ${inv.due_date || ''}\n`;
+    text += `Hạn đóng: ${formatDate(inv.due_date)}\n`;
     text += `-------------------------\n`;
-    inv.details.forEach(d => {
+    inv.details?.forEach(d => {
         let calc = '';
-        if (d.old_index !== null) {
+        if (d.old_index !== null && d.old_index !== undefined) {
             calc = ` (${d.new_index} - ${d.old_index} = ${d.quantity})`;
         } else if (d.quantity > 1) {
             calc = ` (${d.quantity}x)`;
@@ -351,10 +462,12 @@ const copyInvoiceToClipboard = (inv) => {
     text += `TỔNG CỘNG: ${formatMoney(inv.total_amount)}\n`;
     
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Đã sao chép nội dung hóa đơn để gửi Zalo/SMS!');
-    }).catch(err => {
-        showError('Không thể sao chép', err.toString());
-    });
+        alert('Đã sao chép nội dung hóa đơn để gửi Zalo/SMS!')
+    })
+}
+
+const printDisputeReport = (inv) => {
+    window.print()
 }
 </script>
 
@@ -372,16 +485,33 @@ const copyInvoiceToClipboard = (inv) => {
             <!-- Title Header -->
             <div class="flex justify-between items-center">
                 <h1 class="text-xl font-bold text-slate-800">Hóa đơn</h1>
-                <button @click="goCreate" class="px-4 py-2.5 bg-[#0e3b3e] hover:bg-[#09282a] text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-colors">
+                <button @click="goCreate" class="px-4 py-2.5 bg-[#0e3b3e] hover:bg-[#09282a] text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer">
                     <i class="bi bi-plus-lg"></i> Thêm hóa đơn mới
                 </button>
             </div>
 
-            <!-- Tabs Filters -->
-            <div class="flex gap-6 text-xs font-bold text-slate-400 border-b border-slate-100 pb-3">
-                <button @click="activeTab = 'all'" :class="['pb-2 border-b-2 transition-colors -mb-[13px]', activeTab === 'all' ? 'border-emerald-600 text-emerald-600' : 'border-transparent hover:text-slate-600']">Tất cả <span class="ml-1 px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px]">{{ invoices.length }}</span></button>
-                <button @click="activeTab = 'open'" :class="['pb-2 border-b-2 transition-colors -mb-[13px]', activeTab === 'open' ? 'border-emerald-600 text-emerald-600' : 'border-transparent hover:text-slate-600']">Đang mở <span class="ml-1 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px]">{{ invoices.filter(i=>i.status!=='paid').length }}</span></button>
-                <button @click="activeTab = 'completed'" :class="['pb-2 border-b-2 transition-colors -mb-[13px]', activeTab === 'completed' ? 'border-emerald-600 text-emerald-600' : 'border-transparent hover:text-slate-600']">Hoàn thành <span class="ml-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[10px]">{{ invoices.filter(i=>i.status==='paid').length }}</span></button>
+            <!-- Segmented Control Tabs (iOS / Android Native App Style - No Scrollbar) -->
+            <div class="bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/60 grid grid-cols-4 gap-1 text-center font-bold text-xs shadow-inner">
+                <button @click="activeTab = 'all'"
+                    :class="['py-2 px-1 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer', activeTab === 'all' ? 'bg-white text-slate-900 font-black shadow-sm' : 'text-slate-500 hover:text-slate-700']">
+                    <span>Tất cả</span>
+                    <span :class="['px-1.5 py-0.5 rounded-full text-[10px] font-extrabold', activeTab === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-600']">{{ (invoices || []).length }}</span>
+                </button>
+                <button @click="activeTab = 'open'"
+                    :class="['py-2 px-1 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer', activeTab === 'open' ? 'bg-white text-emerald-700 font-black shadow-sm' : 'text-slate-500 hover:text-slate-700']">
+                    <span>Đang mở</span>
+                    <span :class="['px-1.5 py-0.5 rounded-full text-[10px] font-extrabold', activeTab === 'open' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-700']">{{ (invoices || []).filter(i=>i.status!=='paid').length }}</span>
+                </button>
+                <button @click="activeTab = 'completed'"
+                    :class="['py-2 px-1 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer', activeTab === 'completed' ? 'bg-white text-blue-700 font-black shadow-sm' : 'text-slate-500 hover:text-slate-700']">
+                    <span>Đã thu</span>
+                    <span :class="['px-1.5 py-0.5 rounded-full text-[10px] font-extrabold', activeTab === 'completed' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700']">{{ (invoices || []).filter(i=>i.status==='paid').length }}</span>
+                </button>
+                <button @click="activeTab = 'archived'"
+                    :class="['py-2 px-1 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer', activeTab === 'archived' ? 'bg-white text-purple-700 font-black shadow-sm' : 'text-slate-500 hover:text-slate-700']">
+                    <span>Lưu trữ</span>
+                    <span :class="['px-1.5 py-0.5 rounded-full text-[10px] font-extrabold', activeTab === 'archived' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700']">{{ (archivedInvoices || []).length }}</span>
+                </button>
             </div>
 
             <!-- Filters Bar -->
@@ -402,7 +532,7 @@ const copyInvoiceToClipboard = (inv) => {
                     <label class="text-[10px] font-bold text-slate-400">Tìm kiếm</label>
                     <div class="flex items-center bg-slate-50/50 border border-slate-200 rounded-xl px-3 py-2 text-slate-400 gap-2">
                         <i class="bi bi-search text-xs"></i>
-                        <input v-model="searchQ" class="bg-transparent border-none outline-none text-xs text-slate-700 w-full placeholder-slate-400 font-semibold" placeholder="Tìm kiếm..."/>
+                        <input v-model="searchQ" class="bg-transparent border-none outline-none text-xs text-slate-700 w-full placeholder-slate-400 font-semibold" placeholder="Tìm theo phòng, khách, mã..."/>
                     </div>
                 </div>
             </div>
@@ -413,9 +543,7 @@ const copyInvoiceToClipboard = (inv) => {
                     <table class="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                <th class="py-3 px-4 w-12 text-center">
-                                    <input type="checkbox" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-                                </th>
+                                <th class="py-3 px-4 w-12 text-center">#</th>
                                 <th class="py-3.5 px-4">Kỳ thanh toán</th>
                                 <th class="py-3.5 px-4">Mã hóa đơn</th>
                                 <th class="py-3.5 px-4">Phòng</th>
@@ -426,20 +554,21 @@ const copyInvoiceToClipboard = (inv) => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                            <tr v-for="inv in filteredInvoices" :key="inv.id" class="hover:bg-slate-50/40">
-                                <td class="py-4 px-4 text-center">
-                                    <input type="checkbox" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-                                </td>
+                            <tr v-for="(inv, idx) in filteredInvoices" :key="inv.id" class="hover:bg-slate-50/40">
+                                <td class="py-4 px-4 text-center text-slate-400 font-bold">{{ idx + 1 }}</td>
                                 <td class="py-4 px-4">
                                     <div class="font-bold text-slate-800">Tháng {{ inv.billing_month }}</div>
-                                    <div class="text-[10px] text-slate-400 font-semibold">Hạn: {{ inv.due_date }}</div>
+                                    <div class="text-[10px] text-slate-400 font-semibold">Hạn: {{ formatDate(inv.due_date) }}</div>
                                 </td>
-                                <td class="py-4 px-4 text-slate-500 font-medium">#{{ inv.invoice_code }}</td>
+                                <td class="py-4 px-4 text-slate-500 font-mono font-medium">#{{ inv.invoice_code }}</td>
                                 <td class="py-4 px-4 text-slate-800 font-bold">Phòng {{ inv.contract?.room?.room_number }}</td>
                                 <td class="py-4 px-4 text-right text-rose-500 font-bold">{{ formatMoney(inv.total_amount) }}</td>
                                 <td class="py-4 px-4 text-center">
                                     <div class="flex justify-center">
-                                        <span v-if="inv.status === 'paid'" class="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-md text-[10px] font-bold">
+                                        <span v-if="inv.archived_at" class="px-2 py-0.5 bg-purple-50 text-purple-600 border border-purple-100 rounded-md text-[10px] font-bold flex items-center gap-1">
+                                            <i class="bi bi-archive-fill"></i> Đã Lưu Trữ
+                                        </span>
+                                        <span v-else-if="inv.status === 'paid'" class="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-md text-[10px] font-bold">
                                             Hoàn Thành
                                         </span>
                                         <span v-else class="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[10px] font-bold">
@@ -457,19 +586,22 @@ const copyInvoiceToClipboard = (inv) => {
                                 </td>
                                 <td class="py-4 px-6 text-right">
                                     <div class="flex items-center justify-end gap-1.5">
-                                        <button @click="openViewModal(inv)" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-lg flex items-center justify-center" title="Xem chi tiết hóa đơn">
+                                        <button @click="openViewModal(inv)" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-lg flex items-center justify-center cursor-pointer" title="Xem chi tiết hóa đơn & Bằng chứng">
                                             <i class="bi bi-eye"></i>
                                         </button>
-                                        <button @click="goEdit(inv)" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-lg flex items-center justify-center" title="Chỉnh sửa hóa đơn">
+                                        <button v-if="inv.status !== 'paid' && !inv.archived_at" @click="goEdit(inv)" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-lg flex items-center justify-center cursor-pointer" title="Chỉnh sửa hóa đơn">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
-                                        <button v-if="inv.status !== 'paid'" @click="changeStatus(inv, 'paid')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                                        <button v-if="!inv.archived_at && inv.status !== 'paid'" @click="changeStatus(inv, 'paid')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer">
                                             <i class="bi bi-check-lg"></i> Thu tiền
                                         </button>
-                                        <button v-else @click="changeStatus(inv, 'unpaid')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                                             Chưa thu
+                                        <button v-if="!inv.archived_at" @click="archiveInvoice(inv)" class="w-7 h-7 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center cursor-pointer" title="Đưa vào kho lưu trữ">
+                                            <i class="bi bi-archive"></i>
                                         </button>
-                                        <button @click="deleteInvoice(inv.id)" class="w-7 h-7 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-500 rounded-lg flex items-center justify-center" title="Xóa hóa đơn">
+                                        <button v-else @click="restoreInvoice(inv)" class="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer">
+                                            <i class="bi bi-arrow-counterclockwise"></i> Khôi phục
+                                        </button>
+                                        <button v-if="inv.status !== 'paid'" @click="deleteInvoice(inv)" class="w-7 h-7 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-500 rounded-lg flex items-center justify-center cursor-pointer" title="Xóa hóa đơn">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
@@ -483,7 +615,7 @@ const copyInvoiceToClipboard = (inv) => {
                 </div>
             </div>
 
-            <!-- Invoices Mobile Card List -->
+            <!-- Invoices Mobile Card List (Clean & Proven Layout) -->
             <div class="block lg:hidden space-y-4">
                 <div v-for="inv in filteredInvoices" :key="inv.id" class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
                     <div class="flex justify-between items-start">
@@ -493,19 +625,23 @@ const copyInvoiceToClipboard = (inv) => {
                             <div class="text-xs text-slate-500 font-semibold mt-0.5">Khách: <span class="text-slate-700 font-bold">{{ inv.contract?.tenant?.name }}</span></div>
                         </div>
                         <div>
-                            <span v-if="inv.status === 'paid'" class="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-md text-[10px] font-bold">
+                            <span v-if="inv.archived_at" class="px-2 py-0.5 bg-purple-50 text-purple-600 border border-purple-100 rounded-md text-[10px] font-bold">
+                                Đã Lưu Trữ
+                            </span>
+                            <span v-else-if="inv.status === 'paid'" class="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-md text-[10px] font-bold">
                                 Hoàn Thành
                             </span>
                             <span v-else class="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[10px] font-bold">
-                                Chưa thu
+                                Đang mở (Chưa thu)
                             </span>
                         </div>
                     </div>
-                    
+
                     <div class="flex justify-between items-center pt-3 border-t border-slate-50 text-xs">
                         <div>
                             <div class="text-[10px] text-slate-400 font-bold uppercase">Kỳ đóng tiền</div>
                             <div class="font-bold text-slate-700 mt-0.5">Tháng {{ inv.billing_month }}</div>
+                            <div class="text-[10px] text-slate-400 font-semibold mt-0.5">Hạn: {{ formatDate(inv.due_date) }}</div>
                         </div>
                         <div class="text-right">
                             <div class="text-[10px] text-slate-400 font-bold uppercase">Tổng thu</div>
@@ -517,13 +653,19 @@ const copyInvoiceToClipboard = (inv) => {
                         <button @click="openViewModal(inv)" class="w-8 h-8 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-xl flex items-center justify-center" title="Xem chi tiết">
                             <i class="bi bi-eye"></i>
                         </button>
-                        <button @click="goEdit(inv)" class="w-8 h-8 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-xl flex items-center justify-center" title="Chỉnh sửa">
+                        <button v-if="inv.status !== 'paid' && !inv.archived_at" @click="goEdit(inv)" class="w-8 h-8 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-xl flex items-center justify-center" title="Chỉnh sửa">
                             <i class="bi bi-pencil-square"></i>
                         </button>
-                        <button v-if="inv.status !== 'paid'" @click="changeStatus(inv, 'paid')" class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-extrabold flex items-center gap-1">
+                        <button v-if="!inv.archived_at && inv.status !== 'paid'" @click="changeStatus(inv, 'paid')" class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-extrabold flex items-center gap-1">
                             <i class="bi bi-check-lg"></i> Thu tiền
                         </button>
-                        <button @click="deleteInvoice(inv.id)" class="w-8 h-8 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-500 rounded-xl flex items-center justify-center" title="Xóa">
+                        <button v-if="!inv.archived_at" @click="archiveInvoice(inv)" class="w-8 h-8 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center" title="Lưu trữ">
+                            <i class="bi bi-archive"></i>
+                        </button>
+                        <button v-else @click="restoreInvoice(inv)" class="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 rounded-xl text-xs font-bold flex items-center gap-1">
+                            Khôi phục
+                        </button>
+                        <button v-if="inv.status !== 'paid'" @click="deleteInvoice(inv)" class="w-8 h-8 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-500 rounded-xl flex items-center justify-center" title="Xóa">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -543,357 +685,367 @@ const copyInvoiceToClipboard = (inv) => {
                 <span class="text-slate-600">{{ currentView === 'create' ? 'Tạo hóa đơn' : 'Chỉnh sửa hóa đơn' }}</span>
             </div>
 
-            <div class="flex flex-col md:flex-row gap-6 items-start">
-                <!-- Left Form Card -->
-                <div class="w-full md:w-2/3 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6">
-                    <div class="flex justify-between items-center border-b border-slate-50 pb-4 gap-4">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg font-bold shrink-0">
-                                <i class="bi bi-house"></i>
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold text-slate-800">{{ currentView === 'create' ? 'Tạo hóa đơn mới' : 'Chỉnh sửa hóa đơn' }}</h1>
+                <button @click="currentView = 'list'" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors">
+                    <i class="bi bi-arrow-left"></i> Quay lại
+                </button>
+            </div>
+
+            <!-- Form Container -->
+            <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6">
+                <!-- House & Contract Select -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold text-slate-700">Chọn phòng / Hợp đồng <span class="text-rose-500">*</span></label>
+                        <select v-model="selectedContractId" :disabled="currentView === 'edit'" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/50">
+                            <option v-for="c in props.activeContracts" :key="c.id" :value="c.id">
+                                Phòng {{ c.room?.room_number }} - Khách: {{ c.tenant?.name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold text-slate-700">Kỳ thanh toán <span class="text-rose-500">*</span></label>
+                        <input type="month" v-model="month" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/50" />
+                    </div>
+                </div>
+
+                <!-- Room Price Section (LOCKED FOR ANTI-FRAUD) -->
+                <div class="p-4 border border-slate-100 rounded-2xl bg-slate-50/50 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <i class="bi bi-[#0e3b3e] bi-house-door-fill text-emerald-600"></i> Tiền thuê nhà (Khóa cố định theo HĐ)
+                        </span>
+                        <span class="text-xs font-black text-slate-800">{{ formatMoney(invoiceForm.rent) }}</span>
+                    </div>
+                    <input type="number" v-model.number="invoiceForm.rent" readonly class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
+                </div>
+
+                <!-- Services Form -->
+                <div class="space-y-4">
+                    <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Chi tiết chỉ số & Dịch vụ</h3>
+                    
+                    <!-- Electricity section -->
+                    <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                        <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
+                            <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center"><i class="bi bi-lightning-charge-fill"></i></div>
+                            <span class="text-xs font-bold text-slate-700">Tiền điện (chỉ số công tơ)</span>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Số cũ (Khóa tự động)</label>
+                                <input type="number" v-model.number="invoiceForm.elecOld" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
-                            <div class="min-w-0">
-                                <h3 class="font-bold text-slate-800 text-sm truncate">
-                                    {{ currentView === 'create' ? 'Tạo hóa đơn tháng' : 'Sửa hóa đơn' }}
-                                </h3>
-                                <p class="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">Vui lòng cập nhật các chỉ số sử dụng</p>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Số mới kỳ này</label>
+                                <input type="number" v-model.number="invoiceForm.elecNew" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Sử dụng (kWh)</label>
+                                <div class="w-full px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 border border-slate-100">{{ elecDiff }}</div>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
+                                <input type="number" v-model.number="invoiceForm.elecPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                            </div>
+                            <div class="space-y-1 col-span-2 sm:col-span-1">
+                                <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
+                                <div class="w-full px-3 py-1.5 bg-slate-50 text-amber-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(elecTotal) }}</div>
                             </div>
                         </div>
-                        
-                        <div class="text-right shrink-0">
-                            <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Tổng cộng</span>
-                            <span class="text-lg sm:text-2xl font-black text-rose-500 whitespace-nowrap">{{ formatMoney(formTotal) }}</span>
+
+                        <!-- Electricity Photo Upload Section -->
+                        <div class="pt-2 border-t border-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Ảnh công tơ điện kỳ trước (Kế thừa tự động)</label>
+                                <div v-if="elecOldMeterPreview" class="relative group w-full h-24 border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                                    <img :src="elecOldMeterPreview" class="w-full h-full object-contain" />
+                                </div>
+                                <div v-else class="text-[10px] text-slate-400 italic">Không có ảnh kỳ trước</div>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Đính kèm ảnh công tơ điện mới kỳ này</label>
+                                <input type="file" @change="e => handlePhotoUpload(e, 'elec_new')" accept="image/*" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer" />
+                                <div v-if="elecMeterPreview" class="mt-1 h-20 border rounded-lg overflow-hidden bg-slate-50">
+                                    <img :src="elecMeterPreview" class="w-full h-full object-contain" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Services Indices List -->
-                    <div class="space-y-6">
-                        <!-- Room & Billing cycle selectors -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50/50 border border-slate-100 rounded-2xl">
-                            <!-- Chọn hợp đồng / phòng -->
-                            <div class="space-y-1 sm:col-span-2">
-                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chọn Hợp đồng - Phòng trọ</label>
-                                <select v-if="currentView === 'create'" v-model="selectedContractId" class="w-full px-3 py-2 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white cursor-pointer">
-                                    <option v-for="c in activeContracts" :key="c.id" :value="c.id">
-                                        Phòng {{ c.room?.room_number }} ({{ c.tenant?.name }})
-                                    </option>
-                                </select>
-                                <div v-else class="w-full px-3 py-2 border border-slate-100 rounded-xl text-xs font-semibold bg-slate-100/60 text-slate-500">
-                                    Phòng {{ activeContracts.find(c => c.id === selectedContractId)?.room?.room_number }} ({{ activeContracts.find(c => c.id === selectedContractId)?.tenant?.name }})
-                                </div>
-                            </div>
-                            
-                            <!-- Tháng thanh toán -->
+                    <!-- Water section -->
+                    <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                        <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-droplet-fill"></i></div>
+                            <span class="text-xs font-bold text-slate-700">Tiền nước (chỉ số đồng hồ)</span>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kỳ hóa đơn (tháng)</label>
-                                <input type="month" v-model="month" class="w-full px-3 py-2 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white text-slate-700 cursor-pointer" />
+                                <label class="text-[10px] font-bold text-slate-400">Số cũ (Khóa tự động)</label>
+                                <input type="number" v-model.number="invoiceForm.waterOld" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
-
-                            <!-- Hạn đóng -->
-                            <div class="space-y-1 sm:col-span-3">
-                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hạn đóng tiền</label>
-                                <input type="date" v-model="invoiceForm.dueDate" class="w-full px-3 py-2 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white text-slate-700 cursor-pointer" />
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Số mới kỳ này</label>
+                                <input type="number" v-model.number="invoiceForm.waterNew" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                             </div>
-                        </div>
-
-                        <!-- Rent line -->
-                        <div class="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="bi bi-house-door-fill"></i></div>
-                                <span class="text-xs font-bold text-slate-700">Tiền phòng</span>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Sử dụng (m³)</label>
+                                <div class="w-full px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 border border-slate-100">{{ waterDiff }}</div>
                             </div>
-                            <div class="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
-                                <span>Thành tiền:</span>
-                                <input type="text" v-model="displayRentPrice" class="w-32 px-2 py-1 text-right border border-slate-200 focus:border-emerald-500 rounded-lg outline-none font-bold text-slate-800 bg-white" />
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
+                                <input type="number" v-model.number="invoiceForm.waterPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                            </div>
+                            <div class="space-y-1 col-span-2 sm:col-span-1">
+                                <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
+                                <div class="w-full px-3 py-1.5 bg-slate-50 text-blue-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(waterTotal) }}</div>
                             </div>
                         </div>
 
-                        <!-- Electricity section -->
-                        <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
-                            <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
-                                <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center"><i class="bi bi-lightning-charge-fill"></i></div>
-                                <span class="text-xs font-bold text-slate-700">Điện</span>
+                        <!-- Water Photo Upload Section -->
+                        <div class="pt-2 border-t border-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Ảnh đồng hồ nước kỳ trước (Kế thừa tự động)</label>
+                                <div v-if="waterOldMeterPreview" class="relative group w-full h-24 border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                                    <img :src="waterOldMeterPreview" class="w-full h-full object-contain" />
+                                </div>
+                                <div v-else class="text-[10px] text-slate-400 italic">Không có ảnh kỳ trước</div>
                             </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Số mới</label>
-                                    <input type="number" v-model.number="invoiceForm.elecNew" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Số cũ</label>
-                                    <input type="number" v-model.number="invoiceForm.elecOld" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Chênh lệch</label>
-                                    <div class="w-full px-3 py-1.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold text-center border border-slate-100">{{ elecDiff }}</div>
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="text" v-model="displayElecPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
-                                <div class="space-y-1 sm:col-span-1 col-span-2">
-                                    <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
-                                    <div class="w-full px-3 py-1.5 bg-slate-50 text-amber-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(elecTotal) }}</div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Đính kèm ảnh đồng hồ nước mới kỳ này</label>
+                                <input type="file" @change="e => handlePhotoUpload(e, 'water_new')" accept="image/*" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-blue-50 file:text-blue-700 cursor-pointer" />
+                                <div v-if="waterMeterPreview" class="mt-1 h-20 border rounded-lg overflow-hidden bg-slate-50">
+                                    <img :src="waterMeterPreview" class="w-full h-full object-contain" />
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Water section -->
-                        <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
-                            <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
-                                <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-droplet-fill"></i></div>
-                                <span class="text-xs font-bold text-slate-700">Nước</span>
+                    <!-- Internet section -->
+                    <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                        <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="bi bi-wifi"></i></div>
+                            <span class="text-xs font-bold text-slate-700">Internet</span>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Số lượng / Số người</label>
+                                <input type="number" v-model.number="invoiceForm.internetQty" class="w-full px-3 py-1.5 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                             </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Số mới</label>
-                                    <input type="number" v-model.number="invoiceForm.waterNew" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Số cũ</label>
-                                    <input type="number" v-model.number="invoiceForm.waterOld" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Chênh lệch</label>
-                                    <div class="w-full px-3 py-1.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold text-center border border-slate-100">{{ waterDiff }}</div>
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="text" v-model="displayWaterPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
-                                <div class="space-y-1 sm:col-span-1 col-span-2">
-                                    <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
-                                    <div class="w-full px-3 py-1.5 bg-slate-50 text-blue-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(waterTotal) }}</div>
-                                </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
+                                <input type="number" v-model.number="invoiceForm.internetPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                            </div>
+                            <div class="space-y-1 col-span-2 sm:col-span-1">
+                                <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
+                                <div class="w-full px-3 py-1.5 bg-slate-50 text-indigo-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(internetTotal) }}</div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Internet section -->
-                        <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
-                            <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
-                                <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="bi bi-wifi"></i></div>
-                                <span class="text-xs font-bold text-slate-700">Internet</span>
-                            </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Số lượng / Số người</label>
-                                    <input type="number" v-model.number="invoiceForm.internetQty" class="w-full px-3 py-1.5 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="text" v-model="displayInternetPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
-                                <div class="space-y-1 col-span-2 sm:col-span-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
-                                    <div class="w-full px-3 py-1.5 bg-slate-50 text-indigo-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(internetTotal) }}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Trash section -->
+                    <!-- Trash & Parking section -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
                             <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
                                 <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center"><i class="bi bi-trash-fill"></i></div>
-                                <span class="text-xs font-bold text-slate-700">Rác</span>
+                                <span class="text-xs font-bold text-slate-700">Vệ sinh / Rác</span>
                             </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Số lượng / Số người</label>
-                                    <input type="number" v-model.number="invoiceForm.trashQty" class="w-full px-3 py-1.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
+                            <div class="grid grid-cols-2 gap-3 items-end">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
                                     <input type="text" v-model="displayTrashPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                                 </div>
-                                <div class="space-y-1 col-span-2 sm:col-span-1">
+                                <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
                                     <div class="w-full px-3 py-1.5 bg-slate-50 text-rose-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(trashTotal) }}</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Parking section -->
                         <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
                             <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
-                                <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="bi bi-bicycle"></i></div>
-                                <span class="text-xs font-bold text-slate-700">Gửi xe</span>
+                                <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center"><i class="bi bi-p-square-fill"></i></div>
+                                <span class="text-xs font-bold text-slate-700">Phí gửi xe</span>
                             </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Số lượng / Số người</label>
-                                    <input type="number" v-model.number="invoiceForm.parkingQty" class="w-full px-3 py-1.5 border border-slate-200 focus:border-teal-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
-                                </div>
+                            <div class="grid grid-cols-2 gap-3 items-end">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="text" v-model="displayParkingPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-teal-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <input type="number" v-model.number="invoiceForm.parkingPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-purple-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                                 </div>
-                                <div class="space-y-1 col-span-2 sm:col-span-1">
+                                <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
-                                    <div class="w-full px-3 py-1.5 bg-slate-50 text-teal-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(parkingTotal) }}</div>
+                                    <div class="w-full px-3 py-1.5 bg-slate-50 text-purple-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(parkingTotal) }}</div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Management / Other section -->
-                        <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
-                            <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
-                                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center"><i class="bi bi-gear-fill"></i></div>
-                                <span class="text-xs font-bold text-slate-700">Quản lý / Phí khác</span>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400">Thành tiền (đ)</label>
-                                <input type="text" v-model="displayManagementPrice" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold outline-none bg-slate-50/40" placeholder="0" />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Footer actions inside form -->
-                    <div class="flex items-center justify-between border-t border-slate-100 pt-5">
-                        <div></div>
-                        <div class="flex items-center gap-2">
-                            <button @click="currentView = 'list'" class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors">Hủy bỏ</button>
-                            <button @click="saveInvoice" class="px-5 py-2.5 bg-[#0e3b3e] hover:bg-[#09282a] text-white font-bold text-xs rounded-xl shadow-md transition-colors" :disabled="submitForm.processing">
-                                <i class="bi bi-save"></i> {{ submitForm.processing ? 'Đang lưu...' : (currentView === 'create' ? 'Tạo hóa đơn' : 'Lưu thay đổi') }}
-                            </button>
+                    <!-- Management Fee & Due Date -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-700">Phí dịch vụ khác / Quản lý</label>
+                            <input type="number" v-model.number="invoiceForm.management" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" placeholder="0" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-700">Hạn đóng tiền</label>
+                            <input type="date" v-model="invoiceForm.dueDate" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                         </div>
                     </div>
                 </div>
 
-                <!-- Right helper card -->
-                <div class="w-full md:w-1/3 bg-slate-50 border border-slate-150 rounded-3xl p-6 space-y-4">
-                    <h4 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Hướng dẫn sử dụng</h4>
-                    <p class="text-[11px] text-slate-500 leading-relaxed">
-                        Nhập chỉ số điện và nước mới chốt cuối tháng để hệ thống tự động trừ chỉ số cũ và nhân đơn giá tương ứng.
-                    </p>
-                    <p class="text-[11px] text-slate-500 leading-relaxed font-semibold">
-                        Lưu ý: Các phí Internet, Rác, Gửi xe được nhân theo số người ở được đồng bộ từ hợp đồng hiện tại.
-                    </p>
+                <!-- Total Amount Card -->
+                <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-bold text-emerald-800 uppercase tracking-wider block">TỔNG CỘNG HÓA ĐƠN</span>
+                        <span class="text-[10px] text-emerald-600">Đã bao gồm tất cả các khoản tiền thuê và dịch vụ</span>
+                    </div>
+                    <span class="text-xl font-black text-emerald-700">{{ formatMoney(formTotal) }}</span>
+                </div>
+
+                <!-- Submit buttons -->
+                <div class="flex justify-end gap-3 pt-2">
+                    <button @click="currentView = 'list'" class="px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-xl transition-colors cursor-pointer">
+                        Hủy bỏ
+                    </button>
+                    <button @click="saveInvoice" class="px-6 py-2.5 bg-[#0e3b3e] hover:bg-[#09282a] text-white text-xs font-bold rounded-xl transition-colors shadow-sm cursor-pointer">
+                        {{ currentView === 'create' ? 'Lưu & Phát hành hóa đơn' : 'Cập nhật hóa đơn' }}
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- DETAIL MODAL -->
-        <Teleport to="body">
-            <div v-if="showViewModal && selectedInvoice" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" @click.self="closeViewModal">
-                <div class="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh]">
-                    <!-- Head -->
-                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                        <h3 class="text-xs sm:text-sm font-bold text-slate-800">Chi tiết hóa đơn #{{ selectedInvoice.invoice_code }}</h3>
-                        <button @click="closeViewModal" class="text-slate-400 hover:text-slate-600 p-1">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
+        <!-- VIEW DETAIL & METER DISPUTE MODAL -->
+        <div v-if="showViewModal && selectedInvoice" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden my-8 border border-slate-100">
+                <!-- Header -->
+                <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-extrabold text-sm flex items-center gap-2">
+                            <span>Chi tiết hóa đơn #{{ selectedInvoice.invoice_code }}</span>
+                            <span v-if="selectedInvoice.archived_at" class="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-[10px] font-bold rounded-md border border-purple-400/30">Kho lưu trữ</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Phòng {{ selectedInvoice.contract?.room?.room_number }} - {{ selectedInvoice.contract?.tenant?.name }}</p>
+                    </div>
+                    <button @click="closeViewModal" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 flex items-center justify-center text-xs transition-colors cursor-pointer">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+
+                <!-- Body -->
+                <div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+                    <!-- Invoice Summary info -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs">
+                        <div>
+                            <span class="text-slate-400 text-[10px] font-bold uppercase block">Kỳ thanh toán</span>
+                            <span class="font-bold text-slate-700">Tháng {{ selectedInvoice.billing_month }}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 text-[10px] font-bold uppercase block">Hạn đóng tiền</span>
+                            <span class="font-bold text-slate-700">{{ formatDate(selectedInvoice.due_date) }}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 text-[10px] font-bold uppercase block">Trạng thái</span>
+                            <span v-if="selectedInvoice.status === 'paid'" class="text-blue-600 font-extrabold">Đã thanh toán</span>
+                            <span v-else class="text-emerald-600 font-extrabold">Đang mở (Chưa thu)</span>
+                        </div>
                     </div>
 
-                    <!-- Body -->
-                    <div class="p-5 sm:p-8 space-y-6 overflow-y-auto flex-1 bg-white scrollbar-thin">
-                        <div class="text-center space-y-2">
-                            <h2 class="text-lg sm:text-xl font-extrabold text-slate-800">Hóa đơn tiền nhà</h2>
-                            
-                            <!-- Payment Status Badge -->
-                            <div class="flex justify-center mt-1">
-                                <span v-if="selectedInvoice.status === 'paid'" class="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[11px] font-extrabold flex items-center gap-1 uppercase tracking-wide">
-                                    <i class="bi bi-check-circle-fill"></i> Đã thanh toán
-                                </span>
-                                <span v-else class="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[11px] font-extrabold flex items-center gap-1 uppercase tracking-wide animate-pulse">
-                                    <i class="bi bi-clock-fill"></i> Chưa thanh toán
-                                </span>
-                            </div>
-                            
-                            <div class="max-w-md mx-auto grid grid-cols-2 gap-y-2.5 text-xs font-semibold text-slate-600 text-left pt-5 border-b border-dashed border-slate-200 pb-5">
-                                <div class="text-slate-400">Kỳ thanh toán:</div>
-                                <div class="text-slate-800 text-right">Tháng {{ selectedInvoice.billing_month }}</div>
-                                
-                                <div class="text-slate-400">Mã hóa đơn:</div>
-                                <div class="text-slate-800 text-right font-mono font-bold">#{{ selectedInvoice.invoice_code }}</div>
-                                
-                                <div class="text-slate-400">Phòng:</div>
-                                <div class="text-slate-800 text-right font-black text-emerald-600">Phòng {{ selectedInvoice.contract?.room?.room_number }}</div>
-                                
-                                <div class="text-slate-400">Khách hàng:</div>
-                                <div class="text-slate-800 text-right font-bold text-slate-700">{{ selectedInvoice.contract?.tenant?.name }}</div>
+                    <!-- Items breakdown table -->
+                    <div class="border border-slate-100 rounded-2xl overflow-hidden">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-100 text-[10px]">
+                                    <th class="py-2.5 px-4">Khoản thu</th>
+                                    <th class="py-2.5 px-4 text-center">Chỉ số / Số lượng</th>
+                                    <th class="py-2.5 px-4 text-right">Đơn giá</th>
+                                    <th class="py-2.5 px-4 text-right">Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50 font-semibold text-slate-700">
+                                <tr v-for="d in selectedInvoice.details" :key="d.id" class="hover:bg-slate-50/50">
+                                    <td class="py-3 px-4 font-bold">{{ d.item_name }}</td>
+                                    <td class="py-3 px-4 text-center text-slate-500">
+                                        <span v-if="d.old_index !== null && d.old_index !== undefined" class="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded-md">
+                                            {{ d.new_index }} - {{ d.old_index }} = {{ d.quantity }}
+                                        </span>
+                                        <span v-else>{{ d.quantity }}</span>
+                                    </td>
+                                    <td class="py-3 px-4 text-right text-slate-500">{{ formatMoney(d.price) }}</td>
+                                    <td class="py-3 px-4 text-right font-bold text-slate-800">{{ formatMoney(d.subtotal) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-                                <div v-if="selectedInvoice.due_date" class="text-slate-400">Hạn đóng tiền:</div>
-                                <div v-if="selectedInvoice.due_date" class="text-right text-rose-500 font-bold">{{ selectedInvoice.due_date }}</div>
-                            </div>
+                    <!-- Total Amount -->
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-100">
+                        <span class="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Tổng cộng</span>
+                        <span class="text-lg font-black text-rose-500">{{ formatMoney(selectedInvoice.total_amount) }}</span>
+                    </div>
+
+                    <!-- Meter Evidence Dispute Section (Bằng chứng hình ảnh) -->
+                    <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="bi bi-camera-fill text-amber-500"></i> Bằng chứng hình ảnh đối chiếu chỉ số công tơ
+                            </h4>
+                            <button @click="printDisputeReport(selectedInvoice)" class="px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg flex items-center gap-1 shadow-sm transition-colors cursor-pointer">
+                                <i class="bi bi-printer-fill text-emerald-600"></i> Xuất biên bản đối chiếu
+                            </button>
                         </div>
 
-                        <!-- Bill table (Desktop) -->
-                        <div class="hidden sm:block border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                            <table class="w-full text-xs text-left border-collapse">
-                                <thead>
-                                    <tr class="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                        <th class="py-3 px-4 w-12 text-center font-bold">#</th>
-                                        <th class="py-3 px-4 font-bold">Chi phí</th>
-                                        <th class="py-3 px-4 text-center font-bold">Số lượng</th>
-                                        <th class="py-3 px-4 text-right font-bold">Đơn giá</th>
-                                        <th class="py-3 px-4 text-right font-bold">Tổng cộng</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-50 font-semibold text-slate-600">
-                                    <tr v-for="(detail, index) in selectedInvoice.details" :key="detail.id">
-                                        <td class="py-3 px-4 text-center text-slate-400">{{ index + 1 }}</td>
-                                        <td class="py-3 px-4 font-bold text-slate-800">
-                                            {{ detail.item_name }}
-                                            <span v-if="detail.old_index !== null" class="text-slate-400 font-normal"> ({{ detail.new_index }} - {{ detail.old_index }})</span>
-                                        </td>
-                                        <td class="py-3 px-4 text-center">{{ detail.quantity }}</td>
-                                        <td class="py-3 px-4 text-right">{{ formatMoney(detail.price) }}</td>
-                                        <td class="py-3 px-4 text-right font-bold text-slate-800">{{ formatMoney(detail.subtotal) }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                        <div v-for="dt in selectedInvoice.details.filter(d => d.old_index !== null && d.old_index !== undefined)" :key="dt.id" class="bg-white border border-slate-100 rounded-xl p-4 space-y-3">
+                            <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                                <span class="text-xs font-bold text-slate-700">{{ dt.item_name }}</span>
+                                <span class="text-xs font-extrabold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                                    {{ dt.new_index }} - {{ dt.old_index }} = {{ dt.quantity }}
+                                </span>
+                            </div>
 
-                        <!-- Receipt Rows list (Mobile-First Receipt View) -->
-                        <div class="block sm:hidden space-y-4">
-                            <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1.5">Chi tiết chi phí</div>
-                            <div v-for="detail in selectedInvoice.details" :key="detail.id" class="flex justify-between items-start py-1.5 text-xs font-semibold">
-                                <div class="space-y-0.5">
-                                    <div class="text-slate-800 font-bold">{{ detail.item_name }}</div>
-                                    <!-- Detailed calculations under item name -->
-                                    <div class="text-[10px] text-slate-400 font-medium">
-                                        <span v-if="detail.old_index !== null">
-                                            Chỉ số: {{ detail.new_index }} - {{ detail.old_index }} = {{ detail.quantity }} &times; {{ formatMoney(detail.price) }}
-                                        </span>
-                                        <span v-else-if="detail.quantity > 1">
-                                            Số lượng: {{ detail.quantity }} &times; {{ formatMoney(detail.price) }}
-                                        </span>
-                                        <span v-else>
-                                            Đơn giá: {{ formatMoney(detail.price) }}
-                                        </span>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <!-- Old Index Photo -->
+                                <div class="border border-slate-100 rounded-xl p-2.5 text-center bg-slate-50/50 space-y-1.5">
+                                    <div class="text-[10px] font-bold text-slate-400 uppercase">Ảnh chỉ số kỳ cũ (Số: {{ dt.old_index }})</div>
+                                    <div v-if="dt.old_meter_image_path" class="overflow-hidden rounded-lg border border-slate-200 bg-black/5">
+                                        <img :src="dt.old_meter_image_path" class="w-full h-36 object-contain" />
+                                    </div>
+                                    <div v-else class="h-36 flex items-center justify-center text-[11px] text-slate-400 italic bg-white rounded-lg border border-dashed border-slate-200">
+                                        Chưa đính kèm ảnh chỉ số cũ
                                     </div>
                                 </div>
-                                <div class="text-slate-800 font-bold text-right">{{ formatMoney(detail.subtotal) }}</div>
+
+                                <!-- New Index Photo -->
+                                <div class="border border-slate-100 rounded-xl p-2.5 text-center bg-slate-50/50 space-y-1.5">
+                                    <div class="text-[10px] font-bold text-slate-400 uppercase">Ảnh chỉ số kỳ mới (Số: {{ dt.new_index }})</div>
+                                    <div v-if="dt.meter_image_path" class="overflow-hidden rounded-lg border border-slate-200 bg-black/5">
+                                        <img :src="dt.meter_image_path" class="w-full h-36 object-contain" />
+                                    </div>
+                                    <div v-else class="h-36 flex items-center justify-center text-[11px] text-slate-400 italic bg-white rounded-lg border border-dashed border-slate-200">
+                                        Chưa đính kèm ảnh chỉ số mới
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <!-- Tear-off dashed divider line -->
-                        <div class="border-t-2 border-dashed border-slate-200 pt-4 mt-6"></div>
-
-                        <!-- Grand Total -->
-                        <div class="flex justify-between items-center py-3 bg-slate-50 rounded-2xl px-5">
-                            <span class="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Tổng cộng</span>
-                            <span class="text-lg font-black text-rose-500">{{ formatMoney(selectedInvoice.total_amount) }}</span>
-                        </div>
-                    </div>
-
-                    <!-- Foot -->
-                    <div class="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2.5 bg-slate-50/50">
-                        <!-- Action buttons for Mobile and Desktop -->
-                        <button @click="copyInvoiceText(selectedInvoice)" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors">
-                            <i class="bi bi-send-fill text-emerald-600"></i> Gửi Zalo / SMS
-                        </button>
-                        
-                        <button v-if="selectedInvoice.status !== 'paid'" @click="changeStatus(selectedInvoice, 'paid'); closeViewModal()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm shadow-emerald-600/10">
-                            <i class="bi bi-check-lg"></i> Xác nhận đã thu
-                        </button>
-                        <button v-else @click="changeStatus(selectedInvoice, 'unpaid'); closeViewModal()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors">
-                             Chưa thu tiền
-                        </button>
-                        
-                        <button class="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center" @click="closeViewModal">Đóng</button>
                     </div>
                 </div>
+
+                <!-- Foot -->
+                <div class="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2.5 bg-slate-50/50">
+                    <button @click="copyInvoiceText(selectedInvoice)" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
+                        <i class="bi bi-send-fill text-emerald-600"></i> Gửi Zalo / SMS
+                    </button>
+                    
+                    <button v-if="selectedInvoice.status !== 'paid'" @click="changeStatus(selectedInvoice, 'paid'); closeViewModal()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm cursor-pointer">
+                        <i class="bi bi-check-lg"></i> Xác nhận đã thu
+                    </button>
+                    <button v-else @click="changeStatus(selectedInvoice, 'unpaid'); closeViewModal()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
+                        Chưa thu tiền
+                    </button>
+                    
+                    <button class="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center cursor-pointer" @click="closeViewModal">Đóng</button>
+                </div>
             </div>
-        </Teleport>
+        </div>
     </LandlordLayout>
 </template>

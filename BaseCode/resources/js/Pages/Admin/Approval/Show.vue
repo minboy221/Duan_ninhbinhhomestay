@@ -2,6 +2,7 @@
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref } from "vue";
+import { showConfirm } from "@/Utils/swal"; 
 
 const props = defineProps({
     post: Object,

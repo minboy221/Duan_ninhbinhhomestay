@@ -116,13 +116,15 @@ class PublicListingController extends Controller
                     'boardingHouse' => $r->boardingHouse,
                 ];
             });
+        //lấy các danh sách lý do báo cáo được is_active
+        $reasons = \App\Models\ReportReason::where('is_active', true)->pluck('reason');
 
         return Inertia::render('Client/chitiettro', [
             'room' => $roomData,
             'similarRooms' => $similarPosts,
+            'reasons' => $reasons,
         ]);
     }
-
     //Đặt Lịch hẹn xem phòng (Đã sửa sạch lỗi cú pháp ]; )
     public function book(Request $request, $id)
     {
@@ -166,8 +168,15 @@ class PublicListingController extends Controller
             'time.required' => 'Vui lòng chọn giờ hẹn xem phòng.',
         ]);
 
-        $post = RoomPost::findOrFail($id);
+        $post = RoomPost::with('room')->findOrFail($id);
         $roomId = $post->room_id;
+        //Thêm dàng buộc cho user nếu đang có hợp đồng active tại cơ sở khác, chặn không cho đặt lịch xem phòng
+        $activeContract = \App\Models\Contract::where('tenant_id', Auth::id())
+            ->where('status', 'active')
+            ->first();
+        if ($activeContract) {
+            return redirect()->back()->with('error', 'Bạn đang có hợp đồng thuê phòng đang hoạt động trên hệ thống, không thể đặt lịch xem phòng mới.');
+        }
         //kiểm tra khung giờ này đã có người đặt trước hoặc đang chờ duyểt
         if ($this->listingService->isSlotOccupied($roomId, $request->date, $request->time)) {
             return redirect()->back()->with('error', 'Khung giờ này đã được đặt hoặc đang chờ duyệt. Vui lòng chọn khung giờ khác');

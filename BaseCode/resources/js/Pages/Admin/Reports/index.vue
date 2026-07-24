@@ -1,7 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Head,useForm } from '@inertiajs/vue3'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const search     = ref('')
 const typeFilter = ref('all')
@@ -54,6 +54,18 @@ const filtered = computed(() => props.reports.filter(r => {
     const mStatus = statusFilter.value === 'all' || r.status === statusFilter.value
     return mSearch && mType && mStatus
 }))
+
+const currentPage = ref(1)
+const perPage = 10
+
+watch([search, typeFilter, statusFilter], () => {
+    currentPage.value = 1
+})
+
+const paginatedFiltered = computed(() => {
+    const start = (currentPage.value - 1) * perPage
+    return filtered.value.slice(start, start + perPage)
+})
 
 const updateForm = useForm({
     status: '',
@@ -169,8 +181,8 @@ function handleAction(act) {
                 </thead>
                 <tbody>
                     <tr v-if="!filtered.length"><td colspan="7" class="empty-row"><i class="bi bi-inbox"></i><p>Không có báo cáo nào</p></td></tr>
-                    <tr v-for="(r, i) in filtered" :key="r.id" class="trow">
-                        <td class="idx">{{ i+1 }}</td>
+                    <tr v-for="(r, i) in paginatedFiltered" :key="r.id" class="trow">
+                        <td class="idx">{{ (currentPage - 1) * perPage + i + 1 }}</td>
                         <td>
                             <p class="fw">{{ r.from }}</p>
                             <p class="sm-gray">{{ r.fromEmail }}</p>
@@ -188,6 +200,31 @@ function handleAction(act) {
                     </tr>
                 </tbody>
             </table>
+
+            <!-- Phân trang client-side cho admin -->
+            <div class="flex justify-center items-center gap-1.5 mt-4 p-4 border-t border-slate-100" v-if="filtered.length > perPage" style="display: flex; justify-content: center; align-items: center; gap: 6px; padding: 16px; border-top: 1px solid #f1f5f9; background: #fff;">
+                <button 
+                    @click="currentPage > 1 && (currentPage--)" 
+                    :disabled="currentPage === 1"
+                    class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold transition bg-white"
+                    :style="currentPage === 1 ? 'color: #94a3b8; cursor: not-allowed; background: #f8fafc;' : 'color: #334155; cursor: pointer;'"
+                >
+                    Trước
+                </button>
+                
+                <span class="text-xs text-slate-500 font-semibold mx-2">
+                    Trang {{ currentPage }} / {{ Math.ceil(filtered.length / perPage) }}
+                </span>
+
+                <button 
+                    @click="currentPage < Math.ceil(filtered.length / perPage) && (currentPage++)" 
+                    :disabled="currentPage === Math.ceil(filtered.length / perPage)"
+                    class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold transition bg-white"
+                    :style="currentPage === Math.ceil(filtered.length / perPage) ? 'color: #94a3b8; cursor: not-allowed; background: #f8fafc;' : 'color: #334155; cursor: pointer;'"
+                >
+                    Sau
+                </button>
+            </div>
         </div>
 
         <!-- Modal xử lý -->
@@ -198,16 +235,52 @@ function handleAction(act) {
                         <h3>Xử Lý Báo Cáo #{{ selected?.id }}</h3>
                         <button @click="showModal=false" class="modal-close"><i class="bi bi-x-lg"></i></button>
                     </div>
-                    <div class="modal-body">
+                                        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                         <div class="info-block">
-                            <div class="ib-row"><span class="ib-l">Người BC</span><span class="ib-v">{{ selected?.from }}</span></div>
-                            <div class="ib-row"><span class="ib-l">Đối tượng</span><span class="ib-v">{{ selected?.target }}</span></div>
-                            <div class="ib-row"><span class="ib-l">Loại VP</span><span class="ib-v"><span :class="['type-badge',typeMap[selected?.type]?.class]">{{ typeMap[selected?.type]?.label }}</span></span></div>
-                            <div class="ib-row"><span class="ib-l">Trạng thái</span><span class="ib-v"><span :class="['status-chip',statusMap[selected?.status]?.class]">{{ statusMap[selected?.status]?.label }}</span></span></div>
+                            <div class="ib-row"><span class="ib-l">Người BC</span><span class="ib-v">{{ selected?.from }} ({{ selected?.fromEmail }})</span></div>
+                            <div class="ib-row"><span class="ib-l">Đối tượng</span><span class="ib-v font-bold text-indigo-600">{{ selected?.target }}</span></div>
+                            <div class="ib-row"><span class="ib-l">Lý do</span><span class="ib-v"><span class="type-badge type-orange">{{ selected?.reason }}</span></span></div>
+                            <div class="ib-row"><span class="ib-l">Trạng thái</span><span class="ib-v"><span :class="['status-chip', statusMap[selected?.status]?.class]">{{ statusMap[selected?.status]?.label }}</span></span></div>
+                            <div class="ib-row" v-if="selected?.negotiation_deadline"><span class="ib-l">Hạn thương lượng</span><span class="ib-v text-slate-500">{{ selected?.negotiation_deadline }}</span></div>
                         </div>
-                        <label class="form-label mt-4">Ghi chú admin:</label>
-                        <textarea v-model="adminNote" class="form-textarea" rows="3" placeholder="Ghi chú sau khi xử lý..."></textarea>
+
+                        <!-- Nội dung mô tả chi tiết của khách thuê -->
+                        <div class="mt-4 border-t pt-3">
+                            <label class="form-label text-slate-700">Mô tả sự việc từ khách thuê:</label>
+                            <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-line">{{ selected?.description || 'Không có mô tả chi tiết.' }}</p>
+                        </div>
+
+                        <!-- Ảnh bằng chứng của khách thuê -->
+                        <div v-if="selected?.evidence_images && selected.evidence_images.length" class="mt-3">
+                            <label class="form-label text-slate-700">Ảnh minh chứng vi phạm:</label>
+                            <div class="flex flex-wrap gap-2 mt-1">
+                                <img v-for="(img, idx) in selected.evidence_images" :key="idx" :src="'/storage/' + img" class="w-20 h-20 object-cover rounded-lg border border-slate-200" @click="window.open('/storage/' + img, '_blank')" style="cursor: zoom-in;" />
+                            </div>
+                        </div>
+
+                        <!-- Giải trình từ chủ trọ nếu có -->
+                        <div v-if="selected?.target_resolved" class="mt-4 border-t pt-3 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
+                            <h4 class="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                                <i class="bi bi-chat-left-dots-fill"></i> Giải Trình & Khắc Phục Từ Chủ Trọ:
+                            </h4>
+                            <p class="text-xs text-slate-700 mt-1.5 whitespace-pre-line">{{ selected?.response_note || 'Chủ trọ xác nhận đã khắc phục sự cố.' }}</p>
+                            
+                            <!-- Ảnh khắc phục của chủ trọ -->
+                            <div v-if="selected?.response_evidence && selected.response_evidence.length" class="mt-2">
+                                <span class="text-[11px] font-semibold text-emerald-700">Ảnh chứng cứ đã khắc phục:</span>
+                                <div class="flex flex-wrap gap-2 mt-1">
+                                    <img v-for="(img, idx) in selected.response_evidence" :key="idx" :src="'/storage/' + img" class="w-16 h-16 object-cover rounded-lg border border-emerald-200" @click="window.open('/storage/' + img, '_blank')" style="cursor: zoom-in;" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Phần ghi chú của Admin -->
+                        <div class="mt-4 border-t pt-3">
+                            <label class="form-label mt-2">Ghi chú xử lý của Admin:</label>
+                            <textarea v-model="adminNote" class="form-textarea" rows="3" placeholder="Ghi chú kết quả xử lý..." :disabled="selected?.status !== 'pending'"></textarea>
+                        </div>
                     </div>
+
                     <div class="modal-footer" v-if="selected?.status === 'pending'">
                         <button @click="showModal=false" class="btn-cancel">Hủy</button>
                         <button @click="handleAction('ignore')" class="btn-ignore"><i class="bi bi-dash-circle"></i> Bỏ qua</button>

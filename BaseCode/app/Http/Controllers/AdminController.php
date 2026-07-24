@@ -24,7 +24,7 @@ class AdminController extends Controller
                 'totalUsers' => User::count(),
                 'newUsersToday' => User::whereDate('created_at', today())->count(),
                 'pendingApproval' => RoomPost::where('status', 'pending')->count(),
-                'reports' => 0,
+                'reports' => Report::where('status', 'pending')->count(),
             ]
         ]);
     }
@@ -182,6 +182,11 @@ class AdminController extends Controller
                     'note' => $report->admin_note ?? '',
                     'is_expired' => $isExpired,
                     'can_admin_resolve' => $canAdminResolve,
+                    'evidence_images' => $report->evidence_images ?? [],
+                    'response_note' => $report->response_note ?? '',
+                    'response_evidence' => $report->response_evidence ?? [],
+                    'target_resolved' => (bool) $report->target_resolved,
+                    'negotiation_deadline' => $report->negotiation_deadline ? $report->negotiation_deadline->format('d/m/Y H:i') : null,
                 ];
             });
 
@@ -198,13 +203,47 @@ class AdminController extends Controller
             'status' => 'required|in:resolved,ignored,rejected',
             'admin_note' => 'nullable|string|max:1000',
         ]);
-        $report = Report::findOrFail($id);
+
+        $report = Report::with('reportable.boardingHouse.user', 'reporter')->findOrFail($id);
+        
         $report->update([
             'status' => $request->status,
             'admin_note' => $request->admin_note,
             'resolved_by' => auth()->id(),
             'resolved_at' => now(),
         ]);
+
+        $statusLabel = 'N/A';
+        if ($request->status === 'resolved') {
+            $statusLabel = 'đã được giải quyết (Chấp nhận khiếu nại)';
+        } elseif ($request->status === 'ignored' || $request->status === 'rejected') {
+            $statusLabel = 'bị từ chối / bỏ qua khiếu nại';
+        }
+
+        // 1. Thông báo cho Khách thuê (Người báo cáo)
+        $reporter = $report->reporter;
+        if ($reporter) {
+            $reporter->notify(new \App\Notifications\AdminNotification(
+                'Admin đã xử lý khiếu nại của bạn',
+                'Báo cáo #' . $report->id . ' của bạn đã được Admin xử lý: ' . $statusLabel,
+                'report_admin_action',
+                '/profile/listbaocao'
+            ));
+        }
+
+        // 2. Thông báo cho Chủ trọ của phòng
+        if ($report->reportable_type === \App\Models\Room::class) {
+            $landlord = $report->reportable->boardingHouse->user ?? null;
+            if ($landlord) {
+                $landlord->notify(new \App\Notifications\AdminNotification(
+                    'Kết quả xử lý khiếu nại từ Admin',
+                    'Khiếu nại #' . $report->id . ' tại phòng ' . ($report->reportable->room_number ?? '') . ' ' . $statusLabel,
+                    'report_admin_action_landlord',
+                    '/landlord/reports'
+                ));
+            }
+        }
+
         return redirect()->back()->with('success', 'Cập nhật trạng thái báo cáo thành công');
     }
 
@@ -220,6 +259,51 @@ class AdminController extends Controller
         );
 
         return redirect()->back()->with('success', 'Cập nhật thời hạn thương lượng thành công.');
+    }
+
+    //CRUD lý do cho Admin
+    public function reportReasons(){
+        $reasons = \App\Models\ReportReason::orderBy('created_at','desc')->get();
+        return Inertia::render('Admin/ReportReasons/Index',[
+            'reasons' => $reasons
+        ]);
+    }
+
+    public function storeReportReason(Request $request)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:255|unique:report_reasons,reason',
+        ], [
+            'reason.required' => 'Vui lòng nhập lý do báo cáo.',
+            'reason.unique' => 'Lý do báo cáo này đã tồn tại.'
+        ]);
+
+        \App\Models\ReportReason::create([
+            'reason' => $request->reason,
+            'is_active' => true
+        ]);
+
+        return redirect()->back()->with('success', 'Thêm lý do báo cáo thành công.');
+    }
+
+    public function updateReportReason(Request $request, $id)
+    {
+        $reason = \App\Models\ReportReason::findOrFail($id);
+        $request->validate([
+            'reason' => 'required|string|max:255|unique:report_reasons,reason,' . $id,
+            'is_active' => 'required|boolean'
+        ]);
+        $reason->update([
+            'reason' => $request->reason,
+            'is_active' => $request->is_active
+        ]);
+        return redirect()->back()->with('success', 'Cập nhật lý do báo cáo thành công.');
+    }
+
+    public function destroyReportReason($id){
+        $reason = \App\Models\ReportReason::findOrFail($id);
+        $reason ->delete();
+        return redirect()->back()->with('success','xoá lý do báo cáo thành công');
     }
 
     public function reviews()
@@ -265,7 +349,7 @@ class AdminController extends Controller
             'contact_map' => 'nullable|string|max:1000',
             'banners' => 'nullable|array',
             //cấu hình thời hạn báo cáo
-            'report_negotiation_dáy' => 'required|integer|min:1|max:30',
+            'report_negotiation_days' => 'required|integer|min:1|max:30',
         ], [
             'hero_title.required' => 'Tiêu đề chính không được để trống.',
             'hero_subtitle.required' => 'Mô tả phụ không được để trống.',
@@ -277,7 +361,7 @@ class AdminController extends Controller
             'report_negotiation_days.integer' => 'Thời hạn thương lượng phải là số nguyên.',
             'report_negotiation_days.min' => 'Thời hạn tối thiểu là 1 ngày.',
         ]);
-        \App\Models\Setting::updateOrCreate(['key' => 'report_negotiation_days'],['value' => $request->report_negotiation_days]);
+        \App\Models\Setting::updateOrCreate(['key' => 'report_negotiation_days'], ['value' => $request->report_negotiation_days]);
         \App\Models\Setting::updateOrCreate(['key' => 'hero_title'], ['value' => $request->hero_title]);
         \App\Models\Setting::updateOrCreate(['key' => 'hero_subtitle'], ['value' => $request->hero_subtitle]);
         \App\Models\Setting::updateOrCreate(['key' => 'contact_phone'], ['value' => $request->contact_phone]);
