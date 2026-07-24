@@ -1,6 +1,6 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3'
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
@@ -28,6 +28,14 @@ const isActive = (path) => {
     return page.url === path || page.url.startsWith(path + '/')
 }
 const closeDrawer = () => { drawerOpen.value = false }
+
+const getAvatarUrl = (avatar) => {
+    if (!avatar) return null;
+    if (avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:')) {
+        return avatar;
+    }
+    return '/storage/' + avatar;
+}
 
 const properties = computed(() => usePage().props.auth.boarding_houses || [])
 const selectedPropertyId = computed(() => usePage().props.auth.selected_boarding_house_id)
@@ -70,6 +78,7 @@ const navGroups = [
                     { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
                 ]
             },
+            { label: 'Khiếu Nại', path: '/landlord/reports', icon: 'bi-exclamation-triangle' },
         ]
     },
     {
@@ -84,7 +93,14 @@ const navGroups = [
     {
         label: 'NHÀ CỦA TÔI',
         items: [
-            { label: 'Thông Tin CĐT', path: '/landlord/profile', icon: 'bi-person-gear' },
+            { 
+                label: 'Cài Đặt & Tài Khoản', 
+                icon: 'bi-person-gear',
+                children: [
+                    { label: 'Thông Tin CĐT', path: '/landlord/profile', icon: 'bi-person-badge' },
+                    { label: 'Tài Khoản Ngân Hàng', path: '/landlord/bank-settings', icon: 'bi-bank' },
+                ]
+            },
             { label: 'Quản Lý Cơ Sở', path: '/landlord/boarding-houses', icon: 'bi-buildings' },
             { label: 'Hồ Sơ Xét Duyệt', path: '/landlord/boarding-houses/history', icon: 'bi-file-earmark-check' },
         ]
@@ -104,6 +120,8 @@ const showWelcomePopup = ref(false)
 const latestNotification = ref(null)
 
 onMounted(() => {
+    document.body.classList.add('landlord-theme')
+
     // Tự động mở các menu con nếu có trang con đang active lúc load trang
     navGroups.forEach(group => {
         group.items.forEach(item => {
@@ -125,6 +143,10 @@ onMounted(() => {
     }
 })
 
+onUnmounted(() => {
+    document.body.classList.remove('landlord-theme')
+})
+
 const closePopup = () => {
     showWelcomePopup.value = false
     if (latestNotification.value) {
@@ -134,7 +156,7 @@ const closePopup = () => {
 </script>
 
 <template>
-    <div class="flex h-screen overflow-hidden bg-[#fafbfe] font-sans text-slate-700 antialiased">
+    <div class="landlord-layout flex h-screen overflow-hidden bg-[#fafbfe] font-sans text-slate-700 antialiased">
         <!-- Sidebar (desktop only) -->
         <aside :class="sidebarOpen ? 'w-64' : 'w-20'"
             class="hidden md:flex flex-col flex-shrink-0 bg-[#f1f5f9] border-r border-slate-100/80 transition-all duration-300 ease-in-out z-20 shadow-[4px_0_24px_rgba(0,0,0,0.015)]">
@@ -382,7 +404,8 @@ const closePopup = () => {
 
                     <!-- User Profile info -->
                     <div class="flex items-center gap-3 pl-3 border-l border-slate-100">
-                        <div
+                        <img v-if="user?.avatar" :src="getAvatarUrl(user.avatar)" class="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm" alt="Avatar" />
+                        <div v-else
                             class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-extrabold shadow-md shadow-emerald-500/10">
                             {{ user?.name ? user.name.charAt(0).toUpperCase() : 'L' }}
                         </div>
@@ -616,5 +639,21 @@ const closePopup = () => {
 
 .animate-slide-in {
     animation: slideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+</style>
+
+<style>
+/* Sử dụng 100% font chữ Arial cho toàn bộ giao diện chủ trọ */
+body.landlord-theme,
+body.landlord-theme *,
+.landlord-layout,
+.landlord-layout * {
+    font-family: Arial, sans-serif !important;
+}
+
+/* Tối ưu chữ Arial đậm không bị vỡ/méo nét tiếng Việt */
+body.landlord-theme .font-black,
+body.landlord-theme .font-extrabold {
+    font-weight: 700 !important;
 }
 </style>

@@ -104,13 +104,15 @@ class PublicListingController extends Controller
                     'boardingHouse' => $r->boardingHouse,
                 ];
             });
+        //lấy các danh sách lý do báo cáo được is_active
+        $reasons = \App\Models\ReportReason::where('is_active', true)->pluck('reason');
 
         return Inertia::render('Client/chitiettro', [
             'room' => $roomData,
             'similarRooms' => $similarPosts,
+            'reasons' => $reasons,
         ]);
     }
-
     //Đặt Lịch hẹn xem phòng (Đã sửa sạch lỗi cú pháp ]; )
     public function book(Request $request, $id)
     {
@@ -119,12 +121,13 @@ class PublicListingController extends Controller
         }
 
         //check tài khoản là chủ trọ
-        if(Auth::user()->role === 'landlord'){
-            return redirect()->back()->with('error','tài khoản chủ trọ không được phép đặt lịch xem phòng');
+        if (Auth::user()->role === 'landlord') {
+            return redirect()->back()->with('error', 'tài khoản chủ trọ không được phép đặt lịch xem phòng');
         }
 
-        $todayStr = Carbon::today()->format('Y-m-d');
-        $maxDate = Carbon::today()->addDays(6)->format('Y-m-d');
+        $todayStr = Carbon::today('Asia/Ho_Chi_Minh')->format('Y-m-d');
+        $maxDate = Carbon::today('Asia/Ho_Chi_Minh')->addDays(6)->format('Y-m-d');
+
 
         $request->validate([
             'date' => [
@@ -140,7 +143,7 @@ class PublicListingController extends Controller
                 'required',
                 function ($attribute, $value, $fail) use ($request, $todayStr) {
                     if ($request->input('date') === $todayStr) {
-                        $currentTime = Carbon::now()->format('H:i');
+                        $currentTime = Carbon::now('Asia/Ho_Chi_Minh')->format('H:i');
                         if ($value < $currentTime) {
                             $fail('Không thể chọn giờ hẹn trong quá khứ.');
                         }
@@ -153,6 +156,19 @@ class PublicListingController extends Controller
             'time.required' => 'Vui lòng chọn giờ hẹn xem phòng.',
         ]);
 
+        $post = RoomPost::with('room')->findOrFail($id);
+        $roomId = $post->room_id;
+        //Thêm dàng buộc cho user nếu đang có hợp đồng active tại cơ sở khác, chặn không cho đặt lịch xem phòng
+        $activeContract = \App\Models\Contract::where('tenant_id', Auth::id())
+            ->where('status', 'active')
+            ->first();
+        if ($activeContract) {
+            return redirect()->back()->with('error', 'Bạn đang có hợp đồng thuê phòng đang hoạt động trên hệ thống, không thể đặt lịch xem phòng mới.');
+        }
+        //kiểm tra khung giờ này đã có người đặt trước hoặc đang chờ duyểt
+        if ($this->listingService->isSlotOccupied($roomId, $request->date, $request->time)) {
+            return redirect()->back()->with('error', 'Khung giờ này đã được đặt hoặc đang chờ duyệt. Vui lòng chọn khung giờ khác');
+        }
         // Giao việc tạo bản ghi và thông báo cho Service giải quyết
         $this->listingService->createAppointment($id, $request->all());
 
@@ -209,7 +225,7 @@ class PublicListingController extends Controller
     public function getTodayAppointment()
     {
         $userId = auth()->id();
-        $todayStr = Carbon::today()->toDateString();
+        $todayStr = Carbon::today('Asia/Ho_Chi_Minh')->toDateString();
         $nowTime = Carbon::now('Asia/Ho_Chi_Minh');
 
         // 1. Quét và tự động chuyển các lịch hẹn quá giờ hôm nay sang 'expired'
@@ -312,12 +328,13 @@ class PublicListingController extends Controller
                         $bh->where('district', $district);
                     });
                 }
-                switch ($request->reason) {
-                    case 'Giá cao quá':
+                $reasonLower = mb_strtolower(trim($request->reason));
+                switch ($reasonLower) {
+                    case 'giá cao quá':
                         $q->where('price', '<', $price);
                         break;
-                    case 'Xa nơi làm việc/học tập':
-                    case 'Phòng thực tế không giống với ảnh':
+                    case 'xa nơi làm việc/học tập':
+                    case 'phòng thực tế không giống với ảnh':
                         $q->whereBetween('price', [$price * 0.8, $price * 1.2]);
                         break;
                 }

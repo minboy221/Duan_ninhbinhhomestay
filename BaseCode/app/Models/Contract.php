@@ -75,4 +75,9 @@ class Contract extends Model
     {
         return $this->hasMany(Invoice::class, 'contract_id');
     }
+
+     //phần nhận báo cáo
+    public function reports(){
+        return $this->morphMany(\App\Models\Report::class,'reportable');
+    }
 }

@@ -19,13 +19,25 @@ class Invoice extends Model
         'status',
         'due_date',
         'paid_at',
+        'archived_at',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
         'paid_at' => 'datetime',
+        'archived_at' => 'datetime',
         'due_date' => 'date',
     ];
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->whereNotNull('archived_at');
+    }
 
     /**
      * Hợp đồng
@@ -41,5 +53,10 @@ class Invoice extends Model
     public function details(): HasMany
     {
         return $this->hasMany(InvoiceDetail::class, 'invoice_id');
+    }
+
+     //phần nhận báo cáo
+    public function reports(){
+        return $this->morphMany(\App\Models\Report::class,'reportable');
     }
 }

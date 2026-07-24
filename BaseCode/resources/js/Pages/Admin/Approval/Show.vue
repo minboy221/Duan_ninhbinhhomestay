@@ -2,6 +2,7 @@
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref } from "vue";
+import { showConfirm } from "@/Utils/swal"; 
 
 const props = defineProps({
     post: Object,
@@ -42,10 +43,14 @@ const getStatusClass = (status) => {
 };
 
 // Hàm gọi lệnh Phê duyệt bài viết
-function approvePost() {
-    if (
-        confirm(`Bạn có chắc chắn muốn phê duyệt xuất bản bài đăng này không?`)
-    ) {
+async function approvePost() {
+    const confirmed = await showConfirm(
+        "Phê duyệt bài đăng",
+        "Bạn có chắc chắn muốn phê duyệt xuất bản bài đăng này không?",
+        "Phê duyệt",
+        "Hủy"
+    );
+    if (confirmed) {
         router.post(route("admin.listings.approve", props.post.id));
     }
 }

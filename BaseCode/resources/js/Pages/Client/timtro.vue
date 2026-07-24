@@ -1,7 +1,7 @@
 <script setup>
 import MainLayout from '@/Layouts/MainLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 // Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Controller → Inertia)
 const props = defineProps({
@@ -22,7 +22,15 @@ const timeAgo = (date) => {
 
 const showDropdown = ref(false)
 const selectedArea = ref(null)
+const areaSearchQuery = ref('')
 const isFilterCollapsed = ref(true)
+const areaDropdownRef = ref(null)
+
+const filteredAreas = computed(() => {
+    if (!areaSearchQuery.value.trim()) return props.areas || [];
+    const q = areaSearchQuery.value.toLowerCase().trim();
+    return (props.areas || []).filter(area => area.name.toLowerCase().includes(q));
+});
 
 // Đối tượng lưu trữ các giá trị lọc
 const form = ref({
@@ -35,9 +43,23 @@ const form = ref({
 
 function selectArea(area) {
     selectedArea.value = area
-    form.value.area_id = area.id
+    form.value.area_id = area ? area.id : null
     showDropdown.value = false
 }
+
+const handleClickOutside = (event) => {
+    if (areaDropdownRef.value && !areaDropdownRef.value.contains(event.target)) {
+        showDropdown.value = false;
+    }
+};
+
+onMounted(() => {
+    window.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('click', handleClickOutside);
+});
 
 //Phần hiển thị trạng thái của phòng trọ
 const getStatusLabel = (status) => {
@@ -109,24 +131,49 @@ const getAvatarUrl = (avatar) => {
                     </div>
 
                     <div class="filter-body" :class="{ 'collapsed': isFilterCollapsed }">
-                        <!-- Khu vực (Dữ liệu từ DB) -->
-                        <div class="select_box">
-                            <div class="select" @click.stop="showDropdown = !showDropdown">
-                                <span class="selected">
-                                    <i class="bi bi-geo-alt"></i>
+                        <!-- Khu vực (Searchable Dropdown) -->
+                        <div class="select_box relative" ref="areaDropdownRef">
+                            <div class="select cursor-pointer flex items-center justify-between" @click.stop="showDropdown = !showDropdown">
+                                <span class="selected flex items-center gap-2">
+                                    <i class="bi bi-geo-alt text-blue-600"></i>
                                     {{ selectedArea ? selectedArea.name : 'Chọn khu vực' }}
                                 </span>
                                 <span class="arrow"><i class="bi bi-caret-down"></i></span>
                             </div>
 
                             <div class="dropdown" :class="{ show: showDropdown }">
-                                <div class="dropdown-header">
-                                    <span>Khu vực:</span>
+                                <!-- Search Input -->
+                                <div class="p-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
+                                    <div class="relative flex items-center">
+                                        <i class="bi bi-search absolute left-3 text-slate-400 text-xs"></i>
+                                        <input 
+                                            v-model="areaSearchQuery"
+                                            type="text"
+                                            placeholder="Gõ tìm phường, xã..."
+                                            class="w-full pl-8 pr-3 py-1.5 text-xs bg-white rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            @click.stop
+                                        />
+                                    </div>
                                 </div>
-                                <ul>
-                                    <li v-for="area in areas" :key="area.id"
-                                        :class="{ active: selectedArea?.id === area.id }" @click="selectArea(area)">
-                                        <i :class="['bi', area.icon]"></i> {{ area.name }}
+
+                                <ul class="max-h-56 overflow-y-auto py-1 custom-scrollbar">
+                                    <li 
+                                        class="px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                                        :class="{ 'active': !selectedArea }" 
+                                        @click="selectArea(null)"
+                                    >
+                                        <span>-- Tất cả khu vực --</span>
+                                    </li>
+                                    <li 
+                                        v-for="area in filteredAreas" 
+                                        :key="area.id"
+                                        :class="{ active: selectedArea?.id === area.id }" 
+                                        @click="selectArea(area)"
+                                    >
+                                        <i :class="['bi', area.icon || 'bi-geo-alt']"></i> {{ area.name }}
+                                    </li>
+                                    <li v-if="filteredAreas.length === 0" class="px-3 py-4 text-center text-xs text-slate-400">
+                                        Không tìm thấy khu vực
                                     </li>
                                 </ul>
                             </div>
@@ -275,182 +322,4 @@ const getAvatarUrl = (avatar) => {
 @import "../../css/timtro.css";
 @import '../../css/responsive/responsivetimtro.css';
 @import '../../css/responsive/responsive.css';
-
-/* Map section */
-.map_section {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #e2e8f0;
-}
-
-.map_section h3 {
-    font-size: 14px;
-    font-weight: 600;
-    color: #0f172a;
-    margin: 0 0 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.map_wrap {
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-}
-
-.map_wrap :deep(iframe) {
-    width: 100%;
-    height: 250px;
-    border: none;
-    display: block;
-}
-
-/* Dropdown improvements */
-.select {
-    cursor: pointer;
-}
-
-.dropdown {
-    z-index: 10;
-}
-
-.dropdown ul li {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.dropdown ul li:hover {
-    background: #f1f5f9;
-}
-
-.dropdown ul li.active {
-    background: #7c3aed;
-    color: #fff;
-}
-
-/* Styles cho phân trang */
-.phantrang {
-    display: flex;
-    justify-content: center;
-    margin-top: 30px;
-}
-
-.baophantrang {
-    display: flex;
-    gap: 8px;
-}
-
-.so_trang {
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-    transition: all 0.2s;
-}
-
-.so_trang a,
-.so_trang span {
-    display: block;
-    padding: 8px 12px;
-    color: #475569;
-    font-weight: 500;
-    text-decoration: none;
-}
-
-.so_trang:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-}
-
-.so_trang.active {
-    background: #38bdf8;
-    border-color: #38bdf8;
-}
-
-.so_trang.active a,
-.so_trang.active span {
-    color: white;
-}
-
-/* Responsive Collapsible Filter */
-.filter-title-wrapper {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.filter-title-wrapper h2,
-.filter-title-wrapper p {
-    margin: 0;
-}
-
-.filter-toggle-btn {
-    display: none;
-}
-
-@media (max-width: 1023px) {
-    .filter-title-wrapper {
-        cursor: pointer;
-        user-select: none;
-        width: 100%;
-        padding-bottom: 5px;
-    }
-
-    .filter-toggle-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(90deg, #102a6d, #45abe6);
-        border: 1px solid #e2e8f0;
-        width: 34px;
-        height: 34px;
-        border-radius: 50px;
-        color: #fff;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .filter-title-wrapper:hover .filter-toggle-btn {
-       background: linear-gradient(90deg, #102a6d, #45abe6);
-        color: #fff;
-    }
-
-    .baofilter {
-        display: block !important;
-    }
-
-    .filter-body {
-        transition: max-height 0.35s ease-in-out, opacity 0.25s ease-in-out;
-        max-height: 2500px;
-        opacity: 1;
-        overflow: hidden;
-        margin-top: 15px;
-    }
-
-    .filter-body.collapsed {
-        max-height: 0;
-        opacity: 0;
-        margin-top: 0;
-        pointer-events: none;
-    }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-    .filter-body {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-    }
-
-    .filter-body.collapsed {
-        display: none !important;
-    }
-
-    .map_section,
-    .bao_btn {
-        grid-column: 1 / -1;
-    }
-}
 </style>

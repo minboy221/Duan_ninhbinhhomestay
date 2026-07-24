@@ -1,6 +1,6 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
-import { ref } from 'vue'
+import { ref,computed  } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 
 const props = defineProps({
@@ -62,6 +62,17 @@ const serviceForm = useForm({
     icon: 'bi-lightning-charge-fill',
     color: 'emerald',
     description: ''
+})
+
+const displayServicePrice = computed({
+    get() {
+        if (serviceForm.price === null || serviceForm.price === undefined || serviceForm.price === '') return ''
+        return new Intl.NumberFormat('en-US').format(serviceForm.price)
+    },
+    set(val) {
+        const raw = String(val).replace(/\D/g, '')
+        serviceForm.price = raw ? parseInt(raw, 10) : 0
+    }
 })
 
 const openAddService = () => {
@@ -294,7 +305,7 @@ const handleConfirm = () => {
                         <!-- Price -->
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500">Đơn giá (đ) <span class="text-rose-500">*</span></label>
-                            <input v-model.number="serviceForm.price" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                            <input v-model="displayServicePrice" type="text" placeholder="0" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none transition-all"/>
                             <div v-if="serviceForm.errors.price" class="text-rose-500 text-[10px]">{{ serviceForm.errors.price }}</div>
                         </div>
 

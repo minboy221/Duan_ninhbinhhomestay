@@ -1,19 +1,34 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { Head } from '@inertiajs/vue3'
-import { ref, computed } from 'vue'
+import { Head,useForm } from '@inertiajs/vue3'
+import { ref, computed, watch } from 'vue'
 
 const search     = ref('')
 const typeFilter = ref('all')
 const statusFilter = ref('all')
+const props = defineProps({
+    reports: {
+        type: Array,
+        default: () => []
+    },
+    negotiationDays: {
+        type: Number,
+        default: 2
+    }
+})
 
-const reports = ref([
-    { id:1, from:'Nguyễn Văn An', fromEmail:'vanan@gmail.com', target:'Tin đăng #1023 - Phòng trọ Hoa Lư', type:'tin_ao', date:'19/05/2026', status:'pending', note:'' },
-    { id:2, from:'Trần Thị Bình', fromEmail:'thibinh@gmail.com', target:'Chủ trọ: Lê Văn Cường', type:'ghosting', date:'18/05/2026', status:'resolved', note:'Đã cảnh cáo chủ trọ.' },
-    { id:3, from:'Phạm Thị Dung',  fromEmail:'thidung@gmail.com', target:'Tin đăng #1456 - Studio trung tâm', type:'lua_dao', date:'17/05/2026', status:'pending', note:'' },
-    { id:4, from:'Hoàng Văn Em',   fromEmail:'vanem@gmail.com',  target:'Chủ trọ: Đặng Thị Fang', type:'ghosting', date:'16/05/2026', status:'ignored', note:'' },
-    { id:5, from:'Bùi Văn Giang',  fromEmail:'vangiang@gmail.com', target:'Tin đăng #2001 - Nhà nguyên căn', type:'tin_ao', date:'15/05/2026', status:'pending', note:'' },
-])
+const settingsForm = useForm({
+    days: props.negotiationDays
+})
+
+function saveSettings() {
+    settingsForm.post(route('admin.reports.update-days'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            alert('Cập nhật thời hạn thương lượng thành công!')
+        }
+    })
+}
 
 const typeMap = {
     tin_ao:  { label:'Tin ảo',   class:'type-orange' },
@@ -27,14 +42,35 @@ const statusMap = {
     ignored:  { label:'Bỏ qua',   class:'s-gray'   },
 }
 
-const filtered = computed(() => reports.value.filter(r => {
+const filtered = computed(() => props.reports.filter(r => {
     const q = search.value.toLowerCase()
     const mSearch = !q || r.from.toLowerCase().includes(q) || r.target.toLowerCase().includes(q)
-    const mType   = typeFilter.value === 'all' || r.type === typeFilter.value
+    const mType   = typeFilter.value === 'all' || (
+        (typeFilter.value === 'tin_ao' && r.reason.toLowerCase().includes('ảo')) ||
+        (typeFilter.value === 'lua_dao' && r.reason.toLowerCase().includes('lừa đảo')) ||
+        (typeFilter.value === 'ghosting' && r.reason.toLowerCase().includes('chủ trọ')) ||
+        (r.reason && r.reason.toLowerCase().includes(typeFilter.value.toLowerCase()))
+    )
     const mStatus = statusFilter.value === 'all' || r.status === statusFilter.value
     return mSearch && mType && mStatus
 }))
 
+const currentPage = ref(1)
+const perPage = 10
+
+watch([search, typeFilter, statusFilter], () => {
+    currentPage.value = 1
+})
+
+const paginatedFiltered = computed(() => {
+    const start = (currentPage.value - 1) * perPage
+    return filtered.value.slice(start, start + perPage)
+})
+
+const updateForm = useForm({
+    status: '',
+    admin_note: ''
+})
 const showModal = ref(false)
 const selected  = ref(null)
 const adminNote = ref('')
@@ -42,10 +78,26 @@ const action    = ref('')
 
 function openReport(r) { selected.value = r; adminNote.value = r.note; showModal.value = true }
 function handleAction(act) {
-    action.value = act
-    selected.value.note   = adminNote.value
-    selected.value.status = act === 'resolve' ? 'resolved' : 'ignored'
-    showModal.value = false
+   //ánh xạ hành động sang trạng thái database
+   const statusMapAction = {
+        'resolve': 'resolved',
+        'ignore': 'ignored'
+   }
+
+   updateForm.status = statusMapAction[act] || 'resolved';
+   updateForm.admin_note = adminNote.value;
+
+   updateForm.patch(route('admin.reports.update',
+    selected.value.id),{
+        preserveScroll:true,
+        onSuccess: () => {
+            showModal.value = false;
+            alert('xử lý báo cáo thành công!');
+        },
+        onError: (errors) => {
+            alert(Object.values(errors).join('\n'));
+        }
+    });
 }
 </script>
 
@@ -59,23 +111,37 @@ function handleAction(act) {
             </div>
         </template>
 
+        <!-- Cấu hình thời hạn thương lượng -->
+        <div class="settings-box mb-6 p-4 bg-white rounded-lg border border-slate-200 flex justify-between items-center" style="background: #fff; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h3 class="font-bold text-slate-800 text-sm" style="margin: 0; font-size: 14px; font-weight: 700;">Hạn Tự Thương Lượng Của Hệ Thống</h3>
+                <p class="text-xs text-slate-400" style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">Số ngày tối đa để Chủ trọ và Khách thuê tự thương lượng khắc phục trước khi Admin can thiệp.</p>
+            </div>
+            <div class="flex items-center gap-2" style="display: flex; align-items: center; gap: 8px;">
+                <input v-model="settingsForm.days" type="number" min="1" max="30" class="border rounded p-1.5 w-20 text-center font-bold" style="width: 80px; padding: 6px; text-align: center; border: 1px solid #cbd5e1; border-radius: 6px;" />
+                <button @click="saveSettings" class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition" :disabled="settingsForm.processing" style="background: #4f46e5; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                    Lưu cấu hình
+                </button>
+            </div>
+        </div>
+
         <!-- Summary cards -->
         <div class="summary-row">
             <div class="sum-card sum-orange">
                 <i class="bi bi-hourglass-split"></i>
-                <div><p class="sum-num">{{ reports.filter(r=>r.status==='pending').length }}</p><p class="sum-lbl">Chờ xử lý</p></div>
+                <div><p class="sum-num">{{ props.reports.filter(r=>r.status==='pending').length }}</p><p class="sum-lbl">Chờ xử lý</p></div>
             </div>
             <div class="sum-card sum-green">
                 <i class="bi bi-check-circle-fill"></i>
-                <div><p class="sum-num">{{ reports.filter(r=>r.status==='resolved').length }}</p><p class="sum-lbl">Đã xử lý</p></div>
+                <div><p class="sum-num">{{ props.reports.filter(r=>r.status==='resolved').length }}</p><p class="sum-lbl">Đã xử lý</p></div>
             </div>
             <div class="sum-card sum-gray">
                 <i class="bi bi-dash-circle-fill"></i>
-                <div><p class="sum-num">{{ reports.filter(r=>r.status==='ignored').length }}</p><p class="sum-lbl">Bỏ qua</p></div>
+                <div><p class="sum-num">{{ props.reports.filter(r=>r.status==='ignored').length }}</p><p class="sum-lbl">Bỏ qua</p></div>
             </div>
             <div class="sum-card sum-blue">
                 <i class="bi bi-flag-fill"></i>
-                <div><p class="sum-num">{{ reports.length }}</p><p class="sum-lbl">Tổng cộng</p></div>
+                <div><p class="sum-num">{{ props.reports.length }}</p><p class="sum-lbl">Tổng cộng</p></div>
             </div>
         </div>
 
@@ -115,14 +181,14 @@ function handleAction(act) {
                 </thead>
                 <tbody>
                     <tr v-if="!filtered.length"><td colspan="7" class="empty-row"><i class="bi bi-inbox"></i><p>Không có báo cáo nào</p></td></tr>
-                    <tr v-for="(r, i) in filtered" :key="r.id" class="trow">
-                        <td class="idx">{{ i+1 }}</td>
+                    <tr v-for="(r, i) in paginatedFiltered" :key="r.id" class="trow">
+                        <td class="idx">{{ (currentPage - 1) * perPage + i + 1 }}</td>
                         <td>
                             <p class="fw">{{ r.from }}</p>
                             <p class="sm-gray">{{ r.fromEmail }}</p>
                         </td>
                         <td class="sm-target">{{ r.target }}</td>
-                        <td><span :class="['type-badge', typeMap[r.type]?.class]">{{ typeMap[r.type]?.label }}</span></td>
+                        <td><span class="type-badge type-gray">{{ r.reason }}</span></td>
                         <td class="sm-gray">{{ r.date }}</td>
                         <td><span :class="['status-chip', statusMap[r.status]?.class]">{{ statusMap[r.status]?.label }}</span></td>
                         <td style="text-align:center">
@@ -134,6 +200,31 @@ function handleAction(act) {
                     </tr>
                 </tbody>
             </table>
+
+            <!-- Phân trang client-side cho admin -->
+            <div class="flex justify-center items-center gap-1.5 mt-4 p-4 border-t border-slate-100" v-if="filtered.length > perPage" style="display: flex; justify-content: center; align-items: center; gap: 6px; padding: 16px; border-top: 1px solid #f1f5f9; background: #fff;">
+                <button 
+                    @click="currentPage > 1 && (currentPage--)" 
+                    :disabled="currentPage === 1"
+                    class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold transition bg-white"
+                    :style="currentPage === 1 ? 'color: #94a3b8; cursor: not-allowed; background: #f8fafc;' : 'color: #334155; cursor: pointer;'"
+                >
+                    Trước
+                </button>
+                
+                <span class="text-xs text-slate-500 font-semibold mx-2">
+                    Trang {{ currentPage }} / {{ Math.ceil(filtered.length / perPage) }}
+                </span>
+
+                <button 
+                    @click="currentPage < Math.ceil(filtered.length / perPage) && (currentPage++)" 
+                    :disabled="currentPage === Math.ceil(filtered.length / perPage)"
+                    class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold transition bg-white"
+                    :style="currentPage === Math.ceil(filtered.length / perPage) ? 'color: #94a3b8; cursor: not-allowed; background: #f8fafc;' : 'color: #334155; cursor: pointer;'"
+                >
+                    Sau
+                </button>
+            </div>
         </div>
 
         <!-- Modal xử lý -->
@@ -144,16 +235,52 @@ function handleAction(act) {
                         <h3>Xử Lý Báo Cáo #{{ selected?.id }}</h3>
                         <button @click="showModal=false" class="modal-close"><i class="bi bi-x-lg"></i></button>
                     </div>
-                    <div class="modal-body">
+                                        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                         <div class="info-block">
-                            <div class="ib-row"><span class="ib-l">Người BC</span><span class="ib-v">{{ selected?.from }}</span></div>
-                            <div class="ib-row"><span class="ib-l">Đối tượng</span><span class="ib-v">{{ selected?.target }}</span></div>
-                            <div class="ib-row"><span class="ib-l">Loại VP</span><span class="ib-v"><span :class="['type-badge',typeMap[selected?.type]?.class]">{{ typeMap[selected?.type]?.label }}</span></span></div>
-                            <div class="ib-row"><span class="ib-l">Trạng thái</span><span class="ib-v"><span :class="['status-chip',statusMap[selected?.status]?.class]">{{ statusMap[selected?.status]?.label }}</span></span></div>
+                            <div class="ib-row"><span class="ib-l">Người BC</span><span class="ib-v">{{ selected?.from }} ({{ selected?.fromEmail }})</span></div>
+                            <div class="ib-row"><span class="ib-l">Đối tượng</span><span class="ib-v font-bold text-indigo-600">{{ selected?.target }}</span></div>
+                            <div class="ib-row"><span class="ib-l">Lý do</span><span class="ib-v"><span class="type-badge type-orange">{{ selected?.reason }}</span></span></div>
+                            <div class="ib-row"><span class="ib-l">Trạng thái</span><span class="ib-v"><span :class="['status-chip', statusMap[selected?.status]?.class]">{{ statusMap[selected?.status]?.label }}</span></span></div>
+                            <div class="ib-row" v-if="selected?.negotiation_deadline"><span class="ib-l">Hạn thương lượng</span><span class="ib-v text-slate-500">{{ selected?.negotiation_deadline }}</span></div>
                         </div>
-                        <label class="form-label mt-4">Ghi chú admin:</label>
-                        <textarea v-model="adminNote" class="form-textarea" rows="3" placeholder="Ghi chú sau khi xử lý..."></textarea>
+
+                        <!-- Nội dung mô tả chi tiết của khách thuê -->
+                        <div class="mt-4 border-t pt-3">
+                            <label class="form-label text-slate-700">Mô tả sự việc từ khách thuê:</label>
+                            <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-line">{{ selected?.description || 'Không có mô tả chi tiết.' }}</p>
+                        </div>
+
+                        <!-- Ảnh bằng chứng của khách thuê -->
+                        <div v-if="selected?.evidence_images && selected.evidence_images.length" class="mt-3">
+                            <label class="form-label text-slate-700">Ảnh minh chứng vi phạm:</label>
+                            <div class="flex flex-wrap gap-2 mt-1">
+                                <img v-for="(img, idx) in selected.evidence_images" :key="idx" :src="'/storage/' + img" class="w-20 h-20 object-cover rounded-lg border border-slate-200" @click="window.open('/storage/' + img, '_blank')" style="cursor: zoom-in;" />
+                            </div>
+                        </div>
+
+                        <!-- Giải trình từ chủ trọ nếu có -->
+                        <div v-if="selected?.target_resolved" class="mt-4 border-t pt-3 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
+                            <h4 class="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                                <i class="bi bi-chat-left-dots-fill"></i> Giải Trình & Khắc Phục Từ Chủ Trọ:
+                            </h4>
+                            <p class="text-xs text-slate-700 mt-1.5 whitespace-pre-line">{{ selected?.response_note || 'Chủ trọ xác nhận đã khắc phục sự cố.' }}</p>
+                            
+                            <!-- Ảnh khắc phục của chủ trọ -->
+                            <div v-if="selected?.response_evidence && selected.response_evidence.length" class="mt-2">
+                                <span class="text-[11px] font-semibold text-emerald-700">Ảnh chứng cứ đã khắc phục:</span>
+                                <div class="flex flex-wrap gap-2 mt-1">
+                                    <img v-for="(img, idx) in selected.response_evidence" :key="idx" :src="'/storage/' + img" class="w-16 h-16 object-cover rounded-lg border border-emerald-200" @click="window.open('/storage/' + img, '_blank')" style="cursor: zoom-in;" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Phần ghi chú của Admin -->
+                        <div class="mt-4 border-t pt-3">
+                            <label class="form-label mt-2">Ghi chú xử lý của Admin:</label>
+                            <textarea v-model="adminNote" class="form-textarea" rows="3" placeholder="Ghi chú kết quả xử lý..." :disabled="selected?.status !== 'pending'"></textarea>
+                        </div>
                     </div>
+
                     <div class="modal-footer" v-if="selected?.status === 'pending'">
                         <button @click="showModal=false" class="btn-cancel">Hủy</button>
                         <button @click="handleAction('ignore')" class="btn-ignore"><i class="bi bi-dash-circle"></i> Bỏ qua</button>

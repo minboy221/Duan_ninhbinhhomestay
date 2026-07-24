@@ -13,12 +13,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('contracts', function (Blueprint $table) {
-            $table->decimal('monthly_rent', 10, 2)->after('end_date')->default(0)->comment('giá thuê hàng tháng (thỏa thuận)');
-            $table->string('signed_contract_image')->nullable()->after('contract_file_path')->comment('ảnh chụp hợp đồng đã ký');
+            if (!Schema::hasColumn('contracts', 'monthly_rent')) {
+                $table->decimal('monthly_rent', 10, 2)->after('end_date')->default(0)->comment('giá thuê hàng tháng (thỏa thuận)');
+            }
+            if (!Schema::hasColumn('contracts', 'signed_contract_image')) {
+                $table->string('signed_contract_image')->nullable()->after('contract_file_path')->comment('ảnh chụp hợp đồng đã ký');
+            }
         });
 
         // Modify the status ENUM
-        DB::statement("ALTER TABLE contracts MODIFY COLUMN status ENUM('draft', 'awaiting_upload', 'active', 'expired', 'cancelled') DEFAULT 'draft'");
+        DB::statement("ALTER TABLE contracts MODIFY COLUMN status ENUM('draft', 'awaiting_upload', 'active', 'signed', 'pending', 'expired', 'cancelled') DEFAULT 'draft'");
     }
 
     /**

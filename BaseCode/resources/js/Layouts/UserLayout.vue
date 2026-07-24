@@ -83,12 +83,19 @@ const getAvatarUrl = (avatar) => {
                                 </Link>
                             </li>
                             <li>
-                                <Link :href="route('profile.appointments')" :class="{ active: route().current('profile.appointments') }">
+                                <Link :href="route('profile.appointments')"
+                                    :class="{ active: route().current('profile.appointments') }">
                                     <i class="bi bi-calendar2-check"></i>
                                     <span>Lịch Hẹn Xem Phòng</span>
                                 </Link>
                             </li>
-
+                            <li>
+                                <Link :href="route('reports.index')"
+                                    :class="{ active: route().current('reports.index') }">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <span>Lịch Sử Báo Cáo</span>
+                                </Link>
+                            </li>
                             <li>
                                 <Link :href="route('caidatuser')" :class="{ active: route().current('caidat') }">
                                     <i class="bi bi-gear-wide-connected"></i>
@@ -119,23 +126,23 @@ const getAvatarUrl = (avatar) => {
     <nav class="bottom-nav">
         <Link :href="route('tranguser')" :class="{ active: route().current('tranguser') }">
             <i class="bi bi-person-circle"></i>
-            <span>Quản Lý Thông Tin</span>
+            <span>Thông Tin</span>
         </Link>
         <Link :href="route('quanlynoio')" :class="{ active: route().current('quanlynoio') }">
             <i class="bi bi-house"></i>
-            <span>Quản Lý Nơi ở</span>
+            <span>Nơi ở</span>
         </Link>
         <Link :href="route('profile.appointments')" :class="{ active: route().current('profile.appointments') }">
             <i class="bi bi-calendar2-check"></i>
             <span>Lịch Hẹn</span>
         </Link>
-
+        <Link :href="route('reports.index')" :class="{ active: route().current('reports.index') }">
+            <i class="bi bi-exclamation-triangle"></i>
+            <span>Báo Cáo</span>
+        </Link>
         <Link :href="route('caidatuser')" :class="{ active: route().current('caidatuser') }">
             <i class="bi bi-gear-wide-connected"></i>
             <span>Cài Đặt</span>
-        </Link>
-        <Link href="#"> <i class="bi bi-info-circle-fill"></i>
-            <span>Hướng Dẫn</span>
         </Link>
         <Link class="logout" :href="route('logout')" method="post">
             <i class="bi bi-box-arrow-right"></i>

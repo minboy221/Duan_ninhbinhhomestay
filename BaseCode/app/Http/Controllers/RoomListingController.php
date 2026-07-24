@@ -33,7 +33,7 @@ class RoomListingController extends Controller
         //gọi services lấy danh sách bài đăng
         $listings = $this->roomPostService->getLandlordPosts(auth()->id());
         //trả dữ liệu ra giao diện
-        return Inertia::render('Landlord/Listings/index', [
+        return Inertia::render('Landlord/Listings/Index', [
             'listings' => $listings
         ]);
     }

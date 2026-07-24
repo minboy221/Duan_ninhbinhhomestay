@@ -13,7 +13,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(
             \App\Repositories\Interfaces\UserRepositoryInterface::class,
-            \App\Repositories\UserRepository::class
+            \App\Repositories\UserRepository::class,
+        );
+
+        $this->app->bind(
+            \App\Repositories\Contracts\ReportRepositoryInterface::class,
+            \App\Repositories\Eloquent\ReportRepository::class
         );
         
         $this->app->bind(

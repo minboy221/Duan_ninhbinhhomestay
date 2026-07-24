@@ -1,13 +1,18 @@
 <script setup>
 import MainLayout from "@/Layouts/MainLayout.vue";
-import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/vue3";
 import { ref, computed, watch } from "vue";
 import axios from "axios";
+import { showSuccess, showWarning, showConfirm } from "@/Utils/swal";
 
 const props = defineProps({
     room: { type: Object, required: true },
     similarRooms: { type: Array, default: () => [] },
+    reasons: { type: Array, default: () => [] },
 });
+
+//trạng thái hiển thị modal báo cáo
+const showReportModal = ref(false);
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
@@ -52,7 +57,10 @@ function slideLeft() {
         const item = sliderRef.value.querySelector(".item_tindang");
         if (item) {
             const itemWidth = item.offsetWidth;
-            sliderRef.value.scrollBy({ left: -(itemWidth + 20), behavior: "smooth" });
+            sliderRef.value.scrollBy({
+                left: -(itemWidth + 20),
+                behavior: "smooth",
+            });
         }
     }
 }
@@ -62,7 +70,10 @@ function slideRight() {
         const item = sliderRef.value.querySelector(".item_tindang");
         if (item) {
             const itemWidth = item.offsetWidth;
-            sliderRef.value.scrollBy({ left: itemWidth + 20, behavior: "smooth" });
+            sliderRef.value.scrollBy({
+                left: itemWidth + 20,
+                behavior: "smooth",
+            });
         }
     }
 }
@@ -213,41 +224,44 @@ watch(
         if (newVal) {
             showSuccessAlert.value = true;
             setTimeout(() => {
-                showSuccessAlert.value = flase;
+                showSuccessAlert.value = false;
             }, 4000);
         }
     },
-    { immeadiate: true },
+    { immediate: true },
 );
 
 watch(
-    () => {
-        (page.props.flash?.error,
-            (newVal) => {
-                if (newVal) {
-                    showErrorAlert.value = true;
-                    setTimeout(() => {
-                        showErrorAlert.value = false;
-                    }, 4000);
-                }
-            });
+    () => page.props.flash?.error,
+    (newVal) => {
+        if (newVal) {
+            showErrorAlert.value = true;
+            setTimeout(() => {
+                showErrorAlert.value = false;
+            }, 4000);
+        }
     },
-    { immeadiate: true },
+    { immediate: true },
 );
 
-async function openBooking() {
+async function openBookingModal() {
     if (!user.value) {
-        if (
-            confirm(
-                "Bạn cần đăng nhập tài khoản khách thuê để đặt lịch xem phòng. Đi đến trang đăng nhập?",
-            )
-        ) {
+        const confirmed = await showConfirm(
+            "Yêu cầu đăng nhập",
+            "Bạn cần đăng nhập tài khoản khách thuê để đặt lịch xem phòng.",
+            "Đăng nhập",
+            "Đóng",
+        );
+        if (confirmed) {
             window.location.href = route("login");
         }
         return;
     }
-    if (user.value.role === 'landlord') {
-        alert("Tài khoản chủ trọ không thể thực hiện chức năng đặt lịch xem phòng.");
+    if (user.value.role === "landlord") {
+        showWarning(
+            "Thông báo",
+            "Tài khoản chủ trọ không thể thực hiện chức năng đặt lịch xem phòng.",
+        );
         return;
     }
     //tải danh sách lịch trùng ngay cho ngày mặc định
@@ -256,38 +270,170 @@ async function openBooking() {
 }
 
 //hàm xử lý khi nhấp vào sđt của chủ trọ
-function handlePhoneClick(e) {
+async function handlePhoneClick(e) {
     if (!user.value) {
         e.preventDefault();
 
-        if (
-            confirm(
-                "Bạn cần đăng nhập tài khoản để xem số điện thoại của chủ trọ.đi đến trang đăng nhập",
-            )
-        ) {
+        const confirmed = await showConfirm(
+            "Yêu cầu đăng nhập",
+            "Bạn cần đăng nhập tài khoản để xem số điện thoại của chủ trọ.",
+            "Đăng nhập",
+            "Hủy",
+        );
+        if (confirmed) {
             window.location.href = route("login");
         }
     }
 }
 
-function reportListing() {
-    alert(
-        "Cảm ơn bạn đã gửi báo cáo. Ninh Bình HomeStay sẽ tiến hành kiểm tra và xác minh thông tin phòng trọ này trong thời gian sớm nhất!",
-    );
-}
-
 function submitBooking() {
     form.post(route("rooms.book", props.room.id), {
         preserveScroll: true,
-        onSuccess: () => {
-            showBookingModal.value = false;
+        onSuccess: (page) => {
+            const flash = page.props.flash;
+            if (flash && flash.error) {
+                showWarning("Không thể đặt lịch", flash.error);
+                return;
+            }
+            //chỉ khi đặt lịch thành công
+            showBookingModal.value = flash;
             form.reset();
-            alert(
+            showSuccess(
+                "Thành công",
                 "Gửi yêu cầu đặt lịch hẹn thành công! Vui lòng đợi chủ trọ phản hồi.",
+            );
+        },
+        onError: (errors) => {
+            const firstErr = Object.values(errors)[0];
+            showWarning(
+                "Lỗi nhập dữ liệu",
+                firstErr || "Vui lòng kiểm tra lại thông tin gửi đi.",
             );
         },
     });
 }
+
+//Form báo cáo vi phạm
+const reportForm = useForm({
+    reportable_type: "Room",
+    reportable_id: props.room.id,
+    reason: "",
+    description: "",
+    evidence_images: [],
+});
+
+//xử lý khi user ấn nút báo cáo
+function reportListing() {
+    if (!usePage().props.auth.user) {
+        if (
+            confirm(
+                "Bạn cần đăng nhập để gửi báo cáo vi phạm. đi đến trang đăng nhập?",
+            )
+        ) {
+            window.location.href = route("login");
+        }
+        return;
+    }
+    reportForm.reason = "";
+    reportForm.description = "";
+    reportForm.evidence_images = [];
+    showReportModal.value = true;
+}
+// Hàm nén ảnh bằng HTML5 Canvas trực tiếp ở trình duyệt
+function compressImage(
+    file,
+    { maxWidth = 1200, maxHeight = 1200, quality = 0.7 } = {},
+) {
+    return new Promise((resolve, reject) => {
+        if (!file.type.startsWith("image/")) {
+            return resolve(file);
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            const compressedFile = new File([blob], file.name, {
+                                type: file.type,
+                                lastModified: Date.now(),
+                            });
+                            resolve(compressedFile);
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    file.type,
+                    quality,
+                );
+            };
+        };
+        reader.onerror = (error) => reject(error);
+    });
+}
+
+//khi chọn ảnh minh chứng
+const handleEvidenceChange = async (e) => {
+    const files = Array.from(e.target.files);
+
+    // Nén song song toàn bộ ảnh bằng chứng
+    const compressed = await Promise.all(
+        files.map((file) => compressImage(file)),
+    );
+
+    reportForm.evidence_images = compressed;
+};
+//gửi báo cáo lên server
+const submitReport = () => {
+    reportForm.post(route("reports.store"), {
+        preserveScroll: true,
+        onSuccess: (page) => {
+            const flash = page.props.flash;
+            if (flash && flash.error) {
+                showWarning("Không thể gửi", flash.error);
+                return;
+            }
+            showReportModal.value = false;
+            showSuccess(
+                "Đã gửi báo cáo vi phạm!",
+                "Hệ thống đã ghi nhận báo cáo của bạn và tiến hành xác minh thông tin phòng trọ này trong thời gian sớm nhất!",
+            );
+        },
+        onError: (errors) => {
+            const firstErr = Object.values(errors)[0];
+            showWarning(
+                "Lỗi nhập liệu",
+                firstErr || "Vui lòng kiểm tra lại thông tin gửi đi.",
+            );
+        },
+    });
+};
 </script>
 
 <template>
@@ -309,7 +455,7 @@ function submitBooking() {
                 <i class="bi bi-check-circle-fill"></i>
                 <span class="flash-message">{{
                     $page.props.flash.success
-                }}</span>
+                    }}</span>
                 <button type="button" @click="showSuccessAlert = false" class="flash-close-btn">
                     &times;
                 </button>
@@ -444,9 +590,9 @@ function submitBooking() {
                     <div class="avatar1">
                         <div class="avatar-img">
                             <img :src="room.boardingHouse?.user?.avatar
-                                ? '/storage/' +
-                                room.boardingHouse.user.avatar
-                                : '/anh/banner.png'
+                                    ? '/storage/' +
+                                    room.boardingHouse.user.avatar
+                                    : '/anh/banner.png'
                                 " alt="Avatar" />
                             <span :class="[
                                 'status1',
@@ -486,21 +632,51 @@ function submitBooking() {
                     </div>
 
                     <div class="content_chutro">
-                        <template v-if="user && user.id === room.boardingHouse?.user_id">
-                            <div class="phone">
-                                <Link :href="route('landlord.listings.edit', room.id)" class="btn_content" style="width: 100%; justify-content: center; text-decoration: none;">
-                                    <i class="bi bi-pencil-square"></i>
-                                    <span>Chỉnh Sửa Tin Đăng</span>
-                                </Link>
-                            </div>
-                            <div class="nhantin_chutro">
-                                <Link :href="route('landlord.select-boarding-house')" method="post" :data="{ id: room.boardingHouse?.id, redirect_to: route('landlord.rooms') }" class="btn_mess" style="width: 100%; justify-content: center; text-decoration: none;">
-                                    <i class="bi bi-door-open-fill"></i>
-                                    <span>Quản Lý Phòng</span>
-                                </Link>
-                            </div>
-                            <div class="warning">
-                                <Link :href="route('landlord.select-boarding-house')" method="post" :data="{ id: room.boardingHouse?.id, redirect_to: route('landlord.appointments') }" class="btn_waring" style="
+                        <div class="phone">
+                            <a class="btn_content" :href="user
+                                    ? `tel:${room.boardingHouse?.user?.phone}`
+                                    : '#'
+                                " @click="handlePhoneClick">
+                                <i class="bi bi-telephone"></i>
+                                <span>{{
+                                    user
+                                        ? room.boardingHouse?.user?.phone
+                                        : room.boardingHouse?.user?.phone
+                                            ? room.boardingHouse?.user?.phone.substring(
+                                                0,
+                                                6,
+                                            ) + "xxxx "
+                                            : "086293xxxx"
+                                }}</span>
+                            </a>
+                        </div>
+                        <div class="nhantin_chutro">
+                            <!-- Nút hiển thị cho khách thuê bình thường hoặc chưa đăng nhập -->
+                            <button v-if="!user || user.role !== 'landlord'" @click="openBookingModal" class="btn_mess"
+                                style="
+                                    border: none;
+                                    width: 100%;
+                                    text-align: center;
+                                    cursor: pointer;
+                                ">
+                                <i class="bi bi-calendar-check-fill"></i>
+                                <span>Đặt Lịch Hẹn</span>
+                            </button>
+
+                            <!-- Nút bị vô hiệu hóa khi tài khoản là Chủ trọ -->
+                            <button v-else class="btn_mess" style="
+                                    border: none;
+                                    width: 100%;
+                                    text-align: center;
+                                    cursor: not-allowed;
+                                " disabled>
+                                <i class="bi bi-calendar-x"></i>
+                                <span> Không Thể Đặt Lịch</span>
+                            </button>
+                        </div>
+
+                        <div class="warning">
+                            <button @click="reportListing" class="btn_waring" style="
                                     border: none;
                                     width: 100%;
                                     justify-content: center;
@@ -606,28 +782,78 @@ function submitBooking() {
         </div>
 
         <!-- Đánh giá của người dùng -->
-        <section class="tindang_tro" style="margin-top: 30px;" v-if="room.reviews && room.reviews.length > 0">
-            <h2 style="display: flex; align-items: center; gap: 8px;">
-                <i class="bi bi-star-half text-yellow-500"></i> Đánh giá của người dùng ({{ room.reviews.length }})
+        <section class="tindang_tro" style="margin-top: 30px" v-if="room.reviews && room.reviews.length > 0">
+            <h2 style="display: flex; align-items: center; gap: 8px">
+                <i class="bi bi-star-half text-yellow-500"></i> Đánh giá của
+                người dùng ({{ room.reviews.length }})
             </h2>
-            <div class="reviews-list" style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
-                <div v-for="review in room.reviews" :key="review.id" class="review-item" style="background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                    <div class="review-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                        <div class="reviewer-info" style="display: flex; align-items: center; gap: 12px;">
-                            <div class="avatar" style="width: 40px; height: 40px; border-radius: 50%; background: #3b82f6; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px;">
+            <div class="reviews-list" style="
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                    margin-top: 20px;
+                ">
+                <div v-for="review in room.reviews" :key="review.id" class="review-item" style="
+                        background: #fff;
+                        padding: 20px;
+                        border-radius: 12px;
+                        border: 1px solid #e5e7eb;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                    ">
+                    <div class="review-header" style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: flex-start;
+                            margin-bottom: 12px;
+                        ">
+                        <div class="reviewer-info" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                            ">
+                            <div class="avatar" style="
+                                    width: 40px;
+                                    height: 40px;
+                                    border-radius: 50%;
+                                    background: #3b82f6;
+                                    color: #fff;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    font-weight: bold;
+                                    font-size: 16px;
+                                ">
                                 {{ review.tenant_name.charAt(0).toUpperCase() }}
                             </div>
                             <div>
-                                <div style="font-weight: 700; color: #1f2937; font-size: 15px;">{{ review.tenant_name }}</div>
-                                <div style="font-size: 12px; color: #6b7280;">{{ review.created_at }}</div>
+                                <div style="
+                                        font-weight: 700;
+                                        color: #1f2937;
+                                        font-size: 15px;
+                                    ">
+                                    {{ review.tenant_name }}
+                                </div>
+                                <div style="font-size: 12px; color: #6b7280">
+                                    {{ review.created_at }}
+                                </div>
                             </div>
                         </div>
-                        <div class="review-rating" style="display: flex; gap: 2px;">
-                            <i v-for="star in 5" :key="star" class="bi bi-star-fill" :class="star <= review.rating ? 'text-yellow-400' : 'text-gray-200'"></i>
+                        <div class="review-rating" style="display: flex; gap: 2px">
+                            <i v-for="star in 5" :key="star" class="bi bi-star-fill" :class="star <= review.rating
+                                    ? 'text-yellow-400'
+                                    : 'text-gray-200'
+                                "></i>
                         </div>
                     </div>
-                    <div class="review-content" style="color: #4b5563; font-size: 14px; line-height: 1.6;">
-                        {{ review.comment || 'Người dùng không để lại bình luận.' }}
+                    <div class="review-content" style="
+                            color: #4b5563;
+                            font-size: 14px;
+                            line-height: 1.6;
+                        ">
+                        {{
+                            review.comment ||
+                            "Người dùng không để lại bình luận."
+                        }}
                     </div>
                 </div>
             </div>
@@ -722,7 +948,7 @@ function submitBooking() {
                         </div>
                         <span v-if="form.errors.date" class="modal-error">{{
                             form.errors.date
-                        }}</span>
+                            }}</span>
                     </div>
 
                     <!-- 3. Chọn giờ (Liên kết động với khung giờ rảnh của chủ trọ) -->
@@ -766,7 +992,7 @@ function submitBooking() {
 
                         <span v-if="form.errors.time" class="modal-error">{{
                             form.errors.time
-                        }}</span>
+                            }}</span>
                     </div>
 
                     <!-- 4. Ghi chú -->
@@ -776,7 +1002,7 @@ function submitBooking() {
                             placeholder="Nhập ghi chú thêm cho chủ nhà biết nhu cầu của bạn..." rows="3"></textarea>
                         <span v-if="form.errors.note" class="modal-error">{{
                             form.errors.note
-                        }}</span>
+                            }}</span>
                     </div>
 
                     <!-- 5. Nút gửi -->
@@ -791,6 +1017,119 @@ function submitBooking() {
                 </form>
             </div>
         </div>
+        <!-- MODAL BÁO CÁO VI PHẠM -->
+        <div v-if="showReportModal"
+            class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6">
+            <div
+                class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-[fadeIn_.25s_ease]">
+                <!-- Header -->
+                <div
+                    class="sticky top-0 z-10 bg-gradient-to-r from-rose-500 via-red-500 to-pink-500 px-5 sm:px-6 py-5 text-white">
+                    <button @click="showReportModal = false"
+                        class="absolute right-4 top-4 h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition">
+                        <i class="bi bi-x-lg text-lg"></i>
+                    </button>
+
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur">
+                            <i class="bi bi-flag-fill text-2xl"></i>
+                        </div>
+
+                        <div>
+                            <h2 class="text-lg sm:text-xl font-bold">
+                                Báo cáo phòng trọ vi phạm
+                            </h2>
+
+                            <p class="text-xs sm:text-sm text-rose-100 mt-1">
+                                Cung cấp thông tin trung thực để chúng tôi hỗ
+                                trợ xử lý nhanh nhất.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <form @submit.prevent="submitReport" class="max-h-[65vh] overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
+                    <!-- Lý do -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">
+                            Lý do báo cáo <span class="text-red-500">*</span>
+                        </label>
+                        <select v-model="reportForm.reason"
+                            class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100 outline-none"
+                            :class="{
+                                'border-red-500 bg-red-50':
+                                    reportForm.errors.reason,
+                            }">
+                            <option disabled value="">
+                                -- Chọn lý do báo cáo --
+                            </option>
+                            <option v-for="(reason, index) in reasons" :key="index" :value="reason">
+                                {{ reason }}
+                            </option>
+                        </select>
+                        <p v-if="reportForm.errors.reason" class="mt-1 text-xs text-red-500">
+                            {{ reportForm.errors.reason }}
+                        </p>
+                    </div>
+                    <!-- Mô tả -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">
+                            Mô tả chi tiết
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <textarea v-model="reportForm.description" rows="5"
+                            placeholder="Mô tả cụ thể sự việc bạn gặp phải..."
+                            class="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100"
+                            :class="{
+                                'border-red-500 bg-red-50':
+                                    reportForm.errors.description,
+                            }"></textarea>
+                        <p v-if="reportForm.errors.description" class="mt-1 text-xs text-red-500">
+                            {{ reportForm.errors.description }}
+                        </p>
+                    </div>
+                    <!-- Upload -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">
+                            Hình ảnh bằng chứng
+                        </label>
+                        <label
+                            class="cursor-pointer flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-8 hover:border-rose-400 hover:bg-rose-50 transition">
+                            <i class="bi bi-cloud-upload text-5xl text-rose-400"></i>
+                            <p class="mt-3 font-semibold text-slate-700">
+                                Nhấn để chọn ảnh
+                            </p>
+                            <span class="text-xs text-slate-500">
+                                PNG, JPG, JPEG • Tối đa 5 ảnh
+                            </span>
+                            <input type="file" class="hidden" multiple accept="image/*"
+                                @change="handleEvidenceChange" />
+                        </label>
+                        <p v-if="reportForm.errors.evidence_images" class="mt-1 text-xs text-red-500">
+                            {{ reportForm.errors.evidence_images }}
+                        </p>
+                    </div>
+                </form>
+                <!-- Footer -->
+                <div
+                    class="sticky bottom-0 bg-white border-t border-slate-100 px-5 sm:px-6 py-4 flex justify-end gap-3">
+                    <button type="button" @click="showReportModal = false"
+                        class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 transition">
+                        Hủy
+                    </button>
+                    <button type="submit" @click="submitReport" :disabled="reportForm.processing"
+                        class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-bold shadow-lg hover:scale-105 transition disabled:opacity-50">
+                        <i class="bi bi-send-fill mr-2"></i>
+                        {{
+                            reportForm.processing
+                                ? "Đang gửi..."
+                                : "Gửi báo cáo"
+                        }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </MainLayout>
 </template>
 
@@ -798,580 +1137,4 @@ function submitBooking() {
 @import "../../css/chitiettro.css";
 @import "../../css/responsive/responsivechitiettro.css";
 @import "../../css/responsive/responsive.css";
-
-/* Styling cho Booking Modal */
-.booking-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(6px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 99999;
-}
-
-.booking-modal-box {
-    background: #ffffff;
-    border-radius: 20px;
-    width: 520px;
-    max-width: 92%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex;
-    flex-direction: column;
-}
-
-@keyframes modalSlideUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 18px 24px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.modal-header h3 {
-    font-size: 17px;
-    font-weight: 700;
-    color: #1e293b;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.modal-header h3 i {
-    color: #3b82f6;
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 26px;
-    color: #94a3b8;
-    cursor: pointer;
-    transition: all 0.2s;
-    padding: 0;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-}
-
-.close-btn:hover {
-    color: #ef4444;
-    background: #fef2f2;
-}
-
-.modal-body {
-    padding: 20px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.booking-preview-card {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 12px;
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.booking-preview-card i {
-    font-size: 22px;
-    color: #2563eb;
-}
-
-.preview-text {
-    display: flex;
-    flex-direction: column;
-}
-
-.preview-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: #1e40af;
-    text-transform: uppercase;
-    margin: 0 0 2px 0;
-    letter-spacing: 0.5px;
-}
-
-.preview-desc {
-    font-size: 14px;
-    font-weight: 700;
-    color: #1d4ed8;
-    margin: 0;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.modal-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #475569;
-    display: flex;
-    align-items: center;
-}
-
-.required {
-    color: #ef4444;
-    margin-left: 3px;
-}
-
-/* Weekly Date Strip */
-.weekly-date-strip {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    scrollbar-width: thin;
-}
-
-.weekly-date-strip::-webkit-scrollbar {
-    height: 4px;
-}
-
-.weekly-date-strip::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
-}
-
-.date-strip-card {
-    flex: 0 0 72px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 8px 6px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.date-strip-card:hover {
-    border-color: #93c5fd;
-    background: #f0f7ff;
-}
-
-.date-strip-card.active {
-    background: #2563eb;
-    border-color: #2563eb;
-    color: #ffffff !important;
-    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
-}
-
-.strip-day {
-    font-size: 10px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-}
-
-.date-strip-card.active .strip-day {
-    color: rgba(255, 255, 255, 0.85);
-}
-
-.strip-date {
-    font-size: 18px;
-    font-weight: 800;
-    color: #1e293b;
-    margin: 2px 0;
-}
-
-.date-strip-card.active .strip-date {
-    color: #ffffff;
-}
-
-.strip-month {
-    font-size: 9px;
-    font-weight: 600;
-    color: #94a3b8;
-}
-
-.date-strip-card.active .strip-month {
-    color: rgba(255, 255, 255, 0.8);
-}
-
-/* Time Slots Grid */
-.time-slots-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-}
-
-.time-slot {
-    padding: 8px 4px;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    color: #475569;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-}
-
-.time-slot:hover:not(.disabled) {
-    border-color: #3b82f6;
-    background: #eff6ff;
-    color: #2563eb;
-}
-
-.time-slot.active {
-    background: #2563eb;
-    border-color: #2563eb;
-    color: #ffffff;
-}
-
-.time-slot.disabled {
-    background: #f1f5f9;
-    border-color: #e2e8f0;
-    color: #94a3b8;
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-.time-slot.disabled .slot-icon {
-    color: #94a3b8;
-}
-
-.slot-icon {
-    font-size: 12px;
-    color: #64748b;
-}
-
-.time-slot.active .slot-icon {
-    color: #ffffff;
-}
-
-.modal-textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    font-size: 13px;
-    font-family: inherit;
-    resize: none;
-    transition: border-color 0.2s;
-}
-
-.modal-textarea:focus {
-    outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-}
-
-.modal-error {
-    font-size: 12px;
-    color: #ef4444;
-    font-weight: 600;
-    margin-top: 4px;
-}
-
-.modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 12px;
-}
-
-.btn-cancel-modal {
-    padding: 10px 20px;
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    color: #475569;
-    border-radius: 10px;
-    font-weight: 700;
-    cursor: pointer;
-    font-size: 13px;
-    transition: all 0.2s;
-}
-
-.btn-cancel-modal:hover {
-    background: #f8fafc;
-    border-color: #94a3b8;
-}
-
-.btn-submit-modal {
-    padding: 10px 24px;
-    border: none;
-    background: linear-gradient(90deg, #102a6d, #45abe6);
-    color: #ffffff;
-    border-radius: 10px;
-    font-weight: 700;
-    cursor: pointer;
-    font-size: 13px;
-    transition: opacity 0.2s;
-}
-
-.btn-submit-modal:hover:not(:disabled) {
-    opacity: 0.9;
-}
-
-.btn-submit-modal:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Styling cho Dịch vụ đi kèm */
-.bang-dichvu {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-    margin-top: 12px;
-    margin-bottom: 24px;
-}
-
-.item-dichvu {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    transition: all 0.25s ease;
-}
-
-.item-dichvu:hover {
-    background: #ffffff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border-color: #cbd5e1;
-    transform: translateY(-2px);
-}
-
-.icon-dv {
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    border: 1px solid transparent;
-}
-
-.icon-dv.emerald {
-    background: #ecfdf5;
-    color: #059669;
-    border-color: #a7f3d0;
-}
-
-.icon-dv.blue {
-    background: #eff6ff;
-    color: #2563eb;
-    border-color: #bfdbfe;
-}
-
-.icon-dv.amber {
-    background: #fffbeb;
-    color: #d97706;
-    border-color: #fde68a;
-}
-
-.icon-dv.cyan {
-    background: #ecfeff;
-    color: #0891b2;
-    border-color: #a5f3fc;
-}
-
-.icon-dv.rose {
-    background: #fff5f5;
-    color: #e11d48;
-    border-color: #fecaca;
-}
-
-.icon-dv.purple {
-    background: #faf5ff;
-    color: #7e22ce;
-    border-color: #e9d5ff;
-}
-
-.info-dv {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.ten-dv {
-    font-size: 13px;
-    font-weight: 700;
-    color: #475569;
-}
-
-.gia-dv {
-    font-size: 15px;
-    font-weight: 800;
-    color: #0f172a;
-}
-
-.dv-unit {
-    font-size: 11px;
-    font-weight: 600;
-    color: #94a3b8;
-}
-
-/* Toast Notification CSS */
-.flash-alert-container {
-    position: fixed;
-    top: 24px;
-    right: 24px;
-    z-index: 100000;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-width: 380px;
-    width: calc(100% - 48px);
-}
-
-.flash-success-alert,
-.flash-error-alert {
-    position: relative;
-    padding: 16px 20px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    box-shadow:
-        0 10px 25px -5px rgba(0, 0, 0, 0.1),
-        0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(8px);
-    overflow: hidden;
-    animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.flash-success-alert {
-    background-color: rgba(240, 253, 244, 0.95);
-    border: 1px solid #bbf7d0;
-    color: #15803d;
-}
-
-.flash-error-alert {
-    background-color: rgba(254, 242, 242, 0.95);
-    border: 1px solid #fecaca;
-    color: #b91c1c;
-}
-
-.flash-success-alert i {
-    font-size: 20px;
-    color: #22c55e;
-}
-
-.flash-error-alert i {
-    font-size: 20px;
-    color: #ef4444;
-}
-
-.flash-message {
-    font-size: 13.5px;
-    font-weight: 600;
-    line-height: 1.4;
-    flex-grow: 1;
-    margin-right: 8px;
-}
-
-.flash-close-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: currentColor;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-    padding: 0;
-    line-height: 1;
-}
-
-.flash-close-btn:hover {
-    opacity: 1;
-}
-
-.flash-progress {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 3px;
-    background-color: currentColor;
-    opacity: 0.45;
-    width: 100%;
-    animation: progressDecrease 4s linear forwards;
-}
-
-@keyframes toastSlideIn {
-    from {
-        opacity: 0;
-        transform: translateX(40px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes progressDecrease {
-    from {
-        width: 100%;
-    }
-
-    to {
-        width: 0%;
-    }
-}
-
-@media (max-width: 576px) {
-    .bang-dichvu {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Responsive cho Mobile */
-@media (max-width: 480px) {
-    .time-slots-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-    .modal-footer {
-        flex-direction: column-reverse;
-    }
-
-    .btn-cancel-modal,
-    .btn-submit-modal {
-        width: 100%;
-        text-align: center;
-    }
-}
 </style>

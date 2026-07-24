@@ -25,4 +25,9 @@ class Post extends Model
     {
         return $this->belongsTo(User::class, 'author_id');
     }
+
+    //phần nhận báo cáo
+    public function reports(){
+        return $this->morphMany(\App\Models\Report::class,'reportable');
+    }
 }

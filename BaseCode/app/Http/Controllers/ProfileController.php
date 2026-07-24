@@ -32,7 +32,8 @@ class ProfileController extends Controller
     {
         $user = $request->user();
         $profileData = $this->profileService->getProfileData($user);
-
+        //lấy danh sách các lý do báo cáo đang active
+        $reasons = \App\Models\ReportReason::where('is_active',true)->get();
         return Inertia::render('Profile/tranguser', [
             'user' => $user,
             'rentalStatus' => $profileData['rentalStatus'],
@@ -69,9 +70,12 @@ class ProfileController extends Controller
         ->orderBy('created_at', 'desc')
         ->get();
 
+        $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+
         return Inertia::render('Profile/listthanhtoan', [
             'user' => $request->user(),
             'invoices' => $invoices,
+            'reasons' => $reasons,
         ]);
     }
 
