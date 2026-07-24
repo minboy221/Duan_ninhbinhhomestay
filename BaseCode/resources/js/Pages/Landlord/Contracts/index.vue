@@ -35,15 +35,15 @@ const showDeleteConfirm = ref(false)
 const deleteTarget   = ref(null)
 
 const statusMap = {
-    pending:         { label: 'Chờ ký/duyệt', cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
-    signed:          { label: 'Đã ký kết',   cls: 'bg-blue-50 text-blue-600 border-blue-150', dot: 'bg-blue-500' },
-    awaiting_upload: { label: '1. Chờ Upload', cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
-    active:          { label: '2. Đang Hiệu Lực', cls: 'bg-emerald-50 text-emerald-600 border-emerald-150', dot: 'bg-emerald-500' },
-    expiring:        { label: '3. Sắp Hết Hạn',   cls: 'bg-orange-50 text-orange-600 border-orange-150', dot: 'bg-orange-500' },
-    expired:         { label: '4. Đã Hết Hạn',    cls: 'bg-rose-50 text-rose-600 border-rose-150', dot: 'bg-rose-500' },
-    terminated:      { label: '5. Đã Thanh Lý',  cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
-    cancelled:       { label: '5. Đã Hủy',        cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
-    draft:           { label: 'Bản Nháp',        cls: 'bg-slate-50 text-slate-600 border-slate-150', dot: 'bg-slate-500' },
+    pending:         { label: 'Chờ ký/duyệt', code: '0', cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
+    signed:          { label: 'Đã ký kết',   code: '2', cls: 'bg-blue-50 text-blue-600 border-blue-150', dot: 'bg-blue-500' },
+    awaiting_upload: { label: 'Chờ Upload', code: '1', cls: 'bg-amber-50 text-amber-600 border-amber-150', dot: 'bg-amber-500' },
+    active:          { label: 'Đang Hiệu Lực', code: '2', cls: 'bg-emerald-50 text-emerald-600 border-emerald-150', dot: 'bg-emerald-500' },
+    expiring:        { label: 'Sắp Hết Hạn',   code: '3', cls: 'bg-orange-50 text-orange-600 border-orange-150', dot: 'bg-orange-500' },
+    expired:         { label: 'Đã Hết Hạn',    code: '4', cls: 'bg-rose-50 text-rose-600 border-rose-150', dot: 'bg-rose-500' },
+    terminated:      { label: 'Đã Thanh Lý',  code: '5', cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
+    cancelled:       { label: 'Đã Hủy',        code: '5', cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-500' },
+    draft:           { label: 'Bản Nháp',        code: '0', cls: 'bg-slate-50 text-slate-600 border-slate-150', dot: 'bg-slate-500' },
 }
 
 const defaultStatus = { label: 'Khác', cls: 'bg-slate-50 text-slate-500 border-slate-150', dot: 'bg-slate-400' };
@@ -472,9 +472,9 @@ const submitTerminateContract = async () => {
                                     </span>
                                 </td>
                                 <td class="py-4 px-4">
-                                    <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', getStatusConfig(c.status).cls]">
-                                        <span class="w-1.5 h-1.5 rounded-full" :class="getStatusConfig(c.status).dot"></span>
-                                        {{ getStatusConfig(c.status).label }}
+                                    <span :title="getStatusConfig(c.status).label" :class="['px-3.5 py-1 rounded-lg text-base font-black border flex items-center gap-2 w-fit shadow-xs', getStatusConfig(c.status).cls]">
+                                        <span class="w-2 h-2 rounded-full" :class="getStatusConfig(c.status).dot"></span>
+                                        {{ getStatusConfig(c.status).code }}
                                     </span>
                                 </td>
                                 <td class="py-4 px-6 text-right" @click.stop>
@@ -501,9 +501,9 @@ const submitTerminateContract = async () => {
                             <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Hợp đồng: {{ c.id }}</span>
                             <div class="text-sm font-black text-slate-800 mt-0.5">{{ c.room }}</div>
                         </div>
-                        <span :class="['px-2 py-0.5 rounded-md text-[9px] font-bold border flex items-center gap-1 w-fit', getStatusConfig(c.status).cls]">
-                            <span class="w-1.5 h-1.5 rounded-full" :class="getStatusConfig(c.status).dot"></span>
-                            {{ getStatusConfig(c.status).label }}
+                        <span :title="getStatusConfig(c.status).label" :class="['px-3 py-1 rounded-lg text-sm font-black border flex items-center gap-1.5 w-fit shadow-xs', getStatusConfig(c.status).cls]">
+                            <span class="w-2 h-2 rounded-full" :class="getStatusConfig(c.status).dot"></span>
+                            {{ getStatusConfig(c.status).code }}
                         </span>
                     </div>
 
