@@ -51,29 +51,15 @@ class PublicListingController extends Controller
             return redirect()->route('chitiettro', $firstPost->id);
         }
 
-        $post = RoomPost::with(['room.boardingHouse.user', 'room.services', 'landlord'])
-            ->where('status', 'approved')
-            ->findOrFail($id);
+        $userId = auth()->id();
+        $ipAddress = request()->ip();
 
-        $post->timestamps = false;
-        $post->increment('view_count');
-
-        $room = $post->room;
-
-        $reviews = \App\Models\Review::with('tenant')
-            ->where('room_id', $room->id)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($r) {
-                return [
-                    'id' => $r->id,
-                    'rating' => $r->rating,
-                    'comment' => $r->comment,
-                    'created_at' => $r->created_at->diffForHumans(),
-                    'tenant_name' => $r->tenant->name ?? 'Người dùng ẩn danh',
-                    'tenant_avatar' => $r->tenant->avatar ?? null,
-                ];
-            });
+        $data = $this->listingService->getPublicPostDetails($id, $userId, $ipAddress);
+        $post = $data['post'];
+        $room = $data['room'];
+        $reviews = $data['reviews'];
+        $boardingHouseRating = $data['boardingHouseRating'];
+        $boardingHouseReviewCount = $data['boardingHouseReviewCount'];
 
         // Gộp dữ liệu post + room thành 1 object phẳng để Vue dùng
         $roomData = [
@@ -91,6 +77,8 @@ class PublicListingController extends Controller
             'description' => $post->description ?? null,
             'title' => $post->title ?? null,
             'boardingHouse' => $room->boardingHouse,
+            'boardingHouseRating' => $boardingHouseRating,
+            'boardingHouseReviewCount' => $boardingHouseReviewCount,
             'services' => $room->services ?? [],
             'reviews' => $reviews,
         ];

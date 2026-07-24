@@ -27,6 +27,8 @@ class BoardingHouse extends Model
         'contract_images' => 'array',
         'room_images' => 'array',
     ];
+
+    protected $appends = ['average_rating'];
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -47,5 +49,20 @@ class BoardingHouse extends Model
     {
         // Liên kết bảng BoardingHouse với bảng Users qua khoá ngoại user_id
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function rooms()
+    {
+        return $this->hasMany(Room::class, 'boarding_house_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasManyThrough(Review::class, Room::class, 'boarding_house_id', 'room_id');
+    }
+
+    public function getAverageRatingAttribute()
+    {
+        return $this->reviews()->count() > 0 ? round($this->reviews()->avg('rating'), 1) : 0;
     }
 }

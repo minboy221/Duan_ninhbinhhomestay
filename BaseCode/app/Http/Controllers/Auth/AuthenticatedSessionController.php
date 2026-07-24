@@ -45,17 +45,25 @@ class AuthenticatedSessionController extends Controller
         if (!$this->authService->loginAccount($request->only('email', 'password'), $request->boolean('remember'))) {
             \Illuminate\Support\Facades\RateLimiter::hit($request->throttleKey());
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => 'Thông tin đăng nhập không chính xác.',
+            ]);
+        }
+        
+        // Prevent admins from logging in here
+        if (Auth::user()->role === 'admin') {
+            $this->authService->logoutAccount();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            
+            \Illuminate\Support\Facades\RateLimiter::hit($request->throttleKey());
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => 'Thông tin đăng nhập không chính xác.',
             ]);
         }
 
         \Illuminate\Support\Facades\RateLimiter::clear($request->throttleKey());
 
         $request->session()->regenerate();
-
-        if ($request->user()->role === 'admin') {
-            return redirect()->route('admin.dashboard');
-        }
 
         if ($request->user()->role === 'landlord') {
             return redirect()->route('landlord.dashboard');

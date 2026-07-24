@@ -5,17 +5,22 @@ namespace App\Http\Controllers\Landlord;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use App\Models\BoardingHouse;
 use Illuminate\Support\Facades\Auth;
+use App\Services\BoardingHouseService;
+use App\Models\BoardingHouse; // Still needed for selectBoardingHouse if not moved
 
 class BoardingHouseController extends Controller
 {
+    protected $boardingHouseService;
+
+    public function __construct(BoardingHouseService $boardingHouseService)
+    {
+        $this->boardingHouseService = $boardingHouseService;
+    }
+
     public function index()
     {
-        $boardingHouses = BoardingHouse::where('user_id', Auth::id())
-            ->where('status', 'approved')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $boardingHouses = $this->boardingHouseService->getLandlordBoardingHouses(Auth::id());
             
         return Inertia::render('Landlord/BoardingHouses/Index', [
             'boardingHouses' => $boardingHouses
@@ -24,9 +29,7 @@ class BoardingHouseController extends Controller
 
     public function history()
     {
-        $boardingHouses = BoardingHouse::where('user_id', Auth::id())
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $boardingHouses = $this->boardingHouseService->getLandlordBoardingHousesHistory(Auth::id());
             
         return Inertia::render('Landlord/BoardingHouses/History', [
             'boardingHouses' => $boardingHouses
@@ -51,45 +54,13 @@ class BoardingHouseController extends Controller
             'room_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
         ]);
 
-        $contractImagesPath = [];
-        if ($request->hasFile('contract_images')) {
-            foreach ($request->file('contract_images') as $file) {
-                $path = $file->store('boarding_houses/contracts', 'public');
-                $contractImagesPath[] = $path;
-            }
-        }
-
-        $roomImagesPath = [];
-        if ($request->hasFile('room_images')) {
-            foreach ($request->file('room_images') as $file) {
-                $path = $file->store('boarding_houses/rooms', 'public');
-                $roomImagesPath[] = $path;
-            }
-        }
-
-        $house = BoardingHouse::create([
-            'user_id' => Auth::id(),
-            'name' => $request->name,
-            'district' => $request->district,
-            'address_detail' => $request->address_detail,
-            'directions_guide' => $request->directions_guide,
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
-            'contract_images' => json_encode($contractImagesPath),
-            'room_images' => json_encode($roomImagesPath),
-            'status' => 'pending'
-        ]);
-
-        // Gửi thông báo cho Admin
-        $admins = \App\Models\User::where('role', 'admin')->get();
-        foreach ($admins as $admin) {
-            $admin->notify(new \App\Notifications\AdminNotification(
-                'Có cơ sở mới cần duyệt',
-                'Chủ trọ ' . Auth::user()->name . ' vừa tạo thêm cơ sở mới: ' . $house->name,
-                'new_boarding_house',
-                '/admin/boarding-houses/' . $house->id
-            ));
-        }
+        $this->boardingHouseService->createBoardingHouse(
+            $request->only(['name', 'district', 'address_detail', 'directions_guide', 'latitude', 'longitude']),
+            $request->file('room_images'),
+            $request->file('contract_images'),
+            Auth::id(),
+            Auth::user()->name
+        );
 
         return redirect()->route('landlord.boarding-houses.index')->with('success', 'Đã thêm cơ sở mới. Đang chờ Ban Quản Trị xét duyệt.');
     }
@@ -134,11 +105,13 @@ class BoardingHouseController extends Controller
         }
         
         $postCount = \App\Models\RoomPost::whereIn('room_id', $roomIds)->count();
+        $reviewCount = $house->reviews()->count();
 
         $stats = [
             'room_count' => $roomCount,
             'floor_count' => $floorCount,
             'post_count' => $postCount,
+            'review_count' => $reviewCount,
         ];
 
         return Inertia::render('Landlord/BoardingHouses/Show', [

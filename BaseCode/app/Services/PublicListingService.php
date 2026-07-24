@@ -11,9 +11,56 @@ use App\Notifications\NewAppointment;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Repositories\Interfaces\RoomPostRepositoryInterface;
+use App\Repositories\Interfaces\ReviewRepositoryInterface;
 
 class PublicListingService
 {
+    protected $roomPostRepository;
+    protected $reviewRepository;
+
+    public function __construct(
+        RoomPostRepositoryInterface $roomPostRepository,
+        ReviewRepositoryInterface $reviewRepository
+    ) {
+        $this->roomPostRepository = $roomPostRepository;
+        $this->reviewRepository = $reviewRepository;
+    }
+
+    public function getPublicPostDetails(int $postId, ?int $userId, ?string $ipAddress)
+    {
+        $post = $this->roomPostRepository->getApprovedPost($postId);
+
+        // Record unique view
+        if (!$this->roomPostRepository->checkUniqueViewExists($postId, $userId, $ipAddress)) {
+            $this->roomPostRepository->recordUniqueView($postId, $userId, $ipAddress);
+            $this->roomPostRepository->incrementViewCount($postId);
+        }
+
+        $reviews = $this->reviewRepository->getReviewsByRoomId($post->room_id)->map(function ($r) {
+            return [
+                'id' => $r->id,
+                'rating' => $r->rating,
+                'comment' => $r->comment,
+                'created_at' => $r->created_at->diffForHumans(),
+                'tenant_name' => $r->tenant->name ?? 'Người dùng ẩn danh',
+                'tenant_avatar' => $r->tenant->avatar ?? null,
+            ];
+        });
+
+        $boardingHouse = $post->room->boardingHouse;
+        $boardingHouseRating = $boardingHouse ? $boardingHouse->average_rating : 0;
+        $boardingHouseReviewCount = $boardingHouse ? $boardingHouse->reviews()->count() : 0;
+
+        return [
+            'post' => $post,
+            'room' => $post->room,
+            'reviews' => $reviews,
+            'boardingHouseRating' => $boardingHouseRating,
+            'boardingHouseReviewCount' => $boardingHouseReviewCount,
+        ];
+    }
+
     /**
      * Xử lý bộ lọc nâng cao cho danh sách tin đăng công khai
      */

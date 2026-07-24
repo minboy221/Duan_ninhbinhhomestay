@@ -233,6 +233,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     // Route lấy chi tiết phòng để đăng tin
     Route::get('/rooms/{id}/details-for-listing', [RoomListingController::class, 'getRoomDetails'])->name('landlord.rooms.details');
     Route::post('/listings', [RoomListingController::class, 'store'])->name('landlord.listings.store');
+    Route::get('/listings/{id}', [RoomListingController::class, 'show'])->name('landlord.listings.show');
     Route::get('/listings/{id}/edit', [RoomListingController::class, 'edit'])->name('landlord.listings.edit');
     Route::put('/listings/{id}', [RoomListingController::class, 'update'])->name('landlord.listings.update');
     Route::delete('/listings/{id}', [RoomListingController::class, 'destroy'])->name('landlord.listings.destroy');
@@ -281,6 +282,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('landlord/verify', [VerificationController::class, 'verify'])
         ->name('landlord.verify.store');
 
+    // Route đánh dấu tất cả thông báo đã đọc
+    Route::post('/notifications/read-all', function () {
+        $user = auth()->user();
+        $user->unreadNotifications->markAsRead();
+        $user->unsetRelation('unreadNotifications'); // Clear cache để trả về mảng rỗng ngay lập tức
+        return back();
+    })->name('notifications.read-all');
+
     // Route đánh dấu thông báo đã đọc
     Route::post('/notifications/{id}/read', function ($id) {
         $notification = auth()->user()->notifications()->findOrFail($id);
@@ -309,6 +318,10 @@ Route::middleware(['auth'])->group(function () {
     })->name('user.ping');
 });
 
+// Admin Login Routes
+Route::middleware('guest')->group(function () {
+    Route::get('/admin/login', [App\Http\Controllers\AdminAuthController::class, 'create'])->name('admin.login');
+    Route::post('/admin/login', [App\Http\Controllers\AdminAuthController::class, 'store'])->name('admin.login.store');
 //Phần dành cho báo cáo
 Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
     Route::get('/', [ReportController::class, 'index'])->name('index');

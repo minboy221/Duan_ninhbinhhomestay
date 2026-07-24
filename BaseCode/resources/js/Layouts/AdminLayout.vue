@@ -273,6 +273,14 @@ const toggleMenu = (path) => {
                         </button>
 
                         <!-- Notification Dropdown -->
+                        <transition
+                            enter-active-class="transition ease-out duration-200"
+                            enter-from-class="opacity-0 translate-y-1"
+                            enter-to-class="opacity-100 translate-y-0"
+                            leave-active-class="transition ease-in duration-150"
+                            leave-from-class="opacity-100 translate-y-0"
+                            leave-to-class="opacity-0 translate-y-1"
+                        >
                         <div
                             v-if="notifOpen"
                             class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
@@ -280,18 +288,17 @@ const toggleMenu = (path) => {
                             <div
                                 class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50"
                             >
-                                <h3 class="text-sm font-semibold text-gray-800">
+                                <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
                                     Thông báo
+                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                        {{ page.props.auth?.notifications?.length || 0 }} mới
+                                    </span>
                                 </h3>
-                                <span
-                                    class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium"
-                                >
-                                    {{
-                                        page.props.auth?.notifications
-                                            ?.length || 0
-                                    }}
-                                    mới
-                                </span>
+                                <button v-if="page.props.auth?.notifications?.length > 0"
+                                        @click.stop="router.post(route('notifications.read-all'), {}, { preserveScroll: true })"
+                                        class="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors">
+                                    Đọc tất cả
+                                </button>
                             </div>
                             <div style="max-height: 400px; overflow-y: auto;">
                                 <div
@@ -372,6 +379,7 @@ const toggleMenu = (path) => {
                                 </div>
                             </div>
                         </div>
+                        </transition>
                     </div>
                     <!-- View site -->
                     <Link href="/" class="header-btn" title="Xem trang web">

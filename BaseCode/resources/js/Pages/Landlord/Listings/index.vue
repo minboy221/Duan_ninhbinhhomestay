@@ -246,6 +246,14 @@ const handleDeletePost = async (id) => {
                     <!-- Right Action Bar -->
                     <div
                         class="p-6 md:border-l border-slate-50 flex flex-row md:flex-col justify-center gap-2 bg-slate-50/35">
+                        
+                        <!-- Nút Chi tiết -->
+                        <Link :href="route('landlord.listings.show', ls.id)"
+                            class="flex-1 md:flex-none px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-blue-200/40">
+                            <i class="bi bi-eye"></i>
+                            Chi tiết
+                        </Link>
+
                         <!-- 1. Nút Chỉnh sửa: Luôn luôn hiển thị -->
                         <Link :href="route('landlord.listings.edit', ls.id)"
                             class="flex-1 md:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1">

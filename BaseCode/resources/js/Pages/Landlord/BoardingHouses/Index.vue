@@ -194,6 +194,41 @@ const getStatusText = (status) => {
                     </div>
                 </div>
             </div>
+
+            <!-- Mobile Cards View (hidden on desktop) -->
+            <div class="block md:hidden divide-y divide-slate-100">
+                <div v-for="house in boardingHouses" :key="house.id" 
+                    class="p-4 space-y-3 hover:bg-slate-50/50 transition-colors">
+                    <div class="flex justify-between items-start">
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400">#{{ house.id }}</span>
+                            <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                                {{ house.name }}
+                                <span v-if="$page.props.auth.selected_boarding_house_id === house.id" 
+                                    class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] rounded uppercase font-black">
+                                    <i class="bi bi-geo-alt-fill"></i> Đang Chọn
+                                </span>
+                            </h4>
+                        </div>
+                        <Link :href="route('landlord.boarding-houses.show', house.id)" class="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
+                            <i class="bi bi-eye"></i>
+                        </Link>
+                    </div>
+                    
+                    <div class="text-[11px] text-slate-600 flex items-start gap-1">
+                        <i class="bi bi-map text-slate-400 mt-0.5"></i>
+                        <span>{{ house.address_detail }}, {{ house.district }}</span>
+                    </div>
+                    
+                    <div v-if="$page.props.auth.selected_boarding_house_id !== house.id" class="pt-2 border-t border-slate-100/50 flex justify-end">
+                        <button @click="selectHouse(house.id)"
+                            class="text-xs font-bold bg-white border border-emerald-250 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 w-full justify-center">
+                            <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở này
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
         </div>
     </LandlordLayout>
 </template>
