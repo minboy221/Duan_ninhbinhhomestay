@@ -322,6 +322,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware('guest')->group(function () {
     Route::get('/admin/login', [App\Http\Controllers\AdminAuthController::class, 'create'])->name('admin.login');
     Route::post('/admin/login', [App\Http\Controllers\AdminAuthController::class, 'store'])->name('admin.login.store');
+});
 //Phần dành cho báo cáo
 Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
     Route::get('/', [ReportController::class, 'index'])->name('index');
@@ -343,4 +344,3 @@ Route::get('/manifest.webmanifest', function () {
 });
 
 require __DIR__ . '/auth.php';
-
