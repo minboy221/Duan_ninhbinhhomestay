@@ -513,16 +513,6 @@ const submitReport = () => {
                                     `Phòng ${room.room_number} - ${room.boardingHouse?.name || "Phòng trọ dịch vụ"}`
                                 }}
                             </h2>
-                            <div class="danh-gia-co-so mt-2" v-if="room.boardingHouse" style="display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 8px; padding: 6px 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
-                                <i class="bi bi-building" style="color: #6366f1;"></i>
-                                <span style="font-weight: 600; color: #334155;">{{ room.boardingHouse.name }}</span>
-                                <span style="color: #cbd5e1;">|</span>
-                                <span v-if="room.boardingHouseRating > 0" style="display: flex; align-items: center; gap: 4px; font-weight: 600; color: #f59e0b;">
-                                    <i class="bi bi-star-fill"></i> {{ room.boardingHouseRating }} 
-                                    <span style="color: #64748b; font-weight: normal; font-size: 13px;">({{ room.boardingHouseReviewCount }} đánh giá)</span>
-                                </span>
-                                <span v-else style="color: #94a3b8; font-style: italic; font-size: 13px;">Chưa có đánh giá</span>
-                            </div>
                         </div>
                         <div class="location">
                             <i class="bi bi-geo-alt-fill"></i>
@@ -679,66 +669,18 @@ const submitReport = () => {
                             <button @click="reportListing" class="btn_waring" style="
                                     border: none;
                                     width: 100%;
-                                    justify-content: center;
+                                    text-align: center;
+                                    cursor: pointer;
                                     color: #fff;
                                     display: flex;
                                     align-items: center;
+                                    justify-content: center;
                                     gap: 8px;
-                                    text-decoration: none;
-                                    background: #22c55e;
                                 ">
-                                    <i class="bi bi-calendar2-check-fill"></i>
-                                    <span>Quản Lý Lịch Hẹn</span>
-                                </Link>
-                            </div>
-                        </template>
-                        
-                        <template v-else>
-                            <div class="phone">
-                                <a class="btn_content" :href="user ? `tel:${room.boardingHouse?.user?.phone}` : '#'"
-                                    @click="handlePhoneClick">
-                                    <i class="bi bi-telephone"></i>
-                                    <span>{{
-                                        user
-                                            ? (room.boardingHouse?.user?.phone)
-                                            : (room.boardingHouse?.user?.phone ? room.boardingHouse?.user?.phone.substring(0, 6)
-                                                + 'xxxx ' : '086293xxxx')
-                                    }}</span>
-                                </a>
-                            </div>
-                            <div class="nhantin_chutro">
-                                <!-- Nút hiển thị cho khách thuê bình thường hoặc chưa đăng nhập -->
-                                <button v-if="!user || user.role !== 'landlord'" @click="openBooking" class="btn_mess"
-                                    style="border: none; width: 100%; justify-content: center; cursor: pointer;">
-                                    <i class="bi bi-calendar-check-fill"></i>
-                                    <span>Đặt Lịch Hẹn</span>
-                                </button>
-    
-                                <!-- Nút bị vô hiệu hóa khi tài khoản là Chủ trọ -->
-                                <button v-else class="btn_mess"
-                                    style="border: none; width: 100%; justify-content: center; cursor: not-allowed;"
-                                    disabled>
-                                    <i class="bi bi-calendar-x"></i>
-                                    <span> Không Thể Đặt Lịch</span>
-                                </button>
-                            </div>
-    
-                            <div class="warning">
-                                <button @click="reportListing" class="btn_waring" style="
-                                        border: none;
-                                        width: 100%;
-                                        justify-content: center;
-                                        cursor: pointer;
-                                        color: #fff;
-                                        display: flex;
-                                        align-items: center;
-                                        gap: 8px;
-                                    ">
-                                    <i class="bi bi-exclamation-triangle-fill"></i>
-                                    <span>Báo Xấu</span>
-                                </button>
-                            </div>
-                        </template>
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span>Báo Xấu</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Safety Note -->
