@@ -22,12 +22,18 @@ class Contract extends Model
         'monthly_rent',
         'status',
         'signed_at',
+        'entry_elec_index',
+        'entry_elec_image',
+        'entry_water_index',
+        'entry_water_image',
+        'entry_readings_submitted_at',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
         'signed_at' => 'datetime',
+        'entry_readings_submitted_at' => 'datetime',
         'deposit_amount' => 'decimal:2',
         'monthly_rent' => 'decimal:2',
     ];

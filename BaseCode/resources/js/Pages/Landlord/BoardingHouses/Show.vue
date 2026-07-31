@@ -1,11 +1,32 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3'
+import { ref } from 'vue'
+import { Head, Link, router } from '@inertiajs/vue3'
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
+import { showSuccess } from '@/Utils/swal'
 
 const props = defineProps({
     house: Object,
     stats: Object,
 })
+
+const billingDay = ref(props.house.invoice_billing_day || 30)
+const saving = ref(false)
+
+const saveBillingDay = () => {
+    saving.value = true
+    router.patch(route('landlord.boarding-houses.billing-day', props.house.id), {
+        invoice_billing_day: billingDay.value
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            saving.value = false
+            showSuccess('Cập nhật ngày chốt hóa đơn thành công!')
+        },
+        onError: () => {
+            saving.value = false
+        }
+    })
+}
 
 const getImages = (jsonStr) => {
     try {
@@ -124,6 +145,32 @@ const getStatusText = (status) => {
                             <div>
                                 <label class="block text-xs font-medium text-slate-400 mb-1">Ngày tạo</label>
                                 <p class="text-slate-800">{{ new Date(house.created_at).toLocaleDateString('vi-VN') }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Invoice Billing Config -->
+                    <div class="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                        <div class="bg-slate-50 px-6 py-4 border-b border-slate-100">
+                            <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                                <i class="bi bi-calendar-check text-emerald-500"></i> Cấu hình Hóa Đơn Định Kỳ
+                            </h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Ngày chốt hóa đơn hàng tháng</label>
+                                <div class="flex items-center gap-3">
+                                    <select v-model="billingDay" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-32">
+                                        <option v-for="d in 31" :key="d" :value="d">Ngày {{ d }}</option>
+                                    </select>
+                                    <button @click="saveBillingDay" :disabled="saving" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50">
+                                        <i v-if="saving" class="bi bi-arrow-clockwise animate-spin"></i>
+                                        <span>Lưu cấu hình</span>
+                                    </button>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    <i class="bi bi-info-circle-fill"></i> Đến ngày này hàng tháng, hệ thống sẽ nhắc nhở chốt số điện nước và tạo hóa đơn.
+                                </p>
                             </div>
                         </div>
                     </div>

@@ -22,6 +22,7 @@ class BoardingHouse extends Model
         'longitude',
         'cancel_after_minutes',
         'directions_guide',
+        'invoice_billing_day',
     ];
     protected $casts = [
         'contract_images' => 'array',
