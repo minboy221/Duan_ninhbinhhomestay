@@ -34,6 +34,11 @@ class Contract extends Model
         'deposit_refund_amount',
         'deposit_handling',
         'number_of_tenants',
+        'entry_elec_index',
+        'entry_elec_image',
+        'entry_water_index',
+        'entry_water_image',
+        'entry_readings_submitted_at',
     ];
 
     protected $casts = [
@@ -43,6 +48,7 @@ class Contract extends Model
         'terms_accepted' => 'boolean',
         'terms_accepted_at' => 'datetime',
         'liquidated_at' => 'datetime',
+        'entry_readings_submitted_at' => 'datetime',
         'deposit_amount' => 'decimal:2',
         'monthly_rent' => 'decimal:2',
         'deposit_refund_amount' => 'decimal:2',

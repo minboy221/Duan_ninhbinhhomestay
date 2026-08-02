@@ -115,6 +115,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
     Route::post('/appointments/{appointment}/cancel-interest', [ProfileController::class, 'cancelInterest'])->name('appointments.cancel_interest');
 
+    // Route Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
+    Route::post('/profile/contracts/{contract}/entry-readings', [ProfileController::class, 'submitEntryReadings'])->name('profile.entry-readings.submit');
+
     // Route chung để xem file private (CCCD, Hợp đồng...)
     Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
         ->name('files.private');
@@ -207,6 +210,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/boarding-houses/create', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'create'])->name('landlord.boarding-houses.create');
     Route::post('/boarding-houses', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'store'])->name('landlord.boarding-houses.store');
     Route::get('/boarding-houses/{id}', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'show'])->name('landlord.boarding-houses.show');
+    Route::patch('/boarding-houses/{id}/billing-day', [LandlordController::class, 'updateBillingDay'])->name('landlord.boarding-houses.billing-day');
     Route::post('/select-boarding-house', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'selectBoardingHouse'])->name('landlord.select-boarding-house');
     Route::get('/profile', [LandlordController::class, 'profile'])->name('landlord.profile');
     Route::post('/profile', [LandlordController::class, 'updateProfile'])->name('landlord.profile.update');
@@ -266,6 +270,8 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');
+    Route::post('/invoices/quick-bulk', [LandlordController::class, 'storeQuickBulkInvoices'])->name('landlord.invoices.quick-bulk');
+    Route::post('/invoices/ocr-meter', [LandlordController::class, 'ocrMeter'])->name('landlord.invoices.ocr');
     Route::put('/invoices/{id}', [LandlordController::class, 'updateInvoice'])->name('landlord.invoices.update');
     Route::patch('/invoices/{id}/status', [LandlordController::class, 'updateInvoiceStatus'])->name('landlord.invoices.status');
     Route::patch('/invoices/{id}/archive', [LandlordController::class, 'archiveInvoice'])->name('landlord.invoices.archive');

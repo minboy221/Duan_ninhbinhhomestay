@@ -31,6 +31,44 @@ const submitTerminateRequest = () => {
         },
         onError: (err) => {
             showError('Thao tác thất bại', err.reason || 'Có lỗi xảy ra khi gửi yêu cầu.');
+const showEntryModal = ref(false);
+
+const elecImgPreview = ref(null);
+const waterImgPreview = ref(null);
+
+const entryForm = useForm({
+    entry_elec_index: props.contract?.entry_elec_index ?? '',
+    entry_water_index: props.contract?.entry_water_index ?? '',
+    entry_elec_image: null,
+    entry_water_image: null,
+});
+
+const handleElecImg = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        entryForm.entry_elec_image = file;
+        elecImgPreview.value = URL.createObjectURL(file);
+    }
+};
+
+const handleWaterImg = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        entryForm.entry_water_image = file;
+        waterImgPreview.value = URL.createObjectURL(file);
+    }
+};
+
+const submitEntryReadings = () => {
+    if (!props.contract?.id) return;
+    entryForm.post(route('profile.entry-readings.submit', props.contract.id), {
+        onSuccess: () => {
+            showEntryModal.value = false;
+            showSuccess('Thành công', 'Đã lưu chỉ số điện/nước nhận phòng thành công!');
+        },
+        onError: (err) => {
+            const firstErr = Object.values(err)[0];
+            showError('Lỗi', firstErr || 'Vui lòng kiểm tra lại thông tin!');
         }
     });
 };
@@ -112,6 +150,70 @@ const terminateButtonText = computed(() => {
                         <p>{{ getStatusLabel }}</p>
                     </div>
                 </div>
+
+                <!-- THÔNG BÁO / KHỐI CHỐT SỐ ĐIỆN NƯỚC LÚC BÀN GIAO PHÒNG -->
+                <div v-if="contract" class="entry-meter-card"
+                    :style="{
+                        margin: '15px 0 25px 0',
+                        padding: '14px 18px',
+                        borderRadius: '12px',
+                        border: contract.entry_readings_submitted_at ? '1px solid #a7f3d0' : '1px solid #fde68a',
+                        background: contract.entry_readings_submitted_at ? '#ecfdf5' : '#fffbeb',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                    }">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px; min-width: 250px;">
+                            <div :style="{
+                                width: '38px',
+                                height: '38px',
+                                borderRadius: '10px',
+                                background: contract.entry_readings_submitted_at ? '#10b981' : '#f59e0b',
+                                color: '#fff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '18px',
+                                flexShrink: 0
+                            }">
+                                <i :class="contract.entry_readings_submitted_at ? 'bi bi-check-circle-fill' : 'bi bi-lightning-charge-fill'"></i>
+                            </div>
+                            <div>
+                                <h4 style="font-weight: 700; font-size: 14px; color: #1e293b; margin: 0 0 2px 0;">
+                                    {{ contract.entry_readings_submitted_at ? 'Chỉ số điện/nước lúc nhận phòng' : '⚡ Chưa chốt chỉ số điện/nước lúc nhận phòng' }}
+                                </h4>
+                                <p v-if="contract.entry_readings_submitted_at" style="font-size: 12px; color: #475569; margin: 0;">
+                                    Điện: <strong style="color: #059669;">{{ contract.entry_elec_index }} kWh</strong> | 
+                                    Nước: <strong style="color: #2563eb;">{{ contract.entry_water_index }} m³</strong>
+                                    <span style="font-size: 11px; color: #94a3b8; margin-left: 8px;">(Xác nhận: {{ formatDate(contract.entry_readings_submitted_at) }})</span>
+                                </p>
+                                <p v-else style="font-size: 12px; color: #b45309; margin: 0;">
+                                    Vui lòng nhập chỉ số điện, nước & ảnh chụp lúc mới nhận phòng để tránh thiệt thòi tháng đầu.
+                                </p>
+                            </div>
+                        </div>
+                        <button type="button" @click="showEntryModal = true"
+                            :style="{
+                                padding: '8px 16px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                borderRadius: '8px',
+                                border: contract.entry_readings_submitted_at ? '1px solid #059669' : 'none',
+                                background: contract.entry_readings_submitted_at ? '#ffffff' : '#d97706',
+                                color: contract.entry_readings_submitted_at ? '#059669' : '#ffffff',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s',
+                                flexShrink: 0
+                            }">
+                            <i class="bi bi-camera"></i>
+                            <span>{{ contract.entry_readings_submitted_at ? 'Xem / Cập nhật lại' : 'Cập nhật chỉ số ngay' }}</span>
+                        </button>
+                    </div>
+                </div>
                 
                 <form action="" @submit.prevent>
                     <div class="row">
@@ -171,6 +273,63 @@ const terminateButtonText = computed(() => {
         </div>
         
         <!-- Modal Xem PDF / Ảnh Hợp Đồng -->
+        <!-- MODAL CẬP NHẬT CHỈ SỐ ĐIỆN NƯỚC NHẬN PHÒNG -->
+        <div v-if="showEntryModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        <i class="bi bi-speedometer2 text-emerald-600"></i>
+                        <span>Chỉ số điện / nước khi nhận phòng</span>
+                    </h3>
+                    <button @click="showEntryModal = false" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+                </div>
+
+                <form @submit.prevent="submitEntryReadings" class="space-y-4">
+                    <!-- Khối Điện -->
+                    <div class="p-3 bg-amber-50/50 border border-amber-200/60 rounded-xl space-y-3">
+                        <label class="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                            <i class="bi bi-lightning-charge-fill text-amber-500"></i>
+                            <span>Chỉ số ĐIỆN ban đầu (kWh)</span>
+                        </label>
+                        <input type="number" min="0" v-model="entryForm.entry_elec_index" required placeholder="Ví dụ: 1250"
+                            class="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white" />
+                        <div>
+                            <span class="text-[11px] text-slate-500 font-semibold block mb-1">Ảnh chụp công tơ điện lúc nhận phòng:</span>
+                            <input type="file" accept="image/*" @change="handleElecImg" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer" />
+                            <div v-if="elecImgPreview || contract?.entry_elec_image" class="mt-2 w-28 h-28 rounded-lg overflow-hidden border border-amber-200 shadow-xs">
+                                <img :src="elecImgPreview || contract?.entry_elec_image" class="w-full h-full object-cover" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Khối Nước -->
+                    <div class="p-3 bg-blue-50/50 border border-blue-200/60 rounded-xl space-y-3">
+                        <label class="block text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                            <i class="bi bi-droplet-fill text-blue-500"></i>
+                            <span>Chỉ số NƯỚC ban đầu (m³)</span>
+                        </label>
+                        <input type="number" min="0" v-model="entryForm.entry_water_index" required placeholder="Ví dụ: 85"
+                            class="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" />
+                        <div>
+                            <span class="text-[11px] text-slate-500 font-semibold block mb-1">Ảnh chụp công tơ nước lúc nhận phòng:</span>
+                            <input type="file" accept="image/*" @change="handleWaterImg" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 cursor-pointer" />
+                            <div v-if="waterImgPreview || contract?.entry_water_image" class="mt-2 w-28 h-28 rounded-lg overflow-hidden border border-blue-200 shadow-xs">
+                                <img :src="waterImgPreview || contract?.entry_water_image" class="w-full h-full object-cover" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button type="button" @click="showEntryModal = false" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition">Hủy</button>
+                        <button type="submit" :disabled="entryForm.processing" class="px-5 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-md flex items-center gap-1.5">
+                            <i v-if="entryForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
+                            <span>Lưu thông tin</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div id="pdfModal" class="modal" :style="{ display: showPdfModal ? 'flex' : 'none' }">
             <div class="modal-content" style="max-height: 90vh; overflow-y: auto; background: white; padding: 20px; border-radius: 12px; position: relative; width: 80%; max-width: 800px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 <span @click="showPdfModal = false" class="absolute top-2 right-4 text-slate-400 hover:text-slate-600 cursor-pointer" style="position: absolute; top: 10px; right: 15px; font-size: 32px; line-height: 1; z-index: 50;">&times;</span>
