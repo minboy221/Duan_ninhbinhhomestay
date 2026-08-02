@@ -318,4 +318,53 @@ class ProfileController extends Controller
 
         return Redirect::back()->with('success', 'Đã gửi thông báo đã chuyển khoản thành công tới Chủ trọ!');
     }
+
+    /**
+     * Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
+     */
+    public function submitEntryReadings(Request $request, $contractId)
+    {
+        $request->validate([
+            'entry_elec_index' => 'required|integer|min:0',
+            'entry_water_index' => 'required|integer|min:0',
+            'entry_elec_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'entry_water_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        $contract = \App\Models\Contract::where('id', $contractId)
+            ->where('tenant_id', $request->user()->id)
+            ->firstOrFail();
+
+        $elecImgPath = $contract->entry_elec_image;
+        $waterImgPath = $contract->entry_water_image;
+
+        if ($request->hasFile('entry_elec_image')) {
+            $elecImgPath = '/storage/' . $request->file('entry_elec_image')->store('meter_readings/entry', 'public');
+        }
+
+        if ($request->hasFile('entry_water_image')) {
+            $waterImgPath = '/storage/' . $request->file('entry_water_image')->store('meter_readings/entry', 'public');
+        }
+
+        $contract->update([
+            'entry_elec_index' => $request->entry_elec_index,
+            'entry_elec_image' => $elecImgPath,
+            'entry_water_index' => $request->entry_water_index,
+            'entry_water_image' => $waterImgPath,
+            'entry_readings_submitted_at' => now(),
+        ]);
+
+        // Gửi thông báo cho Chủ trọ
+        $landlord = $contract->room->boardingHouse->user ?? null;
+        if ($landlord) {
+            $roomNum = $contract->room->room_number ?? '';
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'Khách đã cập nhật chỉ số nhận phòng',
+                "Khách thuê tại phòng {$roomNum} đã tải lên chỉ số điện/nước ban đầu lúc nhận phòng.",
+                route('landlord.contracts')
+            ));
+        }
+
+        return Redirect::back()->with('success', 'Đã cập nhật chỉ số điện/nước nhận phòng thành công!');
+    }
 }

@@ -112,23 +112,15 @@ const getStatusText = (status) => {
                                     </div>
                                 </td>
                                 <td class="px-5 py-4 text-right">
-                                    <button v-if="
-                                        $page.props.auth
-                                            .selected_boarding_house_id !==
-                                        house.id
-                                    " @click="selectHouse(house.id)"
-                                        class="text-xs font-bold bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 mr-2 cursor-pointer">
-                                        <i class="bi bi-box-arrow-in-right"></i>
-                                        Chọn cơ sở
+                                    <button v-if="$page.props.auth.selected_boarding_house_id !== house.id" 
+                                        @click="selectHouse(house.id)"
+                                        class="text-xs font-bold bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 mr-2">
+                                        <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở
                                     </button>
-                                    <Link :href="route(
-                                        'landlord.boarding-houses.show',
-                                        house.id,
-                                    )
-                                        "
-                                        class="text-slate-400 hover:text-emerald-500 p-2 transition-colors inline-flex items-center"
+                                    <Link :href="route('landlord.boarding-houses.show', house.id)" 
+                                        class="text-xs font-bold bg-white border border-slate-200 text-slate-650 hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer" 
                                         title="Xem chi tiết">
-                                        <i class="bi bi-eye text-lg"></i>
+                                        <i class="bi bi-eye"></i> Xem chi tiết
                                     </Link>
                                 </td>
                             </tr>
@@ -136,62 +128,9 @@ const getStatusText = (status) => {
                     </table>
                 </div>
 
-                <!-- Mobile Cards View (hidden on desktop) -->
-                <div class="block md:hidden divide-y divide-slate-100">
-                    <div v-for="house in boardingHouses" :key="house.id"
-                        class="p-4 space-y-3 hover:bg-slate-50 transition-colors">
-                        <!-- Header -->
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1 space-y-1">
-                                <span class="text-[10px] font-bold text-slate-400">
-                                    #{{ house.id }}
-                                </span>
-
-                                <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
-                                    {{ house.name }}
-
-                                    <span v-if="
-                                        $page.props.auth
-                                            .selected_boarding_house_id ===
-                                        house.id
-                                    "
-                                        class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] rounded-full uppercase font-black">
-                                        <i class="bi bi-geo-alt-fill mr-1"></i>
-                                        Đang chọn
-                                    </span>
-                                </h4>
-                            </div>
-
-                            <Link :href="route(
-                                'landlord.boarding-houses.show',
-                                house.id,
-                            )
-                                " class="p-2 text-slate-400 hover:text-emerald-500 transition" title="Xem chi tiết">
-                                <i class="bi bi-eye text-lg"></i>
-                            </Link>
-                        </div>
-
-                        <!-- Address -->
-                        <div class="flex items-start gap-2 text-xs text-slate-600">
-                            <i class="bi bi-geo-alt text-emerald-500 mt-0.5"></i>
-
-                            <span>
-                                {{ house.address_detail }}, {{ house.district }}
-                            </span>
-                        </div>
-
-                        <!-- Action -->
-                        <div v-if="
-                            $page.props.auth.selected_boarding_house_id !==
-                            house.id
-                        " class="pt-3 border-t border-slate-100">
-                            <button @click="selectHouse(house.id)"
-                                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
-                                <i class="bi bi-box-arrow-in-right"></i>
-                                Chọn cơ sở này
-                            </button>
-                        </div>
-                    </div>
+                <div v-if="!boardingHouses.length" class="px-5 py-8 text-center text-slate-500">
+                    <i class="bi bi-buildings text-4xl text-slate-300 mb-3 block"></i>
+                    Bạn chưa có cơ sở nào. Hãy thêm cơ sở mới.
                 </div>
             </div>
 
