@@ -2,15 +2,52 @@
 namespace App\Services;
 
 use App\Models\RoomPost;
+use App\Notifications\RoomPostStatusNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PharIo\Manifest\License;
 use Illuminate\Pagination\LengthAwarePaginator;
-use App\Notifications\RoomPostStatusNotification;
+use App\Repositories\Interfaces\RoomPostRepositoryInterface;
+use App\Repositories\Interfaces\ReviewRepositoryInterface;
 
 class RoomListingService
 {
+    protected $roomPostRepository;
+    protected $reviewRepository;
+
+    public function __construct(
+        RoomPostRepositoryInterface $roomPostRepository,
+        ReviewRepositoryInterface $reviewRepository
+    ) {
+        $this->roomPostRepository = $roomPostRepository;
+        $this->reviewRepository = $reviewRepository;
+    }
+
+    public function getPostDetailsForLandlord(int $postId, int $landlordId)
+    {
+        $post = $this->roomPostRepository->getPostForLandlord($postId, $landlordId);
+        $reviews = $this->reviewRepository->getReviewsByRoomId($post->room_id)->map(function ($r) {
+            return [
+                'id' => $r->id,
+                'rating' => $r->rating,
+                'comment' => $r->comment,
+                'created_at' => $r->created_at->diffForHumans(),
+                'tenant_name' => $r->tenant->name ?? 'Người dùng ẩn danh',
+                'tenant_avatar' => $r->tenant->avatar ?? null,
+            ];
+        });
+        
+        $averageRating = $reviews->count() > 0 ? round($reviews->avg('rating'), 1) : 0;
+        $uniqueViews = $this->roomPostRepository->countUniqueViews($post->id);
+
+        return [
+            'post' => $post,
+            'reviews' => $reviews,
+            'averageRating' => $averageRating,
+            'uniqueViews' => $uniqueViews,
+        ];
+    }
 
     //Phần lấy danh sách tất cả các tin đăng của chủ trọ để hiển thị
     public function getLandlordPosts(int $landlordId): LengthAwarePaginator
@@ -42,12 +79,25 @@ class RoomListingService
         $post = DB::transaction(function () use ($data, $imageUrls, $status) {
 
             $room = \App\Models\Room::find($data['room_id']);
-            if ($room && $room->boardingHouse) {
-                $room->boardingHouse()->update([
-                    'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
-                    'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
-                    'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
-                ]);
+            if ($room) {
+                $roomUpdateData = [];
+                if (isset($data['current_people'])) {
+                    $roomUpdateData['current_people'] = (int)$data['current_people'];
+                }
+                if (isset($data['capacity'])) {
+                    $roomUpdateData['capacity'] = (int)$data['capacity'];
+                }
+                if (!empty($roomUpdateData)) {
+                    $room->update($roomUpdateData);
+                }
+
+                if ($room->boardingHouse) {
+                    $room->boardingHouse()->update([
+                        'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
+                        'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
+                        'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
+                    ]);
+                }
             }
             return RoomPost::create([
                 'landlord_id' => auth()->id(),
@@ -75,12 +125,25 @@ class RoomListingService
     {
         $updated = DB::transaction(function () use ($post, $data, $newFiles, $status) {
             $room = \App\Models\Room::find($data['room_id']);
-            if($room && $room->boardingHouse){
-                $room->boardingHouse->update([
-                    'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
-                    'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
-                    'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
-                ]);
+            if ($room) {
+                $roomUpdateData = [];
+                if (isset($data['current_people'])) {
+                    $roomUpdateData['current_people'] = (int)$data['current_people'];
+                }
+                if (isset($data['capacity'])) {
+                    $roomUpdateData['capacity'] = (int)$data['capacity'];
+                }
+                if (!empty($roomUpdateData)) {
+                    $room->update($roomUpdateData);
+                }
+
+                if ($room->boardingHouse) {
+                    $room->boardingHouse->update([
+                        'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
+                        'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
+                        'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
+                    ]);
+                }
             }
             //lấy danh sách ảnh cũ được giữ lại từ Frontend gửi lên
             $imageUrls = $data['existing_images'] ?? [];

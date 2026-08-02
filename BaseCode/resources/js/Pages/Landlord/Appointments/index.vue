@@ -17,7 +17,6 @@ const now = new Date();
 const currentYear = now.getFullYear();
 const currentMonth = now.getMonth() + 1;
 const viewMode = ref("month"); // 'month' | 'list'
-
 // Conflict detection logic
 const hasConflict = (apt) => {
     return appointments.value.some((other) => {
@@ -63,6 +62,11 @@ const statusMap = {
         label: "Đã Duyệt",
         cls: "bg-emerald-50 text-emerald-600 border-emerald-100",
         dot: "bg-emerald-500",
+    },
+    waiting_contract: {
+        label: "Chờ hợp đồng",
+        cls: "bg-blue-50 text-blue-600 border-blue-100",
+        dot: "bg-blue-500",
     },
     rejected: {
         label: "Từ Chối",
@@ -281,7 +285,7 @@ const getVisiblePages = (currentPage, totalPages) => {
                             <i class="bi bi-bell-fill text-amber-500"></i>
                             <span>Yêu cầu xem phòng chờ duyệt ({{
                                 pendingList.length
-                                }})</span>
+                            }})</span>
                         </h3>
 
                         <div v-if="pendingList.length === 0"
@@ -402,7 +406,7 @@ const getVisiblePages = (currentPage, totalPages) => {
                                             <div class="flex flex-col">
                                                 <span>{{ apt.name }}</span>
                                                 <span class="text-[10px] text-slate-400 font-semibold">{{ apt.phone
-                                                }}</span>
+                                                    }}</span>
                                             </div>
                                         </td>
                                         <td class="py-3 px-4 font-bold text-emerald-600">
@@ -426,7 +430,9 @@ const getVisiblePages = (currentPage, totalPages) => {
                                                 {{ getStatusData(apt.status).label }}
                                             </span>
                                         </td>
-
+                                        <td class="py-3 px-4">
+                                            <span class="text-slate-400">-</span>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>

@@ -56,7 +56,7 @@ const getStatusText = (status) => {
             </div>
 
             <!-- Stats grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <!-- Thống kê tin đăng -->
                 <div class="bg-white rounded-xl border border-slate-100 p-6 flex items-center gap-4 shadow-sm">
                     <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-2xl">
@@ -87,6 +87,17 @@ const getStatusText = (status) => {
                     <div>
                         <p class="text-sm text-slate-500 font-medium">Tổng Số Tầng</p>
                         <p class="text-2xl font-bold text-slate-800">{{ stats.floor_count }} <span class="text-sm font-normal text-slate-400">tầng</span></p>
+                    </div>
+                </div>
+
+                <!-- Thống kê đánh giá -->
+                <div class="bg-white rounded-xl border border-slate-100 p-6 flex items-center gap-4 shadow-sm">
+                    <div class="w-12 h-12 bg-yellow-50 text-yellow-500 rounded-full flex items-center justify-center text-2xl">
+                        <i class="bi bi-star-fill"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-slate-500 font-medium">Đánh Giá ({{ stats.review_count || 0 }})</p>
+                        <p class="text-2xl font-bold text-slate-800">{{ house.average_rating > 0 ? house.average_rating : 'N/A' }} <span class="text-sm font-normal text-slate-400">sao</span></p>
                     </div>
                 </div>
             </div>

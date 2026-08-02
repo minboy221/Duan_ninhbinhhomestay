@@ -78,6 +78,7 @@ const navGroups = [
                     { label: 'Khung Giờ Rảnh', path: '/landlord/appointments/availabilities', icon: 'bi-clock-history' },
                 ]
             },
+            { label: 'Khiếu Nại', path: '/landlord/reports', icon: 'bi-exclamation-triangle' },
         ]
     },
     {
@@ -342,13 +343,28 @@ const closePopup = () => {
                         </button>
                         
                         <!-- Notification Dropdown -->
-                        <div v-if="notifOpen" class="fixed md:absolute left-4 right-4 md:left-auto md:right-0 top-16 md:top-auto md:mt-2 w-auto md:w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
-                            <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                <h3 class="text-sm font-bold text-slate-800">Thông báo</h3>
-                                <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
-                                    {{ page.props.auth?.notifications?.length || 0 }} mới
-                                </span>
-                            </div>
+                        <transition
+                            enter-active-class="transition ease-out duration-200"
+                            enter-from-class="opacity-0 translate-y-1"
+                            enter-to-class="opacity-100 translate-y-0"
+                            leave-active-class="transition ease-in duration-150"
+                            leave-from-class="opacity-100 translate-y-0"
+                            leave-to-class="opacity-0 translate-y-1"
+                        >
+                            <div v-if="notifOpen" class="fixed md:absolute left-4 right-4 md:left-auto md:right-0 top-16 md:top-auto md:mt-2 w-auto md:w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
+                                <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                        Thông báo
+                                        <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                                            {{ page.props.auth?.notifications?.length || 0 }} mới
+                                        </span>
+                                    </h3>
+                                    <button v-if="page.props.auth?.notifications?.length > 0"
+                                            @click.stop="router.post(route('notifications.read-all'), {}, { preserveScroll: true })"
+                                            class="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors">
+                                        Đọc tất cả
+                                    </button>
+                                </div>
                             <div style="max-height: 400px; overflow-y: auto;" class="scrollbar-thin scrollbar-thumb-slate-200">
                                 <div v-if="page.props.auth?.notifications?.length > 0">
                                     <div v-for="notification in page.props.auth.notifications" :key="notification.id"
@@ -383,6 +399,7 @@ const closePopup = () => {
                                 </div>
                             </div>
                         </div>
+                        </transition>
                     </div>
 
                     <!-- User Profile info -->

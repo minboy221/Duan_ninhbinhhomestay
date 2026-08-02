@@ -69,6 +69,16 @@ const navGroups = [
                 label: "Báo Cáo & Khiếu Nại",
                 path: "/admin/reports",
                 icon: "bi-flag-fill",
+                children: [
+                    {
+                        label: "Danh Sách Khiếu Nại",
+                        path: "/admin/reports",
+                    },
+                    {
+                        label: "Lý Do Báo Cáo",
+                        path: "/admin/report-reasons",
+                    }
+                ]
             },
             { label: "Đánh Giá", path: "/admin/reviews", icon: "bi-star-fill" },
         ],
@@ -109,6 +119,24 @@ const navGroups = [
         ],
     },
 ];
+
+const expandedMenus = ref({})
+
+const isMenuExpanded = (item) => {
+    if (expandedMenus.value[item.path] !== undefined) {
+        return expandedMenus.value[item.path]
+    }
+    return item.children && item.children.some(c => isActive(c.path))
+}
+
+const toggleMenu = (path) => {
+    if (expandedMenus.value[path] === undefined) {
+        const item = navGroups.flatMap(g => g.items).find(i => i.path === path)
+        expandedMenus.value[path] = !(item && item.children && item.children.some(c => isActive(c.path)))
+    } else {
+        expandedMenus.value[path] = !expandedMenus.value[path]
+    }
+}
 </script>
 
 <template>
@@ -142,21 +170,50 @@ const navGroups = [
                         v-else-if="group.label && !sidebarOpen"
                         class="nav-divider"
                     ></div>
-                    <Link
-                        v-for="item in group.items"
-                        :key="item.path"
-                        :href="item.path"
-                        :class="[
-                            'nav-item',
-                            isActive(item.path) ? 'nav-item-active' : '',
-                        ]"
-                        :title="!sidebarOpen ? item.label : ''"
-                    >
-                        <i :class="['bi', item.icon, 'nav-icon']"></i>
-                        <span v-if="sidebarOpen" class="nav-label">{{
-                            item.label
-                        }}</span>
-                    </Link>
+                    <div v-for="item in group.items" :key="item.path" class="flex flex-col" style="display: flex; flex-direction: column; position: relative;">
+                        <Link
+                            :href="item.path"
+                            :class="[
+                                'nav-item',
+                                isActive(item.path) && !item.children ? 'nav-item-active' : '',
+                                (item.children && item.children.some(c => isActive(c.path))) ? 'bg-white/5 text-slate-200' : ''
+                            ]"
+                            :style="item.children && sidebarOpen ? 'padding-right: 36px;' : ''"
+                            :title="!sidebarOpen ? item.label : ''"
+                        >
+                            <i :class="['bi', item.icon, 'nav-icon']"></i>
+                            <span v-if="sidebarOpen" class="nav-label">{{
+                                item.label
+                            }}</span>
+                        </Link>
+
+                        <!-- Nút mũi tên đóng/mở Dropdown -->
+                        <button
+                            v-if="item.children && sidebarOpen"
+                            @click.prevent.stop="toggleMenu(item.path)"
+                            class="absolute right-2 top-[5px] w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all z-10"
+                            style="border: none; background: transparent; cursor: pointer;"
+                        >
+                            <i :class="['bi', isMenuExpanded(item) ? 'bi-chevron-up' : 'bi-chevron-down']" style="font-size: 11px;"></i>
+                        </button>
+                        
+                        <!-- Submenu (Chỉ hiển thị khi mở rộng dropdown) -->
+                        <div v-if="item.children && sidebarOpen && isMenuExpanded(item)" class="pl-6 flex flex-col gap-1 mt-1" style="display: flex; flex-direction: column; gap: 4px; padding-left: 24px; margin-top: 4px;">
+                            <Link
+                                v-for="sub in item.children"
+                                :key="sub.path"
+                                :href="sub.path"
+                                :class="[
+                                    'nav-item py-1 text-xs border-l border-slate-700/50',
+                                    isActive(sub.path) ? 'text-blue-400 font-bold border-blue-500' : 'text-slate-400 hover:text-slate-200'
+                                ]"
+                                style="background: transparent; box-shadow: none; padding-top: 4px; padding-bottom: 4px; padding-left: 12px; font-size: 12px; border-left: 2px solid rgba(255,255,255,0.15);"
+                                :style="isActive(sub.path) ? 'color: #3b82f6; border-left-color: #3b82f6;' : 'color: #94a3b8;'"
+                            >
+                                {{ sub.label }}
+                            </Link>
+                        </div>
+                    </div>
                 </template>
             </nav>
 
@@ -216,6 +273,14 @@ const navGroups = [
                         </button>
 
                         <!-- Notification Dropdown -->
+                        <transition
+                            enter-active-class="transition ease-out duration-200"
+                            enter-from-class="opacity-0 translate-y-1"
+                            enter-to-class="opacity-100 translate-y-0"
+                            leave-active-class="transition ease-in duration-150"
+                            leave-from-class="opacity-100 translate-y-0"
+                            leave-to-class="opacity-0 translate-y-1"
+                        >
                         <div
                             v-if="notifOpen"
                             class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
@@ -223,18 +288,17 @@ const navGroups = [
                             <div
                                 class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50"
                             >
-                                <h3 class="text-sm font-semibold text-gray-800">
+                                <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
                                     Thông báo
+                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                        {{ page.props.auth?.notifications?.length || 0 }} mới
+                                    </span>
                                 </h3>
-                                <span
-                                    class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium"
-                                >
-                                    {{
-                                        page.props.auth?.notifications
-                                            ?.length || 0
-                                    }}
-                                    mới
-                                </span>
+                                <button v-if="page.props.auth?.notifications?.length > 0"
+                                        @click.stop="router.post(route('notifications.read-all'), {}, { preserveScroll: true })"
+                                        class="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors">
+                                    Đọc tất cả
+                                </button>
                             </div>
                             <div style="max-height: 400px; overflow-y: auto;">
                                 <div
@@ -315,6 +379,7 @@ const navGroups = [
                                 </div>
                             </div>
                         </div>
+                        </transition>
                     </div>
                     <!-- View site -->
                     <Link href="/" class="header-btn" title="Xem trang web">

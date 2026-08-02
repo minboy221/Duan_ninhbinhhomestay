@@ -3,9 +3,10 @@ import { Link, usePage, router } from '@inertiajs/vue3'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useBackToTop, useDropdownMenu, useMobileDrawer } from '@/composables/main.js'
 import axios from 'axios'
+import AppointmentCountdown from '@/Components/AppointmentCountdown.vue';
 
-const { props } = usePage()
-const auth = computed(() => props.auth)
+const page = usePage()
+const auth = computed(() => page.props.auth)
 const user = computed(() => auth.value.user)
 
 const isVerified = computed(() => {
@@ -164,8 +165,16 @@ const getAvatarUrl = (avatar) => {
                         <i v-else class="bi bi-person"></i>
                     </button>
 
-                    <div id="notificationBox" class="notification-box" :class="{ show: showNotification }" @click.stop>
-                        <p class="title">Thông báo</p>
+                    <transition name="slide-fade">
+                        <div v-if="showNotification" id="notificationBox" class="notification-box" :class="{ show: true }" @click.stop>
+                            <div class="flex items-center justify-between px-3 py-2 border-b">
+                                <p class="title mb-0">Thông báo</p>
+                                <button v-if="auth.notifications && auth.notifications.length > 0" 
+                                        @click.stop="router.post(route('notifications.read-all'), {}, { preserveScroll: true })" 
+                                        class="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                                    Đọc tất cả
+                                </button>
+                            </div>
                         <ul v-if="auth.notifications && auth.notifications.length > 0">
                             <li v-for="notif in auth.notifications" :key="notif.id" class="group relative"
                                 style="padding: 12px; border-bottom: 1px solid #eee;">
@@ -192,6 +201,7 @@ const getAvatarUrl = (avatar) => {
                             <span style="color: #64748b; font-size: 13px;">Hiện chưa có thông báo nào!</span>
                         </ul>
                     </div>
+                    </transition>
 
                     <div id="dropdown" class="dropdown" :class="{ show: showDropdown }" @click.stop>
                         <!-- PROFILE -->
@@ -334,6 +344,7 @@ const getAvatarUrl = (avatar) => {
     </header>
     <main>
         <slot />
+        <AppointmentCountdown v-if="user" />
     </main>
     <!-- phần đăng ký -->
     <section class="dangky">
@@ -572,5 +583,16 @@ const getAvatarUrl = (avatar) => {
 .dropdown .profile-card .status.unverified {
     background: #fff9db !important;
     color: #f59f00 !important;
+}
+
+/* Transitions */
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
 }
 </style>

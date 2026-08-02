@@ -28,6 +28,8 @@ const form = useForm({
     title: "",
     description: "",
     address: "",
+    current_people: 0,
+    capacity: 1,
     latitude: null,
     longitude: null,
     images: [],
@@ -79,6 +81,8 @@ watch(
                 axios.get(`/landlord/rooms/${newRoomId}/services`),
             ]);
             roomDetails.value = detailsResponse.data;
+            form.current_people = detailsResponse.data.current_people ?? 0;
+            form.capacity = detailsResponse.data.capacity ?? 1;
             if (selectedHouse.value) {
                 form.title = `Cho thuê phòng ${detailsResponse.data.room_number} - Khu nhà ${selectedHouse.value.name}`;
             }
@@ -105,12 +109,15 @@ watch(
 );
 
 //Phần xử lý tải ảnh lên
-const handleFileChange = (e) => {
-    // Thêm ảnh mới vào danh sách hiện tại thay vì ghi đè (tuỳ chọn, nhưng nếu cần sửa lỗi ko cho ảnh được thì sửa hàm này)
-    // Để giữ ảnh cũ nếu chọn thêm nhiều lần:
+const handleFileChange = async (e) => {
     const newFiles = Array.from(e.target.files);
-    form.images = [...form.images, ...newFiles];
+    // Nén song song tất cả các ảnh mới chọn bằng hàm compressImage
+    const compressedFiles = await Promise.all(
+        newFiles.map(file => compressImage(file))
+    );
+    form.images = [...form.images, ...compressedFiles];
 };
+
 
 const getObjectUrl = (file) => {
     if (file instanceof File) {
@@ -319,6 +326,65 @@ const formatGeneralText = (text) => {
 
     return formatted.trim();
 };
+
+// Hàm nén ảnh bằng HTML5 Canvas trực tiếp ở trình duyệt
+function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 } = {}) {
+    return new Promise((resolve, reject) => {
+        // Chỉ nén các file thực sự là hình ảnh
+        if (!file.type.startsWith("image/")) {
+            return resolve(file);
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+
+                // Tính toán tỷ lệ co giãn ảnh
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            // Tạo lại đối tượng File mới đã nén chất lượng (quality = 70%)
+                            const compressedFile = new File([blob], file.name, {
+                                type: file.type,
+                                lastModified: Date.now(),
+                            });
+                            resolve(compressedFile);
+                        } else {
+                            resolve(file); // Nếu lỗi nén thì trả về file gốc dự phòng
+                        }
+                    },
+                    file.type,
+                    quality
+                );
+            };
+        };
+        reader.onerror = (error) => reject(error);
+    });
+}
 </script>
 
 <template>
@@ -344,23 +410,14 @@ const formatGeneralText = (text) => {
                                     Tiêu đề tin đăng
                                 </label>
 
-                                <button type="button" @click="toggleSpeechToText('title')"
-                                    class="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg text-sm font-semibold"
-                                    :class="recordingField === 'title'
-                                            ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse scale-105'
-                                            : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:scale-105'
-                                        ">
-                                    <i class="bi text-lg" :class="recordingField === 'title'
-                                            ? 'bi-mic-fill'
-                                            : 'bi-mic'
-                                        "></i>
-                                    <span class="hidden sm:inline">
-                                        {{
-                                            recordingField === "title"
-                                                ? "Đang lắng nghe..."
-                                                : "Nhập bằng giọng nói"
-                                        }}
-                                    </span>
+                                <button type="button" @click="toggleSpeechToText('title')" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center
+           transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-110" :class="recordingField === 'title'
+            ? 'bg-gradient-to-br from-red-500 to-pink-500 text-white animate-pulse'
+            : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'"
+                                    :title="recordingField === 'title' ? 'Đang lắng nghe...' : 'Nhập bằng giọng nói'">
+                                    <i class="bi text-xl" :class="recordingField === 'title'
+                                        ? 'bi-mic-fill'
+                                        : 'bi-mic'"></i>
                                 </button>
                             </div>
 
@@ -430,35 +487,50 @@ const formatGeneralText = (text) => {
                                 <input :value="roomDetails?.area || ''" disabled
                                     class="form-input bg-gray-50 text-gray-500" />
                             </div>
-                            <div class="mt-4" v-if="roomServices.length > 0">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    Các tiện ích sẵn có của phòng này:
-                                </label>
+                        </div>
 
-                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                    <div v-for="service in roomServices" :key="service.id"
-                                        class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-                                        <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none"
-                                            stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                        <span>{{ service.name }}</span>
-                                        <span v-if="service.price > 0" class="text-xs text-gray-500">
-                                            ({{
-                                                new Intl.NumberFormat(
-                                                    "vi-VN",
-                                                ).format(service.price)
-                                            }}đ)
-                                        </span>
-                                    </div>
+                        <!-- Số người đang có / Sức chứa tối đa (Chỉ hiện Số người đang ở khi phòng đã có người > 0) -->
+                        <div class="mb-4" :class="form.current_people > 0 ? 'form-row-2' : ''">
+                            <div class="form-group" v-if="form.current_people > 0">
+                                <label class="block text-sm font-bold text-gray-700 mb-1">
+                                    Số người đang ở trong phòng <span class="text-xs text-gray-400 font-normal">(Mặc định của phòng)</span>
+                                </label>
+                                <input type="number" :value="form.current_people" disabled readonly class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
+                            </div>
+                            <div class="form-group">
+                                <label class="block text-sm font-bold text-gray-700 mb-1">
+                                    Sức chứa tối đa (Số người tổng) <span class="text-xs text-gray-400 font-normal">(Mặc định của phòng)</span>
+                                </label>
+                                <input type="number" :value="form.capacity" disabled readonly class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
+                            </div>
+                        </div>
+
+                        <div class="mt-4 mb-4" v-if="roomServices.length > 0">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Các tiện ích sẵn có của phòng này:
+                            </label>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <div v-for="service in roomServices" :key="service.id"
+                                    class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                                    <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    <span>{{ service.name }}</span>
+                                    <span v-if="service.price > 0" class="text-xs text-gray-500">
+                                        ({{
+                                            new Intl.NumberFormat(
+                                                "vi-VN",
+                                            ).format(service.price)
+                                        }}đ)
+                                    </span>
                                 </div>
                             </div>
-
-                            <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
-                                v-else-if="form.room_id">
-                                Phòng này hiện chưa được thiết lập tiện ích nào.
-                            </div>
+                        </div>
+                        <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+                            v-else-if="form.room_id">
+                            Phòng này hiện chưa được thiết lập tiện ích nào.
                         </div>
 
                         <div class="mb-4">
@@ -500,23 +572,15 @@ const formatGeneralText = (text) => {
                                 </div>
 
                                 <!-- Nút ghi âm giọng nói -->
-                                <button type="button" @click="toggleSpeechToText('description')"
-                                    class="speech-btn flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all self-start sm:sm:self-center"
-                                    :class="recordingField === 'description'
-                                            ? 'bg-red-500 text-white border-red-500 animate-pulse font-bold shadow-md'
-                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                        ">
-                                    <i class="bi" :class="recordingField === 'description'
-                                            ? 'bi-mic-fill'
-                                            : 'bi-mic'
-                                        "></i>
-                                    <span class="hidden sm:inline">
-                                        {{
-                                            recordingField === "description"
-                                                ? "Đang ghi âm..."
-                                                : "Nhập bằng giọng nói"
-                                        }}
-                                    </span>
+                                <button type="button" @click="toggleSpeechToText('description')" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center
+           shadow-lg transition-all duration-300 hover:scale-110 self-start sm:self-center" :class="recordingField === 'description'
+            ? 'bg-gradient-to-br from-red-500 to-pink-500 text-white animate-pulse'
+            : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'" :title="recordingField === 'description'
+                ? 'Đang ghi âm...'
+                : 'Nhập bằng giọng nói'">
+                                    <i class="bi text-xl" :class="recordingField === 'description'
+                                        ? 'bi-mic-fill'
+                                        : 'bi-mic'"></i>
                                 </button>
                             </div>
 
@@ -577,16 +641,16 @@ const formatGeneralText = (text) => {
                         </h3>
 
                         <label class="img-upload-area transition-all" :class="form.errors.images
-                                ? 'border-red-500 bg-red-50/30 hover:bg-red-50/50'
-                                : ''
+                            ? 'border-red-500 bg-red-50/30 hover:bg-red-50/50'
+                            : ''
                             ">
                             <input type="file" multiple accept="image/*" @change="handleFileChange"
                                 style="display: none" />
                             <i class="bi bi-cloud-upload" :class="form.errors.images ? 'text-red-500' : ''
                                 "></i>
                             <span :class="form.errors.images
-                                    ? 'text-red-700 font-medium'
-                                    : ''
+                                ? 'text-red-700 font-medium'
+                                : ''
                                 ">Nhấn để chọn ảnh</span>
                             <span class="img-hint">JPG, PNG tối đa 5MB mỗi ảnh</span>
                         </label>
@@ -679,545 +743,5 @@ const formatGeneralText = (text) => {
 </template>
 
 <style scoped>
-.create-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.create-cols {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
-    align-items: flex-start;
-}
-
-@media (min-width: 1024px) {
-    .create-cols {
-        grid-template-columns: 1fr 360px;
-    }
-}
-
-.form-col,
-.right-col {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 100%;
-}
-
-.form-card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    border: 1px solid #f0fdf4;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.fc-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #064e3b;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    width: 100%;
-}
-
-.form-row-2,
-.form-row-3 {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-}
-
-@media (min-width: 640px) {
-    .form-row-2 {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .form-row-3 {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-form.price {
-    font-size: 12px;
-    font-weight: 600;
-    color: #374151;
-}
-
-.form-input {
-    padding: 9px 12px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 14px;
-    outline: none;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.form-input:focus {
-    border-color: #0f766e;
-}
-
-.form-textarea {
-    resize: vertical;
-    font-family: inherit;
-}
-
-.form-hint {
-    font-size: 12px;
-    color: #0f766e;
-    font-weight: 600;
-}
-
-.mt-10 {
-    margin-top: 10px;
-}
-
-/* Amenities */
-.amenity-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-}
-
-.amenity-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 6px;
-    border-radius: 6px;
-    border: 1.5px solid #e2e8f0;
-    background: #f8fafc;
-    color: #6b7280;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-
-.amenity-btn i {
-    font-size: 18px;
-}
-
-.amenity-active {
-    border-color: #0f766e !important;
-    background: #f0fdf4 !important;
-    color: #0f766e !important;
-}
-
-.amenity-btn:hover:not(.amenity-active) {
-    border-color: #d1fae5;
-    background: #f0fdf4;
-    color: #374151;
-}
-
-/* Images */
-.img-upload-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    border: 2px dashed #d1fae5;
-    border-radius: 8px;
-    padding: 24px;
-    cursor: pointer;
-    transition: border-color 0.15s;
-    color: #6b7280;
-}
-
-.img-upload-area:hover {
-    border-color: #0f766e;
-}
-
-.img-upload-area i {
-    font-size: 32px;
-    color: #0f766e;
-}
-
-.img-upload-area span {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.img-hint {
-    font-size: 11px;
-    color: #9ca3af;
-    font-weight: 400;
-}
-
-.img-preview-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.img-preview-item {
-    position: relative;
-    border-radius: 6px;
-    overflow: hidden;
-    aspect-ratio: 1;
-}
-
-.img-preview-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.img-remove {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-}
-
-.img-main-badge {
-    position: absolute;
-    bottom: 4px;
-    left: 4px;
-    background: #0f766e;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 100px;
-}
-
-/* Map */
-.map-placeholder {
-    background: #f0fdf4;
-    border-radius: 6px;
-    height: 160px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    color: #6b7280;
-}
-
-.map-placeholder i {
-    font-size: 36px;
-    color: #6ee7b7;
-}
-
-.map-hint {
-    font-size: 11px;
-    color: #9ca3af;
-}
-
-/* Preview */
-.preview-card {
-    background: #f0fdf4;
-    border: 1.5px solid #d1fae5;
-    border-radius: 8px;
-    padding: 18px;
-}
-
-.preview-box {
-    background: #fff;
-    border-radius: 8px;
-    padding: 14px;
-    margin-top: 10px;
-}
-
-.prev-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 6px;
-}
-
-.prev-price {
-    font-size: 20px;
-    font-weight: 800;
-    color: #0f766e;
-    margin-bottom: 8px;
-}
-
-.prev-meta {
-    display: flex;
-    gap: 12px;
-    font-size: 12px;
-    color: #6b7280;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-}
-
-.prev-meta span {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.prev-amenities {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.prev-amenity {
-    padding: 3px 10px;
-    background: #f0fdf4;
-    color: #0f766e;
-    border-radius: 100px;
-    font-size: 11px;
-    font-weight: 600;
-}
-
-/* Submit bar */
-.submit-bar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    background: #fff;
-    border-radius: 8px;
-    padding: 16px 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.btn-cancel {
-    padding: 10px 20px;
-    background: #fff;
-    color: #374151;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-}
-
-.btn-draft {
-    padding: 10px 20px;
-    background: #fef9c3;
-    color: #854d0e;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.btn-submit {
-    padding: 10px 24px;
-    background: #0f766e;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-
-.btn-submit:hover {
-    background: #0d9488;
-}
-
-.editor-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    overflow: hidden;
-    background: #fff;
-    transition: 0.3s;
-}
-
-.editor-card:focus-within {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
-}
-
-.ql-toolbar {
-    border: none !important;
-    border-bottom: 1px solid #ececec !important;
-    background: #fafafa;
-}
-
-.ql-container {
-    border: none !important;
-    min-height: 220px;
-    font-size: 15px;
-}
-
-.speech-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    padding: 10px 18px;
-
-    border: none;
-
-    border-radius: 999px;
-
-    background: #4f46e5;
-
-    color: white;
-
-    font-weight: 600;
-
-    transition: 0.25s;
-}
-
-.speech-btn:hover {
-    background: #4338ca;
-    transform: translateY(-1px);
-}
-
-.speech-btn.recording {
-    background: #ef4444;
-    animation: pulse 1.2s infinite;
-}
-
-.recording-banner {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-
-    padding: 10px 16px;
-
-    background: #fff1f2;
-
-    border-bottom: 1px solid #fecdd3;
-
-    color: #dc2626;
-
-    font-weight: 600;
-}
-
-.dot {
-    width: 10px;
-    height: 10px;
-
-    border-radius: 50%;
-
-    background: red;
-
-    animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        opacity: 1;
-    }
-
-    50% {
-        transform: scale(1.4);
-        opacity: 0.4;
-    }
-
-    100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
-
-@media (max-width: 1100px) {
-    .create-cols {
-        grid-template-columns: 1fr;
-    }
-
-    .amenity-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .create-wrap {
-        gap: 12px;
-        padding-bottom: 70px; /* space for the sticky bottom bar */
-    }
-
-    .form-card {
-        padding: 14px 16px;
-        gap: 12px;
-    }
-
-    .form-row-2,
-    .form-row-3 {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-
-    .amenity-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 6px;
-    }
-
-    .submit-bar {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 999;
-        margin: 0;
-        border-radius: 0;
-        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
-        border-top: 1px solid #e2e8f0;
-        padding: 10px 16px;
-        display: grid;
-        grid-template-columns: auto 1fr 1fr;
-        gap: 8px;
-    }
-
-    .btn-cancel,
-    .btn-draft,
-    .btn-submit {
-        padding: 8px 10px;
-        font-size: 13px;
-        text-align: center;
-        justify-content: center;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .btn-cancel {
-        display: inline-flex;
-        align-items: center;
-    }
-}
-
-.map-container {
-    width: 100%;
-    overflow: hidden;
-    border-radius: 8px;
-}
-
-.map-placeholder {
-    height: 250px;
-}
+@import "../../../css/landlord_listings_create.css";
 </style>

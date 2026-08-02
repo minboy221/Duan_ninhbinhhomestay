@@ -271,12 +271,22 @@ const getAvatarUrl = (avatar) => {
 
                                 <!-- THÊM BADGE TRẠNG THÁI PHÒNG Ở ĐÂY -->
                                 <div v-if="post.room?.status" style="margin-top: 4px;">
-                                    <span :class="[
-                                        'inline-flex items-center px-4 py-1.5 rounded-full text-[13px] font-semibold border',
-                                        getStatusClass(post.room.status)
-                                    ]">
-                                        {{ getStatusLabel(post.room.status) }}
-                                    </span>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span :class="[
+                                            'inline-flex items-center px-4 py-1.5 rounded-full text-[13px] font-semibold border',
+                                            getStatusClass(post.room.status)
+                                        ]">
+                                            {{ getStatusLabel(post.room.status) }}
+                                        </span>
+                                        <span v-if="post.room?.current_people > 0 || post.room?.status === 'rented'"
+                                            class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <i class="bi bi-person-check-fill" style="margin-right: 4px;"></i> Đã có {{ post.room?.current_people || 1 }} người ở
+                                        </span>
+                                        <span v-if="post.room?.boarding_house?.average_rating > 0" class="text-yellow-500 font-bold" style="font-size: 13px;">
+                                            <i class="bi bi-star-fill"></i> {{ post.room.boarding_house.average_rating }}
+                                        </span>
+                                        <span v-else class="text-gray-400 italic" style="font-size: 13px;">Chưa có đánh giá</span>
+                                    </div>
                                     <div class="about_room">
                                         <p
                                             v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'">
@@ -316,182 +326,4 @@ const getAvatarUrl = (avatar) => {
 @import "../../css/timtro.css";
 @import '../../css/responsive/responsivetimtro.css';
 @import '../../css/responsive/responsive.css';
-
-/* Map section */
-.map_section {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #e2e8f0;
-}
-
-.map_section h3 {
-    font-size: 14px;
-    font-weight: 600;
-    color: #0f172a;
-    margin: 0 0 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.map_wrap {
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-}
-
-.map_wrap :deep(iframe) {
-    width: 100%;
-    height: 250px;
-    border: none;
-    display: block;
-}
-
-/* Dropdown improvements */
-.select {
-    cursor: pointer;
-}
-
-.dropdown {
-    z-index: 10;
-}
-
-.dropdown ul li {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.dropdown ul li:hover {
-    background: #f1f5f9;
-}
-
-.dropdown ul li.active {
-    background: #7c3aed;
-    color: #fff;
-}
-
-/* Styles cho phân trang */
-.phantrang {
-    display: flex;
-    justify-content: center;
-    margin-top: 30px;
-}
-
-.baophantrang {
-    display: flex;
-    gap: 8px;
-}
-
-.so_trang {
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-    transition: all 0.2s;
-}
-
-.so_trang a,
-.so_trang span {
-    display: block;
-    padding: 8px 12px;
-    color: #475569;
-    font-weight: 500;
-    text-decoration: none;
-}
-
-.so_trang:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-}
-
-.so_trang.active {
-    background: #38bdf8;
-    border-color: #38bdf8;
-}
-
-.so_trang.active a,
-.so_trang.active span {
-    color: white;
-}
-
-/* Responsive Collapsible Filter */
-.filter-title-wrapper {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.filter-title-wrapper h2,
-.filter-title-wrapper p {
-    margin: 0;
-}
-
-.filter-toggle-btn {
-    display: none;
-}
-
-@media (max-width: 1023px) {
-    .filter-title-wrapper {
-        cursor: pointer;
-        user-select: none;
-        width: 100%;
-        padding-bottom: 5px;
-    }
-
-    .filter-toggle-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(90deg, #102a6d, #45abe6);
-        border: 1px solid #e2e8f0;
-        width: 34px;
-        height: 34px;
-        border-radius: 50px;
-        color: #fff;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .filter-title-wrapper:hover .filter-toggle-btn {
-       background: linear-gradient(90deg, #102a6d, #45abe6);
-        color: #fff;
-    }
-
-    .baofilter {
-        display: block !important;
-    }
-
-    .filter-body {
-        transition: max-height 0.35s ease-in-out, opacity 0.25s ease-in-out;
-        max-height: 2500px;
-        opacity: 1;
-        overflow: hidden;
-        margin-top: 15px;
-    }
-
-    .filter-body.collapsed {
-        max-height: 0;
-        opacity: 0;
-        margin-top: 0;
-        pointer-events: none;
-    }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-    .filter-body {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-    }
-
-    .filter-body.collapsed {
-        display: none !important;
-    }
-
-    .map_section,
-    .bao_btn {
-        grid-column: 1 / -1;
-    }
-}
 </style>

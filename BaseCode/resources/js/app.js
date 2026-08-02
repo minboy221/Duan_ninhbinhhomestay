@@ -7,8 +7,6 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
-
-
 // const appName = import.meta.env.VITE_APP_NAME || 'null';
 
 createInertiaApp({
@@ -24,3 +22,15 @@ createInertiaApp({
         color: '#4B5563',
     },
 });
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => {
+                console.log('Service Worker đã chạy kích hoạt thành công với scope: ', reg.scope);
+            })
+            .catch(err => {
+                console.log('Đăng ký Service Worker thất bại: ', err);
+            });
+    });
+}

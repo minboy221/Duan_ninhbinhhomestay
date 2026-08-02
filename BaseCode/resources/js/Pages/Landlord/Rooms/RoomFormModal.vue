@@ -240,10 +240,10 @@ const submit = () => {
 
         let maxRoomNum = prefixNum * 100; // e.g. 200
         props.existingRooms.forEach((r) => {
-            const match = r.room_number ? r.room_number.match(/\d+/) : null;
+            const match = r.name ? r.name.match(/\d+/) : null;
             if (match) {
                 const num = parseInt(match[0]);
-                if (num > maxRoomNum && r.room_number.includes(prefixStr)) {
+                if (num > maxRoomNum && r.name.includes(prefixStr)) {
                     maxRoomNum = num;
                 }
             }

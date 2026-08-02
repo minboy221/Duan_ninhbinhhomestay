@@ -54,4 +54,9 @@ class Invoice extends Model
     {
         return $this->hasMany(InvoiceDetail::class, 'invoice_id');
     }
+
+     //phần nhận báo cáo
+    public function reports(){
+        return $this->morphMany(\App\Models\Report::class,'reportable');
+    }
 }
