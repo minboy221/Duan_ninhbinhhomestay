@@ -428,7 +428,10 @@ class LandlordController extends Controller
     public function contracts()
     {
         $landlordId = Auth::id();
-        
+
+        // Quét & cập nhật tự động trạng thái hợp đồng (expiring/expired) theo ngày hiện tại
+        \App\Http\Controllers\Landlord\ContractController::scanContractStatuses($landlordId);
+
         $contracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
             $q->where('user_id', $landlordId);
         })
@@ -445,13 +448,13 @@ class LandlordController extends Controller
         ->toArray();
 
         // Chỉ lấy những lịch hẹn mà:
-        // 1. Trạng thái là approved hoặc viewed
-        // 2. Khách đã phản hồi "ƯNG" (feedback_result = 'interested')
+        // 1. Trạng thái là approved, viewed hoặc waiting_contract
+        // 2. Khách đã phản hồi "ƯNG" (feedback_result = 'interested' hoặc 'like')
         // 3. Phòng chưa có hợp đồng hiệu lực
         $appointments = \App\Models\Appointment::with(['user', 'room'])
             ->where('landlord_id', $landlordId)
-            ->whereIn('status', ['approved', 'viewed'])
-            ->where('feedback_result', 'interested')
+            ->whereIn('status', ['approved', 'viewed', 'waiting_contract', 'success_matched'])
+            ->whereIn('feedback_result', ['interested', 'like'])
             ->whereNotIn('room_id', $existingContractRoomIds)
             ->get();
 
@@ -463,7 +466,8 @@ class LandlordController extends Controller
         return Inertia::render('Landlord/Contracts/index', [
             'dbContracts' => $contracts,
             'appointments' => $appointments,
-            'boardingHouses' => $boardingHouses
+            'boardingHouses' => $boardingHouses,
+            'authLandlord' => Auth::user(),
         ]);
     }
 

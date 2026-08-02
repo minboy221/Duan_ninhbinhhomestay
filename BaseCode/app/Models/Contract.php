@@ -11,6 +11,8 @@ class Contract extends Model
 {
     use HasFactory;
 
+    public static bool $allowImmutableUpdate = false;
+
     protected $fillable = [
         'tenant_id',
         'room_id',
@@ -22,6 +24,16 @@ class Contract extends Model
         'monthly_rent',
         'status',
         'signed_at',
+        'ocr_status',
+        'ocr_rejection_reason',
+        'terms_accepted',
+        'terms_accepted_at',
+        'cancellation_reason',
+        'cancelled_by',
+        'liquidated_at',
+        'deposit_refund_amount',
+        'deposit_handling',
+        'number_of_tenants',
         'entry_elec_index',
         'entry_elec_image',
         'entry_water_index',
@@ -33,9 +45,14 @@ class Contract extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'signed_at' => 'datetime',
+        'terms_accepted' => 'boolean',
+        'terms_accepted_at' => 'datetime',
+        'liquidated_at' => 'datetime',
         'entry_readings_submitted_at' => 'datetime',
         'deposit_amount' => 'decimal:2',
         'monthly_rent' => 'decimal:2',
+        'deposit_refund_amount' => 'decimal:2',
+        'number_of_tenants' => 'integer',
     ];
 
     /**
@@ -46,12 +63,17 @@ class Contract extends Model
         parent::booted();
 
         static::updating(function ($contract) {
-            // Prevent changing immutable fields if the contract is active
-            if ($contract->getOriginal('status') === 'active') {
-                $immutableFields = ['start_date', 'end_date', 'monthly_rent'];
+            // Allow updates if explicitly permitted (e.g. extension or status change)
+            if (self::$allowImmutableUpdate) {
+                return;
+            }
+
+            // Prevent changing immutable fields if contract remains active without extension flag
+            if ($contract->getOriginal('status') === 'active' && $contract->status === 'active') {
+                $immutableFields = ['start_date', 'deposit_amount'];
                 foreach ($immutableFields as $field) {
                     if ($contract->isDirty($field)) {
-                        throw new \Exception("Cannot update {$field} because the contract is active (immutable).");
+                        throw new \Exception("Cannot update {$field} because the contract is active.");
                     }
                 }
             }
@@ -82,8 +104,27 @@ class Contract extends Model
         return $this->hasMany(Invoice::class, 'contract_id');
     }
 
-     //phần nhận báo cáo
-    public function reports(){
-        return $this->morphMany(\App\Models\Report::class,'reportable');
+    /**
+     * Lịch sử gia hạn hợp đồng
+     */
+    public function extensions(): HasMany
+    {
+        return $this->hasMany(ContractExtension::class, 'contract_id')->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Người thực hiện hủy
+     */
+    public function canceller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    /**
+     * Phần nhận báo cáo
+     */
+    public function reports()
+    {
+        return $this->morphMany(\App\Models\Report::class, 'reportable');
     }
 }

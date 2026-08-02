@@ -293,6 +293,46 @@ class ProfileController extends Controller
     }
 
     /**
+     * Hủy đăng ký / đổi ý từ Ưng sang Hủy hợp đồng (gửi lý do tới chủ trọ phê duyệt)
+     */
+    public function cancelInterest(Request $request, \App\Models\Appointment $appointment): RedirectResponse
+    {
+        $user = $request->user();
+
+        if ($appointment->user_id !== $user->id) {
+            abort(403, 'Bạn không có quyền thực hiện thao tác này.');
+        }
+
+        $request->validate([
+            'reason' => 'required|string|max:1000'
+        ]);
+
+        $appointment->update([
+            'feedback_result' => 'cancel_requested',
+            'cancellation_reason' => $request->reason,
+            'feedback_reason' => $request->reason,
+            'feedback_time' => now()
+        ]);
+
+        // Nếu có hợp đồng liên quan chưa chính thức ký, cập nhật trạng thái hủy
+        $contract = \App\Models\Contract::where('appointment_id', $appointment->id)
+            ->whereIn('status', ['draft', 'awaiting_upload', 'pending', 'signed', 'active', 'termination_requested'])
+            ->first();
+
+        if ($contract) {
+            \App\Models\Contract::$allowImmutableUpdate = true;
+            $contract->update([
+                'status' => 'termination_requested',
+                'cancellation_reason' => $request->reason,
+                'cancelled_by' => $user->id
+            ]);
+            \App\Models\Contract::$allowImmutableUpdate = false;
+        }
+
+        return Redirect::back()->with('success', 'Đã gửi yêu cầu hủy đăng ký hợp đồng tới Chủ trọ thành công!');
+    }
+
+    /**
      * Gửi thông báo đã thanh toán cho chủ trọ
      */
     public function notifyPayment(Request $request, $id)
@@ -320,6 +360,29 @@ class ProfileController extends Controller
     }
 
     /**
+     * Yêu cầu chấm dứt hợp đồng từ phía Client (Người thuê)
+     */
+    public function requestTermination(Request $request, \App\Models\Contract $contract): RedirectResponse
+    {
+        $user = $request->user();
+
+        if ($contract->tenant_id !== $user->id) {
+            abort(403, 'Bạn không có quyền thực hiện thao tác này.');
+        }
+
+        $request->validate([
+            'reason' => 'required|string|max:1000'
+        ]);
+
+        \App\Models\Contract::$allowImmutableUpdate = true;
+        $contract->update([
+            'status' => 'termination_requested',
+            'cancellation_reason' => $request->input('reason'),
+            'cancelled_by' => $user->id
+        ]);
+        \App\Models\Contract::$allowImmutableUpdate = false;
+
+        return Redirect::back()->with('success', 'Đã gửi yêu cầu chấm dứt hợp đồng thành công. Vui lòng chờ chủ trọ xác nhận thanh lý.');
      * Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
      */
     public function submitEntryReadings(Request $request, $contractId)
@@ -368,3 +431,4 @@ class ProfileController extends Controller
         return Redirect::back()->with('success', 'Đã cập nhật chỉ số điện/nước nhận phòng thành công!');
     }
 }
+

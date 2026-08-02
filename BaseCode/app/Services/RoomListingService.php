@@ -2,6 +2,7 @@
 namespace App\Services;
 
 use App\Models\RoomPost;
+use App\Notifications\RoomPostStatusNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -78,12 +79,25 @@ class RoomListingService
         $post = DB::transaction(function () use ($data, $imageUrls, $status) {
 
             $room = \App\Models\Room::find($data['room_id']);
-            if ($room && $room->boardingHouse) {
-                $room->boardingHouse()->update([
-                    'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
-                    'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
-                    'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
-                ]);
+            if ($room) {
+                $roomUpdateData = [];
+                if (isset($data['current_people'])) {
+                    $roomUpdateData['current_people'] = (int)$data['current_people'];
+                }
+                if (isset($data['capacity'])) {
+                    $roomUpdateData['capacity'] = (int)$data['capacity'];
+                }
+                if (!empty($roomUpdateData)) {
+                    $room->update($roomUpdateData);
+                }
+
+                if ($room->boardingHouse) {
+                    $room->boardingHouse()->update([
+                        'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
+                        'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
+                        'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
+                    ]);
+                }
             }
             return RoomPost::create([
                 'landlord_id' => auth()->id(),
@@ -111,12 +125,25 @@ class RoomListingService
     {
         $updated = DB::transaction(function () use ($post, $data, $newFiles, $status) {
             $room = \App\Models\Room::find($data['room_id']);
-            if($room && $room->boardingHouse){
-                $room->boardingHouse->update([
-                    'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
-                    'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
-                    'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
-                ]);
+            if ($room) {
+                $roomUpdateData = [];
+                if (isset($data['current_people'])) {
+                    $roomUpdateData['current_people'] = (int)$data['current_people'];
+                }
+                if (isset($data['capacity'])) {
+                    $roomUpdateData['capacity'] = (int)$data['capacity'];
+                }
+                if (!empty($roomUpdateData)) {
+                    $room->update($roomUpdateData);
+                }
+
+                if ($room->boardingHouse) {
+                    $room->boardingHouse->update([
+                        'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
+                        'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
+                        'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
+                    ]);
+                }
             }
             //lấy danh sách ảnh cũ được giữ lại từ Frontend gửi lên
             $imageUrls = $data['existing_images'] ?? [];

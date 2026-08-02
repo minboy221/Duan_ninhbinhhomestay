@@ -286,8 +286,8 @@ class PublicListingController extends Controller
         //Phần khách hàng ưng ý
         if ($request->result === 'like') {
             $appointment->update([
-                'status' => 'success_matched',
-                'feedback_result' => 'like',
+                'status' => 'waiting_contract',
+                'feedback_result' => 'interested',
                 'feedback_time' => now()
             ]);
             //gửi thông báo Notification/email cho chủ trọ

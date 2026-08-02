@@ -5,15 +5,17 @@ namespace App\Http\Controllers\Landlord;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Contract;
+use App\Models\ContractExtension;
 use App\Models\Room;
 use App\Models\User;
+use App\Models\RoomPost;
+use App\Services\ContractOcrService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use App\Events\ContractSignedEvent;
-use App\Models\RoomPost;
 use Inertia\Inertia;
 
 class ContractController extends Controller
@@ -41,15 +43,13 @@ class ContractController extends Controller
     }
 
     /**
-     * Show the form to create a draft contract (Giai đoạn 3)
+     * Show the form to create a draft contract
      */
     public function createDraft(Request $request)
     {
-        // Require appointment_id to auto-fill guest info
         $appointmentId = $request->get('appointment_id');
         $appointment = Appointment::with(['user', 'room'])->findOrFail($appointmentId);
 
-        // Ensure landlord owns the room
         if ($appointment->landlord_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
         }
@@ -76,15 +76,16 @@ class ContractController extends Controller
             'end_date' => 'nullable|date',
             'monthly_rent' => 'required|numeric|min:0',
             'deposit' => 'nullable|numeric|min:0',
+            'number_of_tenants' => 'nullable|integer|min:1|max:20',
             'billing_cycle' => 'nullable|integer|min:1',
             'signed_image' => 'nullable|array',
             'signed_image.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+            'terms_accepted' => 'nullable|boolean',
         ]);
 
         $roomId = null;
         $tenantId = null;
 
-        // Nếu tạo từ Lịch hẹn
         if ($request->filled('appointment_id')) {
             $appointment = Appointment::findOrFail($request->appointment_id);
             if ($appointment->landlord_id !== Auth::id()) {
@@ -93,26 +94,22 @@ class ContractController extends Controller
             $roomId = $appointment->room_id;
             $tenantId = $appointment->user_id;
 
-            // Cập nhật trạng thái lịch hẹn thành 'success_matched' để đánh dấu đã thành công ký HĐ
             $appointment->update(['status' => 'success_matched']);
 
             if ($request->filled('tenant_cccd') && $appointment->user) {
                 $appointment->user->update(['cccd_number' => $request->tenant_cccd]);
             }
         } else {
-            // Nếu tạo chọn phòng trực tiếp
             $roomId = $request->room_id;
             if (!$roomId) {
                 return redirect()->back()->with('error', 'Vui lòng chọn phòng trọ.');
             }
 
-            // Kiểm tra phòng thuộc quyền sở hữu của chủ trọ
             $room = Room::with('boardingHouse')->findOrFail($roomId);
             if ($room->boardingHouse->user_id !== Auth::id()) {
                 abort(403, 'Bạn không có quyền quản lý phòng này.');
             }
 
-            // Xử lý xác định hoặc tạo người thuê
             if ($request->filled('tenant_id')) {
                 $tenantId = $request->tenant_id;
                 $user = User::find($tenantId);
@@ -120,7 +117,6 @@ class ContractController extends Controller
                     $user->update(['cccd_number' => $request->tenant_cccd]);
                 }
             } else {
-                // Tra cứu theo SĐT hoặc Email
                 $user = User::where('phone', $request->tenant_phone)
                     ->orWhere(function($q) use ($request) {
                         if ($request->filled('tenant_email')) {
@@ -135,7 +131,6 @@ class ContractController extends Controller
                         $user->update(['cccd_number' => $request->tenant_cccd]);
                     }
                 } else {
-                    // Tự tạo tài khoản Tenant mới nếu chưa tồn tại
                     $email = $request->tenant_email ?: ($request->tenant_phone . '@ninhbinhhomestay.local');
                     $newUser = User::create([
                         'name' => $request->tenant_name,
@@ -150,11 +145,32 @@ class ContractController extends Controller
             }
         }
 
+        // RÀNG BUỘC PHÁP LÝ: Mỗi người dùng chỉ được phép sở hữu tối đa 1 hợp đồng đang có hiệu lực trong hệ thống
+        if ($tenantId) {
+            $existingActiveContract = Contract::where('tenant_id', $tenantId)
+                ->whereIn('status', ['active', 'signed', 'pending', 'awaiting_upload', 'termination_requested', 'expiring'])
+                ->with('room')
+                ->first();
+
+            if ($existingActiveContract) {
+                $roomNum = $existingActiveContract->room->room_number ?? 'chưa xác định';
+                return redirect()->back()->with('error', 'Khách thuê này hiện đã có 1 hợp đồng thuê trọ đang có hiệu lực trong hệ thống (Phòng ' . $roomNum . '). Hệ thống quy định mỗi người dùng chỉ được có tối đa 1 hợp đồng tại cùng một thời điểm.');
+            }
+        }
+
         $startDate = $request->filled('start_date') ? $request->start_date : now()->toDateString();
         $endDate = $request->filled('end_date') ? $request->end_date : now()->addYear()->toDateString();
         $billingCycle = $request->filled('billing_cycle') ? $request->billing_cycle : 1;
+        $numberOfTenants = (int)$request->input('number_of_tenants', 1);
 
-        // Tạo bản ghi hợp đồng
+        $room = Room::find($roomId);
+        if ($room) {
+            $availableCapacity = max(1, $room->capacity - $room->current_people);
+            if ($numberOfTenants > $availableCapacity) {
+                return redirect()->back()->with('error', "Số lượng người ở ({$numberOfTenants} người) vượt quá sức chứa còn lại của phòng (Sức chứa tối đa {$room->capacity} người, hiện đã có {$room->current_people} người, chỉ còn trống {$availableCapacity} chỗ).");
+            }
+        }
+
         $contract = Contract::create([
             'tenant_id' => $tenantId,
             'room_id' => $roomId,
@@ -162,28 +178,74 @@ class ContractController extends Controller
             'end_date' => $endDate,
             'monthly_rent' => $request->monthly_rent,
             'deposit_amount' => $request->deposit ?? 0,
+            'number_of_tenants' => $numberOfTenants,
             'billing_cycle' => $billingCycle,
             'status' => 'awaiting_upload',
+            'terms_accepted' => $request->boolean('terms_accepted', true),
+            'terms_accepted_at' => now(),
+            'ocr_status' => 'pending',
         ]);
 
-        // Tự động chuyển trạng thái phòng sang Đã đặt cọc và ẩn tin đăng
         $room = Room::find($roomId);
         if ($room) {
             $room->update([
                 'status' => 'deposited',
-                'current_people' => min($room->capacity, $room->current_people + 1)
+                'current_people' => min($room->capacity, max(1, $room->current_people + $numberOfTenants))
             ]);
             RoomPost::where('room_id', $room->id)->update(['status' => 'hidden']);
         }
 
-        // Nếu chủ trọ upload ảnh ký tay luôn
+        // Nếu tải ảnh ký tay luôn
+        if ($request->hasFile('signed_image')) {
+            return $this->uploadSignedContract($request, $contract);
+        }
+
+        if ($tenantId) {
+            $tenantUser = User::find($tenantId);
+            if ($tenantUser) {
+                $tenantUser->notify(new \App\Notifications\ContractCreatedNotification($contract));
+            }
+        }
+
+        return redirect()->back()->with('success', 'Đã lưu thông tin hợp đồng. Vui lòng tải ảnh hợp đồng đã điền & ký lên để kích hoạt.');
+    }
+
+    /**
+     * Upload signed original contract image with OCR Validation
+     */
+    public function uploadSignedContract(Request $request, Contract $contract)
+    {
+        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
+             abort(403);
+        }
+
+        $request->validate([
+            'signed_image' => 'required|array|min:1',
+            'signed_image.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+        ]);
+
         if ($request->hasFile('signed_image')) {
             $paths = [];
             foreach ($request->file('signed_image') as $file) {
                 $paths[] = $file->store('contracts/signed', 'public');
             }
-            
-            // Generate PDF từ ảnh
+
+            // 1. Kiểm duyệt OCR tính điền tay & chữ ký hợp lệ của ảnh hợp đồng
+            $ocrResult = ContractOcrService::validateContractImages($paths, [
+                'tenant_name' => $contract->tenant->name ?? '',
+                'tenant_cccd' => $contract->tenant->cccd_number ?? '',
+            ]);
+
+            if (!$ocrResult['is_valid']) {
+                $contract->update([
+                    'ocr_status' => 'failed',
+                    'ocr_rejection_reason' => $ocrResult['reason']
+                ]);
+
+                return redirect()->back()->with('error', $ocrResult['reason']);
+            }
+
+            // 2. OCR thành công -> Tạo PDF từ ảnh
             $pdf = Pdf::loadView('pdf.images_to_pdf', ['images' => $paths]);
             $fileName = 'contracts/contract_' . $contract->id . '_' . time() . '.pdf';
             Storage::disk('public')->put($fileName, $pdf->output());
@@ -192,99 +254,63 @@ class ContractController extends Controller
                 'signed_contract_image' => json_encode($paths),
                 'contract_file_path' => $fileName,
                 'status' => 'active',
+                'signed_at' => now(),
+                'ocr_status' => 'passed',
+                'ocr_rejection_reason' => null,
             ]);
 
-            // Kích hoạt hợp đồng
             event(new ContractSignedEvent($contract));
-            
-            return redirect()->back()->with('success', 'Hợp đồng đã được tạo và kích hoạt thành công!');
-        }
-
-        // Gửi thông báo cho khách thuê nếu chỉ tạo nháp
-        if ($tenantId) {
-            $tenantUser = User::find($tenantId);
-            if ($tenantUser) {
-                $tenantUser->notify(new \App\Notifications\ContractCreatedNotification($contract));
-            }
-        }
-
-        return redirect()->back()->with('success', 'Đã lưu thông tin hợp đồng. Vui lòng tải ảnh lên sau để kích hoạt.');
-    }
-
-    /**
-     * Upload signed original contract image
-     */
-    public function uploadSignedContract(Request $request, Contract $contract)
-    {
-        // Ensure landlord owns the contract's room
-        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
-             abort(403);
-        }
-
-        $request->validate([
-            'signed_image' => 'required|array|min:1',
-            'signed_image.*' => 'image|mimes:jpeg,png,jpg|max:5120', // max 5MB per image
-        ]);
-
-        if ($request->hasFile('signed_image')) {
-            $paths = [];
-            foreach ($request->file('signed_image') as $file) {
-                $paths[] = $file->store('contracts/signed', 'public');
-            }
-            
-            // Generate PDF từ ảnh
-            $pdf = Pdf::loadView('pdf.images_to_pdf', ['images' => $paths]);
-            $fileName = 'contracts/contract_' . $contract->id . '_' . time() . '.pdf';
-            Storage::disk('public')->put($fileName, $pdf->output());
-
-            $contract->update([
-                'signed_contract_image' => json_encode($paths),
-                'contract_file_path' => $fileName,
-            ]);
-
-            // Fire event to activate contract and room
-            event(new ContractSignedEvent($contract));
-
-            // Ẩn tin đăng phòng
             RoomPost::where('room_id', $contract->room_id)->update(['status' => 'hidden']);
 
-            return redirect()->back()->with('success', 'Hợp đồng đã được tải lên và kích hoạt thành công!');
+            return redirect()->back()->with('success', 'Hợp đồng đã được quét OCR xác minh và kích hoạt thành công!');
         }
 
         return redirect()->back()->with('error', 'Không tìm thấy file ảnh.');
     }
 
     /**
-     * Gia hạn hợp đồng
+     * API quét OCR từ tệp ảnh tải lên và trả về dữ liệu trích xuất cho Form tạo hợp đồng
      */
-    public function extendContract(Request $request, Contract $contract)
+    public function extractOcrData(Request $request)
     {
-        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
-            abort(403);
+        $request->validate([
+            'ocr_file' => 'required|image|mimes:jpeg,png,jpg|max:5120',
+        ]);
+
+        if ($request->hasFile('ocr_file')) {
+            $path = $request->file('ocr_file')->store('contracts/ocr_temp', 'public');
+            $fullPath = storage_path('app/public/' . $path);
+            if (!file_exists($fullPath)) {
+                $fullPath = public_path('storage/' . $path);
+            }
+
+            $ocrData = ContractOcrService::extractContractFields($fullPath);
+            return response()->json($ocrData);
         }
 
-        $request->validate([
-            'new_end_date' => 'required|date|after:' . $contract->end_date,
-        ]);
-
-        $contract->update([
-            'end_date' => $request->new_end_date,
-        ]);
-
-        return redirect()->back()->with('success', 'Đã gia hạn hợp đồng thành công đến ' . date('d/m/Y', strtotime($request->new_end_date)));
+        return response()->json([
+            'success' => false,
+            'message' => 'Không tìm thấy file ảnh để quét OCR.'
+        ], 400);
     }
 
     /**
-     * Hủy/Thanh lý hợp đồng
+     * Hủy hợp đồng nháp (chưa kích hoạt)
      */
-    public function terminateContract(Contract $contract)
+    public function cancelDraft(Request $request, Contract $contract)
     {
-        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
-            abort(403);
+        if ($contract->room->boardingHouse->user_id !== Auth::id() && $contract->tenant_id !== Auth::id()) {
+            abort(403, 'Bạn không có quyền thực hiện thao tác này.');
+        }
+
+        if (!in_array($contract->status, ['awaiting_upload', 'draft'])) {
+            return redirect()->back()->with('error', 'Chỉ có thể hủy hợp đồng nháp chưa được kích hoạt.');
         }
 
         $contract->update([
-            'status' => 'cancelled'
+            'status' => 'cancelled',
+            'cancelled_by' => Auth::id(),
+            'cancellation_reason' => $request->input('reason', 'Đã hủy hợp đồng nháp')
         ]);
 
         $room = $contract->room;
@@ -294,10 +320,200 @@ class ContractController extends Controller
                 'current_people' => max(0, $room->current_people - 1)
             ]);
 
-            // Khôi phục tin đăng về nháp
-            RoomPost::where('room_id', $room->id)->update(['status' => 'draft']);
+            RoomPost::where('room_id', $room->id)->update(['status' => 'active']);
         }
 
-        return redirect()->back()->with('success', 'Hợp đồng đã được hủy và bài đăng phòng đã được chuyển về dạng Nháp.');
+        return redirect()->back()->with('success', 'Đã hủy hợp đồng nháp và giải phóng phòng thành công!');
+    }
+
+    /**
+     * Quét tự động trạng thái của tất cả hợp đồng (active -> expiring -> expired)
+     */
+    public static function scanContractStatuses($landlordId = null)
+    {
+        $today = now()->format('Y-m-d');
+        $expiringThreshold = now()->addDays(30)->format('Y-m-d');
+
+        $query = Contract::whereIn('status', ['active', 'expiring']);
+        if ($landlordId) {
+            $query->whereHas('room.boardingHouse', function($q) use ($landlordId) {
+                $q->where('user_id', $landlordId);
+            });
+        }
+
+        $contracts = $query->get();
+        $updatedCount = 0;
+
+        Contract::$allowImmutableUpdate = true;
+        foreach ($contracts as $contract) {
+            $endDateStr = $contract->end_date ? (is_string($contract->end_date) ? substr($contract->end_date, 0, 10) : $contract->end_date->format('Y-m-d')) : null;
+            if (!$endDateStr) continue;
+
+            if ($endDateStr <= $today && $contract->status !== 'expired') {
+                $contract->update([
+                    'status' => 'expired',
+                    'cancellation_reason' => $contract->cancellation_reason ?: 'Hợp đồng tự động chuyển sang Hết hạn do đã đến ngày kết thúc.'
+                ]);
+                $updatedCount++;
+            } elseif ($endDateStr <= $expiringThreshold && $endDateStr > $today && $contract->status === 'active') {
+                $contract->update([
+                    'status' => 'expiring'
+                ]);
+                $updatedCount++;
+            }
+        }
+        Contract::$allowImmutableUpdate = false;
+
+        return $updatedCount;
+    }
+
+    /**
+     * Action thủ công trigger quét hợp đồng từ giao diện Chủ trọ
+     */
+    public function scanContracts(Request $request)
+    {
+        $landlordId = Auth::id();
+        $count = self::scanContractStatuses($landlordId);
+        return redirect()->back()->with('success', "Đã quét và cập nhật trạng thái mới nhất cho {$count} hợp đồng!");
+    }
+
+    /**
+     * Chuyển trạng thái hợp đồng sang Hết hạn (Expired)
+     */
+    public function markAsExpired(Request $request, Contract $contract)
+    {
+        if ($contract->room->boardingHouse->user_id !== Auth::id() && $contract->tenant_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if (!in_array($contract->status, ['active', 'expiring'])) {
+            return redirect()->back()->with('error', 'Chỉ hợp đồng đang hiệu lực hoặc sắp hết hạn mới có thể chuyển sang trạng thái Hết hạn.');
+        }
+
+        $today = now()->format('Y-m-d');
+        $endDateStr = $contract->end_date ? (is_string($contract->end_date) ? substr($contract->end_date, 0, 10) : $contract->end_date->format('Y-m-d')) : null;
+        $isEarlyTermination = $endDateStr && $endDateStr > $today;
+
+        if ($isEarlyTermination) {
+            $request->validate([
+                'reason' => 'required|string|max:1000',
+            ], [
+                'reason.required' => 'Hợp đồng chưa tới ngày hết hạn. Vui lòng nhập lý do báo chấm dứt trước thời hạn.'
+            ]);
+        }
+
+        $reasonText = trim($request->input('reason', ''));
+        if ($isEarlyTermination) {
+            $reasonText = 'Chấm dứt trước thời hạn: ' . ($reasonText ?: 'Báo kết thúc hợp đồng sớm');
+        } elseif (empty($reasonText)) {
+            $reasonText = 'Hợp đồng đã đến thời hạn hoặc báo kết thúc';
+        }
+
+        Contract::$allowImmutableUpdate = true;
+        $contract->update([
+            'status' => 'expired',
+            'cancellation_reason' => $reasonText
+        ]);
+        Contract::$allowImmutableUpdate = false;
+
+        $msg = $isEarlyTermination 
+            ? 'Đã xác nhận chấm dứt hợp đồng sớm và chuyển sang trạng thái Hết hạn (Chờ thanh lý).'
+            : 'Hợp đồng đã chuyển sang trạng thái Hết hạn (Chờ thực hiện thanh lý & quyết toán).';
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    /**
+     * Thanh lý hợp đồng (BẮT BUỘC Hợp đồng phải ở trạng thái EXPIRED)
+     */
+    public function liquidateContract(Request $request, Contract $contract)
+    {
+        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
+            abort(403, 'Bạn không có quyền quản lý hợp đồng này.');
+        }
+
+        // QUY TẮC BẮT BUỘC: Hợp đồng phải ở trạng thái 'expired' mới được thanh lý
+        if ($contract->status !== 'expired') {
+            return redirect()->back()->with('error', 'Hợp đồng phải bước vào trạng thái Hết hạn (expired) mới được phép thực hiện Thanh lý.');
+        }
+
+        $request->validate([
+            'deposit_handling' => 'required|in:refund_full,refund_partial,keep_deposit',
+            'deposit_refund_amount' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $contract->update([
+            'status' => 'terminated',
+            'liquidated_at' => now(),
+            'deposit_handling' => $request->deposit_handling,
+            'deposit_refund_amount' => $request->deposit_refund_amount ?? 0,
+            'cancellation_reason' => $request->notes,
+        ]);
+
+        $room = $contract->room;
+        if ($room) {
+            $room->update([
+                'status' => 'available',
+                'current_people' => max(0, $room->current_people - 1)
+            ]);
+
+            RoomPost::where('room_id', $room->id)->update(['status' => 'active']);
+        }
+
+        return redirect()->back()->with('success', 'Thanh lý hợp đồng thành công! Phòng trọ đã được trả về trạng thái Sẵn sàng cho thuê.');
+    }
+
+    /**
+     * Gia hạn hợp đồng (Có kiểm tra thông tin CCCD)
+     */
+    public function extendContract(Request $request, Contract $contract)
+    {
+        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'new_end_date' => 'required|date|after:' . $contract->end_date,
+            'new_monthly_rent' => 'nullable|numeric|min:0',
+            'tenant_cccd' => 'nullable|string|max:20',
+            'notes' => 'nullable|string',
+        ]);
+
+        $tenant = $contract->tenant;
+
+        // Bắt buộc kiểm tra CCCD
+        $cccdNumber = $request->tenant_cccd ?: ($tenant->cccd_number ?? null);
+        if (empty($cccdNumber)) {
+            return redirect()->back()->with('error', 'Không thể gia hạn! Yêu cầu bổ sung thông tin CCCD/CMND của Khách thuê trước khi gia hạn hợp đồng.');
+        }
+
+        if ($tenant && $request->filled('tenant_cccd')) {
+            $tenant->update(['cccd_number' => $request->tenant_cccd]);
+        }
+
+        $newRent = $request->filled('new_monthly_rent') ? $request->new_monthly_rent : $contract->monthly_rent;
+
+        // Lưu lịch sử gia hạn
+        ContractExtension::create([
+            'contract_id' => $contract->id,
+            'old_end_date' => $contract->end_date,
+            'new_end_date' => $request->new_end_date,
+            'old_monthly_rent' => $contract->monthly_rent,
+            'new_monthly_rent' => $newRent,
+            'tenant_cccd_number' => $cccdNumber,
+            'notes' => $request->notes,
+            'created_by' => Auth::id(),
+        ]);
+
+        Contract::$allowImmutableUpdate = true;
+        $contract->update([
+            'end_date' => $request->new_end_date,
+            'monthly_rent' => $newRent,
+            'status' => 'active',
+        ]);
+        Contract::$allowImmutableUpdate = false;
+
+        return redirect()->back()->with('success', 'Đã gia hạn hợp đồng thành công đến ' . date('d/m/Y', strtotime($request->new_end_date)));
     }
 }

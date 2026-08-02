@@ -93,6 +93,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/tranguser', [ProfileController::class, 'updateProfile'])->name('tranguser.update');
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
     Route::get('/quanlynoio', [ProfileController::class, 'quanlynoio'])->name('quanlynoio');
+    Route::post('/contracts/{contract}/request-termination', [ProfileController::class, 'requestTermination'])->name('contracts.request-termination');
     Route::get('/lichsuthanhtoan', [ProfileController::class, 'lichsuthanhtoan'])->name('lichsuthanhtoan');
     Route::post('/invoices/{id}/notify-payment', [ProfileController::class, 'notifyPayment'])->name('invoices.notify-payment');
     Route::get('/caidatuser', [ProfileController::class, 'caidatuser'])->name('caidatuser');
@@ -112,6 +113,7 @@ Route::middleware('auth')->group(function () {
     // Route Đánh giá sau khi xem phòng
     Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
     Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
+    Route::post('/appointments/{appointment}/cancel-interest', [ProfileController::class, 'cancelInterest'])->name('appointments.cancel_interest');
 
     // Route Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
     Route::post('/profile/contracts/{contract}/entry-readings', [ProfileController::class, 'submitEntryReadings'])->name('profile.entry-readings.submit');
@@ -254,13 +256,17 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
     Route::get('/contracts', [LandlordController::class, 'contracts'])->name('landlord.contracts');
 
-    // Đăng ký hợp đồng (Phase 3, 4, 5)
+    // Đăng ký hợp đồng & Quản lý hợp đồng
     Route::get('/search-tenant', [\App\Http\Controllers\Landlord\ContractController::class, 'searchTenant'])->name('landlord.tenants.search');
     Route::get('/contracts/create-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'createDraft'])->name('landlord.contracts.create_draft');
     Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
+    Route::post('/contracts/scan', [\App\Http\Controllers\Landlord\ContractController::class, 'scanContracts'])->name('landlord.contracts.scan');
+    Route::post('/contracts/extract-ocr', [\App\Http\Controllers\Landlord\ContractController::class, 'extractOcrData'])->name('landlord.contracts.extract_ocr');
     Route::post('/contracts/{contract}/upload-signed', [\App\Http\Controllers\Landlord\ContractController::class, 'uploadSignedContract'])->name('landlord.contracts.upload_signed');
+    Route::post('/contracts/{contract}/cancel-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'cancelDraft'])->name('landlord.contracts.cancel_draft');
+    Route::post('/contracts/{contract}/expire', [\App\Http\Controllers\Landlord\ContractController::class, 'markAsExpired'])->name('landlord.contracts.expire');
+    Route::post('/contracts/{contract}/liquidate', [\App\Http\Controllers\Landlord\ContractController::class, 'liquidateContract'])->name('landlord.contracts.liquidate');
     Route::post('/contracts/{contract}/extend', [\App\Http\Controllers\Landlord\ContractController::class, 'extendContract'])->name('landlord.contracts.extend');
-    Route::post('/contracts/{contract}/terminate', [\App\Http\Controllers\Landlord\ContractController::class, 'terminateContract'])->name('landlord.contracts.terminate');
 
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');
