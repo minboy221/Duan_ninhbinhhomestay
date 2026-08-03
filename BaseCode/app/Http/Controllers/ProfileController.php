@@ -33,7 +33,7 @@ class ProfileController extends Controller
         $user = $request->user();
         $profileData = $this->profileService->getProfileData($user);
         //lấy danh sách các lý do báo cáo đang active
-        $reasons = \App\Models\ReportReason::where('is_active',true)->get();
+        $reasons = \App\Models\ReportReason::where('is_active', true)->get();
         return Inertia::render('Profile/tranguser', [
             'user' => $user,
             'rentalStatus' => $profileData['rentalStatus'],
@@ -66,9 +66,9 @@ class ProfileController extends Controller
         $invoices = \App\Models\Invoice::whereHas('contract', function ($q) use ($request) {
             $q->where('tenant_id', $request->user()->id);
         })
-        ->with(['details.service', 'contract.room.boardingHouse.user'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+            ->with(['details.service', 'contract.room.boardingHouse.user'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
 
@@ -205,7 +205,7 @@ class ProfileController extends Controller
     public function toggleFavorite(Request $request, $roomId): RedirectResponse
     {
         $user = $request->user();
-        
+
         // Kiểm tra xem phòng đã được yêu thích chưa
         if ($user->favoriteRooms()->where('room_id', $roomId)->exists()) {
             // Bỏ yêu thích
@@ -270,14 +270,27 @@ class ProfileController extends Controller
 
         $request->validate([
             'result' => 'required|in:interested,not_interested',
-            'cccd' => 'nullable|string|max:20',
+            'reason' => 'nullable|string|max:255',
         ]);
 
+        //cập nhật trạng thái lịch hẹn khi thay đổi
+        $status = $request->result === 'interested' ? 'success_matched' : 'false_matched';
+
         $appointment->update([
+            'status' => $status,
             'feedback_result' => $request->result,
+            'feedback_reason' => $request->reason,
             'feedback_time' => now()
         ]);
 
+        if ($request->result === 'interested') {
+            $appointment->load(['user', 'room.boardingHouse']);
+            $landlord = $appointment->room->boardingHouse->user ?? null;
+            if ($landlord) {
+                $landlord->notify(new \App\Notifications\TenantInterestedNotification($appointment));
+            }
+        }
+        
         if ($request->filled('cccd')) {
             $user->update(['cccd_number' => $request->cccd]);
         }

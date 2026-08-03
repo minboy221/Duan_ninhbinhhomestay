@@ -108,11 +108,18 @@ class LandlordController extends Controller
         $statusCounts = $this->roomService->getStatusCounts($landlordId, $boardingHouseId);
 
         // Fetch active services
-        $allServices = $this->serviceManagementService->getServices($landlordId);
+        $allServices = $this->serviceManagementService->getServices($landlordId, $boardingHouseId);
         $services = $allServices->where('is_active', true)->values();
 
+        //lấy tất cả tầng của chủ trọ để dùng riêng cho chọn tầng khi tạo phòng mới
+        $propertyId = $this->roomService->getOrCreatePropertyId($landlordId);
+        $allFloors = \App\Models\Floor::where('property_id', $propertyId)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->toArray();
         return Inertia::render('Landlord/Rooms/index', [
             'floors' => $floors,
+            'allFloors' => $allFloors,
             'statusCounts' => $statusCounts,
             'services' => $services,
         ]);
@@ -301,8 +308,12 @@ class LandlordController extends Controller
 
     public function appointments()
     {
+        $boardingHouseId = session('selected_boarding_house_id');
         $appointments = Appointment::with(['user', 'room.boardingHouse'])
             ->where('landlord_id', auth()->id())
+            ->whereHas('room', function ($q) use ($boardingHouseId) {
+                $q->where('boarding_house_id', $boardingHouseId); //lấy lịch hẹn của phòng thuộc cơ sở đang chọn
+            })
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')
             ->get()
@@ -361,12 +372,14 @@ class LandlordController extends Controller
     {
         //lấy danh sách các cơ sở trọ thuộc sở hữu của chủ trọ
         $boardingHouses = BoardingHouse::where('user_id', auth()->id())->get();
-        //lấy các cấu hình giờ rảnh để hiển thị lại trên form
+        //lấy ID cơ sở trọ đang chọn trong session
+        $selectBoardingHouseId = session('selected_boarding_house_id') ?: ($boardingHouses->first()?->id ?? null);
+        //lấy các cấu hình khung giờ rảnh để hiển thị lại trên form 
         $currentAvailabilities = LandlordAvailability::where('landlord_id', auth()->id())->get();
-        //render sang trang vue
         return Inertia::render('Landlord/Availabilities/Edit', [
             'boardingHouses' => $boardingHouses,
-            'currentAvailabilities' => $currentAvailabilities
+            'currentAvailabilities' => $currentAvailabilities,
+            'selectedBoardingHouseId' => $selectBoardingHouseId ? (int) $selectBoardingHouseId : null
         ]);
     }
 
@@ -428,29 +441,30 @@ class LandlordController extends Controller
     public function contracts()
     {
         $landlordId = Auth::id();
-        
-        $contracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
-            $q->where('user_id', $landlordId);
+        $boardingHousesId = session('selected_boarding_house_id');
+
+        $contracts = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHousesId) {
+            $q->where('boarding_house_id', $boardingHousesId); //lọc theo cơ sở được chọn
         })
-        ->with(['room', 'tenant'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+            ->with(['room', 'tenant'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         // Danh sách ID phòng đã có hợp đồng còn hiệu lực / chờ upload
-        $existingContractRoomIds = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
-            $q->where('user_id', $landlordId);
+        $existingContractRoomIds = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHousesId) {
+            $q->where('boarding_house_id', $boardingHousesId);
         })
-        ->whereIn('status', ['awaiting_upload', 'active', 'signed'])
-        ->pluck('room_id')
-        ->toArray();
+            ->whereIn('status', ['awaiting_upload', 'active', 'signed'])
+            ->pluck('room_id')
+            ->toArray();
 
         // Chỉ lấy những lịch hẹn mà:
-        // 1. Trạng thái là approved hoặc viewed
+        // 1. Trạng thái là approved, viewed hoặc success_matched (khi khách ấn "ưng")
         // 2. Khách đã phản hồi "ƯNG" (feedback_result = 'interested')
         // 3. Phòng chưa có hợp đồng hiệu lực
         $appointments = \App\Models\Appointment::with(['user', 'room'])
             ->where('landlord_id', $landlordId)
-            ->whereIn('status', ['approved', 'viewed'])
+            ->whereIn('status', ['approved', 'viewed', 'success_matched'])
             ->where('feedback_result', 'interested')
             ->whereNotIn('room_id', $existingContractRoomIds)
             ->get();
@@ -470,29 +484,33 @@ class LandlordController extends Controller
     public function invoices()
     {
         $landlordId = Auth::id();
-        
-        $baseQuery = \App\Models\Invoice::whereHas('contract.room.boardingHouse', function($q) use($landlordId) {
-            $q->where('user_id', $landlordId);
+        $boardingHouseId = session('selected_boarding_house_id');
+        $baseQuery = \App\Models\Invoice::whereHas('contract.room', function ($q) use ($boardingHouseId) {
+            $q->where('boarding_house_id', $boardingHouseId);
         })
-        ->with(['contract.room', 'contract.tenant', 'details.service']);
+            ->with(['contract.room', 'contract.tenant', 'details.service']);
 
         $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->get();
         $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->get();
 
-        $activeContracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
-            $q->where('user_id', $landlordId);
+        $activeContracts = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHouseId) {
+            $q->where('boarding_house_id', $boardingHouseId);
+            //lọc theo cơ sở được chọn
         })
-        ->where('status', '!=', 'terminated')
-        ->with(['room.services', 'tenant', 'invoices' => function($q) {
-            $q->orderBy('billing_month', 'desc')->with('details');
-        }])
-        ->get();
+            ->where('status', '!=', 'terminated')
+            ->with([
+                'room.services',
+                'tenant',
+                'invoices' => function ($q) {
+                    $q->orderBy('billing_month', 'desc')->with('details');
+                }
+            ])
+            ->get();
 
         // Get landlord services
-        $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
-        $propertyId = $boardingHouse ? $this->roomService->getOrCreatePropertyId($landlordId) : null;
-        $services = $propertyId ? \App\Models\Service::where('property_id', $propertyId)->where('is_active', true)->get() : collect();
-
+        $services = $this->serviceManagementService->getServices($landlordId, $boardingHouseId)
+            ->where('is_active', true)
+            ->values();
         return Inertia::render('Landlord/Invoices/index', [
             'invoices' => $invoices,
             'archivedInvoices' => $archivedInvoices,
@@ -520,9 +538,8 @@ class LandlordController extends Controller
             'water_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'water_old_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
         ]);
-
         $contract = \App\Models\Contract::with('room')->findOrFail($request->contract_id);
-        
+
         // Tránh trùng hóa đơn trong cùng kỳ thanh toán
         $exists = \App\Models\Invoice::where('contract_id', $request->contract_id)
             ->where('billing_month', $request->billing_month)
@@ -586,7 +603,8 @@ class LandlordController extends Controller
                     $quantity = max(0, $newIndex - $oldIndex);
                 }
                 $meterImg = $elecImgPath;
-                if ($elecOldImgPath) $oldMeterImg = $elecOldImgPath;
+                if ($elecOldImgPath)
+                    $oldMeterImg = $elecOldImgPath;
             } elseif (str_contains($itemName, 'Nước')) {
                 if ($lastInv) {
                     $lastWater = $lastInv->details->first(fn($dt) => str_contains($dt->item_name, 'Nước'));
@@ -601,7 +619,8 @@ class LandlordController extends Controller
                     $quantity = max(0, $newIndex - $oldIndex);
                 }
                 $meterImg = $waterImgPath;
-                if ($waterOldImgPath) $oldMeterImg = $waterOldImgPath;
+                if ($waterOldImgPath)
+                    $oldMeterImg = $waterOldImgPath;
             }
 
             $subtotal = $price * $quantity;
@@ -640,7 +659,35 @@ class LandlordController extends Controller
         if ($tenant) {
             $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
         }
-
+        //ghi log
+        $isAbnormal = false;
+        $reasons = [];
+        //lấy ngưỡng tổng tiền hoá đơn cảnh báo cho Admin
+        $maxInvoiceAmount = (float) (\App\Models\Setting::where('key', 'warning_invoice_amount')->value('value') ?? 10000000);
+        if ($totalAmount > $maxInvoiceAmount) {
+            $isAbnormal = true;
+            $reasons[] = "Tổng hoá đơn lớn hơn ngưỡng thiết lập (" . number_format($totalAmount) . " đ/Ngưỡng: " . number_format($maxInvoiceAmount) . "đ)";
+        }
+        //kiểm tra lượng điện/nước tiêu thụ bất thường phòng
+        foreach ($processedDetails as $pd) {
+            if (str_contains($pd['item_name'], 'Điện') && $pd['quantity'] > 1000) {
+                $isAbnormal = true;
+                $reasons[] = "Tiêu thụ điện bất thường: " . $pd['quantity'] . "kWh";
+            }
+            if (str_contains($pd['item_name'], 'Nước') && $pd['quantity'] > 50) {
+                $isAbnormal = true;
+                $reasons[] = "Tiêu thụ Nước bất thường: " . $pd['quantity'] . "m3";
+            }
+        }
+        //ghi log
+        $action = $isAbnormal ? 'abnormal_invoice' : 'create_invoice';
+        $logMesseage = "Chủ trọ" . Auth::user()->name . "Tạo hoá đơn {$invoice->invoice_code} cho phòng" . ($contract->room->room_number ?? 'N/A') . " (Kỳ: {$request->billing_month})";
+        if ($isAbnormal) {
+            $logMesseage .= " [CẢNH BÁO BẤT THƯỜNG]: " . implode(';', $reasons);
+        } else {
+            $logMesseage .= " với tổng tiền" . number_format($totalAmount) . "đ";
+        }
+        \App\Services\AuditLogger::log($action, $logMesseage, $isAbnormal);
         return redirect()->back()->with('success', 'Tạo hóa đơn thành công!');
     }
 
@@ -699,7 +746,7 @@ class LandlordController extends Controller
             $quantity = (float) $d['quantity'];
             $oldIndex = isset($d['old_index']) ? (int) $d['old_index'] : null;
             $newIndex = isset($d['new_index']) ? (int) $d['new_index'] : null;
-            
+
             $existing = $oldDetailsMap->get($itemName);
             $meterImg = $existing ? $existing->meter_image_path : null;
             $oldMeterImg = $existing ? $existing->old_meter_image_path : null;
@@ -708,14 +755,18 @@ class LandlordController extends Controller
                 $price = $roomPrice;
                 $quantity = 1;
             } elseif (str_contains($itemName, 'Điện')) {
-                if ($elecImgPath) $meterImg = $elecImgPath;
-                if ($elecOldImgPath) $oldMeterImg = $elecOldImgPath;
+                if ($elecImgPath)
+                    $meterImg = $elecImgPath;
+                if ($elecOldImgPath)
+                    $oldMeterImg = $elecOldImgPath;
                 if ($newIndex !== null && $oldIndex !== null) {
                     $quantity = max(0, $newIndex - $oldIndex);
                 }
             } elseif (str_contains($itemName, 'Nước')) {
-                if ($waterImgPath) $meterImg = $waterImgPath;
-                if ($waterOldImgPath) $oldMeterImg = $waterOldImgPath;
+                if ($waterImgPath)
+                    $meterImg = $waterImgPath;
+                if ($waterOldImgPath)
+                    $oldMeterImg = $waterOldImgPath;
                 if ($newIndex !== null && $oldIndex !== null) {
                     $quantity = max(0, $newIndex - $oldIndex);
                 }
@@ -788,7 +839,7 @@ class LandlordController extends Controller
     public function deleteInvoice($id)
     {
         $invoice = \App\Models\Invoice::findOrFail($id);
-        
+
         if ($invoice->status === 'paid') {
             return redirect()->back()->with('error', 'Không thể xóa hóa đơn đã hoàn thành thanh toán! Vui lòng lưu trữ.');
         }
@@ -806,7 +857,8 @@ class LandlordController extends Controller
 
     public function services()
     {
-        $services = $this->serviceManagementService->getServices(Auth::id());
+        $boardingHouseId = session('selected_boarding_house_id');
+        $services = $this->serviceManagementService->getServices(Auth::id(), $boardingHouseId);
         return Inertia::render('Landlord/Services/index', [
             'services' => $services
         ]);
@@ -822,8 +874,9 @@ class LandlordController extends Controller
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
-
-        $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
+        $data = $request->all();
+        $data['boarding_house_id'] = session('selected_boarding_house_id');
+        $result = $this->serviceManagementService->createService(Auth::id(), $data);
         if (!$result)
             return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
         return redirect()->back()->with('success', 'Thêm dịch vụ thành công!');
@@ -831,6 +884,12 @@ class LandlordController extends Controller
 
     public function updateService(Request $request, int $id)
     {
+        // lấy thông tin dịch vụ cũ để so sánh
+        $oldService = \App\Models\Service::find($id);
+        if (!$oldService) {
+            return redirect()->back->with('error', 'Không tìm thấy dịch vụ!');
+        }
+        $oldPrice = (float) $oldService->price;
         $request->validate([
             'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
@@ -839,10 +898,48 @@ class LandlordController extends Controller
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
-
         $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
-        if (!$result)
+        if (!$result) {
             return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
+        }
+        //Logic kiểm tra giá tăng bất thường
+        $newPrice = (float) 
+            $request->price;
+        $isAbnormal = false;
+        $reason = "";
+
+        //cảnh báo nếu giá tăng đột biến hơn 50% so với giá cũ
+        if ($oldPrice > 0 && ($newPrice - $oldPrice) / $oldPrice >= 0.5) {
+            $isAbnormal = true;
+            $reason = "Tăng giá đột ngột hơn 50% (Từ " . number_format($oldPrice) . "đ lên " . number_format($newPrice) . "đ)";
+        }
+
+        //ngưỡng giá thay đổi bất thường
+        $maxElecPrice = (float) (\App\Models\Setting::where('key', 'waring_electricity_price')->value('value') ?? 8000);
+        $maxWaterPrice = (float) (\App\Models\Setting::where('key', 'warning_water_price')->value('value') ?? 40000);
+        if (str_contains($request->name, 'Điện') && $newPrice > $maxElecPrice) {
+            $isAbnormal = true;
+            $reason = "Giá điện bất thường cao: " . number_format($newPrice) . "đ/kWh
+            (Ngưỡng Admin thiết lập: " . number_format($maxElecPrice) . "đ)";
+        }
+        if (str_contains($request->name, 'Nước') && $newPrice > $maxWaterPrice) {
+            $isAbnormal = true;
+            $reason = "Giá nước bất thường cao: " . number_format($newPrice) . "đ/m3
+            (Ngưỡng Admin thiết lập: " . number_format($maxWaterPrice) . "đ)";
+        }
+        //ghi log
+        $action = $isAbnormal ? 'abnormal_service_price' : 'update_service';
+        $logMessage = "Chủ trọ" . Auth::user()->name . " thay đổi giá dịch vụ ' {$request->name} '";
+        if ($isAbnormal) {
+            $logMessage .= " [CẢNH BÁO BẤT THƯỜNG]: {$reason}";
+        } else {
+            $logMessage .= " từ " . number_format($oldPrice) . " đ thành " . number_format($newPrice) . "đ";
+        }
+        \App\Services\AuditLogger::log(
+            $action,
+            $logMessage,
+            $isAbnormal
+        );
         return redirect()->back()->with('success', 'Cập nhật dịch vụ thành công!');
     }
 

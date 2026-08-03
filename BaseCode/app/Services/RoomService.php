@@ -41,11 +41,12 @@ class RoomService
         $floors = $this->floorRepo->getByPropertyId($property->id);
 
         return $floors->map(function ($floor) use ($boardingHouseId) {
-            $rooms = $floor->rooms;
-            if ($boardingHouseId) {
-                $rooms = $rooms->where('boarding_house_id', $boardingHouseId);
+            $allRooms = $floor->rooms;
+            //lọc phòng thuộc cở sở đang chọn
+            $rooms = $allRooms;
+            if($boardingHouseId){
+                $rooms = $rooms->where('boarding_house_id',$boardingHouseId);
             }
-
             return [
                 'id' => $floor->id,
                 'name' => $floor->name,
@@ -53,8 +54,18 @@ class RoomService
                 'latitude' => $floor->latitude,
                 'longitude' => $floor->longitude,
                 'rooms' => $rooms->map(fn($r) => $this->formatRoom($r))->values()->toArray(),
+                'total_rooms_count' => $allRooms -> count(),
             ];
-        })->values()->toArray();
+        })
+            //phần lọc bỏ các tầng không có phòng thuộc cơ sở trọ đang chọn
+            ->filter(function ($floor) use ($boardingHouseId) {
+                if ($boardingHouseId) {
+                    return
+                        count($floor['rooms']) > 0 || $floor['total_rooms_count'] === 0;
+                }
+                return true;
+            })
+            ->values()->toArray();
     }
 
     /**
@@ -85,32 +96,42 @@ class RoomService
     {
         $propertyId = $this->getOrCreatePropertyId($landlordId);
 
-        // Kiểm tra trùng tên tầng
-        $exists = Floor::where('property_id', $propertyId)
+        // Kiểm tra xem tầng với tên đã tồn tại dưới tài khoản chủ trọ
+        $floor = Floor::where('property_id', $propertyId)
             ->where('name', $data['name'])
-            ->exists();
-        if ($exists)
-            return null;
+            ->first();
+        if ($floor) {
+            $floor->update(array_filter([
+                'address' => $data['address'] ?? null,
+                'latitude' => $data['latitude'] ?? null,
+                'longitude' => $data['longitude'] ?? null,
+            ]));
+            return [
+                'id' => $floor->id,
+                'name' => $floor->name,
+                'address' => $floor->address,
+                'latitude' => $floor->latitude,
+                'longitude' => $floor->longitude,
+            ];
+        }
 
-        $maxOrder = $this->floorRepo->getMaxSortOrder($propertyId);
-
-        $floor = $this->floorRepo->create([
+        $newFloor = Floor::create([
             'property_id' => $propertyId,
             'name' => $data['name'],
             'address' => $data['address'] ?? null,
-            'latitude' => $data['latitude'] ?? null,
+            'latitude' => $data['latitude'] ?? null, 
             'longitude' => $data['longitude'] ?? null,
-            'sort_order' => $maxOrder + 1,
         ]);
-
+        
         return [
-            'id' => $floor->id,
-            'name' => $floor->name,
-            'address' => $floor->address,
-            'latitude' => $floor->latitude,
-            'longitude' => $floor->longitude,
-            'rooms' => []
+            'id' => $newFloor->id,
+            'name' => $newFloor->name,
+            'address' => $newFloor->address,
+            'latitude' => $newFloor->latitude,
+            'longitude' => $newFloor->longitude,
         ];
+
+        $maxOrder = $this->floorRepo->getMaxSortOrder($propertyId);
     }
 
     /**
@@ -175,7 +196,7 @@ class RoomService
         } else {
             $counts = $this->roomRepo->countByStatusForLandlord($landlordId);
         }
-        
+
         $result = [];
         foreach (Room::STATUSES as $status) {
             $result[$status] = $counts[$status] ?? 0;
@@ -208,7 +229,7 @@ class RoomService
             $query->where('boarding_house_id', $boardingHouse->id);
         }
         $exists = $query->exists();
-        
+
         if ($exists)
             return null;
 
@@ -266,11 +287,11 @@ class RoomService
             $query = Room::where('floor_id', $room->floor_id)
                 ->where('room_number', $data['room_number'])
                 ->where('id', '!=', $roomId);
-                
+
             if ($room->boarding_house_id) {
                 $query->where('boarding_house_id', $room->boarding_house_id);
             }
-                
+
             $exists = $query->exists();
             if ($exists)
                 return false;

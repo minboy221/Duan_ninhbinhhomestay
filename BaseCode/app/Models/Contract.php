@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use App\Traits\Hashidable;
 class Contract extends Model
 {
-    use HasFactory;
+    use HasFactory, Hashidable;
 
     protected $fillable = [
         'tenant_id',
@@ -31,6 +31,8 @@ class Contract extends Model
         'deposit_amount' => 'decimal:2',
         'monthly_rent' => 'decimal:2',
     ];
+
+    protected $appends = ['hash_id'];
 
     /**
      * Boot function from Laravel.
@@ -76,8 +78,9 @@ class Contract extends Model
         return $this->hasMany(Invoice::class, 'contract_id');
     }
 
-     //phần nhận báo cáo
-    public function reports(){
-        return $this->morphMany(\App\Models\Report::class,'reportable');
+    //phần nhận báo cáo
+    public function reports()
+    {
+        return $this->morphMany(\App\Models\Report::class, 'reportable');
     }
 }

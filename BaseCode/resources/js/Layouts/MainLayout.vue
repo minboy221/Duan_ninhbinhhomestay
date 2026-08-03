@@ -47,7 +47,7 @@ const selectPropertyFromPrompt = (prop) => {
 }
 
 onMounted(() => {
-    // 1. Kiểm tra hiển thị popup thông báo (Độc lập, giữ nguyên)
+    // 1. Kiểm tra hiển thị popup thông báo
     if (auth.value.notifications && auth.value.notifications.length > 0) {
         const notif = auth.value.notifications[0]
         const dismissed = sessionStorage.getItem('dismissed_notification_' + notif.id)
@@ -57,7 +57,7 @@ onMounted(() => {
         }
     }
 
-    // 2. Gửi tín hiệu Heartbeat ping (Đã đưa ra ngoài độc lập và gom vào if (user.value))
+    // 2. Gửi tín hiệu Heartbeat ping
     if (user.value) {
         // Gửi ping ngay lập tức lúc vừa tải trang xong
         axios.post(route('user.ping')).catch(err => console.error("Heartbeat error:", err));
@@ -67,15 +67,54 @@ onMounted(() => {
             axios.post(route('user.ping')).catch(err => console.error("Heartbeat error:", err));
         }, 60000);
     }
-})
+
+    if(user.value){
+        window.Echo.private(`App.Models.User.${user.value.id}`)
+        .notification((notification) => {
+            if(auth.value.notifications){
+                auth.value.notifications.unshift({
+                    id:notification.id,
+                    data:{
+                        title:notification.data.title,
+                        message:notification.data.message,
+                        type:notification.data.type,
+                        url:notification.data.url
+                    },
+                    created_at:notification.created_at
+                });
+            }
+            //ghi nhận thông báo mới nhất để hiển thị popup
+            latestNotification.value = {
+                id:notification.id,
+                type:notification.data.type,
+                data:{
+                    title:notification.data.title,
+                    message:notification.data.message,
+                    url:notification.data.url
+                },
+                created_at:notification.created_at
+            };
+            showWelcomePopup.value = true;
+            //âm thanh thông báo 
+            try{
+                const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav");
+                audio.volume = 0.5;
+                audio.play();
+            }catch(e){
+                console.log("Autoplay audio bloked");
+            }
+        });
+    }
+});
 
 onUnmounted(() => {
     if (pingInterval) {
         clearInterval(pingInterval);
     }
-})
-
-
+    if(user.value){
+        window.Echo.leave(`App.Models.User.${user.value.id}`);
+    }
+});
 
 const closePopup = () => {
     showWelcomePopup.value = false

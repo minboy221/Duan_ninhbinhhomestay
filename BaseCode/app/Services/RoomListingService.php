@@ -9,6 +9,7 @@ use PharIo\Manifest\License;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Repositories\Interfaces\RoomPostRepositoryInterface;
 use App\Repositories\Interfaces\ReviewRepositoryInterface;
+use App\Notifications\RoomPostStatusNotification;
 
 class RoomListingService
 {
@@ -51,7 +52,20 @@ class RoomListingService
     //Phần lấy danh sách tất cả các tin đăng của chủ trọ để hiển thị
     public function getLandlordPosts(int $landlordId): LengthAwarePaginator
     {
+        $boardingHouseId = session('selected_boarding_house_id');
+        if(!$boardingHouseId){
+            $firstHouse = \App\Models\BoardingHouse::where('user_id',$landlordId)
+            ->where('status','approved')
+            ->first();
+            if($firstHouse){
+                $boardingHouseId = $firstHouse ->id;
+                session(['selected_boarding_house_id' => $boardingHouseId]);
+            }
+        }
         return RoomPost::where('landlord_id', $landlordId)
+            ->whereHas('room',function($q) use ($boardingHouseId){
+                $q->where('boarding_house_id',$boardingHouseId);
+            })
             ->with(['room.floor', 'room.boardingHouse'])  //load trước các bảng có mối quan hệ
             ->latest()
             ->paginate(10); //phân trang

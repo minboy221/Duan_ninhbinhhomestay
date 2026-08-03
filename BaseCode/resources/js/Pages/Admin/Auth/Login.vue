@@ -26,7 +26,7 @@ const submit = () => {
                 <div class="flex justify-center mb-4">
                     <img src="/anh/logo.png" alt="Logo" class="h-20 w-auto object-contain" />
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 tracking-tight">HỆ THỐNG QUẢN TRỊ NAVIS</h2>
+                <h2 class="text-2xl font-bold text-gray-900 tracking-tight">HỆ THỐNG QUẢN TRỊ NinhBinhHomeStay</h2>
                 <p class="text-sm text-gray-500 mt-2">Dành riêng cho quản trị viên hệ thống</p>
             </div>
 

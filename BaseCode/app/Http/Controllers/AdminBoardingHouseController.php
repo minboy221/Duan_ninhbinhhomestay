@@ -35,6 +35,12 @@ class AdminBoardingHouseController extends Controller
     public function approve($id)
     {
         $this->boardingHouseService->approveBoardingHouse($id);
+        //ghi log
+        \App\Services\AuditLogger::log(
+            'approve_boarding_house',
+            "Phê duyệt cơ sở trọ mới: " . ($house->name ?? "ID # {$id}"),
+            false
+        );
         return redirect()->back()->with('success', 'Đã duyệt cơ sở thành công!');
     }
 
@@ -45,6 +51,11 @@ class AdminBoardingHouseController extends Controller
         ]);
 
         $this->boardingHouseService->rejectBoardingHouse($id, $request->reason);
+        \App\Services\AuditLogger::log(
+            'reject_boarding_house',
+            "Từ chối cơ sở trọ mới:" . ($house->name ?? "ID #{$id}") . ". Lý do: " . $request->reason,
+            false
+        );
         return redirect()->back()->with('success', 'Đã từ chối cơ sở thành công!');
     }
 }

@@ -37,18 +37,22 @@ class ReportService
         $settingDays = \App\Models\Setting::where('key', 'report_negotiation_days')
             ->value('value');
         $days = $settingDays ? (int) $settingDays : 2;
+        //nếu chọn tự giải quyết trạng thái sẽ là 'investigating (đang thương lượng) ngược lại là pending'
+        $status = ($data['resolve_type'] === 'direct') ? 'investigating' : 'pending';
         $reportData = [
-            'reporter_id' => $userId,
             'reportable_type' => $this->modelMap[$data['reportable_type']],
+            'reporter_id' => $userId,
+            'resolve_type' => $data['resolve_type'] ?? 'system',
+            //ghi nhận hình thức báo cáo
             'reportable_id' => $data['reportable_id'],
             'reason' => $data['reason'],
             'description' => $data['description'] ?? '',
             'evidence_images' => $imagePaths,
-            'status' => 'pending',
+            'status' => $status,
             'negotiation_deadline' => now()->addDays($days),
         ];
 
-        // Tạo báo cáo trước
+        // Tạo báo cáo
         $report = $this->reportRepo->create($reportData);
 
         // Tải liên kết thông tin phòng trọ và gửi thông báo phù hợp
@@ -60,12 +64,12 @@ class ReportService
             $landlord = $room->boardingHouse->user ?? null;
             // Gửi thông báo tới chủ trọ
             if ($landlord) {
-                $landlord->notify(new \App\Notifications\AdminNotification(
-                    'Có khiếu nại mới từ khách thuê',
-                    'phòng ' . $room->room_number . ' tại cơ sở của bạn đang bị khiếu nại với lý do: ' . $report->reason,
-                    'new_report_landlord',
-                    '/landlord/reports'
-                ));
+                $title = ($report->resolve_type === 'direct') ? 'Yêu cầu tự giải quyết khiếu nại: ' : 'Có khiếu nại mới từ khách thuê';
+                $content = 'Phòng ' . $room->room_number . ' tại cơ sở của bạn đang bị khiếu nại với lý do: ' . $report->reason;
+                if ($report->resolve_type === 'direct') {
+                    $content .= '. Vui lòng chủ động liên hệ với khách thuê để xử lý trực tiếp.';
+                }
+                $landlord->notify(new \App\Notifications\AdminNotification($title, $content, 'new_report_landlord', '/landlord/reports'));
             }
         } elseif ($report->reportable_type === \App\Models\Invoice::class) {
             // Lấy hóa đơn liên kết với hợp đồng và phòng
@@ -74,37 +78,38 @@ class ReportService
             $landlord = $room->boardingHouse->user ?? null;
             // Gửi thông báo khiếu nại hóa đơn tới chủ trọ
             if ($landlord) {
-                $landlord->notify(new \App\Notifications\AdminNotification(
-                    'Khiếu nại hóa đơn mới',
-                    'Hóa đơn mã #' . $invoice->invoice_code . ' của phòng ' . ($room->room_number ?? 'N/A') . ' bị khiếu nại với lý do: ' . $report->reason,
-                    'new_report_landlord',
-                    '/landlord/reports'
-                ));
+                $title = ($report->resolve_type === 'direct') ? 'Yêu cầu tự giải quyết hoá đơn ' : 'Khiếu nại hoá đơn mới';
+                $content = 'Hoá đơn mã #' . $invoice->invoice_code . 'của phòng' . ($room->room_number ?? 'N/A') . ' bị khiếu nại với lý do: ' . $report->reason;
+                if ($report->resolve_type === 'direct') {
+                    $content . '. Vui lòng chủ động liên hệ với khách hàng thuê để giải quyết trực tiếp.';
+                }
+                $landlord->notify(new \App\Notifications\AdminNotification($title, $content, 'new_report_landlord', '/landlord/reports'));
             }
         }
 
-        // Gửi thông báo tới hệ thống Admin
-        $admins = \App\Models\User::where('role', 'admin')->get();
-        foreach ($admins as $admin) {
-            if ($invoice) {
-                $msg = 'Khách thuê ' . auth()->user()->name . ' vừa báo cáo sai lệch hóa đơn #' . $invoice->invoice_code . ' (phòng ' . ($room->room_number ?? 'N/A') . ')';
-            } else {
-                $msg = 'Khách thuê ' . auth()->user()->name . ' vừa báo cáo vi phạm phòng ' . ($room->room_number ?? 'N/A');
+        // Gửi thông báo tới hệ thống Admin (chỉ gửi khi user chọn báo cáo lên hệ thống)
+        if ($report->resolve_type === 'system') {
+            $admins = \App\Models\User::where('role', 'admin')->get();
+            foreach ($admins as $admin) {
+                if ($invoice) {
+                    $msg = 'Khách thuê' . auth()->user()->name . ' vừa báo cáo sai lệch hoá đơn #' . $invoice->invoice_code . '(phòng ' . ($room->room_number ?? 'N/A') . ') lên Admin.';
+                } else {
+                    $msg = 'Khách thuê' . auth()->user()->name . ' vừa báo cáo vi phạm phòng ' . ($room->room_number ?? 'N/A') . 'lên Admin.';
+                }
+                $admin->notify(new \App\Notifications\AdminNotification(
+                    'có báo cáo vi phạm mới',
+                    $msg,
+                    'new_report_admin',
+                    '\admin\reports'
+                ));
             }
-
-            $admin->notify(new \App\Notifications\AdminNotification(
-                'Có báo cáo vi phạm mới',
-                $msg,
-                'new_report_admin',
-                '/admin/reports'
-            ));
         }
         return $report;
     }
     public function resolveSelfNegotiation(int $reportId, array $data, int $userId)
     {
         $report = $this->reportRepo->findById($reportId);
-        
+
         // Nạp quan hệ động dựa trên loại báo cáo để tránh gọi boardingHouse trên Invoice
         if ($report->reportable_type === \App\Models\Room::class) {
             $report->load(['reportable.boardingHouse.user', 'reporter']);
@@ -200,8 +205,9 @@ class ReportService
                 ));
             }
         }
-        return $this->reportRepo->update($reportId, $updateData);
+        $updatedReport = $this->reportRepo->update($reportId,$updateData);
+        event(new \App\Events\ReportUpdated($updatedReport));
+        return $updatedReport;
     }
 }
-
 ?>

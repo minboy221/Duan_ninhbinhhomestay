@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use App\Services\BoardingHouseService;
+use App\Http\Requests\StoreBoardingHouseRequest;
+use App\Http\Requests\UpdateBoardingHouseRequest;
 use App\Models\BoardingHouse; // Still needed for selectBoardingHouse if not moved
 
 class BoardingHouseController extends Controller
@@ -21,7 +23,7 @@ class BoardingHouseController extends Controller
     public function index()
     {
         $boardingHouses = $this->boardingHouseService->getLandlordBoardingHouses(Auth::id());
-            
+
         return Inertia::render('Landlord/BoardingHouses/Index', [
             'boardingHouses' => $boardingHouses
         ]);
@@ -30,7 +32,7 @@ class BoardingHouseController extends Controller
     public function history()
     {
         $boardingHouses = $this->boardingHouseService->getLandlordBoardingHousesHistory(Auth::id());
-            
+
         return Inertia::render('Landlord/BoardingHouses/History', [
             'boardingHouses' => $boardingHouses
         ]);
@@ -41,19 +43,8 @@ class BoardingHouseController extends Controller
         return Inertia::render('Landlord/BoardingHouses/Create');
     }
 
-    public function store(Request $request)
+    public function store(StoreBoardingHouseRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'district' => 'required|string|max:255',
-            'address_detail' => 'required|string|max:500',
-            'directions_guide' => 'nullable|string|max:1000',
-            'latitude' => 'required|string',
-            'longitude' => 'required|string',
-            'room_images' => 'required|array',
-            'room_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
-        ]);
-
         $this->boardingHouseService->createBoardingHouse(
             $request->only(['name', 'district', 'address_detail', 'directions_guide', 'latitude', 'longitude']),
             $request->file('room_images'),
@@ -68,14 +59,14 @@ class BoardingHouseController extends Controller
     public function selectBoardingHouse(Request $request)
     {
         $request->validate(['id' => 'required|exists:boarding_houses,id']);
-        
+
         $house = BoardingHouse::where('id', $request->id)
             ->where('user_id', Auth::id())
             ->where('status', 'approved')
             ->firstOrFail();
 
         session(['selected_boarding_house_id' => $house->id]);
-        
+
         if ($request->has('redirect_to')) {
             return redirect($request->redirect_to)->with('success', 'Đã chuyển sang quản lý cơ sở: ' . $house->name);
         }
@@ -92,18 +83,18 @@ class BoardingHouseController extends Controller
         // Thống kê đồng bộ với trang "Nhà & Phòng"
         $roomService = app(\App\Services\RoomService::class);
         $floors = $roomService->getFloorsWithRooms(Auth::id(), $house->id);
-        
+
         $floorCount = count($floors);
         $roomCount = 0;
         $roomIds = [];
-        
+
         foreach ($floors as $floor) {
             $roomCount += count($floor['rooms']);
             foreach ($floor['rooms'] as $room) {
                 $roomIds[] = $room['id'];
             }
         }
-        
+
         $postCount = \App\Models\RoomPost::whereIn('room_id', $roomIds)->count();
         $reviewCount = $house->reviews()->count();
 
@@ -118,5 +109,42 @@ class BoardingHouseController extends Controller
             'house' => $house,
             'stats' => $stats
         ]);
+    }
+
+    //phần sửa cơ sở
+    public function edit($id)
+    {
+        $house = BoardingHouse::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+        return Inertia::render('Landlord/BoardingHouses/Edit', [
+            'house' => $house
+        ]);
+    }
+
+    public function update(UpdateBoardingHouseRequest $request, $id)
+    {
+        try {
+            $this->boardingHouseService->updateBoardingHouse(
+                $id,
+                $request->only(['name', 'district', 'address_detail', 'directions_guide', 'latitude', 'longitude']),
+                $request->file('room_images'),
+                $request->file('contract_images'),
+                Auth::id()
+            );
+            return redirect()->route('landlord.boarding-houses.index')->with('success', 'Cập nhật cơ sở trọ thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+    //phần xoá cơ sở
+    public function destroy($id)
+    {
+        try {
+            $this->boardingHouseService->deleteBoardingHouse($id, Auth::id());
+            return redirect()->route('landlord.boarding-houses.index')->with('success', 'Xoá cơ sở trọ thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 }

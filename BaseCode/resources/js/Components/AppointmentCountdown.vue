@@ -129,8 +129,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Link v-if="todayApt && !showFeedbackModal"
-        :href="route('profile.appointments')"
+    <Link v-if="todayApt && !showFeedbackModal" :href="route('profile.appointments')"
         class="fixed bottom-4 left-1/2 -translate-x-1/2 sm:left-6 sm:translate-x-0 z-[999] w-[92%] sm:w-[380px] overflow-hidden rounded-2xl sm:rounded-3xl border border-white/40 bg-white/95 backdrop-blur-xl shadow-[0_15px_40px_rgba(15,23,42,0.15)] transition-all duration-300 hover:-translate-y-1 block cursor-pointer hover:no-underline text-slate-700">
         <!-- Top gradient -->
         <div class="h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400"></div>
@@ -208,7 +207,7 @@ onUnmounted(() => {
                             Căn phòng thực tế tại
                             <span class="room-highlight">{{
                                 todayApt.room_name
-                                }}</span>
+                            }}</span>
                             thế nào ạ?
                         </p>
                     </div>
@@ -252,7 +251,7 @@ onUnmounted(() => {
                         <p>
                             Dựa vào lý do "<span class="reason-highlight">{{
                                 selectedReason
-                                }}</span>", xem thử các phòng này nhé:
+                            }}</span>", xem thử các phòng này nhé:
                         </p>
                     </div>
 
@@ -261,8 +260,8 @@ onUnmounted(() => {
                             Hiện tại chưa tìm thấy phòng nào phù hợp hơn lý do
                             này.
                         </div>
-                        <a v-else v-for="post in recommendedRooms" :key="post.id" :href="'/chitiettro/' + post.id"
-                            class="recommend-item">
+                        <a v-else v-for="post in recommendedRooms" :key="post.id"
+                            :href="'/chitiettro/' + post.slug_with_hash" class="recommend-item">
                             <img :src="post.thumbnail || '/images/default-room.jpg'
                                 " class="recommend-img" />
                             <div class="recommend-info">

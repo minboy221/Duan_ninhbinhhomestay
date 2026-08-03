@@ -27,7 +27,13 @@ const initialFloor = initialHouse
 
 const selectedHouse = ref(initialHouse);
 const selectedFloor = ref(initialFloor);
-const availableFloors = ref(initialHouse ? initialHouse.floors : []);
+const availableFloors = ref(
+    initialHouse 
+        ? initialHouse.floors.filter(floor => 
+            floor.rooms && floor.rooms.some(room => room.boarding_house_id === initialHouse.id)
+          )
+        : []
+);
 const availableRooms = ref([]);
 
 const roomServices = ref([]);
@@ -53,6 +59,8 @@ const form = useForm({
 if (selectedFloor.value) {
     availableRooms.value = selectedFloor.value.rooms.filter((r) => {
         if (r.id === props.post.room_id) return true; // Luôn hiển thị phòng hiện tại đang được sửa
+        const belongsToSelectedHouse = selectedHouse.value && r.boarding_house_id === selectedHouse.value.id;
+        if(!belongsToSelectedHouse) return false;
         const posts = r.room_posts || r.roomPosts;
         const hasActivePost =
             posts &&
@@ -68,7 +76,11 @@ watch(selectedHouse, (newHouse) => {
     selectedFloor.value = null;
     form.room_id = "";
     roomDetails.value = null;
-    availableFloors.value = newHouse ? newHouse.floors : [];
+    availableFloors.value = newHouse 
+        ? newHouse.floors.filter(floor => 
+            floor.rooms && floor.rooms.some(room => room.boarding_house_id === newHouse.id)
+          )
+        : [];
 });
 
 // Watchers theo dõi thay đổi tầng
@@ -83,6 +95,8 @@ watch(selectedFloor, (newFloor) => {
     availableRooms.value = newFloor
         ? newFloor.rooms.filter((r) => {
             if (r.id === props.post.room_id) return true; // Giữ lại phòng đang sửa
+            const belongsToSelectedHouse = selectedHouse.value && r.boarding_house_id === selectedHouse.value.id;;
+            if(!belongsToSelectedHouse) return false;
             const posts = r.room_posts || r.roomPosts;
             const hasActivePost =
                 posts &&

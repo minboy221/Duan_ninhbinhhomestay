@@ -1,15 +1,19 @@
 <script setup>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import { Head, Link, router, useForm, usePage } from "@inertiajs/vue3";
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import { showSuccess, showWarning, showConfirm } from "@/Utils/swal";
 
 const props = defineProps({
+    reportable_type: "Room",
     room: { type: Object, required: true },
     similarRooms: { type: Array, default: () => [] },
     reasons: { type: Array, default: () => [] },
+    hasReportPermission: { type: Boolean, default: false },
 });
+
+const currentRoomStatus = ref(props.room.status);
 
 //trạng thái hiển thị modal báo cáo
 const showReportModal = ref(false);
@@ -316,24 +320,45 @@ function submitBooking() {
 //Form báo cáo vi phạm
 const reportForm = useForm({
     reportable_type: "Room",
-    reportable_id: props.room.id,
+    reportable_id: props.room.room_id,
     reason: "",
     description: "",
+    resolve_type: "direct",
     evidence_images: [],
 });
 
 //xử lý khi user ấn nút báo cáo
 function reportListing() {
     if (!usePage().props.auth.user) {
-        if (
-            confirm(
-                "Bạn cần đăng nhập để gửi báo cáo vi phạm. đi đến trang đăng nhập?",
-            )
-        ) {
-            window.location.href = route("login");
-        }
+        showConfirm(
+            "Yêu cầu đăng nhập",
+            "Bạn cần đăng nhập tài khoản khách hàng thuê để gửi báo cáo vi phạm.",
+            "Đăng nhập",
+            "Huỷ",
+        ).then((confirmed) => {
+            if (confirmed) {
+                window.location.href = route("login");
+            }
+        });
         return;
     }
+    //chặn tài khoản chủ trọ / admin tự báo cáo
+    if (user.value.role === "landlord" || user.value.role === "admin") {
+        showWarning(
+            "Thông báo",
+            "Tài khoản quản trị hoặc chủ trọ không thể thực hiện báo cáo vi phạm.",
+        );
+        return;
+    }
+    //ràng buộc báo cáo (Phải từng thuê hoặc đặt lịch xem phòng ở đây)
+    if (!props.hasReportPermission) {
+        showWarning(
+            "Không thể báo cáo",
+            "Bạn chỉ được quyền báo cáo phòng hoặc cơ sở này nếu đã từng làm hợp đồng thuê hoặc đã đặt lịch hẹn xem phòng thực tế tại đây.",
+        );
+        return;
+    }
+
     reportForm.reason = "";
     reportForm.description = "";
     reportForm.evidence_images = [];
@@ -399,6 +424,8 @@ function compressImage(
 }
 
 //khi chọn ảnh minh chứng
+const previewUrls = ref([]);
+
 const handleEvidenceChange = async (e) => {
     const files = Array.from(e.target.files);
 
@@ -408,7 +435,14 @@ const handleEvidenceChange = async (e) => {
     );
 
     reportForm.evidence_images = compressed;
+    previewUrls.value = compressed.map((file) => URL.createObjectURL(file));
 };
+
+const removeEvidenceImage = (index) => {
+    reportForm.evidence_images.splice(index, 1);
+    previewUrls.value.splice(index, 1);
+};
+
 //gửi báo cáo lên server
 const submitReport = () => {
     reportForm.post(route("reports.store"), {
@@ -420,9 +454,12 @@ const submitReport = () => {
                 return;
             }
             showReportModal.value = false;
+            previewUrls.value = [];
             showSuccess(
                 "Đã gửi báo cáo vi phạm!",
-                "Hệ thống đã ghi nhận báo cáo của bạn và tiến hành xác minh thông tin phòng trọ này trong thời gian sớm nhất!",
+                reportForm.resolve_type === "direct"
+                    ? "Yêu cầu tự giải quyết khiếu nại đã gửi tới chủ trọ!"
+                    : "Hệ thống đã ghi nhận báo cáo của bạn và tiến hành xác minh thông tin phòng trọ này trong thời gian sớm nhất!",
             );
         },
         onError: (errors) => {
@@ -434,6 +471,17 @@ const submitReport = () => {
         },
     });
 };
+
+onMounted(() => {
+    window.Echo.channel("rooms").listen("RoomStatusUpdated", (e) => {
+        if (e.roomId === props.room.id) {
+            currentRoomStatus.value = e.status;
+        }
+    });
+});
+onUnmounted(() => {
+    window.Echo.leaveChannel("rooms");
+});
 </script>
 
 <template>
@@ -580,9 +628,9 @@ const submitReport = () => {
                     <div class="avatar1">
                         <div class="avatar-img">
                             <img :src="room.boardingHouse?.user?.avatar
-                                    ? '/storage/' +
-                                    room.boardingHouse.user.avatar
-                                    : '/anh/banner.png'
+                                ? '/storage/' +
+                                room.boardingHouse.user.avatar
+                                : '/anh/banner.png'
                                 " alt="Avatar" />
                             <span :class="[
                                 'status1',
@@ -599,7 +647,8 @@ const submitReport = () => {
                                 <span style="
                                         font-size: 12px;
                                         font-weight: normal;
-                                        margin-left: 8px;
+                                        display: block;
+                                        margin-bottom: 10px;
                                     " :style="{
                                         color: room.boardingHouse?.user
                                             ?.is_online
@@ -624,8 +673,8 @@ const submitReport = () => {
                     <div class="content_chutro">
                         <div class="phone">
                             <a class="btn_content" :href="user
-                                    ? `tel:${room.boardingHouse?.user?.phone}`
-                                    : '#'
+                                ? `tel:${room.boardingHouse?.user?.phone}`
+                                : '#'
                                 " @click="handlePhoneClick">
                                 <i class="bi bi-telephone"></i>
                                 <span>{{
@@ -782,8 +831,8 @@ const submitReport = () => {
                         </div>
                         <div class="review-rating" style="display: flex; gap: 2px">
                             <i v-for="star in 5" :key="star" class="bi bi-star-fill" :class="star <= review.rating
-                                    ? 'text-yellow-400'
-                                    : 'text-gray-200'
+                                ? 'text-yellow-400'
+                                : 'text-gray-200'
                                 "></i>
                         </div>
                     </div>
@@ -819,7 +868,7 @@ const submitReport = () => {
                     Chưa có phòng tương tự khác.
                 </div>
                 <div v-for="sim in similarRooms" :key="sim.id" class="item_tindang">
-                    <Link :href="route('chitiettro', sim.id)" class="similar-card-link">
+                    <Link :href="route('chitiettro', sim.slug_with_hash)" class="similar-card-link">
                         <div class="img">
                             <img :src="(sim.images && sim.images[0]) ||
                                 '/anh/banner_tro.png'
@@ -960,49 +1009,75 @@ const submitReport = () => {
             </div>
         </div>
         <!-- MODAL BÁO CÁO VI PHẠM -->
-        <div v-if="showReportModal"
-            class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6">
-            <div
-                class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-[fadeIn_.25s_ease]">
+        <div v-if="showReportModal" class="booking-modal-overlay" @click.self="showReportModal = false">
+            <div class="booking-modal-box">
                 <!-- Header -->
-                <div
-                    class="sticky top-0 z-10 bg-gradient-to-r from-rose-500 via-red-500 to-pink-500 px-5 sm:px-6 py-5 text-white">
-                    <button @click="showReportModal = false"
-                        class="absolute right-4 top-4 h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition">
-                        <i class="bi bi-x-lg text-lg"></i>
+                <div class="modal-header">
+                    <h3>
+                        <i class="bi bi-flag-fill text-rose-500"></i>
+                        Báo cáo phòng trọ vi phạm
+                    </h3>
+                    <button @click="showReportModal = false" class="close-btn">
+                        <i class="bi bi-x"></i>
                     </button>
-
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur">
-                            <i class="bi bi-flag-fill text-2xl"></i>
-                        </div>
-
-                        <div>
-                            <h2 class="text-lg sm:text-xl font-bold">
-                                Báo cáo phòng trọ vi phạm
-                            </h2>
-
-                            <p class="text-xs sm:text-sm text-rose-100 mt-1">
-                                Cung cấp thông tin trung thực để chúng tôi hỗ
-                                trợ xử lý nhanh nhất.
-                            </p>
-                        </div>
-                    </div>
                 </div>
 
-                <!-- Body -->
-                <form @submit.prevent="submitReport" class="max-h-[65vh] overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
-                    <!-- Lý do -->
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">
-                            Lý do báo cáo <span class="text-red-500">*</span>
+                <!-- Form Body -->
+                <form @submit.prevent="submitReport" class="report-form">
+                    <!-- Hình thức xử lý -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="bi bi-shield-check"></i>
+                            Hình thức xử lý khiếu nại
+                            <span>*</span>
                         </label>
-                        <select v-model="reportForm.reason"
-                            class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100 outline-none"
-                            :class="{
-                                'border-red-500 bg-red-50':
-                                    reportForm.errors.reason,
+                        <div class="report-type-grid">
+                            <!-- Tự giải quyết trực tiếp -->
+                            <label class="report-card" :class="{
+                                active:
+                                    reportForm.resolve_type === 'direct',
                             }">
+                                <div class="report-card-content">
+                                    <input type="radio" value="direct" v-model="reportForm.resolve_type" />
+                                    <i class="bi bi-people-fill"></i>
+                                    <div>
+                                        <h4>Tự giải quyết</h4>
+                                        <p>
+                                            Hai bên tự thương lượng với nhau,
+                                            không cần Admin.
+                                        </p>
+                                    </div>
+                                </div>
+                            </label>
+                            <!-- Báo cáo lên Admin -->
+                            <label class="report-card system" :class="{
+                                active:
+                                    reportForm.resolve_type === 'system',
+                            }">
+                                <div class="report-card-content">
+                                    <input type="radio" value="system" v-model="reportForm.resolve_type" />
+
+                                    <i class="bi bi-flag-fill"></i>
+                                    <div>
+                                        <h4>Báo cáo Admin</h4>
+                                        <p>Admin sẽ tiếp nhận và xử lý.</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Lý do -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="bi bi-patch-question"></i>
+                            Lý do báo cáo
+                            <span>*</span>
+                        </label>
+                        <select v-model="reportForm.reason" class="form-select" :class="{
+                            'border-red-500 bg-red-50':
+                                reportForm.errors.reason,
+                        }">
                             <option disabled value="">
                                 -- Chọn lý do báo cáo --
                             </option>
@@ -1010,66 +1085,70 @@ const submitReport = () => {
                                 {{ reason }}
                             </option>
                         </select>
-                        <p v-if="reportForm.errors.reason" class="mt-1 text-xs text-red-500">
+                        <p v-if="reportForm.errors.reason" class="modal-error">
                             {{ reportForm.errors.reason }}
                         </p>
                     </div>
-                    <!-- Mô tả -->
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">
+
+                    <!-- Mô tả (Chỉ hiển thị khi báo cáo hệ thống) -->
+                    <div v-if="reportForm.resolve_type === 'system'" class="form-group">
+                        <label class="form-label">
+                            <i class="bi bi-pencil-square"></i>
                             Mô tả chi tiết
-                            <span class="text-red-500">*</span>
+                            <span>*</span>
                         </label>
-                        <textarea v-model="reportForm.description" rows="5"
-                            placeholder="Mô tả cụ thể sự việc bạn gặp phải..."
-                            class="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100"
-                            :class="{
+                        <textarea v-model="reportForm.description" rows="4"
+                            placeholder="Mô tả cụ thể sự việc bạn gặp phải..." class="form-textarea" :class="{
                                 'border-red-500 bg-red-50':
                                     reportForm.errors.description,
                             }"></textarea>
-                        <p v-if="reportForm.errors.description" class="mt-1 text-xs text-red-500">
+                        <p v-if="reportForm.errors.description" class="modal-error">
                             {{ reportForm.errors.description }}
                         </p>
                     </div>
-                    <!-- Upload -->
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">
+
+                    <!-- Upload (Chỉ hiển thị khi báo cáo hệ thống) -->
+                    <div v-if="reportForm.resolve_type === 'system'" class="form-group">
+                        <label class="form-label">
+                            <i class="bi bi-images"></i>
                             Hình ảnh bằng chứng
                         </label>
-                        <label
-                            class="cursor-pointer flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-8 hover:border-rose-400 hover:bg-rose-50 transition">
-                            <i class="bi bi-cloud-upload text-5xl text-rose-400"></i>
-                            <p class="mt-3 font-semibold text-slate-700">
-                                Nhấn để chọn ảnh
-                            </p>
-                            <span class="text-xs text-slate-500">
-                                PNG, JPG, JPEG • Tối đa 5 ảnh
-                            </span>
-                            <input type="file" class="hidden" multiple accept="image/*"
+                        <label class="upload-box">
+                            <i class="bi bi-cloud-upload"></i>
+                            <p>Nhấn để chọn ảnh</p>
+                            <span>PNG, JPG, JPEG • Tối đa 5 ảnh</span>
+                            <input type="file" class="hidden" multiple accept="image/*" style="display: none"
                                 @change="handleEvidenceChange" />
                         </label>
-                        <p v-if="reportForm.errors.evidence_images" class="mt-1 text-xs text-red-500">
+
+                        <!-- Hiển thị danh sách ảnh xem trước (Preview) -->
+                        <div v-if="previewUrls.length > 0" class="preview-grid">
+                            <div v-for="(url, idx) in previewUrls" :key="idx" class="preview-item">
+                                <img :src="url" />
+                                <button type="button" @click="removeEvidenceImage(idx)" class="preview-remove">
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
+                        <p v-if="reportForm.errors.evidence_images" class="modal-error">
                             {{ reportForm.errors.evidence_images }}
                         </p>
                     </div>
+
+                    <!-- Footer Buttons -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel-modal" @click="showReportModal = false">
+                            Hủy
+                        </button>
+                        <button type="submit" class="btn-submit-modal" :disabled="reportForm.processing">
+                            {{
+                                reportForm.processing
+                                    ? "Đang gửi..."
+                                    : "Gửi báo cáo"
+                            }}
+                        </button>
+                    </div>
                 </form>
-                <!-- Footer -->
-                <div
-                    class="sticky bottom-0 bg-white border-t border-slate-100 px-5 sm:px-6 py-4 flex justify-end gap-3">
-                    <button type="button" @click="showReportModal = false"
-                        class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 transition">
-                        Hủy
-                    </button>
-                    <button type="submit" @click="submitReport" :disabled="reportForm.processing"
-                        class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-bold shadow-lg hover:scale-105 transition disabled:opacity-50">
-                        <i class="bi bi-send-fill mr-2"></i>
-                        {{
-                            reportForm.processing
-                                ? "Đang gửi..."
-                                : "Gửi báo cáo"
-                        }}
-                    </button>
-                </div>
             </div>
         </div>
     </MainLayout>

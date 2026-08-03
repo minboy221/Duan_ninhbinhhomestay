@@ -90,27 +90,50 @@ const showConfirmModal = ref(false);
 const confirmAction = ref("interested"); // 'interested' hoặc 'not_interested'
 const confirmApt = ref(null);
 const tenantCccd = ref("");
+const selectedReason = ref("");
+const otherReasonDetail = ref("");
 
 function openConfirmInterest(apt, isInterested) {
     confirmApt.value = apt;
     confirmAction.value = isInterested ? "interested" : "not_interested";
     tenantCccd.value = page.props.auth?.user?.cccd_number || "";
+    selectedReason.value = "";
+    otherReasonDetail.value = "";
     showConfirmModal.value = true;
 }
 
 function closeConfirmModal() {
     showConfirmModal.value = false;
     confirmApt.value = null;
+    selectedReason.value = "";
+    otherReasonDetail.value = "";
 }
 
 function executeInterest() {
     if (!confirmApt.value) return;
+
+    let finalReason = null;
+    if (confirmAction.value === "not_interested") {
+        if (!selectedReason.value) {
+            alert("Vui lòng chọn hoặc nhập lý do không ưng!");
+            return;
+        }
+        finalReason = selectedReason.value === "Lý do khác"
+            ? otherReasonDetail.value.trim()
+            : selectedReason.value;
+
+        if (!finalReason) {
+            alert("Vui lòng nhập chi tiết lý do!");
+            return;
+        }
+    }
 
     router.post(
         route("appointments.interest", confirmApt.value.id),
         {
             result: confirmAction.value,
             cccd: tenantCccd.value,
+            reason: finalReason,
         },
         {
             preserveScroll: true,
@@ -473,23 +496,29 @@ const paginatedAppointments = computed(() => {
                             phòng <strong>{{ confirmApt?.room?.room_number }}</strong> và muốn tiến hành thuê không?</p>
                         <p style="margin-bottom: 16px;">Hệ thống sẽ gửi thông báo đến chủ trọ để tạo hợp đồng cho bạn.
                         </p>
-                        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                            <label
-                                style="display: block; font-weight: bold; font-size: 12px; color: #64748b; margin-bottom: 6px;">Số
-                                CCCD / CMND (Tùy chọn)</label>
-                            <input v-model="tenantCccd"
-                                @input="tenantCccd = tenantCccd.replace(/[^0-9]/g, '').slice(0, 12)" type="text"
-                                maxlength="12" placeholder="Nhập để chủ trọ tạo hợp đồng nhanh hơn..."
-                                style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; font-size: 13px; transition: all 0.2s; box-sizing: border-box;"
-                                onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 2px rgba(16, 185, 129, 0.1)'"
-                                onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'" />
+                    </div>
+                    <div v-else style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0;">
+                        <p style="margin-bottom: 12px;">Bạn chắc chắn <strong style="color: #e11d48;">KHÔNG ƯNG</strong> phòng <strong>{{ confirmApt?.room?.room_number }}</strong> này?</p>
+                        
+                        <!-- Danh sách lý do động -->
+                        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+                            <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Vui lòng chọn lý do cụ thể:</label>
+                            
+                            <div v-for="(reason, idx) in ($page.props.settings.not_interested_reasons || [])" :key="idx" 
+                                 style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0;">
+                                <input type="radio" :id="'reason_' + idx" v-model="selectedReason" :value="reason" style="accent-color: #ef4444;" />
+                                <label :for="'reason_' + idx" style="font-size: 13px; color: #334155; cursor: pointer;">{{ reason }}</label>
+                            </div>
+                        </div>
+
+                        <!-- Ô nhập lý do khác chi tiết (Chỉ hiện khi chọn "Lý do khác") -->
+                        <div v-if="selectedReason === 'Lý do khác'" style="margin-top: 12px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #64748b; display: block; margin-bottom: 4px;">Mô tả chi tiết lý do khác:</label>
+                            <textarea v-model="otherReasonDetail" rows="2" 
+                                      placeholder="Nhập lý do chi tiết..."
+                                      style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 12px; box-sizing: border-box; resize: none;"></textarea>
                         </div>
                     </div>
-                    <p v-else style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0;">
-                        Bạn chắc chắn <strong style="color: #e11d48;">KHÔNG ƯNG</strong> phòng <strong>{{
-                            confirmApt?.room?.room_number }}</strong> này?<br><br>
-                        Quyết định của bạn sẽ được lưu lại để giúp chúng tôi gợi ý tốt hơn trong tương lai.
-                    </p>
 
                     <div class="review-modal-footer" style="margin-top: 24px;">
                         <button @click="closeConfirmModal" class="btn-review-cancel">Hủy bỏ</button>

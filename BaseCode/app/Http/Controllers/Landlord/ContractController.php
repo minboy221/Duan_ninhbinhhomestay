@@ -28,11 +28,11 @@ class ContractController extends Controller
             return response()->json([]);
         }
 
-        $users = User::where(function($q) use ($query) {
-                $q->where('phone', 'like', "%{$query}%")
-                  ->orWhere('email', 'like', "%{$query}%")
-                  ->orWhere('name', 'like', "%{$query}%");
-            })
+        $users = User::where(function ($q) use ($query) {
+            $q->where('phone', 'like', "%{$query}%")
+                ->orWhere('email', 'like', "%{$query}%")
+                ->orWhere('name', 'like', "%{$query}%");
+        })
             ->select('id', 'name', 'phone', 'email', 'cccd_number')
             ->limit(10)
             ->get();
@@ -84,6 +84,21 @@ class ContractController extends Controller
         $roomId = null;
         $tenantId = null;
 
+        $isAbnormal = false;
+        $reasons = [];
+        $rent = (float) $request->monthly_rent;
+        $deposit = (float) ($request->deposit ?? 0);
+        $maxMonthlyRent = (float) (\App\Models\Setting::where('key', 'warning_monthly_rent')->value('value') ?? 15000000);
+        if ($rent > $maxMonthlyRent) {
+            $isAbnormal = true;
+            $reasons[] = "Giá thuê phòng bất thường cao: " . number_format($rent) . "đ/tháng (Ngưỡng: " . number_format($maxMonthlyRent) . "đ)";
+        }
+        // Cọc gấp 3 lần tiền thuê
+        if ($rent > 0 && $deposit > $rent * 3) {
+            $isAbnormal = true;
+            $reasons[] = "Tiền đặt cọc bất thường (Tiền cọc " . number_format($deposit) . "đ vượt quá 3 lần tiền thuê)";
+        }
+
         // Nếu tạo từ Lịch hẹn
         if ($request->filled('appointment_id')) {
             $appointment = Appointment::findOrFail($request->appointment_id);
@@ -122,7 +137,7 @@ class ContractController extends Controller
             } else {
                 // Tra cứu theo SĐT hoặc Email
                 $user = User::where('phone', $request->tenant_phone)
-                    ->orWhere(function($q) use ($request) {
+                    ->orWhere(function ($q) use ($request) {
                         if ($request->filled('tenant_email')) {
                             $q->where('email', $request->tenant_email);
                         }
@@ -166,6 +181,24 @@ class ContractController extends Controller
             'status' => 'awaiting_upload',
         ]);
 
+        //ghi log khi hợp đồng có giá trị thuê vượt quá ngưỡng cấu hình của admin
+        $isAbnormal = false;
+        $reasons = [];
+        $rent = (float) $request->monthly_rent;
+        $deposit = (float) ($request->deposit ?? 0);
+        //lấy ngưỡng giá thuê phòng tối đa cấu hình từ admin
+        $maxMonthlyRent = (float) (\App\Models\Setting::where('key', 'warning_monthly_rent')->value('value') ?? 15000000);
+        if ($rent > $maxMonthlyRent) {
+            $isAbnormal = true;
+            $reasons[] = "Giá thuê phòng bất thường cao: " . number_format($rent) . "đ/tháng (Ngưỡng Admin thiết lập: " . number_format($maxMonthlyRent) . "đ)";
+        }
+        //cảnh báo nếu tiền cọc thu gấp hơn 3 lần tiền thuê trọ hàng tháng
+        if ($rent > 0 && $deposit > $rent * 3) {
+            $isAbnormal = true;
+            $reasons[] = "Tiền đặt cọc bất thường (Tiền đặt cọc bất thường (Tiền cọc" . number_format($deposit) . " đ vượt quá 3 lần tiền thuê)";
+        }
+        $action = $isAbnormal ? 'abnormal_contract' : 'create_contract';
+        $logMessage = "Chủ trọ" . Auth::user()->name . "tạo hợp đồng";
         // Tự động chuyển trạng thái phòng sang Đã đặt cọc và ẩn tin đăng
         $room = Room::find($roomId);
         if ($room) {
@@ -173,6 +206,7 @@ class ContractController extends Controller
                 'status' => 'deposited',
                 'current_people' => min($room->capacity, $room->current_people + 1)
             ]);
+            event(new \App\Events\RoomStatusUpdated($room->id,'deposited'));
             RoomPost::where('room_id', $room->id)->update(['status' => 'hidden']);
         }
 
@@ -182,7 +216,7 @@ class ContractController extends Controller
             foreach ($request->file('signed_image') as $file) {
                 $paths[] = $file->store('contracts/signed', 'public');
             }
-            
+
             // Generate PDF từ ảnh
             $pdf = Pdf::loadView('pdf.images_to_pdf', ['images' => $paths]);
             $fileName = 'contracts/contract_' . $contract->id . '_' . time() . '.pdf';
@@ -196,7 +230,7 @@ class ContractController extends Controller
 
             // Kích hoạt hợp đồng
             event(new ContractSignedEvent($contract));
-            
+
             return redirect()->back()->with('success', 'Hợp đồng đã được tạo và kích hoạt thành công!');
         }
 
@@ -218,7 +252,7 @@ class ContractController extends Controller
     {
         // Ensure landlord owns the contract's room
         if ($contract->room->boardingHouse->user_id !== Auth::id()) {
-             abort(403);
+            abort(403);
         }
 
         $request->validate([
@@ -231,7 +265,7 @@ class ContractController extends Controller
             foreach ($request->file('signed_image') as $file) {
                 $paths[] = $file->store('contracts/signed', 'public');
             }
-            
+
             // Generate PDF từ ảnh
             $pdf = Pdf::loadView('pdf.images_to_pdf', ['images' => $paths]);
             $fileName = 'contracts/contract_' . $contract->id . '_' . time() . '.pdf';
@@ -247,7 +281,11 @@ class ContractController extends Controller
 
             // Ẩn tin đăng phòng
             RoomPost::where('room_id', $contract->room_id)->update(['status' => 'hidden']);
-
+            \App\Services\AuditLogger::log(
+                'sign_contract',
+                "Chủ trọ" . Auth::user()->name . "Tải lên ảnh ký tay và kích hoạt hợp đồng ID # {$contract->id} cho phòng " . ($contract->room->room_number ?? 'N/A'),
+                false
+            );
             return redirect()->back()->with('success', 'Hợp đồng đã được tải lên và kích hoạt thành công!');
         }
 
@@ -270,7 +308,12 @@ class ContractController extends Controller
         $contract->update([
             'end_date' => $request->new_end_date,
         ]);
-
+        //ghi log
+        \App\Services\AuditLogger::log(
+            'extend_contract',
+            "Chủ trọ" . Auth::user()->name . "Gia hạn hợp đồng ID #($contract->id} của phòng" . ($contract->room->room_number ?? 'N/A') . "Tới ngày" . date('d/m/Y', strtotime($request->new_end_date)),
+            false
+        );
         return redirect()->back()->with('success', 'Đã gia hạn hợp đồng thành công đến ' . date('d/m/Y', strtotime($request->new_end_date)));
     }
 
@@ -293,11 +336,16 @@ class ContractController extends Controller
                 'status' => 'available',
                 'current_people' => max(0, $room->current_people - 1)
             ]);
-
+            event(new \App\Events\RoomStatusUpdated($room->id, 'deposited'));
             // Khôi phục tin đăng về nháp
             RoomPost::where('room_id', $room->id)->update(['status' => 'draft']);
         }
-
+        //ghi log
+        \App\Services\AuditLogger::log(
+            'terminate_contract',
+            "Chủ trọ" . Auth::user()->name . "Thanh lý/huỷ hợp đồng ID #{$contract->id} của phòng " . ($room->room_number ?? 'N/A'),
+            false
+        );
         return redirect()->back()->with('success', 'Hợp đồng đã được hủy và bài đăng phòng đã được chuyển về dạng Nháp.');
     }
 }

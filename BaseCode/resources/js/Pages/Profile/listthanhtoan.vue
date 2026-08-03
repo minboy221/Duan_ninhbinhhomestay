@@ -60,6 +60,7 @@ const reportForm = useForm({
     reportable_type: "Invoice",
     reportable_id: "",
     reason: "",
+    resolve_type: 'direct',
     description: "",
     evidence_images: [],
 });
@@ -332,9 +333,11 @@ const submitReport = () => {
         showWarning("Thiếu lý do", "Vui lòng chọn lý do báo cáo!");
         return;
     }
-    if (!reportForm.description || !reportForm.description.trim()) {
-        showWarning("Thiếu mô tả", "Vui lòng nhập mô tả chi tiết!");
-        return;
+    if (reportForm.resolve_type === 'system') {
+        if (!reportForm.description || !reportForm.description.trim()) {
+            showWarning("Thiếu mô tả", "Vui lòng nhập mô tả chi tiết!");
+            return;
+        }
     }
     reportForm.post(route("reports.store"), {
         preserveScroll: true,
@@ -346,7 +349,9 @@ const submitReport = () => {
             }
             showSuccess(
                 "Thành công",
-                "Báo cáo hóa đơn đã được gửi đi! Hệ thống sẽ kiểm tra và phản hồi sớm nhất.",
+                reportForm.resolve_type === 'direct' 
+                    ? "Yêu cầu tự giải quyết khiếu nại đã gửi tới chủ trọ!" 
+                    : "Báo cáo hóa đơn đã được gửi đi! Hệ thống sẽ kiểm tra và phản hồi sớm nhất."
             );
             closeReport();
         },
@@ -452,6 +457,39 @@ const submitReport = () => {
                 Hóa đơn: #{{ activeInvoice.invoice_code }}
             </p>
 
+            <!-- Chọn hình thức xử lý -->
+            <div class="mb-3" style="text-align: left; margin-bottom: 12px">
+                <label style="
+                        display: block;
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #475569;
+                        margin-bottom: 6px;
+                    ">Hình thức xử lý khiếu nại <span style="color: #ef4444">*</span></label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <label 
+                        style="display: flex; align-items: center; gap: 6px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; font-size: 11px; transition: all 0.2s;"
+                        :style="reportForm.resolve_type === 'direct' ? 'border-color: #4f46e5; background-color: #f5f3ff; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);' : 'background-color: #f8fafc;'"
+                    >
+                        <input type="radio" v-model="reportForm.resolve_type" value="direct" style="accent-color: #4f46e5;" />
+                        <div>
+                            <strong style="color: #1e293b; display: block;">Tự giải quyết</strong>
+                            <span style="font-size: 9px; color: #64748b;">Thương lượng với chủ trọ</span>
+                        </div>
+                    </label>
+                    <label 
+                        style="display: flex; align-items: center; gap: 6px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; font-size: 11px; transition: all 0.2s;"
+                        :style="reportForm.resolve_type === 'system' ? 'border-color: #ef4444; background-color: #fef2f2; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);' : 'background-color: #f8fafc;'"
+                    >
+                        <input type="radio" v-model="reportForm.resolve_type" value="system" style="accent-color: #ef4444;" />
+                        <div>
+                            <strong style="color: #1e293b; display: block;">Báo cáo hệ thống</strong>
+                            <span style="font-size: 9px; color: #64748b;">Gửi yêu cầu lên Admin</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
             <!-- Chọn lý do báo cáo động -->
             <div class="mb-3" style="text-align: left; margin-bottom: 12px">
                 <label style="
@@ -480,15 +518,15 @@ const submitReport = () => {
                 </p>
             </div>
 
-            <!-- Nhập mô tả chi tiết -->
-            <div class="mb-3" style="text-align: left; margin-bottom: 12px">
+            <!-- Nhập mô tả chi tiết (Chỉ hiển thị khi báo cáo hệ thống) -->
+            <div v-if="reportForm.resolve_type === 'system'" class="mb-3" style="text-align: left; margin-bottom: 12px">
                 <label style="
                         display: block;
                         font-size: 11px;
                         font-weight: 700;
                         color: #475569;
                         margin-bottom: 4px;
-                    ">Mô tả chi tiết</label>
+                    ">Mô tả chi tiết <span style="color: #ef4444">*</span></label>
                 <textarea v-model="reportForm.description" placeholder="Nhập thêm chi tiết về sai lệch hóa đơn..."
                     style="
                         width: 100%;
@@ -506,15 +544,15 @@ const submitReport = () => {
                 </p>
             </div>
 
-            <!-- Upload hình ảnh bằng chứng có nén -->
-            <div class="mb-3" style="text-align: left; margin-bottom: 16px">
+            <!-- Upload hình ảnh bằng chứng có nén (Chỉ hiển thị khi báo cáo hệ thống) -->
+            <div v-if="reportForm.resolve_type === 'system'" class="mb-3" style="text-align: left; margin-bottom: 16px">
                 <label style="
                         display: block;
                         font-size: 11px;
                         font-weight: 700;
                         color: #475569;
                         margin-bottom: 4px;
-                    ">Ảnh bằng chứng hóa đơn (Tối đa 5 ảnh)</label>
+                    ">Ảnh bằng chứng hóa đơn (Tối đa 5 ảnh) <span style="color: #ef4444">*</span></label>
                 <input type="file" @change="handleEvidenceChange" multiple accept="image/*"
                     style="font-size: 11px; display: block; width: 100%" />
                 <p v-if="reportForm.errors.evidence_images" style="color: #ef4444; font-size: 11px; margin-top: 4px">
