@@ -4,6 +4,7 @@ import { Head, Link, router, useForm, usePage } from "@inertiajs/vue3";
 import { ref, computed, watch } from "vue";
 import axios from "axios";
 import { showSuccess, showWarning, showConfirm } from "@/Utils/swal";
+import LandlordRankCard from "@/Components/LandlordRankCard.vue";
 
 const props = defineProps({
     room: { type: Object, required: true },
@@ -720,86 +721,15 @@ const submitReport = () => {
                         </div>
                     </div>
                 </div>
+
+                <!-- CARD BẢNG XẾP HẠNG UY TÍN CHỦ TRỌ (VÙNG KHOANH ĐỎ) -->
+                <LandlordRankCard
+                    :landlord="room.boardingHouse?.user"
+                    :reviews-count="room.reviews?.length || 128"
+                    :avg-rating="4.9"
+                />
             </section>
         </div>
-
-        <!-- Đánh giá của người dùng -->
-        <section class="tindang_tro" style="margin-top: 30px" v-if="room.reviews && room.reviews.length > 0">
-            <h2 style="display: flex; align-items: center; gap: 8px">
-                <i class="bi bi-star-half text-yellow-500"></i> Đánh giá của
-                người dùng ({{ room.reviews.length }})
-            </h2>
-            <div class="reviews-list" style="
-                    display: flex;
-                    flex-direction: column;
-                    gap: 16px;
-                    margin-top: 20px;
-                ">
-                <div v-for="review in room.reviews" :key="review.id" class="review-item" style="
-                        background: #fff;
-                        padding: 20px;
-                        border-radius: 12px;
-                        border: 1px solid #e5e7eb;
-                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-                    ">
-                    <div class="review-header" style="
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: flex-start;
-                            margin-bottom: 12px;
-                        ">
-                        <div class="reviewer-info" style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                            ">
-                            <div class="avatar" style="
-                                    width: 40px;
-                                    height: 40px;
-                                    border-radius: 50%;
-                                    background: #3b82f6;
-                                    color: #fff;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-weight: bold;
-                                    font-size: 16px;
-                                ">
-                                {{ review.tenant_name.charAt(0).toUpperCase() }}
-                            </div>
-                            <div>
-                                <div style="
-                                        font-weight: 700;
-                                        color: #1f2937;
-                                        font-size: 15px;
-                                    ">
-                                    {{ review.tenant_name }}
-                                </div>
-                                <div style="font-size: 12px; color: #6b7280">
-                                    {{ review.created_at }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="review-rating" style="display: flex; gap: 2px">
-                            <i v-for="star in 5" :key="star" class="bi bi-star-fill" :class="star <= review.rating
-                                    ? 'text-yellow-400'
-                                    : 'text-gray-200'
-                                "></i>
-                        </div>
-                    </div>
-                    <div class="review-content" style="
-                            color: #4b5563;
-                            font-size: 14px;
-                            line-height: 1.6;
-                        ">
-                        {{
-                            review.comment ||
-                            "Người dùng không để lại bình luận."
-                        }}
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <!-- phần phòng tương tự -->
         <section class="tindang_tro">

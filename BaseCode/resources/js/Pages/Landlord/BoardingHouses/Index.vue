@@ -168,6 +168,5 @@ const getStatusText = (status) => {
                 </div>
             </div>
         </div>
-        </div>
     </LandlordLayout>
 </template>
