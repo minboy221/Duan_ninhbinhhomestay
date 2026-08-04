@@ -396,15 +396,16 @@ class RoomService
         if (!$room || $room->boardingHouse->user_id !== $landlordId)
             return false;
 
-        if (!in_array($room->status, ['pending_renewal', 'expiring_soon'])) {
+        if (!in_array($room->status, ['rented', 'deposited', 'pending_renewal', 'expiring_soon'])) {
             return 'invalid_status';
         }
 
-        if ($room->current_people <= 0) {
+        $currentPeople = max($room->current_people ?? 0, 1);
+        if ($currentPeople <= 0) {
             return 'empty';
         }
 
-        return $this->roomRepo->update($room, ['current_people' => $room->current_people - 1]);
+        return $this->roomRepo->update($room, ['current_people' => max(0, $currentPeople - 1)]);
     }
 
     /**
@@ -427,6 +428,23 @@ class RoomService
 
     private function formatRoom($room): array
     {
+        $currentPeople = (int) ($room->current_people ?? 0);
+
+        // Đếm số hợp đồng đang hoạt động/ký cho phòng này
+        $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
+            ->whereIn('status', ['active', 'signed', 'pending', 'awaiting_upload', 'termination_requested', 'expiring'])
+            ->count();
+
+        // Nếu room có trạng thái 'rented' (Đã thuê) hoặc có HĐ active, tự động sinh ít nhất 1 người ở
+        if ($room->status === 'rented' || $activeContractsCount > 0) {
+            $currentPeople = max($currentPeople, $activeContractsCount, 1);
+
+            // Cập nhật đồng bộ lại vào cơ sở dữ liệu nếu DB đang lưu = 0
+            if (($room->current_people ?? 0) < $currentPeople) {
+                $room->update(['current_people' => $currentPeople]);
+            }
+        }
+
         return [
             'id' => $room->id,
             'name' => $room->room_number,
@@ -438,7 +456,7 @@ class RoomService
             'price' => (float) $room->price,
             'area' => (float) $room->area,
             'capacity' => $room->capacity,
-            'current_people' => $room->current_people,
+            'current_people' => $currentPeople,
             'amenities' => $room->amenities,
             'images' => $room->images ?? [],
             'services' => $room->relationLoaded('services') ? $room->services->toArray() : [],

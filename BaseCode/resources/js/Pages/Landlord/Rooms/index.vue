@@ -179,6 +179,14 @@ const colorsConfig = {
 
 const fmtMoney = (n) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
 
+const getEffectiveOccupants = (room) => {
+    if (!room) return 0;
+    if (room.status === 'rented' || room.current_people > 0) {
+        return Math.max(Number(room.current_people) || 0, 1);
+    }
+    return Number(room.current_people) || 0;
+};
+
 const activeTab = ref("all"); // 'all' | 'active' | 'inactive'
 const searchQuery = ref("");
 const floorFilter = ref("");
@@ -778,41 +786,46 @@ const delRoom = (room) => {
 };
 
 const addPerson = (room) => {
+    const targetRoom = room || selRoom.value;
+    if (!targetRoom) return;
+
     const allowedStatuses = [
         "deposited",
         "rented",
         "expiring_soon",
         "pending_renewal",
     ];
-    if (!allowedStatuses.includes(room.status)) {
+    if (!allowedStatuses.includes(targetRoom.status)) {
         showWarning(
             "Không hợp lệ",
             "Trạng thái phòng không cho phép thêm người!",
         );
         return;
     }
-    if (room.current_people >= room.capacity) {
-        showWarning("Không thể thêm", "Phòng đã đủ số lượng người tối đa.");
+    const currentCount = getEffectiveOccupants(targetRoom);
+    if (currentCount >= targetRoom.capacity) {
+        showWarning(
+            "Không thể thêm",
+            "Phòng đã đủ số lượng người tối đa.",
+        );
         return;
     }
     router.patch(
-        route("landlord.rooms.add_person", room.id),
+        route("landlord.rooms.add_person", targetRoom.id),
         {},
         {
             preserveScroll: true,
             onSuccess: () => {
-                room.current_people++;
-                if (selRoom.value && selRoom.value.id === room.id) {
-                    selRoom.value.current_people = room.current_people;
+                const newCount = currentCount + 1;
+                targetRoom.current_people = newCount;
+                if (selRoom.value && selRoom.value.id === targetRoom.id) {
+                    selRoom.value.current_people = newCount;
                 }
-                props.floors.forEach((f) => {
-                    const r = f.rooms?.find((rm) => rm.id === room.id);
-                    if (r) r.current_people = room.current_people;
+                props.floors?.forEach(f => {
+                    const r = f.rooms?.find(rm => rm.id === targetRoom.id);
+                    if (r) r.current_people = newCount;
                 });
-                showSuccess(
-                    "Thành công",
-                    `Đã thêm 1 người vào phòng! (Hiện tại: ${room.current_people}/${room.capacity} người)`,
-                );
+                showSuccess("Thành công", `Đã thêm 1 người vào phòng! (Hiện tại: ${newCount}/${targetRoom.capacity} người)`);
             },
             onError: () => {
                 showWarning("Lỗi", "Không thể thêm người vào phòng.");
@@ -822,14 +835,12 @@ const addPerson = (room) => {
 };
 
 const removePerson = (room) => {
-    if (!["pending_renewal", "expiring_soon"].includes(room.status)) {
-        showWarning(
-            "Không hợp lệ",
-            "Chỉ có thể bớt người ở trạng thái sắp hết hạn HĐ hoặc chờ gia hạn!",
-        );
+    const currentCount = getEffectiveOccupants(room);
+    if (currentCount <= 1 && room.status === 'rented') {
+        showWarning("Không thể bớt", "Phòng đang có hợp đồng thuê hoạt động phải duy trì tối thiểu 1 người. Nếu khách trả phòng, vui lòng thanh lý hợp đồng!");
         return;
     }
-    if (room.current_people <= 0) {
+    if (currentCount <= 0) {
         showWarning("Không thể bớt", "Phòng hiện không có người.");
         return;
     }
@@ -839,18 +850,16 @@ const removePerson = (room) => {
         {
             preserveScroll: true,
             onSuccess: () => {
-                room.current_people--;
+                const newCount = Math.max(0, currentCount - 1);
+                room.current_people = newCount;
                 if (selRoom.value && selRoom.value.id === room.id) {
-                    selRoom.value.current_people = room.current_people;
+                    selRoom.value.current_people = newCount;
                 }
-                props.floors.forEach((f) => {
-                    const r = f.rooms?.find((rm) => rm.id === room.id);
-                    if (r) r.current_people = room.current_people;
+                props.floors.forEach(f => {
+                    const r = f.rooms?.find(rm => rm.id === room.id);
+                    if (r) r.current_people = newCount;
                 });
-                showSuccess(
-                    "Thành công",
-                    `Đã bớt 1 người khỏi phòng! (Hiện tại: ${room.current_people}/${room.capacity} người)`,
-                );
+                showSuccess("Thành công", `Đã bớt 1 người khỏi phòng! (Hiện tại: ${newCount}/${room.capacity} người)`);
             },
             onError: () => {
                 showWarning("Lỗi", "Không thể bớt người khỏi phòng.");
@@ -1193,20 +1202,15 @@ const getAutoCoordinates = () => {
 
                             <!-- Người ở -->
                             <div class="pt-2 border-t border-slate-50 flex items-center justify-between">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-1.5">
                                     <i class="bi bi-people-fill text-slate-400"></i>
-                                    <span class="text-xs font-bold text-slate-600">{{ room.current_people }}/{{
-                                        room.capacity
-                                        }}
-                                        người</span>
+                                    <span class="text-xs font-bold text-slate-600">Tối đa: {{ room.capacity }} người</span>
                                 </div>
 
-                                <span v-if="room.current_people === 0"
-                                    class="text-[10px] font-bold text-emerald-500">Còn trống</span>
-                                <span v-else-if="
-                                    room.current_people < room.capacity
-                                " class="text-[10px] font-bold text-blue-500">Còn chỗ</span>
-                                <span v-else class="text-[10px] font-bold text-rose-500">Đã đầy</span>
+                                <span v-if="getEffectiveOccupants(room) === 0"
+                                    class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">Chưa có người ở</span>
+                                <span v-else-if="getEffectiveOccupants(room) < room.capacity" class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">Đã có {{ getEffectiveOccupants(room) }}/{{ room.capacity }} người ở</span>
+                                <span v-else class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100">Đã đầy ({{ room.capacity }}/{{ room.capacity }})</span>
                             </div>
                         </div>
                     </div>
@@ -1264,11 +1268,10 @@ const getAutoCoordinates = () => {
                             class="pt-1.5 mt-2 border-t border-slate-50 flex items-center justify-between text-[9px] font-semibold text-slate-500">
                             <span>
                                 <i class="bi bi-people-fill text-slate-400 mr-0.5"></i>
-                                {{ room.current_people }}/{{ room.capacity }}
+                                Tối đa: {{ room.capacity }}
                             </span>
-                            <span v-if="room.current_people === 0" class="text-emerald-500 font-bold">Trống</span>
-                            <span v-else-if="room.current_people < room.capacity" class="text-blue-500 font-bold">Còn
-                                chỗ</span>
+                            <span v-if="getEffectiveOccupants(room) === 0" class="text-emerald-500 font-bold">Trống</span>
+                            <span v-else-if="getEffectiveOccupants(room) < room.capacity" class="text-blue-500 font-bold">Đã có {{ getEffectiveOccupants(room) }}/{{ room.capacity }}</span>
                             <span v-else class="text-rose-500 font-bold">Đầy</span>
                         </div>
                     </div>
@@ -1292,7 +1295,7 @@ const getAutoCoordinates = () => {
                             </div>
                             <span class="text-xs text-slate-400 font-semibold">
                                 <i class="bi bi-people-fill mr-0.5"></i>
-                                {{ room.current_people }}/{{ room.capacity }}
+                                {{ getEffectiveOccupants(room) }}/{{ room.capacity }} người
                             </span>
                         </div>
 
@@ -1530,7 +1533,7 @@ const getAutoCoordinates = () => {
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
                             <span class="text-xs font-bold text-slate-400">Số người:</span>
-                            <span class="text-xs font-bold text-slate-800">{{ selRoom.current_people }}/{{
+                            <span class="text-xs font-bold text-slate-800">{{ getEffectiveOccupants(selRoom) }}/{{
                                 selRoom.capacity
                                 }}
                                 người</span>
@@ -1541,7 +1544,7 @@ const getAutoCoordinates = () => {
                                 Math.max(
                                     0,
                                     selRoom.capacity -
-                                    selRoom.current_people,
+                                    getEffectiveOccupants(selRoom),
                                 )
                             }}
                                 chỗ</span>
@@ -1609,18 +1612,22 @@ const getAutoCoordinates = () => {
                                         'rented',
                                         'expiring_soon',
                                         'pending_renewal',
-                                    ].includes(selRoom.status)
-                                " class="px-3 py-2 rounded-xl text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer hover:shadow-sm transition-all"
+                                    ].includes(selRoom.status) && getEffectiveOccupants(selRoom) < selRoom.capacity
+                                "
+                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer hover:shadow-sm transition-all"
                                     @click="addPerson(selRoom)">
                                     <i class="bi bi-person-plus-fill mr-1"></i>
                                     Thêm người
                                 </button>
                                 <button v-if="
                                     [
-                                        'pending_renewal',
+                                        'deposited',
+                                        'rented',
                                         'expiring_soon',
-                                    ].includes(selRoom.status)
-                                " class="px-3 py-2 rounded-xl text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer hover:shadow-sm transition-all"
+                                        'pending_renewal',
+                                    ].includes(selRoom.status) && getEffectiveOccupants(selRoom) > 1
+                                "
+                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer hover:shadow-sm transition-all"
                                     @click="removePerson(selRoom)">
                                     <i class="bi bi-person-dash-fill mr-1"></i>
                                     Bớt người

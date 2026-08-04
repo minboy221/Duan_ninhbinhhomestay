@@ -269,13 +269,13 @@ const getAvatarUrl = (avatar) => {
                                         ]">
                                             {{ getStatusLabel(post.room.status) }}
                                         </span>
-                                        <span v-if="post.room?.boarding_house?.average_rating > 0"
-                                            class="text-yellow-500 font-bold" style="font-size: 13px;">
-                                            <i class="bi bi-star-fill"></i> {{ post.room.boarding_house.average_rating
-                                            }}
+                                        <span v-if="post.room?.current_people > 0 || post.room?.status === 'rented'"
+                                            class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <i class="bi bi-person-check-fill" style="margin-right: 4px;"></i> Đã có {{ post.room?.current_people || 1 }} người ở
                                         </span>
-                                        <span v-else class="text-gray-400 italic" style="font-size: 13px;">Chưa có đánh
-                                            giá</span>
+                                        <span v-if="post.room?.boarding_house?.average_rating > 0" class="text-yellow-500 font-bold" style="font-size: 13px;">
+                                            <i class="bi bi-star-fill"></i> {{ post.room.boarding_house.average_rating }}
+                                        </span>
                                     </div>
                                     <div class="about_room">
                                         <p

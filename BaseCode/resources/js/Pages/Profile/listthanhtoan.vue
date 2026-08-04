@@ -19,6 +19,7 @@ const props = defineProps({
 const activeInvoice = ref(null);
 const selectedPaymentMethod = ref("qr");
 const showDetailModal = ref(false);
+const showMeterProofModal = ref(false);
 const showReportModal = ref(false);
 const reportText = ref("");
 const isSimulating = ref(false);
@@ -218,6 +219,20 @@ const elecDetail = computed(() => getDetailByItem(activeInvoice.value, "Điện"
 const waterDetail = computed(() =>
     getDetailByItem(activeInvoice.value, "Nước"),
 );
+
+const zoomedImgUrl = ref(null)
+const zoomedImgTitle = ref('')
+const zoomImage = (url, title) => {
+    zoomedImgUrl.value = getMeterImgUrl(url)
+    zoomedImgTitle.value = title
+}
+
+const hasMeterImages = computed(() => {
+    const eDet = elecDetail.value
+    const wDet = waterDetail.value
+    return (eDet && (eDet.meter_image_path || eDet.old_meter_image_path)) ||
+           (wDet && (wDet.meter_image_path || wDet.old_meter_image_path))
+})
 
 const getMeterImgUrl = (path) => {
     if (!path) return null;
@@ -758,6 +773,110 @@ const submitReport = () => {
                     }}</span>
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- POPUP XEM CHI TIẾT ẢNH MINH CHỨNG CÔNG TƠ -->
+    <div v-if="showMeterProofModal" class="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" @click="showMeterProofModal = false">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden animate-fade-in border border-slate-100" @click.stop>
+            <!-- Head -->
+            <div class="px-5 py-4 sm:px-6 sm:py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-sm flex-shrink-0">
+                        <i class="bi bi-camera-fill"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="font-black text-slate-800 text-xs sm:text-sm uppercase tracking-wide truncate">Ảnh minh chứng công tơ</h3>
+                        <p class="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">Đối soát ảnh chụp chỉ số điện và nước thực tế</p>
+                    </div>
+                </div>
+                <button @click="showMeterProofModal = false" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 ml-2">
+                    <i class="bi bi-x-lg text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="p-4 sm:p-6 overflow-y-auto max-h-[75vh] space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <!-- Khung điện -->
+                    <div v-if="elecDetail && (elecDetail.meter_image_path || elecDetail.old_meter_image_path)" 
+                         class="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200/60 pb-2">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <div class="w-6 h-6 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                    <i class="bi bi-lightning-charge-fill"></i>
+                                </div>
+                                <span class="text-xs font-black text-slate-800 truncate">Chỉ số Điện</span>
+                            </div>
+                            <span class="text-[10px] text-slate-600 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200/60 flex-shrink-0">Tiêu thụ: {{ elecDetail.quantity }} kWh</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div v-if="elecDetail.old_meter_image_path" class="space-y-1">
+                                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số cũ ({{ elecDetail.old_index }})</span>
+                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs" @click="zoomImage(elecDetail.old_meter_image_path, `Ảnh điện số cũ: ${elecDetail.old_index}`)">
+                                    <img :src="getMeterImgUrl(elecDetail.old_meter_image_path)" class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" alt="Ảnh điện cũ">
+                                </div>
+                            </div>
+                            <div v-if="elecDetail.meter_image_path" class="space-y-1">
+                                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số mới ({{ elecDetail.new_index }})</span>
+                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs" @click="zoomImage(elecDetail.meter_image_path, `Ảnh điện số mới: ${elecDetail.new_index}`)">
+                                    <img :src="getMeterImgUrl(elecDetail.meter_image_path)" class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" alt="Ảnh điện mới">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Khung nước -->
+                    <div v-if="waterDetail && (waterDetail.meter_image_path || waterDetail.old_meter_image_path)" 
+                         class="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200/60 pb-2">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <div class="w-6 h-6 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                    <i class="bi bi-droplet-fill"></i>
+                                </div>
+                                <span class="text-xs font-black text-slate-800 truncate">Chỉ số Nước</span>
+                            </div>
+                            <span class="text-[10px] text-slate-600 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200/60 flex-shrink-0">Tiêu thụ: {{ waterDetail.quantity }} m³</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div v-if="waterDetail.old_meter_image_path" class="space-y-1">
+                                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số cũ ({{ waterDetail.old_index }})</span>
+                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs" @click="zoomImage(waterDetail.old_meter_image_path, `Ảnh nước số cũ: ${waterDetail.old_index}`)">
+                                    <img :src="getMeterImgUrl(waterDetail.old_meter_image_path)" class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" alt="Ảnh nước cũ">
+                                </div>
+                            </div>
+                            <div v-if="waterDetail.meter_image_path" class="space-y-1">
+                                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số mới ({{ waterDetail.new_index }})</span>
+                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs" @click="zoomImage(waterDetail.meter_image_path, `Ảnh nước số mới: ${waterDetail.new_index}`)">
+                                    <img :src="getMeterImgUrl(waterDetail.meter_image_path)" class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" alt="Ảnh nước mới">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Foot -->
+            <div class="px-5 py-3.5 sm:px-6 border-t border-slate-100 flex items-center justify-end bg-slate-50/50">
+                <button @click="showMeterProofModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX IMAGE ZOOM MODAL -->
+    <div v-if="zoomedImgUrl" class="fixed inset-0 z-[10050] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4" @click="zoomedImgUrl = null">
+        <div class="relative max-w-3xl w-full max-h-[85vh] flex flex-col items-center" @click.stop>
+            <div class="absolute top-2 right-2 z-10 flex gap-2">
+                <button @click="zoomedImgUrl = null" class="w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/75 cursor-pointer">
+                    <i class="bi bi-x-lg text-lg"></i>
+                </button>
+            </div>
+            <p class="text-white text-xs font-bold bg-black/60 px-4 py-1.5 rounded-full mb-3 shadow-md">{{ zoomedImgTitle }}</p>
+            <img :src="zoomedImgUrl" class="max-w-full max-h-[75vh] object-contain rounded-2xl border border-white/10 shadow-2xl" />
         </div>
     </div>
 </template>

@@ -243,11 +243,11 @@ class AdminController extends Controller
         ]);
         //ghi log
         $action = $request->status === 'resolved' ? 'resolved_report' : 'ignore_report';
-        $statusText = $request->status === 'resolved' ? 'resolved_report' : 'ignore_report';
-        $statusText - $request->status === 'resolved' ? 'Chấp nhận giải quyết' : ($request->status === 'ignored' ? 'Bỏ qua' : 'Từ chối');
+        $statusText = $request->status === 'resolved' ? 'Chấp nhận giải quyết' : ($request->status === 'ignored' ? 'Bỏ qua' : 'Từ chối');
         $noteText = $request->admin_note ? " (Ghi chú: " . $request->admin_note . ")" : "";
         $reporterEmail = $report->reporter ? $report->reporter->email : "N/A";
         \App\Services\AuditLogger::log(
+            $action,
             "{$statusText} khiếu nại báo cáo ID #{$report->id} của khách thuê: {$reporterEmail}{$noteText}",
             true
         );

@@ -2,7 +2,7 @@
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
-import { showSuccess, showWarning } from "@/Utils/swal"
+import { showSuccess, showError, showWarning, showConfirm, showToast } from '@/Utils/swal'
 
 const props = defineProps({
     invoices: {
@@ -20,6 +20,14 @@ const props = defineProps({
     services: {
         type: Array,
         default: () => []
+    },
+    boardingHouses: {
+        type: Array,
+        default: () => []
+    },
+    pendingBillingContracts: {
+        type: Array,
+        default: () => []
     }
 })
 
@@ -31,6 +39,10 @@ onMounted(() => {
             router.reload({ preserveScroll: true, only: ['invoices', 'archivedInvoices'] })
         }
     }, 5000)
+
+    if (billingHousesToAlert.value && billingHousesToAlert.value.length > 0) {
+        showBillingReminderModal.value = true
+    }
 })
 
 onUnmounted(() => {
@@ -45,6 +57,11 @@ const selectedContractId = ref(null)
 const selectedInvoiceId = ref(null)
 
 const month = ref(new Date().toISOString().substring(0, 7)) // e.g. "2026-06"
+const maxAllowedMonth = computed(() => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + 1)
+    return d.toISOString().substring(0, 7)
+})
 const houseFilter = ref('all')
 const startDate = ref('')
 const endDate = ref('')
@@ -108,6 +125,43 @@ const internetService = computed(() => props.services.find(s => s.name.includes(
 const trashService = computed(() => props.services.find(s => s.name.includes('Rác')))
 const parkingService = computed(() => props.services.find(s => s.name.includes('Xe') || s.name.includes('Gửi xe')))
 
+// Helper tính tiền phòng lẻ tháng đầu nếu khách nhận phòng giữa tháng
+const selectedContract = computed(() => props.activeContracts.find(c => c.id === selectedContractId.value))
+const isFirstMonthInvoice = computed(() => {
+    if (!selectedContractId.value) return false
+    return !props.invoices.some(i => i.contract_id === selectedContractId.value)
+})
+
+const proratedRentInfo = computed(() => {
+    const contract = selectedContract.value
+    if (!contract || !contract.start_date || !isFirstMonthInvoice.value) return null
+    const startDate = new Date(contract.start_date)
+    const day = startDate.getDate()
+    if (day <= 1) return null
+
+    const year = startDate.getFullYear()
+    const month = startDate.getMonth() + 1
+    const totalDays = new Date(year, month, 0).getDate()
+    const occupiedDays = totalDays - day + 1
+    const monthlyRent = Number(contract.room?.price || contract.monthly_rent || 0)
+    const suggestedRent = Math.round((monthlyRent / totalDays) * occupiedDays)
+
+    return {
+        day,
+        totalDays,
+        occupiedDays,
+        monthlyRent,
+        suggestedRent,
+        formattedSuggested: new Intl.NumberFormat('vi-VN').format(suggestedRent) + 'đ'
+    }
+})
+
+const applyProratedRent = () => {
+    if (proratedRentInfo.value) {
+        invoiceForm.rent = proratedRentInfo.value.suggestedRent
+    }
+}
+
 // Update form when contract changes
 watch(selectedContractId, (newContractId) => {
     if (!newContractId) return
@@ -120,25 +174,33 @@ watch(selectedContractId, (newContractId) => {
         
         // Electricity
         const lastElecDetail = lastInv?.details?.find(d => d.item_name.includes('Điện'))
-        invoiceForm.elecOld = lastElecDetail ? (lastElecDetail.new_index ?? 0) : 0
-        invoiceForm.elecNew = invoiceForm.elecOld + 100
-        invoiceForm.elecPrice = elecService.value ? Number(elecService.value.price) : 3000
-        if (lastElecDetail?.meter_image_path) {
-            elecOldMeterPreview.value = lastElecDetail.meter_image_path
+        if (lastElecDetail) {
+            invoiceForm.elecOld = lastElecDetail.new_index ?? 0
+            elecOldMeterPreview.value = lastElecDetail.meter_image_path || null
+        } else if (contract.entry_elec_index !== null && contract.entry_elec_index !== undefined) {
+            invoiceForm.elecOld = contract.entry_elec_index
+            elecOldMeterPreview.value = contract.entry_elec_image || null
         } else {
+            invoiceForm.elecOld = 0
             elecOldMeterPreview.value = null
         }
+        invoiceForm.elecNew = ''
+        invoiceForm.elecPrice = elecService.value ? Number(elecService.value.price) : 3000
 
         // Water
         const lastWaterDetail = lastInv?.details?.find(d => d.item_name.includes('Nước'))
-        invoiceForm.waterOld = lastWaterDetail ? (lastWaterDetail.new_index ?? 0) : 0
-        invoiceForm.waterNew = invoiceForm.waterOld + 10
-        invoiceForm.waterPrice = waterService.value ? Number(waterService.value.price) : 15000
-        if (lastWaterDetail?.meter_image_path) {
-            waterOldMeterPreview.value = lastWaterDetail.meter_image_path
+        if (lastWaterDetail) {
+            invoiceForm.waterOld = lastWaterDetail.new_index ?? 0
+            waterOldMeterPreview.value = lastWaterDetail.meter_image_path || null
+        } else if (contract.entry_water_index !== null && contract.entry_water_index !== undefined) {
+            invoiceForm.waterOld = contract.entry_water_index
+            waterOldMeterPreview.value = contract.entry_water_image || null
         } else {
+            invoiceForm.waterOld = 0
             waterOldMeterPreview.value = null
         }
+        invoiceForm.waterNew = ''
+        invoiceForm.waterPrice = waterService.value ? Number(waterService.value.price) : 15000
 
         // Fixed services
         invoiceForm.internetPrice = internetService.value ? Number(internetService.value.price) : 50000
@@ -160,12 +222,14 @@ const handlePhotoUpload = (event, type) => {
     if (type === 'elec_new') {
         elecMeterFile.value = file
         elecMeterPreview.value = URL.createObjectURL(file)
+        runOcrForField(file, 'elec')
     } else if (type === 'elec_old') {
         elecOldMeterFile.value = file
         elecOldMeterPreview.value = URL.createObjectURL(file)
     } else if (type === 'water_new') {
         waterMeterFile.value = file
         waterMeterPreview.value = URL.createObjectURL(file)
+        runOcrForField(file, 'water')
     } else if (type === 'water_old') {
         waterOldMeterFile.value = file
         waterOldMeterPreview.value = URL.createObjectURL(file)
@@ -173,10 +237,16 @@ const handlePhotoUpload = (event, type) => {
 }
 
 // Calculations
-const elecDiff = computed(() => Math.max(0, invoiceForm.elecNew - invoiceForm.elecOld))
+const elecDiff = computed(() => {
+    if (invoiceForm.elecNew === '' || invoiceForm.elecNew === null || invoiceForm.elecNew === undefined) return 0
+    return Math.max(0, Number(invoiceForm.elecNew) - Number(invoiceForm.elecOld))
+})
 const elecTotal = computed(() => elecDiff.value * invoiceForm.elecPrice)
 
-const waterDiff = computed(() => Math.max(0, invoiceForm.waterNew - invoiceForm.waterOld))
+const waterDiff = computed(() => {
+    if (invoiceForm.waterNew === '' || invoiceForm.waterNew === null || invoiceForm.waterNew === undefined) return 0
+    return Math.max(0, Number(invoiceForm.waterNew) - Number(invoiceForm.waterOld))
+})
 const waterTotal = computed(() => waterDiff.value * invoiceForm.waterPrice)
 
 const internetTotal = computed(() => invoiceForm.internetQty * invoiceForm.internetPrice)
@@ -253,48 +323,46 @@ const goCreate = () => {
 }
 
 const goEdit = (inv) => {
-    selectedInvoiceId.value = inv.id
-    selectedContractId.value = inv.contract_id
-    
-    invoiceForm.rent = Number(inv.details?.find(d => d.item_name === 'Tiền thuê nhà')?.price || 0)
-    
-    const elec = inv.details?.find(d => d.item_name.includes('Điện'))
-    invoiceForm.elecOld = elec ? (elec.old_index ?? 0) : 0
-    invoiceForm.elecNew = elec ? (elec.new_index ?? 0) : 0
-    invoiceForm.elecPrice = elec ? Number(elec.price) : 3000
-    elecMeterPreview.value = elec?.meter_image_path || null
-    elecOldMeterPreview.value = elec?.old_meter_image_path || null
-
-    const water = inv.details?.find(d => d.item_name.includes('Nước'))
-    invoiceForm.waterOld = water ? (water.old_index ?? 0) : 0
-    invoiceForm.waterNew = water ? (water.new_index ?? 0) : 0
-    invoiceForm.waterPrice = water ? Number(water.price) : 15000
-    waterMeterPreview.value = water?.meter_image_path || null
-    waterOldMeterPreview.value = water?.old_meter_image_path || null
-
-    const internet = inv.details?.find(d => d.item_name.includes('internet'))
-    invoiceForm.internetQty = internet ? Number(internet.quantity) : 1
-    invoiceForm.internetPrice = internet ? Number(internet.price) : 50000
-
-    const trash = inv.details?.find(d => d.item_name.includes('rác'))
-    invoiceForm.trashQty = trash ? Number(trash.quantity) : 1
-    invoiceForm.trashPrice = trash ? Number(trash.price) : 30000
-
-    const parking = inv.details?.find(d => d.item_name.includes('gửi xe'))
-    invoiceForm.parkingQty = parking ? Number(parking.quantity) : 1
-    invoiceForm.parkingPrice = parking ? Number(parking.price) : 15000
-
-    const management = inv.details?.find(d => d.item_name.includes('khác') || d.item_name.includes('Quản lý') || d.item_name.includes('dịch vụ'))
-    invoiceForm.management = management ? Number(management.price) : 0
-
-    invoiceForm.dueDate = formatDate(inv.due_date) || new Date().toISOString().split('T')[0]
-    
-    currentView.value = 'edit'
+    showWarning('Thông báo', 'Hóa đơn sau khi đã tạo không thể chỉnh sửa!')
 }
 
-const saveInvoice = () => {
+const saveInvoice = async () => {
     if (!selectedContractId.value) {
         showWarning('Thiếu thông tin', 'Vui lòng chọn hợp đồng!')
+        return
+    }
+
+    const contract = props.activeContracts.find(c => c.id === selectedContractId.value)
+    if (contract) {
+        if (month.value) {
+            const startMonth = contract.start_date.substring(0, 7) // YYYY-MM
+            const endMonth = contract.end_date.substring(0, 7) // YYYY-MM
+            if (month.value < startMonth || month.value > endMonth) {
+                showError('Không hợp lệ', `Kỳ thanh toán (Tháng ${month.value}) nằm ngoài thời hạn hợp đồng (${startMonth} đến ${endMonth})!`)
+                return
+            }
+        }
+    }
+
+    // Điện
+    if (invoiceForm.elecNew !== null && invoiceForm.elecNew !== '') {
+        if (Number(invoiceForm.elecNew) < Number(invoiceForm.elecOld)) {
+            showError('Lỗi nhập liệu', `Chỉ số điện mới (${invoiceForm.elecNew}) không được nhỏ hơn chỉ số cũ (${invoiceForm.elecOld})!`)
+            return
+        }
+    } else {
+        showError('Lỗi nhập liệu', 'Vui lòng nhập chỉ số điện mới!')
+        return
+    }
+
+    // Nước
+    if (invoiceForm.waterNew !== null && invoiceForm.waterNew !== '') {
+        if (Number(invoiceForm.waterNew) < Number(invoiceForm.waterOld)) {
+            showError('Lỗi nhập liệu', `Chỉ số nước mới (${invoiceForm.waterNew}) không được nhỏ hơn chỉ số cũ (${invoiceForm.waterOld})!`)
+            return
+        }
+    } else {
+        showError('Lỗi nhập liệu', 'Vui lòng nhập chỉ số nước mới!')
         return
     }
 
@@ -307,7 +375,7 @@ const saveInvoice = () => {
             service_id: null
         },
         {
-            item_name: 'Tiền điện',
+            item_name: 'Tiền Điện',
             price: Number(invoiceForm.elecPrice),
             quantity: elecDiff.value,
             subtotal: elecTotal.value,
@@ -316,7 +384,7 @@ const saveInvoice = () => {
             service_id: elecService.value?.id || null
         },
         {
-            item_name: 'Tiền nước',
+            item_name: 'Tiền Nước',
             price: Number(invoiceForm.waterPrice),
             quantity: waterDiff.value,
             subtotal: waterTotal.value,
@@ -325,14 +393,14 @@ const saveInvoice = () => {
             service_id: waterService.value?.id || null
         },
         {
-            item_name: 'Tiền internet',
+            item_name: 'Phí internet / wifi',
             price: Number(invoiceForm.internetPrice),
             quantity: Number(invoiceForm.internetQty),
             subtotal: internetTotal.value,
             service_id: internetService.value?.id || null
         },
         {
-            item_name: 'Tiền rác',
+            item_name: 'Thu gom rác',
             price: Number(invoiceForm.trashPrice),
             quantity: Number(invoiceForm.trashQty),
             subtotal: trashTotal.value,
@@ -357,6 +425,19 @@ const saveInvoice = () => {
         })
     }
 
+    if (month.value > maxAllowedMonth.value) {
+        showError('Lỗi', `Kỳ thanh toán không được tạo vượt quá 1 tháng so với hiện tại (Kỳ tối đa được phép: Tháng ${maxAllowedMonth.value})!`)
+        return
+    }
+
+    const confirmed = await showConfirm(
+        'Xác nhận tạo hóa đơn',
+        'Lưu ý: Hóa đơn sau khi đã tạo sẽ KHÔNG THỂ CHỈNH SỬA. Bạn đã kiểm tra kỹ các thông tin (chỉ số điện, nước, các khoản phí) chưa?',
+        'Xác nhận tạo',
+        'Kiểm tra lại'
+    )
+    if (!confirmed) return
+
     const form = useForm({
         contract_id: selectedContractId.value,
         billing_month: month.value,
@@ -365,24 +446,14 @@ const saveInvoice = () => {
         elec_meter_image: elecMeterFile.value,
         elec_old_meter_image: elecOldMeterFile.value,
         water_meter_image: waterMeterFile.value,
-        water_old_meter_image: waterOldMeterFile.value
     })
 
-    if (currentView.value === 'create') {
-        form.post(route('landlord.invoices.store'), {
-            onSuccess: () => {
-                showSuccess('Thành công', 'Lưu hóa đơn thành công!')
-                currentView.value = 'list'
-            }
-        })
-    } else {
-        form.post(route('landlord.invoices.update', selectedInvoiceId.value), {
-            onSuccess: () => {
-                showSuccess('Thành công', 'Cập nhật hóa đơn thành công!')
-                currentView.value = 'list'
-            }
-        })
-    }
+    form.post(route('landlord.invoices.store'), {
+        onSuccess: () => {
+            showSuccess('Thành công', 'Lưu hóa đơn thành công!')
+            currentView.value = 'list'
+        }
+    })
 }
 
 const updateInvoiceStatus = (inv, status) => {
@@ -469,6 +540,67 @@ const copyInvoiceToClipboard = (inv) => {
 const printDisputeReport = (inv) => {
     window.print()
 }
+
+// --- BILLING DATE ALERTS & REMINDER ---
+const today = new Date().getDate()
+const billingHousesToAlert = computed(() => {
+    return (props.boardingHouses || []).filter(house => {
+        const hasPendingRooms = (props.pendingBillingContracts || []).some(c => c.room?.boarding_house_id === house.id)
+        if (!hasPendingRooms) return false
+
+        const billingDay = house.invoice_billing_day || 30
+        return today >= billingDay
+    })
+})
+
+const showBillingReminderModal = ref(false)
+const elecOcrLoading = ref(false)
+const waterOcrLoading = ref(false)
+
+const runOcrForField = (file, type) => {
+    if (type === 'elec') elecOcrLoading.value = true
+    if (type === 'water') waterOcrLoading.value = true
+
+    const formData = new FormData()
+    formData.append('image', file)
+
+    axios.post(route('landlord.invoices.ocr'), formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(res => {
+        if (res.data && res.data.index !== undefined) {
+            if (type === 'elec') {
+                invoiceForm.elecNew = res.data.index
+                showToast('AI đã nhận dạng số điện: ' + res.data.index, 'success')
+            } else {
+                invoiceForm.waterNew = res.data.index
+                showToast('AI đã nhận dạng số nước: ' + res.data.index, 'success')
+            }
+        }
+    }).catch(err => {
+        const msg = err.response?.data?.error || 'Lỗi nhận dạng ảnh. Vui lòng nhập tay!'
+        showWarning('Nhận dạng thất bại', msg)
+    }).finally(() => {
+        if (type === 'elec') elecOcrLoading.value = false
+        if (type === 'water') waterOcrLoading.value = false
+    })
+}
+
+const goToCreateForContract = (contractId) => {
+    selectedContractId.value = contractId
+    currentView.value = 'create'
+    showBillingReminderModal.value = false
+
+    // Reset single invoice creation form files & previews
+    invoiceForm.dueDate = new Date().toISOString().split('T')[0]
+    elecMeterFile.value = null
+    elecOldMeterFile.value = null
+    waterMeterFile.value = null
+    waterOldMeterFile.value = null
+    elecMeterPreview.value = null
+    elecOldMeterPreview.value = null
+    waterMeterPreview.value = null
+    waterOldMeterPreview.value = null
+}
 </script>
 
 <template>
@@ -480,6 +612,26 @@ const printDisputeReport = (inv) => {
                 <span>Bảng điều khiển</span>
                 <i class="bi bi-chevron-right text-[9px]"></i>
                 <span class="text-slate-600">Hóa đơn</span>
+            </div>
+
+            <!-- Billing Date Alerts -->
+            <div v-if="billingHousesToAlert.length > 0" class="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-lg flex-shrink-0">
+                        <i class="bi bi-calendar-event"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-amber-800 text-xs uppercase tracking-wide">Đến kỳ lập hóa đơn hàng tháng!</h4>
+                        <p class="text-xs text-amber-650 mt-0.5">
+                            Các cơ sở: <span class="font-bold">{{ billingHousesToAlert.map(h => h.name).join(', ') }}</span> đã đến ngày chốt số điện nước.
+                            Có tổng cộng <span class="font-bold text-amber-800">{{ pendingBillingContracts.length }} phòng</span> chưa chốt số kỳ này.
+                        </p>
+                    </div>
+                </div>
+                <button @click="showBillingReminderModal = true" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 self-stretch sm:self-auto justify-center cursor-pointer">
+                    <i class="bi bi-bell-fill"></i>
+                    <span>Xem danh sách chốt</span>
+                </button>
             </div>
 
             <!-- Title Header -->
@@ -589,9 +741,6 @@ const printDisputeReport = (inv) => {
                                         <button @click="openViewModal(inv)" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-lg flex items-center justify-center cursor-pointer" title="Xem chi tiết hóa đơn & Bằng chứng">
                                             <i class="bi bi-eye"></i>
                                         </button>
-                                        <button v-if="inv.status !== 'paid' && !inv.archived_at" @click="goEdit(inv)" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-lg flex items-center justify-center cursor-pointer" title="Chỉnh sửa hóa đơn">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </button>
                                         <button v-if="!inv.archived_at && inv.status !== 'paid'" @click="changeStatus(inv, 'paid')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer">
                                             <i class="bi bi-check-lg"></i> Thu tiền
                                         </button>
@@ -653,9 +802,6 @@ const printDisputeReport = (inv) => {
                         <button @click="openViewModal(inv)" class="w-8 h-8 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-xl flex items-center justify-center" title="Xem chi tiết">
                             <i class="bi bi-eye"></i>
                         </button>
-                        <button v-if="inv.status !== 'paid' && !inv.archived_at" @click="goEdit(inv)" class="w-8 h-8 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-xl flex items-center justify-center" title="Chỉnh sửa">
-                            <i class="bi bi-pencil-square"></i>
-                        </button>
                         <button v-if="!inv.archived_at && inv.status !== 'paid'" @click="changeStatus(inv, 'paid')" class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-extrabold flex items-center gap-1">
                             <i class="bi bi-check-lg"></i> Thu tiền
                         </button>
@@ -707,7 +853,7 @@ const printDisputeReport = (inv) => {
 
                     <div class="space-y-1.5">
                         <label class="text-xs font-bold text-slate-700">Kỳ thanh toán <span class="text-rose-500">*</span></label>
-                        <input type="month" v-model="month" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/50" />
+                        <input type="month" v-model="month" :max="maxAllowedMonth" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/50" />
                     </div>
                 </div>
 
@@ -720,6 +866,17 @@ const printDisputeReport = (inv) => {
                         <span class="text-xs font-black text-slate-800">{{ formatMoney(invoiceForm.rent) }}</span>
                     </div>
                     <input type="number" v-model.number="invoiceForm.rent" readonly class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
+                    
+                    <!-- Gợi ý tính tiền phòng lẻ tháng đầu -->
+                    <div v-if="proratedRentInfo" class="mt-2 p-3 bg-amber-50 border border-amber-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="text-xs text-amber-900 font-semibold">
+                            <i class="bi bi-info-circle-fill text-amber-600 mr-1"></i>
+                            Khách vào từ ngày <span class="font-bold">{{ proratedRentInfo.day }}/{{ proratedRentInfo.totalDays }}</span>. Ở <span class="font-bold">{{ proratedRentInfo.occupiedDays }}/{{ proratedRentInfo.totalDays }} ngày</span>.
+                        </div>
+                        <button type="button" @click="applyProratedRent" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition shadow-xs flex-shrink-0 cursor-pointer">
+                            Áp dụng giá lẻ {{ proratedRentInfo.formattedSuggested }}
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Services Form -->
@@ -738,8 +895,13 @@ const printDisputeReport = (inv) => {
                                 <input type="number" v-model.number="invoiceForm.elecOld" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400">Số mới kỳ này</label>
-                                <input type="number" v-model.number="invoiceForm.elecNew" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                <label class="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                    Số mới kỳ này
+                                    <span v-if="elecOcrLoading" class="text-[9px] text-amber-500 animate-pulse flex items-center gap-0.5">
+                                        <i class="bi bi-arrow-clockwise animate-spin"></i> Đang quét...
+                                    </span>
+                                </label>
+                                <input type="number" :disabled="elecOcrLoading" v-model.number="invoiceForm.elecNew" :placeholder="elecOcrLoading ? 'Đang đọc...' : ''" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-slate-400">Sử dụng (kWh)</label>
@@ -786,8 +948,13 @@ const printDisputeReport = (inv) => {
                                 <input type="number" v-model.number="invoiceForm.waterOld" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400">Số mới kỳ này</label>
-                                <input type="number" v-model.number="invoiceForm.waterNew" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                <label class="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                    Số mới kỳ này
+                                    <span v-if="waterOcrLoading" class="text-[9px] text-blue-500 animate-pulse flex items-center gap-0.5">
+                                        <i class="bi bi-arrow-clockwise animate-spin"></i> Đang quét...
+                                    </span>
+                                </label>
+                                <input type="number" :disabled="waterOcrLoading" v-model.number="invoiceForm.waterNew" :placeholder="waterOcrLoading ? 'Đang đọc...' : ''" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-slate-400">Sử dụng (m³)</label>
@@ -1044,6 +1211,82 @@ const printDisputeReport = (inv) => {
                     </button>
                     
                     <button class="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors text-center cursor-pointer" @click="closeViewModal">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BILLING REMINDER MODAL -->
+        <div v-if="showBillingReminderModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.18)] max-w-xl sm:max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-fade-in border border-slate-100">
+                <!-- Head -->
+                <div class="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent relative rounded-t-[32px]">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 flex-shrink-0 animate-pulse">
+                            <i class="bi bi-bell-fill text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-slate-800 text-base tracking-tight uppercase">Đến kỳ lập hóa đơn!</h3>
+                            <p class="text-xs text-slate-500 font-semibold mt-0.5">Vui lòng cập nhật chỉ số điện nước & lập hóa đơn cho các cơ sở</p>
+                        </div>
+                    </div>
+                    <button @click="showBillingReminderModal = false" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer border border-slate-200/50">
+                        <i class="bi bi-x-lg text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- Body -->
+                <div class="p-8 overflow-y-auto space-y-6 flex-1 bg-slate-50/20">
+                    <div class="p-4 bg-amber-50/60 border border-amber-100 rounded-2xl flex items-start gap-3">
+                        <div class="text-amber-600 mt-0.5"><i class="bi bi-info-circle-fill text-base"></i></div>
+                        <p class="text-xs text-slate-600 font-semibold leading-relaxed">
+                            Hệ thống đối soát theo ngày chốt đã cấu hình và phát hiện hiện tại có <strong class="text-amber-700 font-black text-sm">{{ pendingBillingContracts.length }} phòng</strong> chưa lập hóa đơn. Bạn có thể chọn phòng bên dưới để chốt số nhanh.
+                        </p>
+                    </div>
+
+                    <div class="space-y-4 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin">
+                        <div v-for="house in billingHousesToAlert" :key="house.id" class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3.5">
+                            <!-- House Title & Day config -->
+                            <div class="flex justify-between items-center pb-2 border-b border-slate-50">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm">
+                                        <i class="bi bi-house-door-fill"></i>
+                                    </div>
+                                    <span class="text-xs font-black text-slate-850 tracking-tight">{{ house.name }}</span>
+                                </div>
+                                <span class="bg-amber-50/80 text-amber-800 text-[9px] font-black uppercase px-2 py-0.5 rounded-lg tracking-wider">
+                                    Cấu hình chốt: ngày {{ house.invoice_billing_day || 30 }} hàng tháng
+                                </span>
+                            </div>
+
+                            <!-- Rooms List -->
+                            <div class="grid grid-cols-1 gap-2.5">
+                                <div v-for="c in pendingBillingContracts.filter(c => c.room?.boarding_house_id === house.id)" :key="c.id" 
+                                     class="group/item flex justify-between items-center bg-slate-50/50 hover:bg-orange-50/20 border border-slate-100/50 hover:border-orange-500/20 p-3 rounded-xl transition-all duration-300">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-white border border-slate-200/60 flex flex-col items-center justify-center shadow-sm">
+                                            <span class="text-[8px] text-slate-400 font-bold uppercase">Phòng</span>
+                                            <span class="text-xs font-black text-[#0e3b3e] -mt-1">{{ c.room?.room_number }}</span>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs font-bold text-slate-700 group-hover/item:text-slate-900 transition-colors">Khách: {{ c.tenant?.name || 'Chưa cập nhật' }}</div>
+                                            <div class="text-[10px] text-slate-400 font-semibold mt-0.5">Tiền phòng: {{ formatMoney(c.room?.price || 0) }}</div>
+                                        </div>
+                                    </div>
+                                    <button @click="goToCreateForContract(c.id)" 
+                                            class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[10px] rounded-xl transition-all duration-300 shadow-md shadow-orange-500/10 hover:shadow-orange-500/25 hover:-translate-y-0.5 flex items-center gap-1 cursor-pointer">
+                                        Lập hóa đơn <i class="bi bi-arrow-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Foot -->
+                <div class="px-8 py-5 border-t border-slate-100 flex items-center justify-end bg-slate-50/50">
+                    <button @click="showBillingReminderModal = false" class="px-5 py-2.5 bg-white border border-slate-250 hover:bg-slate-50 hover:border-slate-300 text-slate-650 font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer">
+                        Để sau
+                    </button>
                 </div>
             </div>
         </div>

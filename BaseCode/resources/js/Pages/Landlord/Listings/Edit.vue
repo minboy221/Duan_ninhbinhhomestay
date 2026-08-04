@@ -47,6 +47,8 @@ const form = useForm({
     title: props.post.title || "",
     description: props.post.description || "",
     address: props.post.address || "",
+    current_people: props.post.room?.current_people ?? 0,
+    capacity: props.post.room?.capacity ?? 1,
     latitude: props.post.latitude || null,
     longitude: props.post.longitude || null,
     existing_images: props.post.image || [], // Chứa ảnh cũ
@@ -125,6 +127,8 @@ watch(
                 axios.get(`/landlord/rooms/${newRoomId}/services`),
             ]);
             roomDetails.value = detailsResponse.data;
+            form.current_people = detailsResponse.data.current_people ?? 0;
+            form.capacity = detailsResponse.data.capacity ?? 1;
             roomServices.value = servicesResponse.data.services;
             selectedRoomInfo.value = { price: servicesResponse.data.price };
             //tự động điền địa chỉ & gps mới từ tầng/khu
@@ -431,6 +435,22 @@ function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 
                                 <label class="form-label">Diện tích (m²) *</label>
                                 <input :value="roomDetails?.area || ''" disabled
                                     class="form-input bg-gray-50 text-gray-500" />
+                            </div>
+                        </div>
+
+                        <!-- Số người đang có / Sức chứa tối đa (Chỉ hiện Số người đang ở khi phòng đã có người > 0) -->
+                        <div class="mb-4" :class="form.current_people > 0 ? 'form-row-2' : ''">
+                            <div class="form-group" v-if="form.current_people > 0">
+                                <label class="block text-sm font-bold text-gray-700 mb-1">
+                                    Số người đang ở trong phòng <span class="text-xs text-gray-400 font-normal">(Mặc định của phòng)</span>
+                                </label>
+                                <input type="number" :value="form.current_people" disabled readonly class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
+                            </div>
+                            <div class="form-group">
+                                <label class="block text-sm font-bold text-gray-700 mb-1">
+                                    Sức chứa tối đa (Số người tổng) <span class="text-xs text-gray-400 font-normal">(Mặc định của phòng)</span>
+                                </label>
+                                <input type="number" :value="form.capacity" disabled readonly class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
                             </div>
                         </div>
 

@@ -63,6 +63,11 @@ const statusMap = {
         cls: "bg-emerald-50 text-emerald-600 border-emerald-100",
         dot: "bg-emerald-500",
     },
+    waiting_contract: {
+        label: "Chờ hợp đồng",
+        cls: "bg-blue-50 text-blue-600 border-blue-100",
+        dot: "bg-blue-500",
+    },
     rejected: {
         label: "Từ Chối",
         cls: "bg-slate-50 text-slate-500 border-slate-100",

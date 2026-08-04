@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { usePage, Link } from "@inertiajs/vue3";
 import axios from "axios";
 import { showSuccess, showWarning } from "@/Utils/swal";
@@ -16,12 +16,18 @@ const feedbackStep = ref(1);
 const selectedReason = ref("");
 const recommendedRooms = ref("");
 
-const dislikeReasons = [
-    "Giá cao quá",
-    "Phòng thực tế không giống với ảnh",
-    "xa nơi làm việc/học tập",
-    "Chủ nhà không thân thiện",
-];
+const dislikeReasons = computed(() => {
+    const configuredReasons = page.props.settings?.not_interested_reasons;
+    if (Array.isArray(configuredReasons) && configuredReasons.length > 0) {
+        return configuredReasons;
+    }
+    return [
+        "Giá cao quá",
+        "Phòng thực tế không giống với ảnh",
+        "xa nơi làm việc/học tập",
+        "Chủ nhà không thân thiện",
+    ];
+});
 
 const checkTodayAppointment = async () => {
     if (!page.props.auth?.user) return;

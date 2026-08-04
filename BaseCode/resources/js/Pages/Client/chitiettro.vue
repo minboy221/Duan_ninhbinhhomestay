@@ -299,8 +299,8 @@ function submitBooking() {
                 showWarning("Không thể đặt lịch", flash.error);
                 return;
             }
-            //chỉ khi đặt lịch thành công
-            showBookingModal.value = flash;
+            // Chỉ khi đặt lịch thành công
+            showBookingModal.value = false;
             form.reset();
             showSuccess(
                 "Thành công",
@@ -553,6 +553,10 @@ onUnmounted(() => {
                                     ? "ĐANG TRỐNG / ĐÃ KIỂM CHỨNG"
                                     : "ĐÃ ĐƯỢC KIỂM CHỨNG"
                             }}</span>
+                        </div>
+                        <div v-if="room.current_people > 0 || room.status === 'rented'" class="theloai" style="background: #ecfdf5; color: #059669; border-color: #a7f3d0; margin-left: 6px;">
+                            <i class="bi bi-person-check-fill"></i>
+                            <span>ĐÃ CÓ {{ room.current_people || 1 }} NGƯỜI Ở</span>
                         </div>
                         <div class="tieude">
                             <h2>

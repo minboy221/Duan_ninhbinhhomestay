@@ -144,23 +144,15 @@ watch(
                                     </div>
                                 </td>
                                 <td class="px-5 py-4 text-right">
-                                    <button v-if="
-                                        $page.props.auth
-                                            .selected_boarding_house_id !==
-                                        house.id
-                                    " @click="selectHouse(house.id)"
-                                        class="text-xs font-bold bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 mr-2 cursor-pointer">
-                                        <i class="bi bi-box-arrow-in-right"></i>
-                                        Chọn cơ sở
+                                    <button v-if="$page.props.auth.selected_boarding_house_id !== house.id" 
+                                        @click="selectHouse(house.id)"
+                                        class="text-xs font-bold bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 mr-2">
+                                        <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở
                                     </button>
-                                    <Link :href="route(
-                                        'landlord.boarding-houses.show',
-                                        house.id,
-                                    )
-                                        "
-                                        class="text-slate-400 hover:text-emerald-500 p-2 transition-colors inline-flex items-center"
+                                    <Link :href="route('landlord.boarding-houses.show', house.id)" 
+                                        class="text-xs font-bold bg-white border border-slate-200 text-slate-650 hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer" 
                                         title="Xem chi tiết">
-                                        <i class="bi bi-eye text-lg"></i>
+                                        <i class="bi bi-eye"></i> Xem chi tiết
                                     </Link>
                                     <Link :href="route(
                                         'landlord.boarding-houses.edit',
