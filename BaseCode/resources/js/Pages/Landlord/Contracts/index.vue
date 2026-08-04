@@ -4,6 +4,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import CustomSwal, { showSuccess, showWarning, showConfirm, showError } from '@/Utils/swal'
 import axios from 'axios'
+import { performClientOcr } from '@/Utils/contractOcr.js'
 
 const props = defineProps({
     dbContracts: Array,
@@ -97,6 +98,7 @@ const activeStep = ref(1) // 1: Room & Price, 2: Tenant Info, 3: Terms & Upload
 
 const imagePreviews = ref([])
 const isScanningOcr = ref(false)
+const ocrProgressText = ref('')
 
 const handleImageSelect = (e) => {
     const files = Array.from(e.target.files)
@@ -113,6 +115,7 @@ const scanOcrFile = async (file) => {
         return;
     }
     isScanningOcr.value = true;
+    ocrProgressText.value = 'Đang khởi động Tesseract.js trên trình duyệt...';
 
     // Reset tất cả các trường dữ liệu về rỗng
     addForm.value.landlord_name = '';
@@ -126,35 +129,32 @@ const scanOcrFile = async (file) => {
     addForm.value.tenant_dob = '';
     addForm.value.tenant_address = '';
 
-    const formData = new FormData();
-    formData.append('ocr_file', file);
     try {
-        const res = await axios.post(route('landlord.contracts.extract_ocr'), formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+        const res = await performClientOcr(file, (percent, msg) => {
+            ocrProgressText.value = `${msg} (${percent}%)`;
         });
-        if (res.data) {
-            // CHỈ GÁN DỮ LIỆU ĐƯỢC BÓC TÁCH TRỰC TIẾP TỪ ẢNH HỢP ĐỒNG (res.data)
-            // TUYỆT ĐỐI KHÔNG LẤY TỪ TÀI KHOẢN NGƯỜI DÙNG HAY LỊCH HẸN!
-            addForm.value.landlord_name = res.data.landlord_name || '';
-            addForm.value.landlord_cccd = res.data.landlord_cccd || '';
-            addForm.value.landlord_phone = res.data.landlord_phone || '';
-            addForm.value.landlord_address = res.data.landlord_address || '';
 
-            addForm.value.tenant_name = res.data.tenant_name || '';
-            addForm.value.tenant_cccd = res.data.tenant_cccd || '';
-            addForm.value.tenant_phone = res.data.tenant_phone || '';
-            addForm.value.tenant_dob = res.data.tenant_dob || '';
-            addForm.value.tenant_address = res.data.tenant_address || '';
+        if (res) {
+            addForm.value.landlord_name = res.landlord_name || '';
+            addForm.value.landlord_cccd = res.landlord_cccd || '';
+            addForm.value.landlord_phone = res.landlord_phone || '';
+            addForm.value.landlord_address = res.landlord_address || '';
 
-            if (res.data.start_date) addForm.value.start_date = res.data.start_date;
-            if (res.data.end_date) addForm.value.end_date = res.data.end_date;
-            if (res.data.monthly_rent) addForm.value.rent = res.data.monthly_rent;
-            if (res.data.deposit_amount) addForm.value.deposit = res.data.deposit_amount;
+            addForm.value.tenant_name = res.tenant_name || '';
+            addForm.value.tenant_cccd = res.tenant_cccd || '';
+            addForm.value.tenant_phone = res.tenant_phone || '';
+            addForm.value.tenant_dob = res.tenant_dob || '';
+            addForm.value.tenant_address = res.tenant_address || '';
 
-            if (res.data.is_blank) {
-                showWarning('Hợp đồng trống', res.data.message || 'Phát hiện ảnh hợp đồng là bản mẫu in chưa điền thông tin/chữ ký. Tất cả thông tin đã được để trống để bạn tự điền thủ công ở Bước 3.');
-            } else if (res.data.has_data) {
-                showSuccess('Quét OCR hoàn tất', res.data.message || 'Hệ thống đã bóc tách dữ liệu từ hợp đồng!');
+            if (res.start_date) addForm.value.start_date = res.start_date;
+            if (res.end_date) addForm.value.end_date = res.end_date;
+            if (res.monthly_rent) addForm.value.rent = res.monthly_rent;
+            if (res.deposit_amount) addForm.value.deposit = res.deposit_amount;
+
+            if (res.is_blank) {
+                showWarning('Hợp đồng trống', res.message || 'Phát hiện ảnh hợp đồng là bản mẫu in chưa điền thông tin/chữ ký. Tất cả thông tin đã được để trống để bạn tự điền thủ công ở Bước 3.');
+            } else if (res.has_data) {
+                showSuccess('Quét OCR hoàn tất', res.message || 'Trình duyệt đã bóc tách thành công dữ liệu từ ảnh hợp đồng!');
             } else {
                 showSuccess('Nhận diện hợp đồng', 'Đã chuyển sang Bước 3 để bạn kiểm tra và điền thông tin hợp đồng.');
             }
@@ -165,6 +165,7 @@ const scanOcrFile = async (file) => {
         activeStep.value = 3;
     } finally {
         isScanningOcr.value = false;
+        ocrProgressText.value = '';
     }
 }
 
@@ -1020,7 +1021,7 @@ const submitCancelDraft = async (c) => {
                                 >
                                     <i v-if="isScanningOcr" class="bi bi-arrow-repeat animate-spin text-base"></i>
                                     <i v-else class="bi bi-scan-magic text-base"></i>
-                                    <span>{{ isScanningOcr ? 'Đang phân tích nét chữ hợp đồng...' : 'Quét OCR & Lấy Thông Tin Tự Động (Sang Bước 3)' }}</span>
+                                    <span>{{ isScanningOcr ? (ocrProgressText || 'Đang phân tích nét chữ hợp đồng...') : 'Quét OCR & Lấy Thông Tin Tự Động (Sang Bước 3)' }}</span>
                                 </button>
                             </div>
                         </div>
