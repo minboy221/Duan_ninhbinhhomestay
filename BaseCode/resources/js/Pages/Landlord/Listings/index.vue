@@ -182,6 +182,11 @@ const handleDeletePost = async (id) => {
                             <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[ls.status]?.dot"></span>
                             {{ statusMap[ls.status]?.label || ls.status }}
                         </span>
+
+                        <span v-if="ls.room?.current_people > 0 || ls.room?.status === 'rented'"
+                            class="absolute bottom-3 left-3 px-2.5 py-1 bg-emerald-600/90 text-white backdrop-blur-sm shadow-sm rounded-lg text-[9.5px] font-bold flex items-center gap-1">
+                            <i class="bi bi-person-check-fill"></i> Đã có {{ ls.room?.current_people || 1 }} người ở
+                        </span>
                     </div>
 
                     <!-- Middle Info Body -->
@@ -190,8 +195,7 @@ const handleDeletePost = async (id) => {
                             <h3 class="text-sm font-bold text-slate-800 leading-snug">
                                 {{ ls.title }}
                             </h3>
-                            <div
-                                class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-400 font-semibold">
+                            <div class="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500">
                                 <span class="flex items-center gap-1"><i class="bi bi-house-door text-emerald-600"></i>
                                     {{ ls.room?.room_number }}</span>
                                 <span class="flex items-center gap-1"><i
@@ -199,6 +203,8 @@ const handleDeletePost = async (id) => {
                                     {{ ls.room?.area }} m²</span>
                                 <span class="flex items-center gap-1"><i class="bi bi-geo-alt text-emerald-600"></i>
                                     {{ ls.room?.boarding_house?.name }}</span>
+                                <span class="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-bold border border-blue-100"><i class="bi bi-person-fill text-blue-600"></i>
+                                    Đã có {{ ls.room?.current_people || 0 }}/{{ ls.room?.capacity || 1 }} người ở</span>
                             </div>
                         </div>
 

@@ -41,11 +41,12 @@ class RoomService
         $floors = $this->floorRepo->getByPropertyId($property->id);
 
         return $floors->map(function ($floor) use ($boardingHouseId) {
-            $rooms = $floor->rooms;
-            if ($boardingHouseId) {
-                $rooms = $rooms->where('boarding_house_id', $boardingHouseId);
+            $allRooms = $floor->rooms;
+            //lọc phòng thuộc cở sở đang chọn
+            $rooms = $allRooms;
+            if($boardingHouseId){
+                $rooms = $rooms->where('boarding_house_id',$boardingHouseId);
             }
-
             return [
                 'id' => $floor->id,
                 'name' => $floor->name,
@@ -53,8 +54,18 @@ class RoomService
                 'latitude' => $floor->latitude,
                 'longitude' => $floor->longitude,
                 'rooms' => $rooms->map(fn($r) => $this->formatRoom($r))->values()->toArray(),
+                'total_rooms_count' => $allRooms -> count(),
             ];
-        })->values()->toArray();
+        })
+            //phần lọc bỏ các tầng không có phòng thuộc cơ sở trọ đang chọn
+            ->filter(function ($floor) use ($boardingHouseId) {
+                if ($boardingHouseId) {
+                    return
+                        count($floor['rooms']) > 0 || $floor['total_rooms_count'] === 0;
+                }
+                return true;
+            })
+            ->values()->toArray();
     }
 
     /**
@@ -85,32 +96,42 @@ class RoomService
     {
         $propertyId = $this->getOrCreatePropertyId($landlordId);
 
-        // Kiểm tra trùng tên tầng
-        $exists = Floor::where('property_id', $propertyId)
+        // Kiểm tra xem tầng với tên đã tồn tại dưới tài khoản chủ trọ
+        $floor = Floor::where('property_id', $propertyId)
             ->where('name', $data['name'])
-            ->exists();
-        if ($exists)
-            return null;
+            ->first();
+        if ($floor) {
+            $floor->update(array_filter([
+                'address' => $data['address'] ?? null,
+                'latitude' => $data['latitude'] ?? null,
+                'longitude' => $data['longitude'] ?? null,
+            ]));
+            return [
+                'id' => $floor->id,
+                'name' => $floor->name,
+                'address' => $floor->address,
+                'latitude' => $floor->latitude,
+                'longitude' => $floor->longitude,
+            ];
+        }
 
-        $maxOrder = $this->floorRepo->getMaxSortOrder($propertyId);
-
-        $floor = $this->floorRepo->create([
+        $newFloor = Floor::create([
             'property_id' => $propertyId,
             'name' => $data['name'],
             'address' => $data['address'] ?? null,
-            'latitude' => $data['latitude'] ?? null,
+            'latitude' => $data['latitude'] ?? null, 
             'longitude' => $data['longitude'] ?? null,
-            'sort_order' => $maxOrder + 1,
         ]);
-
+        
         return [
-            'id' => $floor->id,
-            'name' => $floor->name,
-            'address' => $floor->address,
-            'latitude' => $floor->latitude,
-            'longitude' => $floor->longitude,
-            'rooms' => []
+            'id' => $newFloor->id,
+            'name' => $newFloor->name,
+            'address' => $newFloor->address,
+            'latitude' => $newFloor->latitude,
+            'longitude' => $newFloor->longitude,
         ];
+
+        $maxOrder = $this->floorRepo->getMaxSortOrder($propertyId);
     }
 
     /**
@@ -175,7 +196,7 @@ class RoomService
         } else {
             $counts = $this->roomRepo->countByStatusForLandlord($landlordId);
         }
-        
+
         $result = [];
         foreach (Room::STATUSES as $status) {
             $result[$status] = $counts[$status] ?? 0;
@@ -208,7 +229,7 @@ class RoomService
             $query->where('boarding_house_id', $boardingHouse->id);
         }
         $exists = $query->exists();
-        
+
         if ($exists)
             return null;
 
@@ -266,11 +287,11 @@ class RoomService
             $query = Room::where('floor_id', $room->floor_id)
                 ->where('room_number', $data['room_number'])
                 ->where('id', '!=', $roomId);
-                
+
             if ($room->boarding_house_id) {
                 $query->where('boarding_house_id', $room->boarding_house_id);
             }
-                
+
             $exists = $query->exists();
             if ($exists)
                 return false;
@@ -375,15 +396,16 @@ class RoomService
         if (!$room || $room->boardingHouse->user_id !== $landlordId)
             return false;
 
-        if (!in_array($room->status, ['pending_renewal', 'expiring_soon'])) {
+        if (!in_array($room->status, ['rented', 'deposited', 'pending_renewal', 'expiring_soon'])) {
             return 'invalid_status';
         }
 
-        if ($room->current_people <= 0) {
+        $currentPeople = max($room->current_people ?? 0, 1);
+        if ($currentPeople <= 0) {
             return 'empty';
         }
 
-        return $this->roomRepo->update($room, ['current_people' => $room->current_people - 1]);
+        return $this->roomRepo->update($room, ['current_people' => max(0, $currentPeople - 1)]);
     }
 
     /**
@@ -406,6 +428,23 @@ class RoomService
 
     private function formatRoom($room): array
     {
+        $currentPeople = (int) ($room->current_people ?? 0);
+
+        // Đếm số hợp đồng đang hoạt động/ký cho phòng này
+        $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
+            ->whereIn('status', ['active', 'signed', 'pending', 'awaiting_upload', 'termination_requested', 'expiring'])
+            ->count();
+
+        // Nếu room có trạng thái 'rented' (Đã thuê) hoặc có HĐ active, tự động sinh ít nhất 1 người ở
+        if ($room->status === 'rented' || $activeContractsCount > 0) {
+            $currentPeople = max($currentPeople, $activeContractsCount, 1);
+
+            // Cập nhật đồng bộ lại vào cơ sở dữ liệu nếu DB đang lưu = 0
+            if (($room->current_people ?? 0) < $currentPeople) {
+                $room->update(['current_people' => $currentPeople]);
+            }
+        }
+
         return [
             'id' => $room->id,
             'name' => $room->room_number,
@@ -417,7 +456,7 @@ class RoomService
             'price' => (float) $room->price,
             'area' => (float) $room->area,
             'capacity' => $room->capacity,
-            'current_people' => $room->current_people,
+            'current_people' => $currentPeople,
             'amenities' => $room->amenities,
             'images' => $room->images ?? [],
             'services' => $room->relationLoaded('services') ? $room->services->toArray() : [],

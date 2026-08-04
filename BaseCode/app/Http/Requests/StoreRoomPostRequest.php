@@ -27,6 +27,8 @@ class StoreRoomPostRequest extends FormRequest
             'action' => 'required|string|in:draft,publish',
             'room_id' => 'required|exists:rooms,id',
             'title' => 'required|string|min:10|max:255',
+            'current_people' => 'nullable|integer|min:0',
+            'capacity' => 'nullable|integer|min:1',
             'address' => 'nullable|string',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',

@@ -27,6 +27,11 @@ const statusMap = {
         cls: "bg-emerald-50 text-emerald-600 border-emerald-100",
         dot: "bg-emerald-500",
     },
+    waiting_contract: {
+        label: "Chờ hợp đồng",
+        cls: "bg-blue-50 text-blue-600 border-blue-100",
+        dot: "bg-blue-500",
+    },
     rejected: {
         label: "Từ Chối",
         cls: "bg-slate-50 text-slate-500 border-slate-100",
@@ -165,27 +170,50 @@ const showConfirmModal = ref(false);
 const confirmAction = ref("interested"); // 'interested' hoặc 'not_interested'
 const confirmApt = ref(null);
 const tenantCccd = ref("");
+const selectedReason = ref("");
+const otherReasonDetail = ref("");
 
 function openConfirmInterest(apt, isInterested) {
     confirmApt.value = apt;
     confirmAction.value = isInterested ? "interested" : "not_interested";
     tenantCccd.value = page.props.auth?.user?.cccd_number || "";
+    selectedReason.value = "";
+    otherReasonDetail.value = "";
     showConfirmModal.value = true;
 }
 
 function closeConfirmModal() {
     showConfirmModal.value = false;
     confirmApt.value = null;
+    selectedReason.value = "";
+    otherReasonDetail.value = "";
 }
 
 function executeInterest() {
     if (!confirmApt.value) return;
+
+    let finalReason = null;
+    if (confirmAction.value === "not_interested") {
+        if (!selectedReason.value) {
+            alert("Vui lòng chọn hoặc nhập lý do không ưng!");
+            return;
+        }
+        finalReason = selectedReason.value === "Lý do khác"
+            ? otherReasonDetail.value.trim()
+            : selectedReason.value;
+
+        if (!finalReason) {
+            alert("Vui lòng nhập chi tiết lý do!");
+            return;
+        }
+    }
 
     router.post(
         route("appointments.interest", confirmApt.value.id),
         {
             result: confirmAction.value,
             cccd: tenantCccd.value,
+            reason: finalReason,
         },
         {
             preserveScroll: true,
@@ -195,6 +223,48 @@ function executeInterest() {
             },
             onError: () => {
                 showError("Lỗi", "Không thể thực hiện thao tác. Vui lòng thử lại!");
+            },
+        }
+    );
+}
+
+// State cho Modal Hủy Hợp Đồng / Đổi ý
+const showCancelModal = ref(false);
+const cancelApt = ref(null);
+const cancelReason = ref("");
+
+function openCancelInterestModal(apt) {
+    cancelApt.value = apt;
+    cancelReason.value = "";
+    showCancelModal.value = true;
+}
+
+function closeCancelModal() {
+    showCancelModal.value = false;
+    cancelApt.value = null;
+    cancelReason.value = "";
+}
+
+function executeCancelInterest() {
+    if (!cancelApt.value) return;
+    if (!cancelReason.value || !cancelReason.value.trim()) {
+        showWarning("Thiếu lý do", "Vui lòng nhập lý do muốn hủy hợp đồng / hủy đăng ký!");
+        return;
+    }
+
+    router.post(
+        route("appointments.cancel_interest", cancelApt.value.id),
+        {
+            reason: cancelReason.value,
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeCancelModal();
+                showSuccess("Đã gửi yêu cầu", "Yêu cầu hủy đăng ký hợp đồng đã được gửi đến Chủ trọ phê duyệt!");
+            },
+            onError: () => {
+                showError("Lỗi", "Không thể gửi yêu cầu hủy. Vui lòng thử lại!");
             },
         }
     );
@@ -509,16 +579,51 @@ const paginatedAppointments = computed(() => {
                                         {{ new Date(apt.date).toLocaleDateString("vi-VN") }} lúc {{ apt.time.substring(0, 5) }}
                                         <span v-if="isToday(apt.date)" class="today-badge" style="margin-left: 4px;">Hôm nay!</span>
                                     </span>
-                                </div>
-                            </div>
-
-                            <div class="mobile-apt-info-item">
-                                <i class="bi bi-person-fill text-emerald-500"></i>
-                                <div style="flex: 1;">
-                                    <span class="info-label">Chủ nhà / Liên hệ</span>
-                                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
-                                        <span class="info-value">
-                                            {{ apt.room?.boardingHouse?.landlord?.name || apt.room?.boarding_house?.landlord?.name || 'Chủ trọ' }}
+                                </td>
+                                <td style="
+                                        padding: 12px 16px;
+                                        text-align: center;
+                                    ">
+                                    <div style="
+                                            display: flex;
+                                            gap: 8px;
+                                            justify-content: center;
+                                        ">
+                                        <Link :href="route('chitiettro', apt.room_id)
+                                            " class="btn-action btn-view" title="Xem phòng">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </Link>
+                                        <button v-if="apt.status === 'approved'" @click="showGuide(apt)"
+                                            class="btn-action btn-map" title="Chỉ dẫn đường đi">
+                                            <i class="bi bi-geo-alt-fill"></i>
+                                        </button>
+                                    </div>
+                                    <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result"
+                                        style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+                                        <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"
+                                            title="Ưng thuê"
+                                            style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                                            <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px;"></i> Ưng
+                                        </button>
+                                        <button @click="openConfirmInterest(apt, false)"
+                                            class="btn-action btn-not-interest" title="Không ưng"
+                                            style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                                            <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i> Không
+                                            ưng
+                                        </button>
+                                    </div>
+                                    <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;" class="space-y-1">
+                                        <span v-if="['interested', 'like'].includes(apt.feedback_result)"
+                                            style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold; display: inline-block;">
+                                            <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
+                                        </span>
+                                        <span v-else-if="apt.feedback_result === 'cancel_requested'"
+                                            style="background-color: #fffbeb; color: #d97706; border: 1px solid #fde68a; padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: bold; display: inline-block;">
+                                            <i class="bi bi-clock-history"></i> Đã gửi yêu cầu hủy HĐ (Chờ duyệt)
+                                        </span>
+                                        <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
+                                            style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
+                                            <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
                                         </span>
                                         <a v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone" 
                                            :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
@@ -820,23 +925,29 @@ const paginatedAppointments = computed(() => {
                             phòng <strong>{{ confirmApt?.room?.room_number }}</strong> và muốn tiến hành thuê không?</p>
                         <p style="margin-bottom: 16px;">Hệ thống sẽ gửi thông báo đến chủ trọ để tạo hợp đồng cho bạn.
                         </p>
-                        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                            <label
-                                style="display: block; font-weight: bold; font-size: 12px; color: #64748b; margin-bottom: 6px;">Số
-                                CCCD / CMND (Tùy chọn)</label>
-                            <input v-model="tenantCccd"
-                                @input="tenantCccd = tenantCccd.replace(/[^0-9]/g, '').slice(0, 12)" type="text"
-                                maxlength="12" placeholder="Nhập để chủ trọ tạo hợp đồng nhanh hơn..."
-                                style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; font-size: 13px; transition: all 0.2s; box-sizing: border-box;"
-                                onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 2px rgba(16, 185, 129, 0.1)'"
-                                onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'" />
+                    </div>
+                    <div v-else style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0;">
+                        <p style="margin-bottom: 12px;">Bạn chắc chắn <strong style="color: #e11d48;">KHÔNG ƯNG</strong> phòng <strong>{{ confirmApt?.room?.room_number }}</strong> này?</p>
+                        
+                        <!-- Danh sách lý do động -->
+                        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+                            <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Vui lòng chọn lý do cụ thể:</label>
+                            
+                            <div v-for="(reason, idx) in ($page.props.settings.not_interested_reasons || [])" :key="idx" 
+                                 style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0;">
+                                <input type="radio" :id="'reason_' + idx" v-model="selectedReason" :value="reason" style="accent-color: #ef4444;" />
+                                <label :for="'reason_' + idx" style="font-size: 13px; color: #334155; cursor: pointer;">{{ reason }}</label>
+                            </div>
+                        </div>
+
+                        <!-- Ô nhập lý do khác chi tiết (Chỉ hiện khi chọn "Lý do khác") -->
+                        <div v-if="selectedReason === 'Lý do khác'" style="margin-top: 12px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #64748b; display: block; margin-bottom: 4px;">Mô tả chi tiết lý do khác:</label>
+                            <textarea v-model="otherReasonDetail" rows="2" 
+                                      placeholder="Nhập lý do chi tiết..."
+                                      style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 12px; box-sizing: border-box; resize: none;"></textarea>
                         </div>
                     </div>
-                    <p v-else style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0;">
-                        Bạn chắc chắn <strong style="color: #e11d48;">KHÔNG ƯNG</strong> phòng <strong>{{
-                            confirmApt?.room?.room_number }}</strong> này?<br><br>
-                        Quyết định của bạn sẽ được lưu lại để giúp chúng tôi gợi ý tốt hơn trong tương lai.
-                    </p>
 
                     <div class="review-modal-footer" style="margin-top: 24px;">
                         <button @click="closeConfirmModal" class="btn-review-cancel">Hủy bỏ</button>
@@ -844,6 +955,44 @@ const paginatedAppointments = computed(() => {
                             :style="confirmAction === 'interested' ? 'background: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);' : 'background: #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);'"
                             class="btn-review-submit">
                             <i class="bi bi-check-lg"></i> Xác nhận
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- Cancel Interest Modal (Đổi ý Hủy Hợp Đồng) -->
+    <Teleport to="body">
+        <div v-if="showCancelModal" class="review-modal-overlay" @click.self="closeCancelModal">
+            <div class="review-modal-box">
+                <div class="review-modal-header" style="border-bottom: 1px solid #fecdd3; background-color: #fff1f2;">
+                    <h3 style="color: #e11d48; font-size: 15px; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 6px;">
+                        <i class="bi bi-exclamation-octagon-fill" style="color: #ef4444;"></i>
+                        Yêu Cầu Hủy Đăng Ký Hợp Đồng
+                    </h3>
+                    <button @click="closeCancelModal" class="review-close-btn"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="review-modal-body">
+                    <div style="font-size: 13.5px; color: #475569; line-height: 1.6; margin: 0;">
+                        <p style="margin-bottom: 8px;">Bạn đang yêu cầu <strong style="color: #e11d48;">HỦY HỢP ĐỒNG / ĐỔI Ý KHÔNG THUÊ</strong> phòng <strong>{{ cancelApt?.room?.room_number }}</strong>.</p>
+                        <p style="margin-bottom: 14px; font-size: 12px; color: #64748b;">Lý do hủy của bạn sẽ được gửi tới Chủ trọ để phê duyệt và cập nhật danh sách.</p>
+
+                        <div style="background: #fff1f2; padding: 12px; border-radius: 12px; border: 1px solid #fecdd3;">
+                            <label style="display: block; font-weight: bold; font-size: 12px; color: #be123c; margin-bottom: 6px;">
+                                Lý do muốn hủy hợp đồng <span style="color: #ef4444;">*</span>
+                            </label>
+                            <textarea v-model="cancelReason" rows="3" placeholder="Nhập lý do cụ thể (VD: Đã tìm được phòng khác gần cơ quan hơn, thay đổi kế hoạch chuyển đi...)"
+                                style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #fda4af; outline: none; font-size: 13px; box-sizing: border-box; background: white;"
+                                onfocus="this.style.borderColor='#e11d48'; this.style.boxShadow='0 0 0 2px rgba(225, 29, 72, 0.1)'"
+                                onblur="this.style.borderColor='#fda4af'; this.style.boxShadow='none'"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="review-modal-footer" style="margin-top: 20px;">
+                        <button @click="closeCancelModal" class="btn-review-cancel">Hủy bỏ</button>
+                        <button @click="executeCancelInterest" style="background: #e11d48; box-shadow: 0 4px 6px -1px rgba(225, 29, 72, 0.3);" class="btn-review-submit">
+                            <i class="bi bi-send-fill"></i> Gửi Yêu Cầu Hủy
                         </button>
                     </div>
                 </div>

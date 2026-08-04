@@ -6,6 +6,7 @@ import { useForm, usePage } from "@inertiajs/vue3";
 const props = defineProps({
     boardingHouses: { type: Array, default: () => [] },
     currentAvailabilities: { type: Array, default: () => [] },
+    selectedBoardingHouseId : {type: Number,default: null},
 });
 
 const page = usePage();
@@ -22,7 +23,7 @@ const daysOfWeekList = [
 ];
 
 // Selection of boarding house
-const selectedBoardingHouseId = ref(props.boardingHouses[0]?.id || null);
+const selectedBoardingHouseId = ref(props.selectedBoardingHouseId || props.boardingHouses[0]?.id || null);
 
 //hàm lấy số phút tự huỷ
 const getCancelMinutes = (boardingHouseId) => {

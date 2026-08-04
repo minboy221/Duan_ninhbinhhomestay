@@ -98,6 +98,7 @@ const typeClass = {
 </script>
 
 <template>
+
     <Head title="Admin - Phê Duyệt Nội Dung" />
     <AdminLayout>
         <template #header-title>
@@ -111,19 +112,13 @@ const typeClass = {
         </template>
 
         <div class="tabs-bar">
-            <button
-                v-for="tab in tabs"
-                :key="tab.key"
-                @click="activeTab = tab.key"
-                :class="['tab-btn', activeTab === tab.key ? 'tab-active' : '']"
-            >
+            <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+                :class="['tab-btn', activeTab === tab.key ? 'tab-active' : '']">
                 {{ tab.label }}
-                <span
-                    :class="[
-                        'tab-count',
-                        activeTab === tab.key ? 'count-active' : '',
-                    ]"
-                >
+                <span :class="[
+                    'tab-count',
+                    activeTab === tab.key ? 'count-active' : '',
+                ]">
                     {{ tab.count }}
                 </span>
             </button>
@@ -139,72 +134,50 @@ const typeClass = {
 
             <div v-for="post in filteredPosts" :key="post.id" class="post-card">
                 <div class="post-thumb">
-                    <img
-                        v-if="post.image && post.image.length > 0"
-                        :src="post.image[0]"
-                        class="w-full h-full object-cover rounded-lg"
-                    />
-                    <i
-                        v-else
-                        class="bi bi-house-door text-4xl text-slate-300"
-                    ></i>
+                    <img v-if="post.image && post.image.length > 0" :src="post.image[0]"
+                        class="w-full h-full object-cover rounded-lg" />
+                    <i v-else class="bi bi-house-door text-4xl text-slate-300"></i>
                 </div>
 
                 <div class="post-info">
                     <div class="post-meta">
-                        <span
-                            :class="[
-                                'post-type',
-                                typeClass[post.room?.room_type] || 'type-blue',
-                            ]"
-                        >
+                        <span :class="[
+                            'post-type',
+                            typeClass[post.room?.room_type] || 'type-blue',
+                        ]">
                             {{ post.room?.room_type || "Phòng trọ" }}
                         </span>
                         <span class="post-id">#{{ post.id }}</span>
                     </div>
                     <h3 class="post-title">{{ post.title }}</h3>
                     <div class="post-details">
-                        <span
-                            ><i class="bi bi-person"></i>
-                            {{ post.landlord?.name }}</span
-                        >
-                        <span class="font-bold text-red-600"
-                            ><i class="bi bi-cash"></i>
-                            {{ formatMoney(post.room?.price) }}đ/tháng</span
-                        >
-                        <span
-                            ><i class="bi bi-calendar3"></i>
-                            {{ formatDate(post.created_at) }}</span
-                        >
+                        <span><i class="bi bi-person"></i>
+                            {{ post.landlord?.name }}</span>
+                        <span class="font-bold text-red-600"><i class="bi bi-cash"></i>
+                            {{ formatMoney(post.room?.price) }}đ/tháng</span>
+                        <span><i class="bi bi-calendar3"></i>
+                            {{ formatDate(post.created_at) }}</span>
                     </div>
                 </div>
 
                 <div class="post-actions">
-                    <Link
-                        :href="route('admin.listings.show', post.id)"
-                        class="act-view inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-bold text-xs transition-colors"
-                    >
+                    <Link :href="route('admin.listings.show', post.id)"
+                        class="act-view inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-bold text-xs transition-colors">
                         <i class="bi bi-eye"></i> Xem chi tiết
                     </Link>
                     <template v-if="activeTab === 'pending'">
                         <button @click="approvePost(post)" class="act-approve">
                             <i class="bi bi-check-lg"></i> Duyệt
                         </button>
-                        <button @click="openDetail(post)" class="act-reject">
-                            <i class="bi bi-x-lg"></i> Từ chối
-                        </button>
                     </template>
-                    <span
-                        v-else-if="activeTab === 'approved'"
-                        class="badge-done"
-                        >✓ Đã duyệt</span
-                    >
+                    <span v-else-if="activeTab === 'approved'" class="badge-done">✓ Đã duyệt</span>
                     <span v-else class="badge-reject">✗ Đã từ chối</span>
                 </div>
             </div>
         </div>
     </AdminLayout>
 </template>
+
 
 <style scoped>
 .page-title {

@@ -38,6 +38,7 @@ class ActivateContractAndRoomListener
                     $room->status = 'rented';
                     $room->save();
                 }
+                event(new \App\Events\RoomStatusUpdated($room->id,'rented'));
             });
         } catch (\Exception $e) {
             Log::error("Failed to activate contract and room: " . $e->getMessage());

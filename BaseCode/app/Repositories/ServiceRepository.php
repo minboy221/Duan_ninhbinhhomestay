@@ -46,4 +46,9 @@ class ServiceRepository
     {
         return $service->delete();
     }
+    //lấy tất cả dịch vụ theo boarding_house_id
+    public function getByBoardingHouseId(int $boardingHouseId): Collection
+    {
+        return Service::where('boarding_house_id', $boardingHouseId)->get();
+    }
 }

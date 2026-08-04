@@ -46,6 +46,18 @@ class AdminVerificationController extends Controller
                 $request->action,
                 $request->reason
             );
+            //ghi log
+            $action = $request->action === 'approve' ? 'approve_verification' : 'reject_verification';
+            $actionText = $request->action === 'approve' ? 'Phê duyệt' : 'Từ chối';
+            //tìm thông tin email của người dùng bị tác động
+            $targetUser = \App\Models\User::find($userId);
+            $email = $targetUser ? $targetUser->email : 'ID # {$userId}';
+            $reasonText = $request->reason ? "(Lý do: " . $request->reason . ")" : "";
+            \App\Services\AuditLogger::log(
+                $action,
+                "{$actionText} hồ sơ làm chủ trọ của tài khoản: {$email}{$reasonText}",
+                false
+            );
             return redirect()->route('admin.verifications.index')->with('success', $result['message']);
         } catch (\Exception $e) {
             return back()->with('error', 'có lỗi hệ thống xảy ra:' . $e->getMessage());

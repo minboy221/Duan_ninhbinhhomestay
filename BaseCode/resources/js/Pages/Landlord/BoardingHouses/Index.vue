@@ -1,7 +1,8 @@
 <script setup>
-import { Head, Link, router } from "@inertiajs/vue3";
+import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
-
+import { showConfirm, showError, showSuccess } from "@/Utils/swal";
+import { watch } from "vue";
 defineProps({
     boardingHouses: Array,
 });
@@ -38,6 +39,37 @@ const getStatusText = (status) => {
             return "Không rõ";
     }
 };
+
+const deleteHouse = async (id) => {
+    const confirm = await showConfirm(
+        "Xác nhận xoá?",
+        "Bạn có chắc muốn xoá cơ sở trọ này? Hành động này sẽ xoá toàn bộ phòng và dữ liệu liên quan và không thể hoàn tác",
+        "Đồng ý xoá",
+        "Huỷ bỏ",
+    );
+    if (confirm) {
+        router.delete(route("landlord.boarding-houses.destroy", id), {
+            preserveScroll: true,
+            onError: (errors) => {
+                showError("Lỗi", "Không thể xoá cơ sở này.");
+            },
+        });
+    }
+};
+
+const page = usePage();
+watch(
+    () => page.props.flash,
+    (flash) => {
+        if (flash?.success) {
+            showSuccess("Thành công", flash.success);
+        }
+        if (flash?.error) {
+            showError("Thất bại", flash.error);
+        }
+    },
+    { deep: true, immediate: true },
+);
 </script>
 
 <template>
@@ -122,47 +154,141 @@ const getStatusText = (status) => {
                                         title="Xem chi tiết">
                                         <i class="bi bi-eye"></i> Xem chi tiết
                                     </Link>
+                                    <Link :href="route(
+                                        'landlord.boarding-houses.edit',
+                                        house.id,
+                                    )
+                                        " class="p-2 text-slate-400 hover:text-blue-500 transition" title="Chỉnh sửa">
+                                        <i class="bi bi-pencil-square text-lg"></i>
+                                    </Link>
+                                    <button @click="deleteHouse(house.id)"
+                                        class="p-2 text-slate-400 hover:text-rose-500 transition" title="Xóa cơ sở">
+                                        <i class="bi bi-trash text-lg"></i>
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <div v-if="!boardingHouses.length" class="px-5 py-8 text-center text-slate-500">
-                    <i class="bi bi-buildings text-4xl text-slate-300 mb-3 block"></i>
-                    Bạn chưa có cơ sở nào. Hãy thêm cơ sở mới.
+                <!-- Mobile Cards View (hidden on desktop) -->
+                <div class="block md:hidden divide-y divide-slate-100">
+                    <div v-for="house in boardingHouses" :key="house.id"
+                        class="p-4 space-y-3 hover:bg-slate-50 transition-colors">
+                        <!-- Header -->
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 space-y-1">
+                                <span class="text-[10px] font-bold text-slate-400">
+                                    #{{ house.id }}
+                                </span>
+
+                                <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
+                                    {{ house.name }}
+
+                                    <span v-if="
+                                        $page.props.auth
+                                            .selected_boarding_house_id ===
+                                        house.id
+                                    "
+                                        class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] rounded-full uppercase font-black">
+                                        <i class="bi bi-geo-alt-fill mr-1"></i>
+                                        Đang chọn
+                                    </span>
+                                </h4>
+                            </div>
+
+                            <Link :href="route(
+                                'landlord.boarding-houses.show',
+                                house.id,
+                            )
+                                " class="p-2 text-slate-400 hover:text-emerald-500 transition" title="Xem chi tiết">
+                                <i class="bi bi-eye text-lg"></i>
+                            </Link>
+                        </div>
+
+                        <!-- Address -->
+                        <div class="flex items-start gap-2 text-xs text-slate-600">
+                            <i class="bi bi-geo-alt text-emerald-500 mt-0.5"></i>
+
+                            <span>
+                                {{ house.address_detail }}, {{ house.district }}
+                            </span>
+                        </div>
+                        <div class="flex gap-2">
+                            <Link :href="route(
+                                'landlord.boarding-houses.show',
+                                house.id,
+                            )
+                                " class="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
+                                <i class="bi bi-eye"></i>
+                            </Link>
+                            <Link :href="route(
+                                'landlord.boarding-houses.edit',
+                                house.id,
+                            )
+                                " class="text-slate-400 hover:text-blue-500 p-1 transition-colors">
+                                <i class="bi bi-pencil-square"></i>
+                            </Link>
+                            <button @click="deleteHouse(house.id)"
+                                class="text-slate-400 hover:text-rose-500 p-1 transition-colors">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+
+                        <!-- Action -->
+                        <div v-if="
+                            $page.props.auth.selected_boarding_house_id !==
+                            house.id
+                        " class="pt-3 border-t border-slate-100">
+                            <button @click="selectHouse(house.id)"
+                                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+                                <i class="bi bi-box-arrow-in-right"></i>
+                                Chọn cơ sở này
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Mobile Cards View (hidden on desktop) -->
             <div class="block md:hidden divide-y divide-slate-100">
-                <div v-for="house in boardingHouses" :key="house.id" 
+                <div v-for="house in boardingHouses" :key="house.id"
                     class="p-4 space-y-3 hover:bg-slate-50/50 transition-colors">
                     <div class="flex justify-between items-start">
                         <div class="space-y-1">
                             <span class="text-[10px] font-bold text-slate-400">#{{ house.id }}</span>
                             <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
                                 {{ house.name }}
-                                <span v-if="$page.props.auth.selected_boarding_house_id === house.id" 
+                                <span v-if="
+                                    $page.props.auth
+                                        .selected_boarding_house_id ===
+                                    house.id
+                                "
                                     class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] rounded uppercase font-black">
                                     <i class="bi bi-geo-alt-fill"></i> Đang Chọn
                                 </span>
                             </h4>
                         </div>
-                        <Link :href="route('landlord.boarding-houses.show', house.id)" class="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
+                        <Link :href="route('landlord.boarding-houses.show', house.id)
+                            " class="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
                             <i class="bi bi-eye"></i>
                         </Link>
                     </div>
-                    
+
                     <div class="text-[11px] text-slate-600 flex items-start gap-1">
                         <i class="bi bi-map text-slate-400 mt-0.5"></i>
-                        <span>{{ house.address_detail }}, {{ house.district }}</span>
+                        <span>{{ house.address_detail }},
+                            {{ house.district }}</span>
                     </div>
-                    
-                    <div v-if="$page.props.auth.selected_boarding_house_id !== house.id" class="pt-2 border-t border-slate-100/50 flex justify-end">
+
+                    <div v-if="
+                        $page.props.auth.selected_boarding_house_id !==
+                        house.id
+                    " class="pt-2 border-t border-slate-100/50 flex justify-end">
                         <button @click="selectHouse(house.id)"
                             class="text-xs font-bold bg-white border border-emerald-250 text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 w-full justify-center">
-                            <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở này
+                            <i class="bi bi-box-arrow-in-right"></i> Chọn cơ sở
+                            này
                         </button>
                     </div>
                 </div>

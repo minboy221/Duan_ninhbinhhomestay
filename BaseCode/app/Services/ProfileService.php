@@ -80,6 +80,7 @@ class ProfileService
             'job' => $user->job,
             'dob' => $user->dob ? $user->dob->format('Y-m-d') : null,
             'gender' => $user->gender,
+            'cccd_number' => $user->cccd_number,
         ];
 
         // Cập nhật thời gian đổi thông tin lần cuối

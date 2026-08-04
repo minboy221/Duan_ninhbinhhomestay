@@ -33,7 +33,7 @@ class RoomListingController extends Controller
         //gọi services lấy danh sách bài đăng
         $listings = $this->roomPostService->getLandlordPosts(auth()->id());
         //trả dữ liệu ra giao diện
-        return Inertia::render('Landlord/Listings/Index', [
+        return Inertia::render('Landlord/Listings/index', [
             'listings' => $listings
         ]);
     }
@@ -41,7 +41,10 @@ class RoomListingController extends Controller
     // Phần hiển thị form nhập đăng tin
     public function create(): Response
     {
+        $boardingHousesId = session('selected_boarding_house_id');
         $boardingHouses = BoardingHouse::where('user_id', auth()->id())
+            ->where('id', $boardingHousesId)
+            //lọc theo cơ sở đang chọn
             ->where('status', 'approved')
             ->with(['floors.rooms.roomPosts'])
             ->get();
@@ -116,6 +119,8 @@ class RoomListingController extends Controller
             abort(403, 'Bạn không có quyền sửa bài đăng này');
         }
         $boardingHouses = BoardingHouse::where('user_id', auth()->id())
+            ->where('id', $post->room->boarding_house_id)
+            //khoá theo cơ sở của bài đăng
             ->where('status', 'approved')
             ->with(['floors.rooms.roomPosts'])
             ->get();

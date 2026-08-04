@@ -133,7 +133,8 @@ const getAvatarUrl = (avatar) => {
                     <div class="filter-body" :class="{ 'collapsed': isFilterCollapsed }">
                         <!-- Khu vực (Searchable Dropdown) -->
                         <div class="select_box relative" ref="areaDropdownRef">
-                            <div class="select cursor-pointer flex items-center justify-between" @click.stop="showDropdown = !showDropdown">
+                            <div class="select cursor-pointer flex items-center justify-between"
+                                @click.stop="showDropdown = !showDropdown">
                                 <span class="selected flex items-center gap-2">
                                     <i class="bi bi-geo-alt text-blue-600"></i>
                                     {{ selectedArea ? selectedArea.name : 'Chọn khu vực' }}
@@ -146,33 +147,23 @@ const getAvatarUrl = (avatar) => {
                                 <div class="p-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
                                     <div class="relative flex items-center">
                                         <i class="bi bi-search absolute left-3 text-slate-400 text-xs"></i>
-                                        <input 
-                                            v-model="areaSearchQuery"
-                                            type="text"
-                                            placeholder="Gõ tìm phường, xã..."
+                                        <input v-model="areaSearchQuery" type="text" placeholder="Gõ tìm phường, xã..."
                                             class="w-full pl-8 pr-3 py-1.5 text-xs bg-white rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                            @click.stop
-                                        />
+                                            @click.stop />
                                     </div>
                                 </div>
 
                                 <ul class="max-h-56 overflow-y-auto py-1 custom-scrollbar">
-                                    <li 
-                                        class="px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
-                                        :class="{ 'active': !selectedArea }" 
-                                        @click="selectArea(null)"
-                                    >
+                                    <li class="px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                                        :class="{ 'active': !selectedArea }" @click="selectArea(null)">
                                         <span>-- Tất cả khu vực --</span>
                                     </li>
-                                    <li 
-                                        v-for="area in filteredAreas" 
-                                        :key="area.id"
-                                        :class="{ active: selectedArea?.id === area.id }" 
-                                        @click="selectArea(area)"
-                                    >
+                                    <li v-for="area in filteredAreas" :key="area.id"
+                                        :class="{ active: selectedArea?.id === area.id }" @click="selectArea(area)">
                                         <i :class="['bi', area.icon || 'bi-geo-alt']"></i> {{ area.name }}
                                     </li>
-                                    <li v-if="filteredAreas.length === 0" class="px-3 py-4 text-center text-xs text-slate-400">
+                                    <li v-if="filteredAreas.length === 0"
+                                        class="px-3 py-4 text-center text-xs text-slate-400">
                                         Không tìm thấy khu vực
                                     </li>
                                 </ul>
@@ -278,10 +269,13 @@ const getAvatarUrl = (avatar) => {
                                         ]">
                                             {{ getStatusLabel(post.room.status) }}
                                         </span>
+                                        <span v-if="post.room?.current_people > 0 || post.room?.status === 'rented'"
+                                            class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <i class="bi bi-person-check-fill" style="margin-right: 4px;"></i> Đã có {{ post.room?.current_people || 1 }} người ở
+                                        </span>
                                         <span v-if="post.room?.boarding_house?.average_rating > 0" class="text-yellow-500 font-bold" style="font-size: 13px;">
                                             <i class="bi bi-star-fill"></i> {{ post.room.boarding_house.average_rating }}
                                         </span>
-                                        <span v-else class="text-gray-400 italic" style="font-size: 13px;">Chưa có đánh giá</span>
                                     </div>
                                     <div class="about_room">
                                         <p
@@ -290,15 +284,18 @@ const getAvatarUrl = (avatar) => {
                                     </div>
                                 </div>
                             </div>
-                            <div class="user_room">
-                                <img :src="getAvatarUrl(post.landlord?.avatar)" alt="" style="object-fit: cover;">
-                                <h4>{{ post.landlord?.name || 'Chủ trọ' }}</h4>
-                                <p>cập nhật {{ timeAgo(post.updated_at) }}</p>
+                            <div style="display: flex; align-items:  center; justify-content: space-between;">
+                                <div class="user_room">
+                                    <img :src="getAvatarUrl(post.landlord?.avatar)" alt="" style="object-fit: cover;">
+                                    <h4>{{ post.landlord?.name || 'Chủ trọ' }}</h4>
+                                    <p>cập nhật {{ timeAgo(post.updated_at) }}</p>
+                                </div>
+                                <Link :href="'/chitiettro/' + post.slug_with_hash" class="btn" style="position: unset;">
+                                    Xem chi tiết
+                                </Link>
                             </div>
                         </div>
-                        <Link :href="'/chitiettro/' + post.id" class="btn">
-                            Xem chi tiết
-                        </Link>
+
                     </div>
                 </div>
 

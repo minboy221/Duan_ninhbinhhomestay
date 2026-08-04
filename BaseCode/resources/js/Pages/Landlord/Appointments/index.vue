@@ -63,6 +63,11 @@ const statusMap = {
         cls: "bg-emerald-50 text-emerald-600 border-emerald-100",
         dot: "bg-emerald-500",
     },
+    waiting_contract: {
+        label: "Chờ hợp đồng",
+        cls: "bg-blue-50 text-blue-600 border-blue-100",
+        dot: "bg-blue-500",
+    },
     rejected: {
         label: "Từ Chối",
         cls: "bg-slate-50 text-slate-500 border-slate-100",
@@ -101,11 +106,13 @@ const openRejectModal = (apt) => {
 
 //hàm lấy trạng thái an toàn
 const getStatusData = (status) => {
-    return statusMap[status] || {
-        label: status || "Không rõ",
-        cls: 'bg-slate-50 text-slate-500 border-slate-100',
-        dot: "bg-slate-500"
-    };
+    return (
+        statusMap[status] || {
+            label: status || "Không rõ",
+            cls: "bg-slate-50 text-slate-500 border-slate-100",
+            dot: "bg-slate-500",
+        }
+    );
 };
 
 //hàm sử lý gửi form từ chối kèm lý do lên Server
@@ -128,21 +135,31 @@ const pendingPageSize = 5;
 const pendingList = computed(() =>
     appointments.value.filter((a) => a.status === "pending"),
 );
-const pendingTotalPages = computed(() => Math.ceil(pendingList.value.length / pendingPageSize));
+const pendingTotalPages = computed(() =>
+    Math.ceil(pendingList.value.length / pendingPageSize),
+);
 const paginatedPendingList = computed(() => {
     const start = (pendingPage.value - 1) * pendingPageSize;
     return pendingList.value.slice(start, start + pendingPageSize);
 });
 watch(pendingList, (newVal) => {
-    if (pendingPage.value > 1 && newVal.length <= (pendingPage.value - 1) * pendingPageSize) {
-        pendingPage.value = Math.max(1, Math.ceil(newVal.length / pendingPageSize));
+    if (
+        pendingPage.value > 1 &&
+        newVal.length <= (pendingPage.value - 1) * pendingPageSize
+    ) {
+        pendingPage.value = Math.max(
+            1,
+            Math.ceil(newVal.length / pendingPageSize),
+        );
     }
 });
 
 // --- PHÂN TRANG CHO TẤT CẢ LỊCH HẸN ---
 const allPage = ref(1);
 const allPageSize = 10;
-const allTotalPages = computed(() => Math.ceil(appointments.value.length / allPageSize));
+const allTotalPages = computed(() =>
+    Math.ceil(appointments.value.length / allPageSize),
+);
 const paginatedAllAppointments = computed(() => {
     const start = (allPage.value - 1) * allPageSize;
     return appointments.value.slice(start, start + allPageSize);
@@ -156,7 +173,7 @@ const getVisiblePages = (currentPage, totalPages) => {
         for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
         pages.push(1);
-        if (currentPage > 3) pages.push('...');
+        if (currentPage > 3) pages.push("...");
 
         const start = Math.max(2, currentPage - 1);
         const end = Math.min(totalPages - 1, currentPage + 1);
@@ -165,7 +182,7 @@ const getVisiblePages = (currentPage, totalPages) => {
             pages.push(i);
         }
 
-        if (currentPage < totalPages - 2) pages.push('...');
+        if (currentPage < totalPages - 2) pages.push("...");
         pages.push(totalPages);
     }
     return pages;
@@ -348,12 +365,23 @@ const getVisiblePages = (currentPage, totalPages) => {
                         <div v-if="pendingTotalPages > 1"
                             class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
                             <span class="text-[11px] text-slate-400 font-semibold">
-                                Hiển thị {{ (pendingPage - 1) * pendingPageSize + 1 }} - {{ Math.min(pendingPage *
-                                    pendingPageSize, pendingList.length) }} trong số {{ pendingList.length }}
+                                Hiển thị
+                                {{ (pendingPage - 1) * pendingPageSize + 1 }} -
+                                {{
+                                    Math.min(
+                                        pendingPage * pendingPageSize,
+                                        pendingList.length,
+                                    )
+                                }}
+                                trong số {{ pendingList.length }}
                             </span>
                             <div class="flex items-center gap-1">
-                                <button @click="pendingPage = Math.max(1, pendingPage - 1)"
-                                    :disabled="pendingPage === 1"
+                                <button @click="
+                                    pendingPage = Math.max(
+                                        1,
+                                        pendingPage - 1,
+                                    )
+                                    " :disabled="pendingPage === 1"
                                     class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
                                     <i class="bi bi-chevron-left text-[9px]"></i>
                                 </button>
@@ -361,12 +389,17 @@ const getVisiblePages = (currentPage, totalPages) => {
                                     'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
                                     pendingPage === p
                                         ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
-                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50',
                                 ]">
                                     {{ p }}
                                 </button>
-                                <button @click="pendingPage = Math.min(pendingTotalPages, pendingPage + 1)"
-                                    :disabled="pendingPage === pendingTotalPages"
+                                <button @click="
+                                    pendingPage = Math.min(
+                                        pendingTotalPages,
+                                        pendingPage + 1,
+                                    )
+                                    " :disabled="pendingPage === pendingTotalPages
+                                        "
                                     class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
                                     <i class="bi bi-chevron-right text-[9px]"></i>
                                 </button>
@@ -418,11 +451,17 @@ const getVisiblePages = (currentPage, totalPages) => {
                                         <td class="py-3 px-4">
                                             <span :class="[
                                                 'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
-                                                getStatusData(apt.status).cls,
+                                                getStatusData(apt.status)
+                                                    .cls,
                                             ]">
-                                                <span class="w-1.5 h-1.5 rounded-full"
-                                                    :class="getStatusData(apt.status).dot"></span>
-                                                {{ getStatusData(apt.status).label }}
+                                                <span class="w-1.5 h-1.5 rounded-full" :class="getStatusData(
+                                                    apt.status,
+                                                ).dot
+                                                    "></span>
+                                                {{
+                                                    getStatusData(apt.status)
+                                                        .label
+                                                }}
                                             </span>
                                         </td>
                                         <td class="py-3 px-4">
@@ -437,27 +476,43 @@ const getVisiblePages = (currentPage, totalPages) => {
                         <div v-if="allTotalPages > 1"
                             class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
                             <span class="text-[11px] text-slate-400 font-semibold">
-                                Hiển thị {{ (allPage - 1) * allPageSize + 1 }} - {{ Math.min(allPage * allPageSize,
-                                    appointments.length) }} trong số {{ appointments.length }}
+                                Hiển thị {{ (allPage - 1) * allPageSize + 1 }} -
+                                {{
+                                    Math.min(
+                                        allPage * allPageSize,
+                                        appointments.length,
+                                    )
+                                }}
+                                trong số {{ appointments.length }}
                             </span>
                             <div class="flex items-center gap-1">
                                 <button @click="allPage = Math.max(1, allPage - 1)" :disabled="allPage === 1"
                                     class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
                                     <i class="bi bi-chevron-left text-[9px]"></i>
                                 </button>
-                                <button v-for="p in getVisiblePages(allPage, allTotalPages)" :key="p"
-                                    @click="typeof p === 'number' ? allPage = p : null" :class="[
+                                <button v-for="p in getVisiblePages(
+                                    allPage,
+                                    allTotalPages,
+                                )" :key="p" @click="
+                                        typeof p === 'number'
+                                            ? (allPage = p)
+                                            : null
+                                        " :class="[
                                         'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
                                         allPage === p
                                             ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
                                             : p === '...'
                                                 ? 'border-transparent text-slate-400 cursor-default'
-                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50',
                                     ]">
                                     {{ p }}
                                 </button>
-                                <button @click="allPage = Math.min(allTotalPages, allPage + 1)"
-                                    :disabled="allPage === allTotalPages"
+                                <button @click="
+                                    allPage = Math.min(
+                                        allTotalPages,
+                                        allPage + 1,
+                                    )
+                                    " :disabled="allPage === allTotalPages"
                                     class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
                                     <i class="bi bi-chevron-right text-[9px]"></i>
                                 </button>
@@ -469,36 +524,54 @@ const getVisiblePages = (currentPage, totalPages) => {
         </div>
         <!-- Phần popup khoá lý do từ chối -->
         <div v-if="isRejectModalOpen"
-            class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
-            <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-xl border border-slate-100 mx-4">
-                <div class="flex items-center gap-2 text-rose-500 mb-3">
-                    <i class="bi bi-exclamation-octagon-fill text-lg"></i>
-                    <h3 class="text-sm font-bold text-slate-800">
-                        Xác nhận lý do từ chối lịch
-                    </h3>
-                </div>
-                <p class="text-xs text-slate-400 font-semibold mb-4">
-                    Vui lòng cung cấp lý do cụ thể để hệ thống gửi thông báo
-                    phản hồi chính xác đến khách thuê phòng.
-                </p>
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div class="w-full max-w-lg rounded-3xl bg-white shadow-2xl">
+                <!-- Header -->
+                <div class="flex items-center gap-3 border-b border-slate-100 px-6 py-5">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                        <i class="bi bi-exclamation-octagon-fill text-lg"></i>
+                    </div>
 
-                <form @submit.prevent="submitRejection" class="space-y-4">
                     <div>
-                        <textarea v-model="rejectForm.cancellation_reason" rows="4"
-                            class="w-full text-xs font-semibold..." placeholder="Nhập lý do hủy..."></textarea>
+                        <h3 class="text-lg font-bold text-slate-800">
+                            Từ chối lịch đặt
+                        </h3>
+                        <p class="mt-1 text-sm text-slate-500">
+                            Vui lòng nhập lý do để gửi phản hồi cho khách thuê.
+                        </p>
+                    </div>
+                </div>
 
-                        <!-- Hiển thị lỗi từ Backend gửi về nếu có -->
-                        <p v-if="rejectForm.errors.cancellation_reason"
-                            class="text-rose-500 text-[11px] font-bold mt-1">
+                <!-- Body -->
+                <form @submit.prevent="submitRejection" class="p-6">
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">
+                            Lý do từ chối
+                        </label>
+
+                        <textarea v-model="rejectForm.cancellation_reason" rows="5"
+                            placeholder="Ví dụ: Phòng đã được đặt trước, thông tin đặt phòng chưa đầy đủ..."
+                            class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-700 outline-none transition-all duration-200 focus:border-rose-500 focus:ring-4 focus:ring-rose-100 resize-none"></textarea>
+
+                        <p v-if="rejectForm.errors.cancellation_reason" class="mt-2 text-xs font-medium text-rose-500">
                             {{ rejectForm.errors.cancellation_reason }}
                         </p>
                     </div>
 
-                    <div class="flex items-center justify-end gap-2 pt-2">
-                        <button type="button" @click="isRejectModalOpen = false">Hủy bỏ</button>
-                        <!-- Nút submit phải có type="submit" -->
-                        <button type="submit" :disabled="rejectForm.processing">
-                            Xác nhận hủy
+                    <!-- Footer -->
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" @click="isRejectModalOpen = false"
+                            class="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100">
+                            Hủy bỏ
+                        </button>
+
+                        <button type="submit" :disabled="rejectForm.processing"
+                            class="rounded-xl bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60">
+                            <span v-if="!rejectForm.processing">
+                                Xác nhận từ chối
+                            </span>
+
+                            <span v-else> Đang xử lý... </span>
                         </button>
                     </div>
                 </form>

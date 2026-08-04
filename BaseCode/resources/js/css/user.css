@@ -14,7 +14,7 @@
     display: flex;
     gap: 90px;
     align-items: flex-start;
-    min-height: calc(150vh - 100px);
+    min-height: calc(150vh - auto);
     /* Use min-height instead of fixed height */
 }
 

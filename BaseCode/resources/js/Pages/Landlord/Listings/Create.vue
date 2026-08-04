@@ -1,6 +1,6 @@
 <script setup>
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
-import { ref, watch } from "vue";
+import { ref, watch,onMounted } from "vue";
 import { useForm, Link } from "@inertiajs/vue3";
 import axios from "axios";
 import { computed } from "vue";
@@ -28,6 +28,8 @@ const form = useForm({
     title: "",
     description: "",
     address: "",
+    current_people: 0,
+    capacity: 1,
     latitude: null,
     longitude: null,
     images: [],
@@ -38,7 +40,11 @@ watch(selectedHouse, (newHouse) => {
     selectedFloor.value = null;
     form.room_id = "";
     roomDetails.value = null;
-    availableFloors.value = newHouse ? newHouse.floors : [];
+    availableFloors.value = newHouse 
+        ? newHouse.floors.filter(floor => 
+            floor.rooms && floor.rooms.some(room => room.boarding_house_id === newHouse.id)
+          )
+        : [];
 });
 
 watch(selectedFloor, (newFloor) => {
@@ -46,6 +52,9 @@ watch(selectedFloor, (newFloor) => {
     roomDetails.value = null;
     availableRooms.value = newFloor
         ? newFloor.rooms.filter((r) => {
+            //lấy những phòng thuộc cơ sở trọ đang chọn
+            const belongsToSelectedHouse = selectedHouse.value && r.boarding_house_id === selectedHouse.value.id;
+            if(!belongsToSelectedHouse) return false;
             //lấy mảng bài viết
             const posts = r.room_posts || r.roomPosts;
             //kiểm tra phòng này có tin dăng nháp, chờ, hay đã duyệt chx
@@ -79,6 +88,8 @@ watch(
                 axios.get(`/landlord/rooms/${newRoomId}/services`),
             ]);
             roomDetails.value = detailsResponse.data;
+            form.current_people = detailsResponse.data.current_people ?? 0;
+            form.capacity = detailsResponse.data.capacity ?? 1;
             if (selectedHouse.value) {
                 form.title = `Cho thuê phòng ${detailsResponse.data.room_number} - Khu nhà ${selectedHouse.value.name}`;
             }
@@ -381,6 +392,12 @@ function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 
         reader.onerror = (error) => reject(error);
     });
 }
+
+onMounted(()=>{
+    if(props.boardingHouses && props.boardingHouses.length === 1){
+        selectedHouse.value = props.boardingHouses[0];
+    }
+});
 </script>
 
 <template>
@@ -483,35 +500,50 @@ function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 
                                 <input :value="roomDetails?.area || ''" disabled
                                     class="form-input bg-gray-50 text-gray-500" />
                             </div>
-                            <div class="mt-4" v-if="roomServices.length > 0">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    Các tiện ích sẵn có của phòng này:
-                                </label>
+                        </div>
 
-                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                    <div v-for="service in roomServices" :key="service.id"
-                                        class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-                                        <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none"
-                                            stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                        <span>{{ service.name }}</span>
-                                        <span v-if="service.price > 0" class="text-xs text-gray-500">
-                                            ({{
-                                                new Intl.NumberFormat(
-                                                    "vi-VN",
-                                                ).format(service.price)
-                                            }}đ)
-                                        </span>
-                                    </div>
+                        <!-- Số người đang có / Sức chứa tối đa (Chỉ hiện Số người đang ở khi phòng đã có người > 0) -->
+                        <div class="mb-4" :class="form.current_people > 0 ? 'form-row-2' : ''">
+                            <div class="form-group" v-if="form.current_people > 0">
+                                <label class="block text-sm font-bold text-gray-700 mb-1">
+                                    Số người đang ở trong phòng <span class="text-xs text-gray-400 font-normal">(Mặc định của phòng)</span>
+                                </label>
+                                <input type="number" :value="form.current_people" disabled readonly class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
+                            </div>
+                            <div class="form-group">
+                                <label class="block text-sm font-bold text-gray-700 mb-1">
+                                    Sức chứa tối đa (Số người tổng) <span class="text-xs text-gray-400 font-normal">(Mặc định của phòng)</span>
+                                </label>
+                                <input type="number" :value="form.capacity" disabled readonly class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
+                            </div>
+                        </div>
+
+                        <div class="mt-4 mb-4" v-if="roomServices.length > 0">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Các tiện ích sẵn có của phòng này:
+                            </label>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <div v-for="service in roomServices" :key="service.id"
+                                    class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                                    <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    <span>{{ service.name }}</span>
+                                    <span v-if="service.price > 0" class="text-xs text-gray-500">
+                                        ({{
+                                            new Intl.NumberFormat(
+                                                "vi-VN",
+                                            ).format(service.price)
+                                        }}đ)
+                                    </span>
                                 </div>
                             </div>
-
-                            <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
-                                v-else-if="form.room_id">
-                                Phòng này hiện chưa được thiết lập tiện ích nào.
-                            </div>
+                        </div>
+                        <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+                            v-else-if="form.room_id">
+                            Phòng này hiện chưa được thiết lập tiện ích nào.
                         </div>
 
                         <div class="mb-4">
