@@ -65,11 +65,86 @@ const getStatusData = (status) => {
     );
 };
 
-//trạng thái hiển thị modal chỉ dãn
+//trạng thái hiển thị modal chỉ dãn & bản đồ trực tiếp
 const activeGuideAppointment = ref(null);
+const mapMode = ref("place"); // 'place' hoặc 'directions'
+const userCoords = ref(null);
+
+const expandedMapAptId = ref(null);
+const inlineMapMode = ref("place");
+
+function toggleInlineMap(apt) {
+    if (expandedMapAptId.value === apt.id) {
+        expandedMapAptId.value = null;
+    } else {
+        expandedMapAptId.value = apt.id;
+        inlineMapMode.value = "place";
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    userCoords.value = {
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    };
+                },
+                () => {
+                    userCoords.value = null;
+                }
+            );
+        }
+    }
+}
+
 //mở hướng dẫn xem phòng
 function showGuide(appointment) {
     activeGuideAppointment.value = appointment;
+    mapMode.value = "place";
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                userCoords.value = {
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude
+                };
+            },
+            () => {
+                userCoords.value = null;
+            }
+        );
+    }
+}
+
+//tạo link google map nhúng trực tiếp
+function getGoogleMapsEmbedUrl(appointment) {
+    if (!appointment) return "";
+    const bh =
+        appointment.room?.boardingHouse || appointment.room?.boarding_house;
+    const address = bh?.address_detail || appointment.room?.address || "Ninh Bình";
+
+    if (mapMode.value === "directions") {
+        if (userCoords.value) {
+            return `https://maps.google.com/maps?saddr=${userCoords.value.lat},${userCoords.value.lng}&daddr=${encodeURIComponent(address)}&output=embed`;
+        }
+        return `https://maps.google.com/maps?saddr=My+Location&daddr=${encodeURIComponent(address)}&output=embed`;
+    }
+
+    return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+}
+
+function getInlineGoogleMapsEmbedUrl(appointment) {
+    if (!appointment) return "";
+    const bh =
+        appointment.room?.boardingHouse || appointment.room?.boarding_house;
+    const address = bh?.address_detail || appointment.room?.address || "Ninh Bình";
+
+    if (inlineMapMode.value === "directions") {
+        if (userCoords.value) {
+            return `https://maps.google.com/maps?saddr=${userCoords.value.lat},${userCoords.value.lng}&daddr=${encodeURIComponent(address)}&output=embed`;
+        }
+        return `https://maps.google.com/maps?saddr=My+Location&daddr=${encodeURIComponent(address)}&output=embed`;
+    }
+
+    return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 }
 
 //tạo link google map dẫn đến vị trí cơ sở trọ
@@ -223,8 +298,8 @@ const paginatedAppointments = computed(() => {
                     </p>
                 </div>
 
-                <!-- Appointments Table -->
-                <div class="table-container" style="margin-top: 20px; overflow-x: auto">
+                <!-- Appointments Table (Desktop View) -->
+                <div class="table-container desktop-only-table" style="margin-top: 20px; overflow-x: auto">
                     <table class="lichhen-table" style="
                             width: 100%;
                             border-collapse: collapse;
@@ -264,78 +339,245 @@ const paginatedAppointments = computed(() => {
                                     Bạn chưa có lịch hẹn xem phòng nào.
                                 </td>
                             </tr>
-                            <tr v-for="apt in paginatedAppointments" :key="apt.id"
-                                style="border-bottom: 1px solid #f1f5f9">
-                                <td style="padding: 12px 16px">
-                                    <div style="font-weight: 600; color: #1e293b">
-                                        Phòng {{ apt.room?.room_number }}
-                                    </div>
-                                    <div style="
-                                            font-size: 11.5px;
-                                            color: #64748b;
+                            <template v-for="apt in paginatedAppointments" :key="apt.id">
+                                <tr style="border-bottom: 1px solid #f1f5f9">
+                                    <td style="padding: 12px 16px">
+                                        <div style="font-weight: 600; color: #1e293b">
+                                            Phòng {{ apt.room?.room_number }}
+                                        </div>
+                                        <div style="
+                                                font-size: 11.5px;
+                                                color: #64748b;
+                                            ">
+                                            {{
+                                                apt.room?.boardingHouse?.name ||
+                                                apt.room?.boarding_house?.name
+                                            }}
+                                        </div>
+                                    </td>
+                                    <td style="padding: 12px 16px">
+                                        <div style="font-weight: 550">
+                                            {{
+                                                new Date(
+                                                    apt.date,
+                                                ).toLocaleDateString("vi-VN")
+                                            }}
+                                        </div>
+                                        <div style="font-size: 11px; color: #64748b">
+                                            Lúc {{ apt.time.substring(0, 5) }}
+                                            <span v-if="isToday(apt.date)" class="today-badge">Hôm nay!</span>
+                                        </div>
+                                    </td>
+                                    <td style="padding: 12px 16px">
+                                        <div>
+                                            {{
+                                                apt.room?.boardingHouse?.landlord
+                                                    ?.name ||
+                                                apt.room?.boarding_house?.landlord
+                                                    .name
+                                            }}
+                                        </div>
+                                        <div style="
+                                                font-size: 11.5px;
+                                                color: #64748b;
+                                            ">
+                                            SĐT:
+                                            {{
+                                                apt.room?.boardingHouse?.landlord
+                                                    ?.phone ||
+                                                apt.room?.boarding_house?.landlord
+                                                    ?.phone
+                                            }}
+                                        </div>
+                                    </td>
+                                    <td style="padding: 12px 16px">
+                                        <span :class="[
+                                            'status-badge',
+                                            getStatusData(apt.status).cls,
+                                        ]" style="
+                                                display: inline-flex;
+                                                align-items: center;
+                                                gap: 4px;
+                                                padding: 4px 8px;
+                                                border-radius: 6px;
+                                                font-size: 11px;
+                                                font-weight: 600;
+                                                border: 1px solid;
+                                            ">
+                                            <span class="w-1.5 h-1.5 rounded-full" :class="getStatusData(apt.status).dot
+                                                " style="
+                                                    width: 6px;
+                                                    height: 6px;
+                                                    border-radius: 50%;
+                                                "></span>
+                                            {{ getStatusData(apt.status).label }}
+                                        </span>
+                                    </td>
+                                    <td style="
+                                            padding: 12px 16px;
+                                            text-align: center;
                                         ">
-                                        {{
-                                            apt.room?.boardingHouse?.name ||
-                                            apt.room?.boarding_house?.name
-                                        }}
-                                    </div>
-                                </td>
-                                <td style="padding: 12px 16px">
-                                    <div style="font-weight: 550">
-                                        {{
-                                            new Date(
-                                                apt.date,
-                                            ).toLocaleDateString("vi-VN")
-                                        }}
-                                    </div>
-                                    <div style="font-size: 11px; color: #64748b">
-                                        Lúc {{ apt.time.substring(0, 5) }}
-                                        <span v-if="isToday(apt.date)" class="today-badge">Hôm nay!</span>
-                                    </div>
-                                </td>
-                                <td style="padding: 12px 16px">
-                                    <div>
-                                        {{
-                                            apt.room?.boardingHouse?.landlord
-                                                ?.name ||
-                                            apt.room?.boarding_house?.landlord
-                                                .name
-                                        }}
-                                    </div>
-                                    <div style="
-                                            font-size: 11.5px;
-                                            color: #64748b;
-                                        ">
-                                        SĐT:
-                                        {{
-                                            apt.room?.boardingHouse?.landlord
-                                                ?.phone ||
-                                            apt.room?.boarding_house?.landlord
-                                                ?.phone
-                                        }}
-                                    </div>
-                                </td>
-                                <td style="padding: 12px 16px">
-                                    <span :class="[
-                                        'status-badge',
-                                        getStatusData(apt.status).cls,
-                                    ]" style="
-                                            display: inline-flex;
-                                            align-items: center;
-                                            gap: 4px;
-                                            padding: 4px 8px;
-                                            border-radius: 6px;
-                                            font-size: 11px;
-                                            font-weight: 600;
-                                            border: 1px solid;
-                                        ">
-                                        <span class="w-1.5 h-1.5 rounded-full" :class="getStatusData(apt.status).dot
-                                            " style="
-                                                width: 6px;
-                                                height: 6px;
-                                                border-radius: 50%;
-                                            "></span>
-                                        {{ getStatusData(apt.status).label }}
+                                        <div style="
+                                                display: flex;
+                                                gap: 8px;
+                                                justify-content: center;
+                                            ">
+                                            <Link :href="route('chitiettro', apt.room_id)
+                                                " class="btn-action btn-view" title="Xem phòng">
+                                                <i class="bi bi-eye-fill"></i>
+                                            </Link>
+                                            <button v-if="apt.status === 'approved'" @click="toggleInlineMap(apt)"
+                                                class="btn-action btn-map" title="Hiện bản đồ & đường đi trực tiếp"
+                                                :style="expandedMapAptId === apt.id ? 'background-color: #2563eb; color: white;' : ''">
+                                                <i class="bi bi-geo-alt-fill"></i>
+                                            </button>
+                                        </div>
+                                        <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result"
+                                            style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+                                            <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"
+                                                title="Ưng thuê"
+                                                style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                                                <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px;"></i> Ưng
+                                            </button>
+                                            <button @click="openConfirmInterest(apt, false)"
+                                                class="btn-action btn-not-interest" title="Không ưng"
+                                                style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                                                <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i> Không
+                                                ưng
+                                            </button>
+                                        </div>
+                                        <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;">
+                                            <span v-if="['interested', 'like'].includes(apt.feedback_result)"
+                                                style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
+                                                <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
+                                            </span>
+                                            <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
+                                                style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
+                                                <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Hàng Bản Đồ Trực Tiếp Hiện Ở Khoảng Trống Ngay Dưới Dòng (Desktop) -->
+                                <tr v-if="expandedMapAptId === apt.id" style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                    <td colspan="5" style="padding: 16px;">
+                                        <div style="background: #ffffff; border-radius: 16px; border: 1px solid #cbd5e1; padding: 16px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);">
+                                            <!-- Header khối bản đồ -->
+                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                                                <div>
+                                                    <h4 style="font-size: 14px; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 6px;">
+                                                        <i class="bi bi-map-fill" style="color: #2563eb;"></i> Bản đồ trực tiếp — Phòng {{ apt.room?.room_number }} ({{ apt.room?.boardingHouse?.name || apt.room?.boarding_house?.name }})
+                                                    </h4>
+                                                    <p style="font-size: 12px; color: #64748b; margin: 3px 0 0 0;">
+                                                        📍 {{ apt.room?.boardingHouse?.address_detail || apt.room?.boarding_house?.address_detail || apt.room?.address }}
+                                                    </p>
+                                                </div>
+                                                <div style="display: flex; gap: 8px; align-items: center;">
+                                                    <button 
+                                                        type="button"
+                                                        @click="inlineMapMode = 'place'"
+                                                        :style="{
+                                                            padding: '6px 12px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '700',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid ' + (inlineMapMode === 'place' ? '#2563eb' : '#cbd5e1'),
+                                                            background: inlineMapMode === 'place' ? '#eff6ff' : '#ffffff',
+                                                            color: inlineMapMode === 'place' ? '#2563eb' : '#64748b',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s'
+                                                        }">
+                                                        <i class="bi bi-geo-alt-fill"></i> Vị trí trọ
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        @click="inlineMapMode = 'directions'"
+                                                        :style="{
+                                                            padding: '6px 12px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '700',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid ' + (inlineMapMode === 'directions' ? '#16a34a' : '#cbd5e1'),
+                                                            background: inlineMapMode === 'directions' ? '#f0fdf4' : '#ffffff',
+                                                            color: inlineMapMode === 'directions' ? '#16a34a' : '#64748b',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s'
+                                                        }">
+                                                        <i class="bi bi-signpost-split-fill"></i> Chỉ đường từ tôi
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        @click="showGuide(apt)"
+                                                        style="padding: 6px 12px; font-size: 12px; font-weight: 700; border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff; color: #2563eb; cursor: pointer;">
+                                                        <i class="bi bi-compass-fill"></i> Cẩm nang
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        @click="expandedMapAptId = null"
+                                                        title="Đóng bản đồ"
+                                                        style="padding: 6px 10px; font-size: 13px; font-weight: 700; border-radius: 8px; border: 1px solid #fee2e2; background: #fef2f2; color: #ef4444; cursor: pointer;">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Ghi chú ngõ ngách nếu có -->
+                                            <div v-if="apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide"
+                                                style="margin-bottom: 12px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; font-size: 12px; color: #92400e; display: flex; align-items: center; gap: 8px;">
+                                                <i class="bi bi-signpost-2-fill" style="color: #d97706; font-size: 16px;"></i>
+                                                <span><strong>Chỉ dẫn ngõ ngách:</strong> {{ apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide }}</span>
+                                            </div>
+
+                                            <!-- Khung nhúng Google Maps -->
+                                            <div style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; height: 360px; position: relative;">
+                                                <iframe
+                                                    width="100%"
+                                                    height="100%"
+                                                    style="border: 0; display: block;"
+                                                    loading="lazy"
+                                                    allowfullscreen
+                                                    referrerpolicy="no-referrer-when-downgrade"
+                                                    :src="getInlineGoogleMapsEmbedUrl(apt)">
+                                                </iframe>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- GIAO DIỆN MOBILE: DANH SÁCH THẺ DẠNG CARD -->
+                <div class="mobile-appointment-list">
+                    <div v-if="appointments.length === 0" style="text-align: center; padding: 32px 16px; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; color: #94a3b8;">
+                        <i class="bi bi-calendar-x" style="font-size: 32px; display: block; margin-bottom: 8px;"></i>
+                        <span style="font-size: 13px; font-weight: 600;">Bạn chưa có lịch hẹn xem phòng nào.</span>
+                    </div>
+
+                    <div v-for="apt in paginatedAppointments" :key="'mob-' + apt.id" class="mobile-apt-card">
+                        <!-- Header Card: Tên phòng & Trạng thái -->
+                        <div class="mobile-apt-header">
+                            <div>
+                                <h3 class="mobile-apt-title">Phòng {{ apt.room?.room_number }}</h3>
+                                <p class="mobile-apt-house">{{ apt.room?.boardingHouse?.name || apt.room?.boarding_house?.name }}</p>
+                            </div>
+                            <span :class="['status-badge', getStatusData(apt.status).cls]" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid;">
+                                <span style="width: 6px; height: 6px; border-radius: 50%;" :class="getStatusData(apt.status).dot"></span>
+                                {{ getStatusData(apt.status).label }}
+                            </span>
+                        </div>
+
+                        <!-- Body Card: Thời gian & Chủ trọ -->
+                        <div class="mobile-apt-body">
+                            <div class="mobile-apt-info-item">
+                                <i class="bi bi-clock-fill text-blue-500"></i>
+                                <div>
+                                    <span class="info-label">Thời gian hẹn xem</span>
+                                    <span class="info-value">
+                                        {{ new Date(apt.date).toLocaleDateString("vi-VN") }} lúc {{ apt.time.substring(0, 5) }}
+                                        <span v-if="isToday(apt.date)" class="today-badge" style="margin-left: 4px;">Hôm nay!</span>
                                     </span>
                                 </td>
                                 <td style="
@@ -383,11 +625,93 @@ const paginatedAppointments = computed(() => {
                                             style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
                                             <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
                                         </span>
+                                        <a v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone" 
+                                           :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
+                                           class="mobile-call-btn">
+                                            <i class="bi bi-telephone-fill"></i> Gọi {{ apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone }}
+                                        </a>
                                     </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Card Footer -->
+                        <div class="mobile-apt-actions">
+                            <div style="display: flex; gap: 8px; width: 100%;">
+                                <Link :href="route('chitiettro', apt.room_id)" class="mobile-action-btn btn-view-room">
+                                    <i class="bi bi-eye-fill"></i> Xem phòng
+                                </Link>
+                                <button v-if="apt.status === 'approved'" @click="toggleInlineMap(apt)" 
+                                        class="mobile-action-btn btn-map-toggle" 
+                                        :class="{ 'active': expandedMapAptId === apt.id }">
+                                    <i class="bi bi-geo-alt-fill"></i> {{ expandedMapAptId === apt.id ? 'Ẩn bản đồ' : 'Bản đồ & Đường đi' }}
+                                </button>
+                            </div>
+
+                            <!-- Nút Ưng / Không ưng -->
+                            <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result" style="display: flex; gap: 8px; width: 100%;">
+                                <button @click="openConfirmInterest(apt, true)" class="mobile-action-btn btn-like">
+                                    <i class="bi bi-hand-thumbs-up-fill"></i> Ưng thuê
+                                </button>
+                                <button @click="openConfirmInterest(apt, false)" class="mobile-action-btn btn-dislike">
+                                    <i class="bi bi-hand-thumbs-down-fill"></i> Không ưng
+                                </button>
+                            </div>
+                            <div v-else-if="apt.feedback_result" style="text-align: center; width: 100%;">
+                                <span v-if="['interested', 'like'].includes(apt.feedback_result)" class="feedback-badge like">
+                                    <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng thuê
+                                </span>
+                                <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)" class="feedback-badge dislike">
+                                    <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Khối Bản Đồ Nhúng Trực Tiếp Cho Mobile -->
+                        <div v-if="expandedMapAptId === apt.id" class="mobile-map-container">
+                            <div class="mobile-map-header">
+                                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                                    <span class="mobile-map-title">
+                                        <i class="bi bi-map-fill" style="color: #2563eb;"></i> Bản đồ P.{{ apt.room?.room_number }}
+                                    </span>
+                                    <button type="button" @click="expandedMapAptId = null" class="mobile-map-close">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <!-- Thanh nút tab 100% width vừa vặn -->
+                                <div class="mobile-map-tabs">
+                                    <button type="button" @click="inlineMapMode = 'place'" :class="{ active: inlineMapMode === 'place' }" class="tab-btn">
+                                        <i class="bi bi-geo-alt-fill"></i> Vị trí
+                                    </button>
+                                    <button type="button" @click="inlineMapMode = 'directions'" :class="{ active: inlineMapMode === 'directions' }" class="tab-btn">
+                                        <i class="bi bi-signpost-split-fill"></i> Chỉ đường
+                                    </button>
+                                    <button type="button" @click="showGuide(apt)" class="tab-btn guide">
+                                        <i class="bi bi-compass-fill"></i> Cẩm nang
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Ghi chú ngõ ngách nếu có -->
+                            <div v-if="apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide" class="mobile-directions-guide">
+                                <i class="bi bi-signpost-2-fill" style="color: #d97706;"></i>
+                                <span><strong>Ngõ ngách:</strong> {{ apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide }}</span>
+                            </div>
+
+                            <!-- Iframe Bản đồ -->
+                            <div class="mobile-iframe-wrapper">
+                                <iframe
+                                    width="100%"
+                                    height="100%"
+                                    style="border: 0; display: block;"
+                                    loading="lazy"
+                                    allowfullscreen
+                                    referrerpolicy="no-referrer-when-downgrade"
+                                    :src="getInlineGoogleMapsEmbedUrl(apt)">
+                                </iframe>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Phân trang -->
@@ -462,6 +786,60 @@ const paginatedAppointments = computed(() => {
                                         activeGuideAppointment.room?.address
                                     }}
                                 </p>
+                            </div>
+                        </div>
+
+                        <!-- Khối Bản Đồ Google Nhúng Trực Tiếp -->
+                        <div class="guide-map-card" style="background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                <span style="font-size: 13px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                                    <i class="bi bi-map-fill" style="color: #2563eb;"></i> Bản đồ trực tiếp
+                                </span>
+                                <div style="display: flex; gap: 6px;">
+                                    <button 
+                                        type="button"
+                                        @click="mapMode = 'place'"
+                                        :style="{
+                                            padding: '5px 11px',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            borderRadius: '8px',
+                                            border: '1px solid ' + (mapMode === 'place' ? '#2563eb' : '#cbd5e1'),
+                                            background: mapMode === 'place' ? '#eff6ff' : '#ffffff',
+                                            color: mapMode === 'place' ? '#2563eb' : '#64748b',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }">
+                                        <i class="bi bi-geo-alt-fill"></i> Vị trí trọ
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        @click="mapMode = 'directions'"
+                                        :style="{
+                                            padding: '5px 11px',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            borderRadius: '8px',
+                                            border: '1px solid ' + (mapMode === 'directions' ? '#16a34a' : '#cbd5e1'),
+                                            background: mapMode === 'directions' ? '#f0fdf4' : '#ffffff',
+                                            color: mapMode === 'directions' ? '#16a34a' : '#64748b',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }">
+                                        <i class="bi bi-signpost-split-fill"></i> Chỉ đường
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; height: 260px; position: relative; background: #f8fafc;">
+                                <iframe
+                                    width="100%"
+                                    height="100%"
+                                    style="border: 0; display: block;"
+                                    loading="lazy"
+                                    allowfullscreen
+                                    referrerpolicy="no-referrer-when-downgrade"
+                                    :src="getGoogleMapsEmbedUrl(activeGuideAppointment)">
+                                </iframe>
                             </div>
                         </div>
 
