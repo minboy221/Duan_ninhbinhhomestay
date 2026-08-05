@@ -26,15 +26,90 @@ export async function loadTesseractLibrary() {
 }
 
 /**
- * Làm sạch chuỗi lấy giá trị Tên/Địa chỉ
+ * Kiểm tra xem 1 chuỗi có phải là Tên cá nhân Việt Nam hợp lệ hay không (không chứa ký tự đặc biệt, không chứa từ rác hợp đồng)
  */
-function cleanVal(str) {
+function isValidVietnameseName(str) {
+    if (!str) return false;
+    const trimmed = str.trim();
+    
+    // 1. Độ dài tối thiểu 3 ký tự và tối đa 50 ký tự
+    if (trimmed.length < 3 || trimmed.length > 50) return false;
+
+    // 2. Tuyệt đối không chứa ký tự đặc biệt như /, \, :, ., _, -, (), [], {}, @, #, $, %, ^, &, *, +, =, ?, <, >
+    if (/[0-9\/\\:\.\-_\(\)\*\#\@\!\$\%\^\&\=\+\{\}\[\]\;\,\<\>\?]/g.test(trimmed)) {
+        return false;
+    }
+
+    // 3. Từ khóa rác / từ khóa mẫu hợp đồng KHÔNG BAO GIỜ có trong tên người
+    const forbiddenKeywords = [
+        'bên a', 'bên b', 'bên cho thuê', 'bên thuê', 'khách thuê', 'chủ trọ', 'chủ nhà',
+        'đại diện', 'họ và tên', 'họ tên', 'người đại diện', 'ông/bà', 'cho thuê', 'thuê nhà',
+        'nhà tại', 'nhà trọ', 'phòng trọ', 'hợp đồng', 'cộng hòa', 'xã hội', 'việt nam',
+        'độc lập', 'tự do', 'hạnh phúc', 'điều 1', 'điều 2', 'điều 3', 'điều khoản',
+        'ngày tháng', 'năm sinh', 'số cccd', 'số cmnd', 'số điện thoại', 'địa chỉ', 'hktt'
+    ];
+
+    const lower = trimmed.toLowerCase();
+    for (const kw of forbiddenKeywords) {
+        if (lower.includes(kw)) return false;
+    }
+
+    // 4. Một tên người Việt Nam thực sự phải gồm ít nhất 2 từ (VD: "Nguyễn A", "Văn B"). Loại bỏ hoàn toàn các từ rác đơn lẻ như "Hi", "Aa", "Nha" do OCR đọc từ dấu chấm.
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    if (words.length < 2) {
+        return false;
+    }
+
+    // 5. Mỗi từ trong tên phải cấu thành từ các chữ cái Tiếng Việt hợp lệ
+    for (const w of words) {
+        if (!/^[A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴÝỶỸa-zàáâãèéêìíòóôõùúăđĩũơưăạảấầẩẫậắằẳẵặẹẻẽềềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵýỷỹ]+$/i.test(w)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Kiểm tra chuỗi có phải tiêu đề section (Bên A, Bên B, Cho thuê...) thay vì tên cá nhân không
+ */
+function isTitleKeyword(str) {
+    if (!str) return true;
+    const lower = str.toLowerCase().trim();
+    const badKeywords = [
+        'bên a', 'bên b', 'bên cho thuê', 'bên thuê', 'khách thuê', 'chủ trọ', 'chủ nhà',
+        'đại diện', 'họ và tên', 'đại diện bên a', 'đại diện bên b', 'thông tin bên a', 'thông tin bên b',
+        'người đại diện', 'bên cho thuê (bên a)', 'bên thuê (bên b)', 'cho thuê', 'thuê nhà'
+    ];
+    if (badKeywords.includes(lower)) return true;
+    if (/^bên\s*[ab]\s*(?:\(.*\))?$/i.test(lower)) return true;
+    if (/^bên\s*(?:cho\s*)?thuê\s*(?:\(.*\))?$/i.test(lower)) return true;
+    return false;
+}
+
+/**
+ * Làm sạch chuỗi Tên (Loại bỏ các nhãn tiêu đề như "Đại diện:", "Bên A:", "Họ và tên:", "Ông/Bà:")
+ */
+function cleanName(str) {
     if (!str) return '';
     let val = str.trim();
-    val = val.replace(/^(?:họ\s*(?:và\s*)?tên|đại\s*diện|ông\/bà|bên\s*[ab])[:\.\-_\s]*/i, '');
-    val = val.replace(/^[:\.\-_\s]+|[:\.\-_\s]+$/g, '');
+    
+    // Loại bỏ các nhãn nhầm lẫn phía trước
+    val = val.replace(/^(?:đại\s*diện\s*(?:bởi|là)?|người\s*đại\s*diện|họ\s*(?:và\s*)?tên|chủ\s*(?:hộ|trọ|nhà)|ông\/bà|ông|bà|anh|chị)[:\.\-_\s]*/i, '');
+    val = val.replace(/^(?:bên\s*[ab]|đại\s*diện\s*bên\s*[ab]|bên\s*(?:cho\s*)?thuê|khách\s*thuê)\s*[:\.\-_]*\s*(?:ông\/bà|ông|bà|đại\s*diện\s*(?:bởi|là)?)?[:\.\-_\s]*/i, '');
+    val = val.replace(/^(?:ông\/bà|ông|bà|anh|chị)[:\.\-_\s]*/i, '');
+
+    // Loại bỏ ngoặc đơn tiêu đề nếu còn sót (VD: "(Bên A)", "(Bên Cho Thuê)")
+    val = val.replace(/\(?(?:bên\s*(?:cho\s*)?thuê|khách\s*thuê|chủ\s*trọ|bên\s*[ab])\)?/gi, '');
+    val = val.replace(/^[:\.\-_\s]+|[:\.\-_\s]+$/g, '').trim();
+
+    if (isTitleKeyword(val)) return '';
     if (/^[\.\-_\s]*$/.test(val)) return '';
     return val;
+}
+
+function cleanVal(str) {
+    return cleanName(str);
 }
 
 /**
@@ -123,24 +198,60 @@ export function parseContractText(rawText) {
     const linesA = lines.slice(idxA, idxB);
     const linesB = lines.slice(idxB, idxTerms);
 
-    // Hàm tìm Tên trong danh sách các dòng (quét cả cùng dòng lẫn dòng kế tiếp)
+    // Hàm tìm Tên người đại diện trong danh sách các dòng của 1 section (Bên A hoặc Bên B)
     const findNameInLines = (sectionLines) => {
         for (let i = 0; i < sectionLines.length; i++) {
             const line = sectionLines[i];
-            const nameMatch = line.match(/(?:họ\s*(?:và\s*)?tên|đại\s*diện|ông\/bà|bên\s*[ab])\s*[:\.\-_]*\s*([A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴÝỶỸa-zàáâãèéêìíòóôõùúăđĩũơưăạảấầẩẫậắằẳẵặẹẻẽềềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵýỷỹ\s]{2,50})/i);
-            if (nameMatch && nameMatch[1]) {
-                const cleaned = cleanVal(nameMatch[1]);
-                if (cleaned.length >= 3) return cleaned;
+
+            // 1. Bỏ qua các dòng thuần tiêu đề section (VD: "BÊN A (BÊN CHO THUÊ)", "BÊN B (KHÁCH THUÊ)")
+            if (/^\s*(?:bên\s*[ab]|bên\s*(?:cho\s*)?thuê|khách\s*thuê|chủ\s*trọ|đại\s*diện\s*bên\s*[ab])\s*(?:\([^\)]*\))?\s*[:\.\-_]*\s*$/i.test(line)) {
+                continue;
             }
 
-            // Nếu dòng chứa từ khóa nhãn (Họ và tên:) nhưng tên ở dòng tiếp theo
-            if (/(?:họ\s*(?:và\s*)?tên|ông\/bà|đại\s*diện)/i.test(line) && i + 1 < sectionLines.length) {
+            // 2. Ưu tiên tìm dòng chứa nhãn "Đại diện", "Người đại diện", "Họ và tên", "Ông/Bà"
+            const labelMatch = line.match(/(?:đại\s*diện\s*(?:bởi|là)?|người\s*đại\s*diện|họ\s*(?:và\s*)?tên|ông\/bà|chủ\s*hộ)\s*[:\.\-_]*\s*([A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴÝỶỸa-zàáâãèéêìíòóôõùúăđĩũơưăạảấầẩẫậắằẳẵặẹẻẽềềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵýỷỹ\s]{2,50})/i);
+            if (labelMatch && labelMatch[1]) {
+                const cleaned = cleanName(labelMatch[1]);
+                if (isValidVietnameseName(cleaned)) {
+                    return cleaned;
+                }
+            }
+
+            // 3. Nếu dòng chứa nhãn "Đại diện:" hoặc "Họ và tên:" nhưng tên nằm ở dòng tiếp theo
+            if (/(?:đại\s*diện|người\s*đại\s*diện|họ\s*(?:và\s*)?tên|ông\/bà)/i.test(line) && i + 1 < sectionLines.length) {
                 const nextLine = sectionLines[i + 1];
-                if (/^[A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴÝỶỸa-zàáâãèéêìíòóôõùúăđĩũơưăạảấầẩẫậắằẳẵặẹẻẽềềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵýỷỹ\s]{3,40}$/i.test(nextLine)) {
-                    return cleanVal(nextLine);
+                if (!/(?:cccd|cmnd|căn\s*cước|điện\s*thoại|sđt|địa\s*chỉ|hộ\s*khẩu|ngày\s*sinh|bên\s*[ab])/i.test(nextLine)) {
+                    const cleaned = cleanName(nextLine);
+                    if (isValidVietnameseName(cleaned)) {
+                        return cleaned;
+                    }
+                }
+            }
+
+            // 4. Nếu tên nằm chung dòng với tiêu đề như "Bên A: Nguyễn Văn A" hoặc "Bên B: Trần Thị B"
+            const inlineMatch = line.match(/(?:bên\s*[ab]|đại\s*diện\s*bên\s*[ab])\s*(?:\([^\)]*\))?\s*[:\.\-_]+\s*([A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴÝỶỸa-zàáâãèéêìíòóôõùúăđĩũơưăạảấầẩẫậắằẳẵặẹẻẽềềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵýỷỹ\s]{2,50})/i);
+            if (inlineMatch && inlineMatch[1]) {
+                const cleaned = cleanName(inlineMatch[1]);
+                if (isValidVietnameseName(cleaned)) {
+                    return cleaned;
                 }
             }
         }
+
+        // Fallback: Quét dòng nào có tên cá nhân hợp lệ trong section (có ít nhất 2 từ)
+        for (const line of sectionLines) {
+            if (/^\s*(?:bên\s*[ab]|bên\s*(?:cho\s*)?thuê|khách\s*thuê|chủ\s*trọ)\s*(?:\([^\)]*\))?\s*[:\.\-_]*\s*$/i.test(line)) {
+                continue;
+            }
+            if (/(?:cccd|cmnd|căn\s*cước|điện\s*thoại|sđt|địa\s*chỉ|hộ\s*khẩu|ngày\s*sinh|giá\s*thuê|tiền\s*cọc)/i.test(line)) {
+                continue;
+            }
+            const cleaned = cleanName(line);
+            if (isValidVietnameseName(cleaned)) {
+                return cleaned;
+            }
+        }
+
         return '';
     };
 
@@ -182,15 +293,17 @@ export function parseContractText(rawText) {
             const line = sectionLines[i];
             const addrMatch = line.match(/(?:địa\s*chỉ|hộ\s*khẩu|thường\s*trú|nơi\s*ở|hktt|nơi\s*đăng\s*ký)\s*[:\.\-_]*\s*([^\n\r\_]{5,120})/i);
             if (addrMatch && addrMatch[1]) {
-                let addr = addrMatch[1].replace(/\.{2,}/g, '').trim();
-                addr = addr.replace(/^(?:địa\s*chỉ|hộ\s*khẩu|thường\s*trú|nơi\s*ở|hktt|nơi\s*đăng\s*ký)[:\.\-_\s]*/i, '');
-                if (addr.length >= 5) return addr;
+                let addr = addrMatch[1].replace(/[\._\-]{2,}/g, '').trim();
+                addr = addr.replace(/^(?:địa\s*chỉ|hộ\s*khẩu|thường\s*trú|nơi\s*ở|hktt|nơi\s*đăng\s*ký)[:\.\-_\s]*/i, '').trim();
+                if (addr.length >= 5 && !/^[\.\-_\s]*$/.test(addr) && !/^(?:địa\s*chỉ|hộ\s*khẩu|thường\s*trú)$/i.test(addr)) {
+                    return addr;
+                }
             }
 
             // Nếu từ khóa nhãn "Địa chỉ:" nằm riêng ở 1 dòng, lấy dòng liền sau đó
             if (/(?:địa\s*chỉ|hộ\s*khẩu|thường\s*trú|nơi\s*ở|hktt)/i.test(line) && i + 1 < sectionLines.length) {
-                let nextLine = sectionLines[i + 1].replace(/\.{2,}/g, '').trim();
-                if (nextLine.length >= 5 && !/(?:cccd|cmnd|điện\s*thoại|sđt|bên\s*[ab])/i.test(nextLine)) {
+                let nextLine = sectionLines[i + 1].replace(/[\._\-]{2,}/g, '').trim();
+                if (nextLine.length >= 5 && !/^[\.\-_\s]*$/.test(nextLine) && !/(?:cccd|cmnd|điện\s*thoại|sđt|bên\s*[ab])/i.test(nextLine)) {
                     return nextLine;
                 }
             }
@@ -243,21 +356,44 @@ export function parseContractText(rawText) {
         if (!isNaN(val) && val > 100000) output.deposit_amount = val;
     }
 
-    // Đánh giá dữ liệu
-    if (output.tenant_name || output.tenant_cccd || output.landlord_name || output.landlord_cccd || output.monthly_rent || output.tenant_address) {
+    // Kiểm tra lại tính hợp lệ của các trường tên
+    if (!isValidVietnameseName(output.landlord_name)) output.landlord_name = '';
+    if (!isValidVietnameseName(output.tenant_name)) output.tenant_name = '';
+
+    // Đếm số lượng dấu chấm điền tay (placeholder dots) trong hợp đồng mẫu
+    const placeholderCount = (rawText.match(/[\.\-_]{5,}/g) || []).length;
+
+    // Đánh giá xem hợp đồng có dữ liệu thực sự hay là mẫu in chưa điền
+    const hasRealData = Boolean(
+        output.landlord_name || 
+        output.tenant_name || 
+        output.landlord_cccd || 
+        output.tenant_cccd || 
+        output.landlord_phone || 
+        output.tenant_phone || 
+        output.monthly_rent
+    );
+
+    if (hasRealData && placeholderCount < 8) {
         output.has_data = true;
         output.is_blank = false;
         output.message = 'Trích xuất dữ liệu thành công từ ảnh hợp đồng!';
     } else {
-        const placeholders = (rawText.match(/[\.\-_]{6,}/g) || []).length;
-        if (placeholders >= 5) {
-            output.is_blank = true;
-            output.has_data = false;
-            output.message = 'Ảnh hợp đồng là mẫu in chưa điền thông tin.';
-        } else {
-            output.has_data = true;
-            output.message = 'Đã nhận diện văn bản. Hãy kiểm tra các thông tin ở Bước 3.';
-        }
+        // Hợp đồng là mẫu in chưa điền hoặc chứa rác từ dấu chấm
+        output.is_blank = true;
+        output.has_data = false;
+        output.landlord_name = '';
+        output.landlord_cccd = '';
+        output.landlord_phone = '';
+        output.landlord_address = '';
+        output.tenant_name = '';
+        output.tenant_cccd = '';
+        output.tenant_phone = '';
+        output.tenant_dob = '';
+        output.tenant_address = '';
+        output.monthly_rent = null;
+        output.deposit_amount = null;
+        output.message = 'Phát hiện ảnh hợp đồng là mẫu in chưa điền thông tin. Tất cả các trường đã được để trống.';
     }
 
     return output;

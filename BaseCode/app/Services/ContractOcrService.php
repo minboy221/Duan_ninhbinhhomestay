@@ -138,7 +138,7 @@ class ContractOcrService
                 $mimeType = $imageInfo['mime'];
             }
 
-            $prompt = 'Hãy đọc và bóc tách dữ liệu từ ảnh hợp đồng thuê trọ Tiếng Việt (bao gồm cả chữ in và chữ viết tay). Trả về duy nhất 1 JSON thuần theo cấu trúc: {"landlord_name": "", "landlord_cccd": "", "landlord_phone": "", "landlord_address": "", "tenant_name": "", "tenant_cccd": "", "tenant_phone": "", "tenant_dob": "YYYY-MM-DD", "tenant_address": "", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "monthly_rent": 0, "deposit_amount": 0, "is_blank": false}. Nếu trường nào không có hoặc không đọc được thì để chuỗi rỗng.';
+            $prompt = 'Hãy đọc và bóc tách dữ liệu từ ảnh hợp đồng thuê trọ Tiếng Việt (bao gồm cả chữ in và chữ viết tay). Trả về duy nhất 1 JSON thuần theo cấu trúc: {"landlord_name": "", "landlord_cccd": "", "landlord_phone": "", "landlord_address": "", "tenant_name": "", "tenant_cccd": "", "tenant_phone": "", "tenant_dob": "YYYY-MM-DD", "tenant_address": "", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "monthly_rent": 0, "deposit_amount": 0, "is_blank": false}. Nếu trường nào không có hoặc không đọc được thì để chuỗi rỗng. LƯU Ý: "BÊN A", "BÊN B", "BÊN CHO THUÊ", "BÊN THUÊ" chỉ là tiêu đề section. "landlord_name" và "tenant_name" phải là Họ và Tên cá nhân người đại diện (sau từ khóa như "Đại diện", "Họ và tên", "Ông/Bà"). Tuyệt đối KHÔNG lấy chuỗi "Bên A", "Bên B", "Bên Cho Thuê", "Bên Thuê" làm tên!';
 
             $payload = [
                 'contents' => [
@@ -159,37 +159,43 @@ class ContractOcrService
                 ]
             ];
 
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . trim($apiKey);
+            $models = ['gemini-1.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
+            $cleanKey = trim(trim($apiKey), '"\'');
+            $cleanKey = preg_replace('/\s+/', '', $cleanKey);
 
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'Content-Type: application/json'
-            ]);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            $models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
 
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            foreach ($models as $model) {
+                try {
+                    $response = \Illuminate\Support\Facades\Http::timeout(35)
+                        ->withoutVerifying()
+                        ->withHeaders([
+                            'x-goog-api-key' => $cleanKey,
+                            'Content-Type' => 'application/json',
+                        ])
+                        ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", $payload);
 
-            if ($httpCode === 200 && $response) {
-                $resData = json_decode($response, true);
-                $textJson = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                if ($textJson) {
-                    $parsed = json_decode($textJson, true);
-                    if (is_array($parsed)) {
-                        $parsed['success'] = true;
-                        $parsed['has_data'] = true;
-                        $parsed['message'] = 'Đã quét và bóc tách thành công cả chữ in và chữ viết tay từ ảnh hợp đồng!';
-                        return $parsed;
+                    if ($response->successful()) {
+                        $resData = $response->json();
+                        $textJson = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                        if ($textJson) {
+                            $parsed = json_decode($textJson, true);
+                            if (is_array($parsed)) {
+                                $parsed['success'] = true;
+                                $parsed['has_data'] = true;
+                                $parsed['message'] = 'Đã quét và bóc tách thành công cả chữ in và chữ viết tay từ ảnh hợp đồng bằng Gemini AI!';
+                                return $parsed;
+                            }
+                        }
+                    } else {
+                        Log::error("Gemini Vision OCR Model {$model} failed (HTTP {$response->status()}): " . substr($response->body(), 0, 300));
                     }
+                } catch (\Throwable $errModel) {
+                    Log::error("Gemini Vision OCR Model {$model} exception: " . $errModel->getMessage());
                 }
             }
         } catch (\Throwable $e) {
-            Log::error("Gemini Vision OCR Error: " . $e->getMessage());
+            Log::error("Gemini Vision OCR Exception: " . $e->getMessage());
         }
 
         return ['success' => false];

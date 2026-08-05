@@ -115,7 +115,7 @@ const scanOcrFile = async (file) => {
         return;
     }
     isScanningOcr.value = true;
-    ocrProgressText.value = 'Đang khởi động Tesseract.js trên trình duyệt...';
+    ocrProgressText.value = 'Đang phân tích hình ảnh hợp đồng (chữ in & chữ viết tay)...';
 
     // Reset tất cả các trường dữ liệu về rỗng
     addForm.value.landlord_name = '';
@@ -130,33 +130,66 @@ const scanOcrFile = async (file) => {
     addForm.value.tenant_address = '';
 
     try {
-        const res = await performClientOcr(file, (percent, msg) => {
-            ocrProgressText.value = `${msg} (${percent}%)`;
-        });
+        let res = null;
+
+        // 1. Thử gọi Backend API Server-side (Tự động đọc chữ viết tay & chữ in qua Gemini Vision AI nếu có GEMINI_API_KEY)
+        try {
+            const formData = new FormData();
+            formData.append('ocr_file', file);
+            const apiRes = await axios.post(route('landlord.contracts.extract_ocr'), formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            if (apiRes.data && apiRes.data.success && apiRes.data.has_data) {
+                res = apiRes.data;
+            }
+        } catch (serverErr) {
+            console.log('Backend OCR bypass/fallback to Client Tesseract:', serverErr);
+        }
+
+        // 2. Nếu Backend Server API chưa trả về dữ liệu -> Chạy Client-side Tesseract.js trên trình duyệt
+        if (!res || !res.has_data) {
+            ocrProgressText.value = 'Đang khởi động Tesseract.js trên trình duyệt...';
+            res = await performClientOcr(file, (percent, msg) => {
+                ocrProgressText.value = `${msg} (${percent}%)`;
+            });
+        }
 
         if (res) {
-            addForm.value.landlord_name = res.landlord_name || '';
-            addForm.value.landlord_cccd = res.landlord_cccd || '';
-            addForm.value.landlord_phone = res.landlord_phone || '';
-            addForm.value.landlord_address = res.landlord_address || '';
-
-            addForm.value.tenant_name = res.tenant_name || '';
-            addForm.value.tenant_cccd = res.tenant_cccd || '';
-            addForm.value.tenant_phone = res.tenant_phone || '';
-            addForm.value.tenant_dob = res.tenant_dob || '';
-            addForm.value.tenant_address = res.tenant_address || '';
-
-            if (res.start_date) addForm.value.start_date = res.start_date;
-            if (res.end_date) addForm.value.end_date = res.end_date;
-            if (res.monthly_rent) addForm.value.rent = res.monthly_rent;
-            if (res.deposit_amount) addForm.value.deposit = res.deposit_amount;
-
             if (res.is_blank) {
-                showWarning('Hợp đồng trống', res.message || 'Phát hiện ảnh hợp đồng là bản mẫu in chưa điền thông tin/chữ ký. Tất cả thông tin đã được để trống để bạn tự điền thủ công ở Bước 3.');
-            } else if (res.has_data) {
-                showSuccess('Quét OCR hoàn tất', res.message || 'Trình duyệt đã bóc tách thành công dữ liệu từ ảnh hợp đồng!');
+                addForm.value.landlord_name = '';
+                addForm.value.landlord_cccd = '';
+                addForm.value.landlord_phone = '';
+                addForm.value.landlord_address = '';
+
+                addForm.value.tenant_name = '';
+                addForm.value.tenant_cccd = '';
+                addForm.value.tenant_phone = '';
+                addForm.value.tenant_dob = '';
+                addForm.value.tenant_address = '';
+
+                showWarning('Mẫu hợp đồng chưa điền', res.message || 'Phát hiện ảnh hợp đồng là bản mẫu in chưa điền thông tin/chữ ký. Tất cả các trường thông tin đã được giữ trống để bạn tự điền ở Bước 3.');
             } else {
-                showSuccess('Nhận diện hợp đồng', 'Đã chuyển sang Bước 3 để bạn kiểm tra và điền thông tin hợp đồng.');
+                addForm.value.landlord_name = res.landlord_name || '';
+                addForm.value.landlord_cccd = res.landlord_cccd || '';
+                addForm.value.landlord_phone = res.landlord_phone || '';
+                addForm.value.landlord_address = res.landlord_address || '';
+
+                addForm.value.tenant_name = res.tenant_name || '';
+                addForm.value.tenant_cccd = res.tenant_cccd || '';
+                addForm.value.tenant_phone = res.tenant_phone || '';
+                addForm.value.tenant_dob = res.tenant_dob || '';
+                addForm.value.tenant_address = res.tenant_address || '';
+
+                if (res.start_date) addForm.value.start_date = res.start_date;
+                if (res.end_date) addForm.value.end_date = res.end_date;
+                if (res.monthly_rent) addForm.value.rent = res.monthly_rent;
+                if (res.deposit_amount) addForm.value.deposit = res.deposit_amount;
+
+                if (res.has_data) {
+                    showSuccess('Quét OCR hoàn tất', res.message || 'Hệ thống đã bóc tách thành công dữ liệu từ ảnh hợp đồng!');
+                } else {
+                    showSuccess('Nhận diện hợp đồng', 'Đã chuyển sang Bước 3 để bạn kiểm tra và điền thông tin hợp đồng.');
+                }
             }
             activeStep.value = 3;
         }
