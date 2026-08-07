@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
+use App\Models\RoommateRequest;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,12 +49,31 @@ class ProfileController extends Controller
     //trang quản lý nơi ở
     public function quanlynoio(Request $request): Response
     {
-        $contract = \App\Models\Contract::where('tenant_id', $request->user()->id)
-            ->whereIn('status', ['awaiting_upload', 'signed', 'active'])
-            ->with(['room.boardingHouse.user', 'invoices'])
+        $userId = $request->user()->id;
+        //Tìm hợp đồng của người dùng đứng tên đại diện
+        $contract = \App\Models\Contract::where('tenant_id', $userId)
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+            ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices'])
             ->orderBy('created_at', 'desc')
             ->first();
 
+        //nếu người dùng không đại diện ký, check xem họ có phải thành viên ở ghép trong phòng không
+        if (!$contract) {
+            $resident = \App\Models\RoomResident::where('user_id', $userId)
+                ->where('status', 'acive')
+                ->first();
+            if ($resident) {
+                $contract = \App\Models\Contract::where('room_id', $resident->room_id)
+                    ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+                    ->with([
+                        'room.boardingHouse.user',
+                        'room.resident.user',
+                        'invoice'
+                    ])
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+            }
+        }
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
             'contract' => $contract,
@@ -290,7 +310,7 @@ class ProfileController extends Controller
                 $landlord->notify(new \App\Notifications\TenantInterestedNotification($appointment));
             }
         }
-        
+
         if ($request->filled('cccd')) {
             $user->update(['cccd_number' => $request->cccd]);
         }
@@ -396,8 +416,8 @@ class ProfileController extends Controller
         \App\Models\Contract::$allowImmutableUpdate = false;
 
         return Redirect::back()->with('success', 'Đã gửi yêu cầu chấm dứt hợp đồng thành công. Vui lòng chờ chủ trọ xác nhận thanh lý.');
-     /* Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
-     */
+        /* Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
+         */
     }
     public function submitEntryReadings(Request $request, $contractId)
     {
@@ -444,5 +464,44 @@ class ProfileController extends Controller
 
         return Redirect::back()->with('success', 'Đã cập nhật chỉ số điện/nước nhận phòng thành công!');
     }
+
+    //gửi yêu cầu tìm người lạ ở ghép
+    public function requestStrangerRoommate(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        try {
+            $this->profileService->createStrangerRequest($request->user());
+            return redirect()->back()->with('success', 'Gửi yêu cầu tìm người ở ghép thành công! Vui lòng chờ chủ trọ phê duyệt.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+    //gửi yêu cầu giới thiệu người quen vào ở ghép
+    public function requestAcquaintanceRoommate(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $request->validate([
+            'new_resident_name' => 'required|string|max:255',
+            'new_resident_phone' => 'required|string|max:15',
+            'new_resident_email' => 'required|email|max:255',
+            'new_resident_cccd' => 'required|string|regex:/^\d{12}$/', // CCCD 12 số
+        ], [
+            'new_resident_name.required' => 'Họ tên người quen là bắt buộc.',
+            'new_resident_phone.required' => 'Số điện thoại là bắt buộc.',
+            'new_resident_email.required' => 'Email là bắt buộc.',
+            'new_resident_cccd.required' => 'Số CCCD là bắt buộc.',
+            'new_resident_cccd.regex' => 'Số CCCD bắt buộc phải đúng 12 chữ số.'
+        ]);
+        try {
+            $this->profileService->createAcquaintanceRequest($request->user(), $request->only([
+                'new_resident_name',
+                'new_resident_phone',
+                'new_resident_email',
+                'new_resident_cccd',
+            ]));
+            return redirect()->back()->with('success', 'Gửi thông báo giới thiệu thành viên mới thành công! Vui lòng chờ chủ trọ duyệt.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
 }
+
 

@@ -196,7 +196,7 @@ const submit = () => {
                                 <input type="text" v-model="form.phone" placeholder="Số điện thoại"
                                     :disabled="!!user.phone" />
                                 <span v-if="form.errors.phone" class="text-red-500 text-sm">{{ form.errors.phone
-                                    }}</span>
+                                }}</span>
                             </div>
                         </div>
                         <div class="row">
@@ -233,7 +233,7 @@ const submit = () => {
                             <input type="text" v-model="addressDetail" @input="updateAddressField"
                                 placeholder="Nhập thôn, xóm, số nhà, tên đường..." :disabled="!canUpdateProfile" />
                             <span v-if="form.errors.address" class="text-red-500 text-sm">{{ form.errors.address
-                                }}</span>
+                            }}</span>
                         </div>
 
                         <!-- Trường nhập số CCCD 12 số của Khách thuê -->
@@ -243,20 +243,20 @@ const submit = () => {
                             <input type="text" v-model="form.cccd_number" maxlength="12" placeholder="Nhập 12 số CCCD"
                                 :disabled="!canUpdateProfile" />
                             <span v-if="form.errors.cccd_number" class="text-red-500 text-sm">{{ form.errors.cccd_number
-                                }}</span>
+                            }}</span>
                         </div>
-
-                        <div class="form-group">
-                            <label>Nghề Nghiệp Hiện Tại:</label>
-                            <input type="text" v-model="form.job" placeholder="Nghề nghiệp"
-                                :disabled="!canUpdateProfile" />
-                            <span v-if="form.errors.job" class="text-red-500 text-sm">{{ form.errors.job }}</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Ngày sinh:</label>
-                            <input type="date" v-model="form.dob" :disabled="!canUpdateProfile" />
-                            <span v-if="form.errors.dob" class="text-red-500 text-sm">{{ form.errors.dob }}</span>
+                        <div class="row">
+                            <div class="form-group" style="margin-bottom: 20px">
+                                <label>Nghề Nghiệp Hiện Tại:</label>
+                                <input type="text" v-model="form.job" placeholder="Nghề nghiệp"
+                                    :disabled="!canUpdateProfile" />
+                                <span v-if="form.errors.job" class="text-red-500 text-sm">{{ form.errors.job }}</span>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 20px">
+                                <label>Ngày sinh:</label>
+                                <input type="date" v-model="form.dob" :disabled="!canUpdateProfile" />
+                                <span v-if="form.errors.dob" class="text-red-500 text-sm">{{ form.errors.dob }}</span>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Giới tính:</label>
@@ -265,7 +265,8 @@ const submit = () => {
                                 <option value="male">Nam</option>
                                 <option value="female">Nữ</option>
                             </select>
-                            <span v-if="form.errors.gender" class="text-red-500 text-sm">{{ form.errors.gender }}</span>
+                            <span v-if="form.errors.gender" class="text-red-500 text-sm">{{ form.errors.gender
+                                }}</span>
                         </div>
                         <button class="btn_save" type="submit" :disabled="form.processing || !canUpdateProfile">
                             Lưu thay đổi

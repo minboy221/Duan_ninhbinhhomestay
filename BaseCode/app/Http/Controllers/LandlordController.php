@@ -446,10 +446,16 @@ class LandlordController extends Controller
         // Quét & cập nhật tự động trạng thái hợp đồng (expiring/expired) theo ngày hiện tại
         \App\Http\Controllers\Landlord\ContractController::scanContractStatuses($landlordId);
 
-        $contracts = \App\Models\Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
+        $query = \App\Models\Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
             $q->where('user_id', $landlordId);
-        })
-            ->with(['room', 'tenant'])
+        });
+        //nếu chủ trọ chọn 1 cơ sở cụ thể trên header -> lấy hợp đồng thuộc cơ sở đó
+        if ($boardingHousesId) {
+            $query->whereHas('room', function ($q) use ($boardingHousesId) {
+                $q->where('boarding_house_id', $boardingHousesId);
+            });
+        }
+        $contracts = $query->with(['room.residents.user', 'tenant'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -474,8 +480,9 @@ class LandlordController extends Controller
 
         // Lấy danh sách Nhà trọ kèm các Tầng và Phòng trọ
         $boardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)
-            ->with(['floors.rooms'])
+            ->with(['floors.rooms.residents.user'])
             ->get();
+
 
         return Inertia::render('Landlord/Contracts/index', [
             'dbContracts' => $contracts,
@@ -1189,4 +1196,29 @@ class LandlordController extends Controller
             return response()->json(['error' => 'Đã xảy ra lỗi khi gọi AI xử lý ảnh: ' . $e->getMessage()], 500);
         }
     }
+    public function addResident(Request $request, int $roomId)
+    {
+        $request->validate([
+            'phone' => 'required|string',
+            'start_date' => 'required|date',
+        ]);
+
+        try {
+            $this->roomService->addResident(Auth::id(), $roomId, $request->phone, $request->start_date);
+            return redirect()->back()->with('success', 'Đã thêm thành viên ở ghép thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function removeResident(Request $request, int $roomId, int $residentId)
+    {
+        try {
+            $this->roomService->removeResident(Auth::id(), $roomId, $residentId);
+            return redirect()->back()->with('success', 'Đã xóa thành viên ở ghép khỏi phòng!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
 }

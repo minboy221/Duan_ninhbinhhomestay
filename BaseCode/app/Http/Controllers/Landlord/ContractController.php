@@ -12,8 +12,6 @@ use App\Http\Requests\LiquidateContractRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Symfony\Contracts\Service\Attribute\Required;
-
 class ContractController extends Controller
 {
     protected ContractService $contractService;
@@ -23,7 +21,7 @@ class ContractController extends Controller
         $this->contractService = $contractService;
     }
     //check tài khoản user theo Email & SĐT
-    public function searchTenant(Required $required)
+    public function searchTenant(Request $required)
     {
         $query = trim($required->get('q', ''));
         if (empty($query)) {
@@ -58,13 +56,13 @@ class ContractController extends Controller
     }
     public function scanContracts(Request $request)
     {
-        $count = $this->contractService->scanContractStatuses(Autha::id());
+        $count = $this->contractService->scanContractStatuses(Auth::id());
         return redirect()->back()->with('success', "Đã quét và cập nhật trạng thái cho  {$count} hợp đồng!");
     }
     //chuyển trạng thái hợp đồng sang hết hạn(Báo chấm dứt sớm hoặc hết hạn thường)
     public function markAsExpired(Request $request, Contract $contract)
     {
-        if ($contract->room->boadingHouse->user_id !== Auth::id() && $contract->tenant_id !== Auth::id()) {
+        if ($contract->room->boardingHouse->user_id !== Auth::id() && $contract->tenant_id !== Auth::id()) {
             abort(403);
         }
         if (!in_array($contract->status, ['active', 'signed', 'expiring'])) {
@@ -93,11 +91,11 @@ class ContractController extends Controller
     //Phần thanh lý hợp đồng
     public function liquidateContract(LiquidateContractRequest $request, Contract $contract)
     {
-        if ($contract->room->boadingHouse->user_id !== Auth::id()) {
+        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
             abort(403);
         }
-        if ($contract->status !== 'expired') {
-            return redirect()->back()->with('error', 'Hợp đồng phải bước vào trạng thái Hết hạn (expired) mới được phép được thanh lý.');
+        if(!in_array($contract->status,['expired','termination_requested'])){
+            return redirect()->back()->with('error','Hợp đồng phải ở trạng thái Hết hạn hoặc Yêu cầu chấm dứt mới được phép thanh lý.');
         }
         try {
             $this->contractService->liquidateContract($contract, $request->validated());
@@ -109,12 +107,43 @@ class ContractController extends Controller
     //phần gia hạn hợp đồng
     public function extendContract(ExtendContractRequest $request, Contract $contract)
     {
-        if ($contract->room->boadingHouse->user_id !== Auth::id()) {
+        if ($contract->room->boardingHouse->user_id !== Auth::id()) {
             abort(403);
         }
         try {
             $this->contractService->extendContract($contract, $request->validated(), Auth::id());
             return redirect()->back()->with('success', 'Hợp đồng đã được gia hạn thành công đến ngày ' . date('d/m/Y', strtotime($request->new_end_date)));
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    //hiển thị danh sách yêu cầu ở ghép
+    public function roommateRequests()
+    {
+        $requests = $this->contractService->getRoommateRequests(Auth::id());
+        return Inertia::render('Landlord/RoommateRequests/Index', [
+            'roommateRequests' => $requests
+        ]);
+    }
+
+    //duyệt yêu cầu ở ghép
+    public function approveRoommateRequest(Request $request, $id)
+    {
+        try {
+            $this->contractService->approveRoommateRequest($id);
+            return redirect()->back()->with('success', 'Đã phê duyệt yêu cầu thành công.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    //từ chối yêu cầu ở ghép
+    public function rejectRoommateRequest(Request $request, $id)
+    {
+        try {
+            $this->contractService->rejectRoommateRequest($id);
+            return redirect()->back()->with('success', 'Đã từ chối yêu cầu ở ghép.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }

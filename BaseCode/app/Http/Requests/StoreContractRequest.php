@@ -20,11 +20,14 @@ class StoreContractRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'appointment_id' => 'required|exists:appointments,id',
+            'appointment_id' => 'nullable|exists:appointments,id',
+            'room_id' => 'required_without:appointment_id|exists:rooms,id',
+            'tenant_id' => 'required_without:appointment_id|exists:users,id',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
             'deposit' => 'required|numeric|min:0',
-            'contract_file' => 'required|file|mimes:jpeg,png,jpg,pdf|max:10240', // max 10MB
+            'contract_file' => 'required|file|mimes:jpeg,png,jpg,pdf|max:10240',
+            'number_of_tenants' => 'nullable|integer|min:1',
         ];
     }
 

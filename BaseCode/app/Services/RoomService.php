@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Room;
 use App\Models\Floor;
+use App\Models\RoomResident;
+use App\Models\User;
 use App\Repositories\RoomRepository;
 use App\Repositories\PropertyRepository;
 use App\Repositories\FloorRepository;
@@ -44,8 +46,8 @@ class RoomService
             $allRooms = $floor->rooms;
             //lọc phòng thuộc cở sở đang chọn
             $rooms = $allRooms;
-            if($boardingHouseId){
-                $rooms = $rooms->where('boarding_house_id',$boardingHouseId);
+            if ($boardingHouseId) {
+                $rooms = $rooms->where('boarding_house_id', $boardingHouseId);
             }
             return [
                 'id' => $floor->id,
@@ -54,7 +56,7 @@ class RoomService
                 'latitude' => $floor->latitude,
                 'longitude' => $floor->longitude,
                 'rooms' => $rooms->map(fn($r) => $this->formatRoom($r))->values()->toArray(),
-                'total_rooms_count' => $allRooms -> count(),
+                'total_rooms_count' => $allRooms->count(),
             ];
         })
             //phần lọc bỏ các tầng không có phòng thuộc cơ sở trọ đang chọn
@@ -119,10 +121,10 @@ class RoomService
             'property_id' => $propertyId,
             'name' => $data['name'],
             'address' => $data['address'] ?? null,
-            'latitude' => $data['latitude'] ?? null, 
+            'latitude' => $data['latitude'] ?? null,
             'longitude' => $data['longitude'] ?? null,
         ]);
-        
+
         return [
             'id' => $newFloor->id,
             'name' => $newFloor->name,
@@ -130,8 +132,6 @@ class RoomService
             'latitude' => $newFloor->latitude,
             'longitude' => $newFloor->longitude,
         ];
-
-        $maxOrder = $this->floorRepo->getMaxSortOrder($propertyId);
     }
 
     /**
@@ -408,6 +408,81 @@ class RoomService
         return $this->roomRepo->update($room, ['current_people' => max(0, $currentPeople - 1)]);
     }
 
+    //Phần thêm người ở ghép
+    public function addResident(int $landlordId, int $roomId, string $phone, string $startDate)
+    {
+        $room = $this->roomRepo->findById($roomId);
+        if (!$room || $room->boardingHouse->user_id !== $landlordId) {
+            throw new \Exception('Không tìm thấy phòng trọ hoặc bạn không có quyền.');
+        }
+
+        // Tìm User B theo SĐT
+        $user = User::where('phone', $phone)->first();
+        if (!$user) {
+            throw new \Exception('Không tìm thấy tài khoản người dùng có SĐT này trên hệ thống. Yêu cầu B đăng ký tài khoản trước!');
+        }
+
+        // Check CCCD của B
+        $cccd = trim($user->cccd_number ?? '');
+        if (empty($cccd) || strlen($cccd) !== 12 || !is_numeric($cccd)) {
+            throw new \Exception('Người dùng "' . $user->name . '" chưa cập nhật đúng số CCCD 12 số. Hãy nhắc B cập nhật profile trước.');
+        }
+
+        // Check người dùng đã có ở trong phòng chưa
+        $existing = RoomResident::where('room_id', $roomId)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
+        if ($existing) {
+            throw new \Exception('Người dùng này hiện đã đang ở ghép trong phòng này rồi!');
+        }
+
+        // Check sức chứa
+        if ($room->current_people >= $room->capacity) {
+            throw new \Exception('Phòng đã đầy số lượng người tối đa, không thể thêm thành viên ở ghép.');
+        }
+
+        // Lưu bản ghi ở ghép
+        RoomResident::create([
+            'room_id' => $roomId,
+            'user_id' => $user->id,
+            'start_date' => $startDate,
+            'status' => 'active',
+        ]);
+
+        // Tăng số người ở thực tế
+        $room->increment('current_people');
+
+        return $user;
+    }
+
+    // Xoá thành viên ở ghép khỏi phòng
+    public function removeResident(int $landlordId, int $roomId, int $residentId)
+    {
+        $room = $this->roomRepo->findById($roomId);
+        if (!$room || $room->boardingHouse->user_id !== $landlordId) {
+            throw new \Exception('Không tìm thấy phòng trọ hoặc bạn không có quyền.');
+        }
+
+        $resident = RoomResident::where('room_id', $roomId)
+            ->where('id', $residentId)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$resident) {
+            throw new \Exception('Không tìm thấy thành viên ở ghép này trong phòng.');
+        }
+
+        $resident->update([
+            'status' => 'inactive',
+            'end_date' => now()->format('Y-m-d'),
+        ]);
+
+        // Giảm số lượng người ở thực tế
+        $room->decrement('current_people');
+        return true;
+    }
+
     /**
      * Xóa phòng
      */
@@ -430,18 +505,19 @@ class RoomService
     {
         $currentPeople = (int) ($room->current_people ?? 0);
 
-        // Đếm số hợp đồng đang hoạt động/ký cho phòng này
+        //Đếm số hợp đồng đang hoạt động/ký cho phòng này
         $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
-            ->whereIn('status', ['active', 'signed', 'pending', 'awaiting_upload', 'termination_requested', 'expiring'])
+            ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
             ->count();
 
-        // Nếu room có trạng thái 'rented' (Đã thuê) hoặc có HĐ active, tự động sinh ít nhất 1 người ở
+        //Nếu room có trạng thái 'rented' hoặc có HĐ active, tự động sinh ít nhất 1 người ở
         if ($room->status === 'rented' || $activeContractsCount > 0) {
             $currentPeople = max($currentPeople, $activeContractsCount, 1);
-
-            // Cập nhật đồng bộ lại vào cơ sở dữ liệu nếu DB đang lưu = 0
+            //cập nhật đồng bộ lại vào cơ sở dữ liệu nếu có DB đang lưu = 0
             if (($room->current_people ?? 0) < $currentPeople) {
-                $room->update(['current_people' => $currentPeople]);
+                $room->update([
+                    'current_people' => $currentPeople
+                ]);
             }
         }
 
@@ -461,6 +537,16 @@ class RoomService
             'images' => $room->images ?? [],
             'services' => $room->relationLoaded('services') ? $room->services->toArray() : [],
             'has_approved_post' => $room->roomPosts()->where('status', 'approved')->exists(),
+            'residents' => $room->residents()->with('user')->get()->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'user_id' => $r->user_id,
+                    'name' => $r->user->name ?? 'Thành viên',
+                    'phone' => $r->user->phone ?? '',
+                    'cccd_number' => $r->user->cccd_number ?? '',
+                    'start_date' => $r->start_date,
+                ];
+            })->toArray(),
         ];
     }
 

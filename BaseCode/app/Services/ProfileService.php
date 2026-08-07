@@ -1,9 +1,12 @@
 <?php
 namespace App\Services;
 
+use App\Models\RoomResident;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
+use App\Models\RoommateRequest;
+use App\Models\Contract;
 
 class ProfileService
 {
@@ -129,10 +132,110 @@ class ProfileService
 
         // Lưu ảnh mới
         $path = $avatarFile->store('avatars', 'public');
-        
+
         // Cập nhật database
         $this->userRepository->updateUser($user->id, ['avatar' => $path]);
 
         return $path;
+    }
+
+    /**
+     * Tạo yêu cầu tìm người lạ ở ghép (Stranger)
+     */
+    public function createStrangerRequest(User $user): void
+    {
+        //1. Tìm hợp đồng của người đứng tên đại diện
+        $contract = Contract::where('tenant_id', $user->id)
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+            ->first();
+        //2. Nếu không phải người đại diện, check xem có phải là thành viên ở ghép không
+        if (!$contract) {
+            $resident = RoomResident::where('user_id', $user->id)
+                ->where('status', 'active')
+                ->first();
+            if ($resident) {
+                $contract = Contract::where('room_id', $resident->room_id)
+                    ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+                    ->first();
+            }
+        }
+        if (!$contract) {
+            throw new \Exception('Bạn không có hợp đồng thuê trọ nào đang hoạt động.');
+        }
+        $exists = RoommateRequest::where('room_id', $contract->room_id)
+            ->where('tenant_id', $user->id)
+            ->where('type', 'stranger')
+            ->where('status', 'pending')
+            ->exists();
+        if ($exists) {
+            throw new \Exception('Yêu cầu tìm người ở ghép của bạn đang chờ chủ trọ phê duyệt.');
+        }
+        RoommateRequest::create([
+            'room_id' => $contract->room_id,
+            'tenant_id' => $user->id,
+            'type' => 'stranger',
+            'status' => 'pending'
+        ]);
+        $landlord = $contract->room->boardingHouse->user ?? null;
+        if ($landlord) {
+            $roomNum = $contract->room->room_number ?? '';
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'Yêu cầu tìm người ở ghép mới',
+                "Khách thuê tại phòng {$roomNum} gửi yêu cầu đăng tin tìm người ở ghép.",
+                route('landlord.roommate-requests')
+            ));
+        }
+    }
+
+    /**
+     * Tạo yêu cầu giới thiệu người quen ở ghép (Acquaintance)
+     */
+    public function createAcquaintanceRequest(User $user, array $data): void
+    {
+        // 1. Tìm hợp đồng của người dùng đứng tên đại diện
+        $contract = Contract::where('tenant_id', $user->id)
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+            ->first();
+        // 2. Nếu không phải người đại diện, kiểm tra xem có phải thành viên ở ghép không
+        if (!$contract) {
+            $resident = RoomResident::where('user_id', $user->id)
+                ->where('status', 'active')
+                ->first();
+            if ($resident) {
+                $contract = Contract::where('room_id', $resident->room_id)
+                    ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+                    ->first();
+            }
+        }
+        if (!$contract) {
+            throw new \Exception('Bạn không có hợp đồng thuê trọ nào đang hoạt động.');
+        }
+        $exists = RoommateRequest::where('room_id', $contract->room_id)
+            ->where('tenant_id', $user->id)
+            ->where('type', 'acquaintance')
+            ->where('status', 'pending')
+            ->exists();
+        if ($exists) {
+            throw new \Exception('Bạn đang có một yêu cầu giới thiệu người quen chờ chủ trọ duyệt.');
+        }
+        RoommateRequest::create([
+            'room_id' => $contract->room_id,
+            'tenant_id' => $user->id,
+            'type' => 'acquaintance',
+            'status' => 'pending',
+            'new_resident_name' => $data['new_resident_name'],
+            'new_resident_phone' => $data['new_resident_phone'],
+            'new_resident_email' => $data['new_resident_email'],
+            'new_resident_cccd' => $data['new_resident_cccd'],
+        ]);
+        $landlord = $contract->room->boardingHouse->user ?? null;
+        if ($landlord) {
+            $roomNum = $contract->room->room_number ?? '';
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'Giới thiệu thành viên ở ghép mới',
+                "Khách thuê tại phòng {$roomNum} giới thiệu thành viên mới: {$data['new_resident_name']} vào ở ghép.",
+                route('landlord.roommate-requests')
+            ));
+        }
     }
 }

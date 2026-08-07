@@ -434,24 +434,27 @@ const paginatedAppointments = computed(() => {
                                         </div>
                                         <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result"
                                             style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
-                                            <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"
-                                                title="Ưng thuê"
+                                            <button @click="openConfirmInterest(apt, true)"
+                                                class="btn-action btn-interest" title="Ưng thuê"
                                                 style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
                                                 <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px;"></i> Ưng
                                             </button>
                                             <button @click="openConfirmInterest(apt, false)"
                                                 class="btn-action btn-not-interest" title="Không ưng"
                                                 style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
-                                                <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i> Không
+                                                <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i>
+                                                Không
                                                 ưng
                                             </button>
                                         </div>
-                                        <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;">
+                                        <div v-else-if="apt.feedback_result"
+                                            style="text-align: center; margin-top: 8px;">
                                             <span v-if="['interested', 'like'].includes(apt.feedback_result)"
                                                 style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
                                                 <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
                                             </span>
-                                            <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
+                                            <span
+                                                v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
                                                 style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
                                                 <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
                                             </span>
@@ -460,61 +463,59 @@ const paginatedAppointments = computed(() => {
                                 </tr>
 
                                 <!-- Hàng Bản Đồ Trực Tiếp Hiện Ở Khoảng Trống Ngay Dưới Dòng (Desktop) -->
-                                <tr v-if="expandedMapAptId === apt.id" style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                <tr v-if="expandedMapAptId === apt.id"
+                                    style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
                                     <td colspan="5" style="padding: 16px;">
-                                        <div style="background: #ffffff; border-radius: 16px; border: 1px solid #cbd5e1; padding: 16px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);">
+                                        <div
+                                            style="background: #ffffff; border-radius: 16px; border: 1px solid #cbd5e1; padding: 16px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);">
                                             <!-- Header khối bản đồ -->
-                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                                            <div
+                                                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                                                 <div>
-                                                    <h4 style="font-size: 14px; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 6px;">
-                                                        <i class="bi bi-map-fill" style="color: #2563eb;"></i> Bản đồ trực tiếp — Phòng {{ apt.room?.room_number }} ({{ apt.room?.boardingHouse?.name || apt.room?.boarding_house?.name }})
+                                                    <h4
+                                                        style="font-size: 14px; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 6px;">
+                                                        <i class="bi bi-map-fill" style="color: #2563eb;"></i> Bản đồ
+                                                        trực tiếp — Phòng {{ apt.room?.room_number }} ({{
+                                                            apt.room?.boardingHouse?.name || apt.room?.boarding_house?.name
+                                                        }})
                                                     </h4>
                                                     <p style="font-size: 12px; color: #64748b; margin: 3px 0 0 0;">
-                                                        📍 {{ apt.room?.boardingHouse?.address_detail || apt.room?.boarding_house?.address_detail || apt.room?.address }}
+                                                        📍 {{ apt.room?.boardingHouse?.address_detail ||
+                                                            apt.room?.boarding_house?.address_detail || apt.room?.address }}
                                                     </p>
                                                 </div>
                                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                                    <button 
-                                                        type="button"
-                                                        @click="inlineMapMode = 'place'"
-                                                        :style="{
-                                                            padding: '6px 12px',
-                                                            fontSize: '12px',
-                                                            fontWeight: '700',
-                                                            borderRadius: '8px',
-                                                            border: '1px solid ' + (inlineMapMode === 'place' ? '#2563eb' : '#cbd5e1'),
-                                                            background: inlineMapMode === 'place' ? '#eff6ff' : '#ffffff',
-                                                            color: inlineMapMode === 'place' ? '#2563eb' : '#64748b',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.2s'
-                                                        }">
+                                                    <button type="button" @click="inlineMapMode = 'place'" :style="{
+                                                        padding: '6px 12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: '700',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid ' + (inlineMapMode === 'place' ? '#2563eb' : '#cbd5e1'),
+                                                        background: inlineMapMode === 'place' ? '#eff6ff' : '#ffffff',
+                                                        color: inlineMapMode === 'place' ? '#2563eb' : '#64748b',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }">
                                                         <i class="bi bi-geo-alt-fill"></i> Vị trí trọ
                                                     </button>
-                                                    <button 
-                                                        type="button"
-                                                        @click="inlineMapMode = 'directions'"
-                                                        :style="{
-                                                            padding: '6px 12px',
-                                                            fontSize: '12px',
-                                                            fontWeight: '700',
-                                                            borderRadius: '8px',
-                                                            border: '1px solid ' + (inlineMapMode === 'directions' ? '#16a34a' : '#cbd5e1'),
-                                                            background: inlineMapMode === 'directions' ? '#f0fdf4' : '#ffffff',
-                                                            color: inlineMapMode === 'directions' ? '#16a34a' : '#64748b',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.2s'
-                                                        }">
+                                                    <button type="button" @click="inlineMapMode = 'directions'" :style="{
+                                                        padding: '6px 12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: '700',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid ' + (inlineMapMode === 'directions' ? '#16a34a' : '#cbd5e1'),
+                                                        background: inlineMapMode === 'directions' ? '#f0fdf4' : '#ffffff',
+                                                        color: inlineMapMode === 'directions' ? '#16a34a' : '#64748b',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }">
                                                         <i class="bi bi-signpost-split-fill"></i> Chỉ đường từ tôi
                                                     </button>
-                                                    <button 
-                                                        type="button"
-                                                        @click="showGuide(apt)"
+                                                    <button type="button" @click="showGuide(apt)"
                                                         style="padding: 6px 12px; font-size: 12px; font-weight: 700; border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff; color: #2563eb; cursor: pointer;">
                                                         <i class="bi bi-compass-fill"></i> Cẩm nang
                                                     </button>
-                                                    <button 
-                                                        type="button"
-                                                        @click="expandedMapAptId = null"
+                                                    <button type="button" @click="expandedMapAptId = null"
                                                         title="Đóng bản đồ"
                                                         style="padding: 6px 10px; font-size: 13px; font-weight: 700; border-radius: 8px; border: 1px solid #fee2e2; background: #fef2f2; color: #ef4444; cursor: pointer;">
                                                         <i class="bi bi-x-lg"></i>
@@ -525,18 +526,18 @@ const paginatedAppointments = computed(() => {
                                             <!-- Ghi chú ngõ ngách nếu có -->
                                             <div v-if="apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide"
                                                 style="margin-bottom: 12px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; font-size: 12px; color: #92400e; display: flex; align-items: center; gap: 8px;">
-                                                <i class="bi bi-signpost-2-fill" style="color: #d97706; font-size: 16px;"></i>
-                                                <span><strong>Chỉ dẫn ngõ ngách:</strong> {{ apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide }}</span>
+                                                <i class="bi bi-signpost-2-fill"
+                                                    style="color: #d97706; font-size: 16px;"></i>
+                                                <span><strong>Chỉ dẫn ngõ ngách:</strong> {{
+                                                    apt.room?.boardingHouse?.directions_guide ||
+                                                    apt.room?.boarding_house?.directions_guide }}</span>
                                             </div>
 
                                             <!-- Khung nhúng Google Maps -->
-                                            <div style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; height: 360px; position: relative;">
-                                                <iframe
-                                                    width="100%"
-                                                    height="100%"
-                                                    style="border: 0; display: block;"
-                                                    loading="lazy"
-                                                    allowfullscreen
+                                            <div
+                                                style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; height: 360px; position: relative;">
+                                                <iframe width="100%" height="100%" style="border: 0; display: block;"
+                                                    loading="lazy" allowfullscreen
                                                     referrerpolicy="no-referrer-when-downgrade"
                                                     :src="getInlineGoogleMapsEmbedUrl(apt)">
                                                 </iframe>
@@ -551,7 +552,8 @@ const paginatedAppointments = computed(() => {
 
                 <!-- GIAO DIỆN MOBILE: DANH SÁCH THẺ DẠNG CARD -->
                 <div class="mobile-appointment-list">
-                    <div v-if="appointments.length === 0" style="text-align: center; padding: 32px 16px; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; color: #94a3b8;">
+                    <div v-if="appointments.length === 0"
+                        style="text-align: center; padding: 32px 16px; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; color: #94a3b8;">
                         <i class="bi bi-calendar-x" style="font-size: 32px; display: block; margin-bottom: 8px;"></i>
                         <span style="font-size: 13px; font-weight: 600;">Bạn chưa có lịch hẹn xem phòng nào.</span>
                     </div>
@@ -561,10 +563,13 @@ const paginatedAppointments = computed(() => {
                         <div class="mobile-apt-header">
                             <div>
                                 <h3 class="mobile-apt-title">Phòng {{ apt.room?.room_number }}</h3>
-                                <p class="mobile-apt-house">{{ apt.room?.boardingHouse?.name || apt.room?.boarding_house?.name }}</p>
+                                <p class="mobile-apt-house">{{ apt.room?.boardingHouse?.name ||
+                                    apt.room?.boarding_house?.name }}</p>
                             </div>
-                            <span :class="['status-badge', getStatusData(apt.status).cls]" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid;">
-                                <span style="width: 6px; height: 6px; border-radius: 50%;" :class="getStatusData(apt.status).dot"></span>
+                            <span :class="['status-badge', getStatusData(apt.status).cls]"
+                                style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid;">
+                                <span style="width: 6px; height: 6px; border-radius: 50%;"
+                                    :class="getStatusData(apt.status).dot"></span>
                                 {{ getStatusData(apt.status).label }}
                             </span>
                         </div>
@@ -576,61 +581,32 @@ const paginatedAppointments = computed(() => {
                                 <div>
                                     <span class="info-label">Thời gian hẹn xem</span>
                                     <span class="info-value">
-                                        {{ new Date(apt.date).toLocaleDateString("vi-VN") }} lúc {{ apt.time.substring(0, 5) }}
+                                        {{ new Date(apt.date).toLocaleDateString("vi-VN") }} lúc {{
+                                        apt.time.substring(0, 5) }}
                                         <span v-if="isToday(apt.date)" class="today-badge" style="margin-left: 4px;">Hôm nay!</span>
                                     </span>
-                                </td>
-                                <td style="
-                                        padding: 12px 16px;
-                                        text-align: center;
-                                    ">
-                                    <div style="
-                                            display: flex;
-                                            gap: 8px;
-                                            justify-content: center;
-                                        ">
-                                        <Link :href="route('chitiettro', apt.room_id)
-                                            " class="btn-action btn-view" title="Xem phòng">
-                                            <i class="bi bi-eye-fill"></i>
-                                        </Link>
-                                        <button v-if="apt.status === 'approved'" @click="showGuide(apt)"
-                                            class="btn-action btn-map" title="Chỉ dẫn đường đi">
-                                            <i class="bi bi-geo-alt-fill"></i>
-                                        </button>
-                                    </div>
-                                    <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result"
-                                        style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
-                                        <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"
-                                            title="Ưng thuê"
-                                            style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
-                                            <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px;"></i> Ưng
-                                        </button>
-                                        <button @click="openConfirmInterest(apt, false)"
-                                            class="btn-action btn-not-interest" title="Không ưng"
-                                            style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
-                                            <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i> Không
-                                            ưng
-                                        </button>
-                                    </div>
-                                    <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;" class="space-y-1">
-                                        <span v-if="['interested', 'like'].includes(apt.feedback_result)"
-                                            style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold; display: inline-block;">
-                                            <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
-                                        </span>
-                                        <span v-else-if="apt.feedback_result === 'cancel_requested'"
-                                            style="background-color: #fffbeb; color: #d97706; border: 1px solid #fde68a; padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: bold; display: inline-block;">
-                                            <i class="bi bi-clock-history"></i> Đã gửi yêu cầu hủy HĐ (Chờ duyệt)
-                                        </span>
-                                        <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
-                                            style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
-                                            <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
-                                        </span>
-                                        <a v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone" 
-                                           :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
-                                           class="mobile-call-btn">
-                                            <i class="bi bi-telephone-fill"></i> Gọi {{ apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone }}
+                                </div>
+                            </div>
+
+                            <div class="mobile-apt-info-item">
+                                <i class="bi bi-person-fill text-emerald-500"></i>
+                                <div>
+                                    <span class="info-label">Chủ trọ</span>
+                                    <span class="info-value">
+                                        {{ apt.room?.boardingHouse?.landlord?.name || apt.room?.boarding_house?.landlord?.name }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone" class="mobile-apt-info-item">
+                                <i class="bi bi-telephone-fill text-indigo-500"></i>
+                                <div>
+                                    <span class="info-label">Số điện thoại</span>
+                                    <span class="info-value">
+                                        <a :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`" class="mobile-call-link" style="color: #2563eb; font-weight: bold; text-decoration: underline;">
+                                            {{ apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone }}
                                         </a>
-                                    </div>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -641,15 +617,16 @@ const paginatedAppointments = computed(() => {
                                 <Link :href="route('chitiettro', apt.room_id)" class="mobile-action-btn btn-view-room">
                                     <i class="bi bi-eye-fill"></i> Xem phòng
                                 </Link>
-                                <button v-if="apt.status === 'approved'" @click="toggleInlineMap(apt)" 
-                                        class="mobile-action-btn btn-map-toggle" 
-                                        :class="{ 'active': expandedMapAptId === apt.id }">
+                                <button v-if="apt.status === 'approved'" @click="toggleInlineMap(apt)"
+                                    class="mobile-action-btn btn-map-toggle"
+                                    :class="{ 'active': expandedMapAptId === apt.id }">
                                     <i class="bi bi-geo-alt-fill"></i> {{ expandedMapAptId === apt.id ? 'Ẩn bản đồ' : 'Bản đồ & Đường đi' }}
                                 </button>
                             </div>
 
                             <!-- Nút Ưng / Không ưng -->
-                            <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result" style="display: flex; gap: 8px; width: 100%;">
+                            <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result"
+                                style="display: flex; gap: 8px; width: 100%;">
                                 <button @click="openConfirmInterest(apt, true)" class="mobile-action-btn btn-like">
                                     <i class="bi bi-hand-thumbs-up-fill"></i> Ưng thuê
                                 </button>
@@ -658,10 +635,12 @@ const paginatedAppointments = computed(() => {
                                 </button>
                             </div>
                             <div v-else-if="apt.feedback_result" style="text-align: center; width: 100%;">
-                                <span v-if="['interested', 'like'].includes(apt.feedback_result)" class="feedback-badge like">
+                                <span v-if="['interested', 'like'].includes(apt.feedback_result)"
+                                    class="feedback-badge like">
                                     <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng thuê
                                 </span>
-                                <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)" class="feedback-badge dislike">
+                                <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
+                                    class="feedback-badge dislike">
                                     <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
                                 </span>
                             </div>
@@ -670,9 +649,11 @@ const paginatedAppointments = computed(() => {
                         <!-- Khối Bản Đồ Nhúng Trực Tiếp Cho Mobile -->
                         <div v-if="expandedMapAptId === apt.id" class="mobile-map-container">
                             <div class="mobile-map-header">
-                                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                                <div
+                                    style="display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
                                     <span class="mobile-map-title">
-                                        <i class="bi bi-map-fill" style="color: #2563eb;"></i> Bản đồ P.{{ apt.room?.room_number }}
+                                        <i class="bi bi-map-fill" style="color: #2563eb;"></i> Bản đồ P.{{
+                                        apt.room?.room_number }}
                                     </span>
                                     <button type="button" @click="expandedMapAptId = null" class="mobile-map-close">
                                         <i class="bi bi-x-lg"></i>
@@ -680,10 +661,12 @@ const paginatedAppointments = computed(() => {
                                 </div>
                                 <!-- Thanh nút tab 100% width vừa vặn -->
                                 <div class="mobile-map-tabs">
-                                    <button type="button" @click="inlineMapMode = 'place'" :class="{ active: inlineMapMode === 'place' }" class="tab-btn">
+                                    <button type="button" @click="inlineMapMode = 'place'"
+                                        :class="{ active: inlineMapMode === 'place' }" class="tab-btn">
                                         <i class="bi bi-geo-alt-fill"></i> Vị trí
                                     </button>
-                                    <button type="button" @click="inlineMapMode = 'directions'" :class="{ active: inlineMapMode === 'directions' }" class="tab-btn">
+                                    <button type="button" @click="inlineMapMode = 'directions'"
+                                        :class="{ active: inlineMapMode === 'directions' }" class="tab-btn">
                                         <i class="bi bi-signpost-split-fill"></i> Chỉ đường
                                     </button>
                                     <button type="button" @click="showGuide(apt)" class="tab-btn guide">
@@ -693,20 +676,17 @@ const paginatedAppointments = computed(() => {
                             </div>
 
                             <!-- Ghi chú ngõ ngách nếu có -->
-                            <div v-if="apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide" class="mobile-directions-guide">
+                            <div v-if="apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide"
+                                class="mobile-directions-guide">
                                 <i class="bi bi-signpost-2-fill" style="color: #d97706;"></i>
-                                <span><strong>Ngõ ngách:</strong> {{ apt.room?.boardingHouse?.directions_guide || apt.room?.boarding_house?.directions_guide }}</span>
+                                <span><strong>Ngõ ngách:</strong> {{ apt.room?.boardingHouse?.directions_guide ||
+                                    apt.room?.boarding_house?.directions_guide }}</span>
                             </div>
 
                             <!-- Iframe Bản đồ -->
                             <div class="mobile-iframe-wrapper">
-                                <iframe
-                                    width="100%"
-                                    height="100%"
-                                    style="border: 0; display: block;"
-                                    loading="lazy"
-                                    allowfullscreen
-                                    referrerpolicy="no-referrer-when-downgrade"
+                                <iframe width="100%" height="100%" style="border: 0; display: block;" loading="lazy"
+                                    allowfullscreen referrerpolicy="no-referrer-when-downgrade"
                                     :src="getInlineGoogleMapsEmbedUrl(apt)">
                                 </iframe>
                             </div>
@@ -720,7 +700,7 @@ const paginatedAppointments = computed(() => {
                     <span class="text-xs text-slate-400 font-semibold"
                         style="color: #94a3b8; font-size: 12px; font-weight: 600;">
                         Hiển thị {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize,
-                        appointments.length) }} trong số {{ appointments.length }}
+                            appointments.length) }} trong số {{ appointments.length }}
                     </span>
                     <div class="flex items-center gap-1" style="display: flex; gap: 4px; align-items: center;">
                         <button @click="currentPage = Math.max(1, currentPage - 1)" :disabled="currentPage === 1"
@@ -734,8 +714,7 @@ const paginatedAppointments = computed(() => {
                             currentPage === p
                                 ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                        ]"
-                            style="width: 28px; height: 28px; border-radius: 8px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;"
+                        ]" style="width: 28px; height: 28px; border-radius: 8px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;"
                             :style="currentPage === p ? 'background-color: #2563eb; border-color: #2563eb; color: white;' : 'background-color: white; border-color: #e2e8f0; color: #475569;'">
                             {{ p }}
                         </button>
@@ -790,54 +769,47 @@ const paginatedAppointments = computed(() => {
                         </div>
 
                         <!-- Khối Bản Đồ Google Nhúng Trực Tiếp -->
-                        <div class="guide-map-card" style="background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                                <span style="font-size: 13px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                        <div class="guide-map-card"
+                            style="background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);">
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                <span
+                                    style="font-size: 13px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
                                     <i class="bi bi-map-fill" style="color: #2563eb;"></i> Bản đồ trực tiếp
                                 </span>
                                 <div style="display: flex; gap: 6px;">
-                                    <button 
-                                        type="button"
-                                        @click="mapMode = 'place'"
-                                        :style="{
-                                            padding: '5px 11px',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            borderRadius: '8px',
-                                            border: '1px solid ' + (mapMode === 'place' ? '#2563eb' : '#cbd5e1'),
-                                            background: mapMode === 'place' ? '#eff6ff' : '#ffffff',
-                                            color: mapMode === 'place' ? '#2563eb' : '#64748b',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }">
+                                    <button type="button" @click="mapMode = 'place'" :style="{
+                                        padding: '5px 11px',
+                                        fontSize: '11px',
+                                        fontWeight: '700',
+                                        borderRadius: '8px',
+                                        border: '1px solid ' + (mapMode === 'place' ? '#2563eb' : '#cbd5e1'),
+                                        background: mapMode === 'place' ? '#eff6ff' : '#ffffff',
+                                        color: mapMode === 'place' ? '#2563eb' : '#64748b',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }">
                                         <i class="bi bi-geo-alt-fill"></i> Vị trí trọ
                                     </button>
-                                    <button 
-                                        type="button"
-                                        @click="mapMode = 'directions'"
-                                        :style="{
-                                            padding: '5px 11px',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            borderRadius: '8px',
-                                            border: '1px solid ' + (mapMode === 'directions' ? '#16a34a' : '#cbd5e1'),
-                                            background: mapMode === 'directions' ? '#f0fdf4' : '#ffffff',
-                                            color: mapMode === 'directions' ? '#16a34a' : '#64748b',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }">
+                                    <button type="button" @click="mapMode = 'directions'" :style="{
+                                        padding: '5px 11px',
+                                        fontSize: '11px',
+                                        fontWeight: '700',
+                                        borderRadius: '8px',
+                                        border: '1px solid ' + (mapMode === 'directions' ? '#16a34a' : '#cbd5e1'),
+                                        background: mapMode === 'directions' ? '#f0fdf4' : '#ffffff',
+                                        color: mapMode === 'directions' ? '#16a34a' : '#64748b',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }">
                                         <i class="bi bi-signpost-split-fill"></i> Chỉ đường
                                     </button>
                                 </div>
                             </div>
-                            <div style="border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; height: 260px; position: relative; background: #f8fafc;">
-                                <iframe
-                                    width="100%"
-                                    height="100%"
-                                    style="border: 0; display: block;"
-                                    loading="lazy"
-                                    allowfullscreen
-                                    referrerpolicy="no-referrer-when-downgrade"
+                            <div
+                                style="border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; height: 260px; position: relative; background: #f8fafc;">
+                                <iframe width="100%" height="100%" style="border: 0; display: block;" loading="lazy"
+                                    allowfullscreen referrerpolicy="no-referrer-when-downgrade"
                                     :src="getGoogleMapsEmbedUrl(activeGuideAppointment)">
                                 </iframe>
                             </div>
@@ -927,25 +899,33 @@ const paginatedAppointments = computed(() => {
                         </p>
                     </div>
                     <div v-else style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0;">
-                        <p style="margin-bottom: 12px;">Bạn chắc chắn <strong style="color: #e11d48;">KHÔNG ƯNG</strong> phòng <strong>{{ confirmApt?.room?.room_number }}</strong> này?</p>
-                        
+                        <p style="margin-bottom: 12px;">Bạn chắc chắn <strong style="color: #e11d48;">KHÔNG ƯNG</strong>
+                            phòng <strong>{{ confirmApt?.room?.room_number }}</strong> này?</p>
+
                         <!-- Danh sách lý do động -->
-                        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-                            <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Vui lòng chọn lý do cụ thể:</label>
-                            
-                            <div v-for="(reason, idx) in ($page.props.settings.not_interested_reasons || [])" :key="idx" 
-                                 style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0;">
-                                <input type="radio" :id="'reason_' + idx" v-model="selectedReason" :value="reason" style="accent-color: #ef4444;" />
-                                <label :for="'reason_' + idx" style="font-size: 13px; color: #334155; cursor: pointer;">{{ reason }}</label>
+                        <div
+                            style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+                            <label
+                                style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Vui
+                                lòng chọn lý do cụ thể:</label>
+
+                            <div v-for="(reason, idx) in ($page.props.settings.not_interested_reasons || [])" :key="idx"
+                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0;">
+                                <input type="radio" :id="'reason_' + idx" v-model="selectedReason" :value="reason"
+                                    style="accent-color: #ef4444;" />
+                                <label :for="'reason_' + idx"
+                                    style="font-size: 13px; color: #334155; cursor: pointer;">{{
+                                    reason }}</label>
                             </div>
                         </div>
 
                         <!-- Ô nhập lý do khác chi tiết (Chỉ hiện khi chọn "Lý do khác") -->
                         <div v-if="selectedReason === 'Lý do khác'" style="margin-top: 12px;">
-                            <label style="font-size: 11px; font-weight: 700; color: #64748b; display: block; margin-bottom: 4px;">Mô tả chi tiết lý do khác:</label>
-                            <textarea v-model="otherReasonDetail" rows="2" 
-                                      placeholder="Nhập lý do chi tiết..."
-                                      style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 12px; box-sizing: border-box; resize: none;"></textarea>
+                            <label
+                                style="font-size: 11px; font-weight: 700; color: #64748b; display: block; margin-bottom: 4px;">Mô
+                                tả chi tiết lý do khác:</label>
+                            <textarea v-model="otherReasonDetail" rows="2" placeholder="Nhập lý do chi tiết..."
+                                style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 12px; box-sizing: border-box; resize: none;"></textarea>
                         </div>
                     </div>
 
@@ -967,7 +947,8 @@ const paginatedAppointments = computed(() => {
         <div v-if="showCancelModal" class="review-modal-overlay" @click.self="closeCancelModal">
             <div class="review-modal-box">
                 <div class="review-modal-header" style="border-bottom: 1px solid #fecdd3; background-color: #fff1f2;">
-                    <h3 style="color: #e11d48; font-size: 15px; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 6px;">
+                    <h3
+                        style="color: #e11d48; font-size: 15px; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 6px;">
                         <i class="bi bi-exclamation-octagon-fill" style="color: #ef4444;"></i>
                         Yêu Cầu Hủy Đăng Ký Hợp Đồng
                     </h3>
@@ -975,14 +956,21 @@ const paginatedAppointments = computed(() => {
                 </div>
                 <div class="review-modal-body">
                     <div style="font-size: 13.5px; color: #475569; line-height: 1.6; margin: 0;">
-                        <p style="margin-bottom: 8px;">Bạn đang yêu cầu <strong style="color: #e11d48;">HỦY HỢP ĐỒNG / ĐỔI Ý KHÔNG THUÊ</strong> phòng <strong>{{ cancelApt?.room?.room_number }}</strong>.</p>
-                        <p style="margin-bottom: 14px; font-size: 12px; color: #64748b;">Lý do hủy của bạn sẽ được gửi tới Chủ trọ để phê duyệt và cập nhật danh sách.</p>
+                        <p style="margin-bottom: 8px;">Bạn đang yêu cầu <strong style="color: #e11d48;">HỦY HỢP ĐỒNG /
+                                ĐỔI Ý
+                                KHÔNG THUÊ</strong> phòng <strong>{{ cancelApt?.room?.room_number }}</strong>.</p>
+                        <p style="margin-bottom: 14px; font-size: 12px; color: #64748b;">Lý do hủy của bạn sẽ được gửi
+                            tới
+                            Chủ trọ để phê duyệt và cập nhật danh sách.</p>
 
-                        <div style="background: #fff1f2; padding: 12px; border-radius: 12px; border: 1px solid #fecdd3;">
-                            <label style="display: block; font-weight: bold; font-size: 12px; color: #be123c; margin-bottom: 6px;">
+                        <div
+                            style="background: #fff1f2; padding: 12px; border-radius: 12px; border: 1px solid #fecdd3;">
+                            <label
+                                style="display: block; font-weight: bold; font-size: 12px; color: #be123c; margin-bottom: 6px;">
                                 Lý do muốn hủy hợp đồng <span style="color: #ef4444;">*</span>
                             </label>
-                            <textarea v-model="cancelReason" rows="3" placeholder="Nhập lý do cụ thể (VD: Đã tìm được phòng khác gần cơ quan hơn, thay đổi kế hoạch chuyển đi...)"
+                            <textarea v-model="cancelReason" rows="3"
+                                placeholder="Nhập lý do cụ thể (VD: Đã tìm được phòng khác gần cơ quan hơn, thay đổi kế hoạch chuyển đi...)"
                                 style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #fda4af; outline: none; font-size: 13px; box-sizing: border-box; background: white;"
                                 onfocus="this.style.borderColor='#e11d48'; this.style.boxShadow='0 0 0 2px rgba(225, 29, 72, 0.1)'"
                                 onblur="this.style.borderColor='#fda4af'; this.style.boxShadow='none'"></textarea>
@@ -991,7 +979,9 @@ const paginatedAppointments = computed(() => {
 
                     <div class="review-modal-footer" style="margin-top: 20px;">
                         <button @click="closeCancelModal" class="btn-review-cancel">Hủy bỏ</button>
-                        <button @click="executeCancelInterest" style="background: #e11d48; box-shadow: 0 4px 6px -1px rgba(225, 29, 72, 0.3);" class="btn-review-submit">
+                        <button @click="executeCancelInterest"
+                            style="background: #e11d48; box-shadow: 0 4px 6px -1px rgba(225, 29, 72, 0.3);"
+                            class="btn-review-submit">
                             <i class="bi bi-send-fill"></i> Gửi Yêu Cầu Hủy
                         </button>
                     </div>

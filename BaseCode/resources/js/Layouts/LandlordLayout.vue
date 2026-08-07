@@ -141,9 +141,14 @@ const navGroups = [
                 icon: "bi-file-earmark-text",
             },
             {
+                label: "Yêu Cầu Ở Ghép",
+                path: "/landlord/roommate-requests",
+                icon: "bi-person-plus-fill",
+            },
+            {
                 label: "Phân Quyền",
                 path: "/landlord/managers",
-                icon: 'bi-shield-lock'
+                icon: "bi-shield-lock",
             },
         ],
     },
