@@ -112,10 +112,23 @@ onMounted(() => {
 });
 
 const submit = () => {
+    // 1. Nếu người dùng nhập CCCD nhưng chưa điền SĐT -> Cảnh báo yêu cầu nhập SĐT
+    if (!form.phone) {
+        form.setError("phone", "Số điện thoại là bắt buộc. Vui lòng nhập Số điện thoại của bạn!");
+        return;
+    }
+
+    // 2. Nếu chưa điền CCCD -> Cảnh báo yêu cầu nhập CCCD
+    if (!form.cccd_number) {
+        form.setError("cccd_number", "Số CCCD (12 chữ số) là bắt buộc. Vui lòng nhập CCCD của bạn!");
+        return;
+    }
+
     form.post(route("tranguser.update"), {
         preserveScroll: true,
     });
 };
+
 </script>
 
 <template>
@@ -196,7 +209,7 @@ const submit = () => {
                                 <input type="text" v-model="form.phone" placeholder="Số điện thoại"
                                     :disabled="!!user.phone" />
                                 <span v-if="form.errors.phone" class="text-red-500 text-sm">{{ form.errors.phone
-                                }}</span>
+                                    }}</span>
                             </div>
                         </div>
                         <div class="row">
@@ -233,7 +246,7 @@ const submit = () => {
                             <input type="text" v-model="addressDetail" @input="updateAddressField"
                                 placeholder="Nhập thôn, xóm, số nhà, tên đường..." :disabled="!canUpdateProfile" />
                             <span v-if="form.errors.address" class="text-red-500 text-sm">{{ form.errors.address
-                            }}</span>
+                                }}</span>
                         </div>
 
                         <!-- Trường nhập số CCCD 12 số của Khách thuê -->
@@ -243,7 +256,7 @@ const submit = () => {
                             <input type="text" v-model="form.cccd_number" maxlength="12" placeholder="Nhập 12 số CCCD"
                                 :disabled="!canUpdateProfile" />
                             <span v-if="form.errors.cccd_number" class="text-red-500 text-sm">{{ form.errors.cccd_number
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="row">
                             <div class="form-group" style="margin-bottom: 20px">
@@ -266,7 +279,7 @@ const submit = () => {
                                 <option value="female">Nữ</option>
                             </select>
                             <span v-if="form.errors.gender" class="text-red-500 text-sm">{{ form.errors.gender
-                                }}</span>
+                            }}</span>
                         </div>
                         <button class="btn_save" type="submit" :disabled="form.processing || !canUpdateProfile">
                             Lưu thay đổi

@@ -105,6 +105,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    //Phần gia hạn thêm hợp đồng của clien
+    Route::post('/profile/contracts/{contract}/request-extension', [ProfileController::class, 'requestExtension'])->name('profile.contracts.request-extension');
     // Route lịch hẹn của khách thuê
     Route::get('/lichhen', [ProfileController::class, 'appointments'])->name('profile.appointments');
     Route::post('/chitiettro/{id}/book', [PublicListingController::class, 'book'])->name('rooms.book');
@@ -278,7 +280,8 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::post('/contracts/{contract}/expire', [\App\Http\Controllers\Landlord\ContractController::class, 'markAsExpired'])->name('landlord.contracts.expire');
     Route::post('/contracts/{contract}/liquidate', [\App\Http\Controllers\Landlord\ContractController::class, 'liquidateContract'])->name('landlord.contracts.liquidate');
     Route::post('/contracts/{contract}/extend', [\App\Http\Controllers\Landlord\ContractController::class, 'extendContract'])->name('landlord.contracts.extend');
-
+    //chuyển giao hợp đồng
+    Route::post('/contracts/{contract}/transfer', [\App\Http\Controllers\Landlord\ContractController::class, 'transfer'])->name('landlord.contracts.transfer');
     //quản lý và phê duyệt yêu cầu ở ghép của chủ trọ
     Route::get('/roommate-requests', [\App\Http\Controllers\Landlord\ContractController::class, 'roommateRequests'])->name('landlord.roommate-requests');
     Route::post('/roommate-requests/{id}/approve', [\App\Http\Controllers\Landlord\ContractController::class, 'approveRoommateRequest'])->name('landlord.roommate-requests.approve');

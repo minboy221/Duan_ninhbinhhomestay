@@ -138,18 +138,31 @@ class PublicListingService
     {
         $post = RoomPost::with('room.boardingHouse')->findOrFail($id);
         $landlordId = $post->room->boardingHouse->user_id ?? $post->landlord_id;
-
+        $userId = Auth::id();
+        $note = $data['note'] ?? null;
+        //tạo lịch hẹn xem phòng
         $appointment = Appointment::create([
-            'user_id' => Auth::id(), // Đã sửa lỗi usser_id
+            'user_id' => Auth::id(),
             'landlord_id' => $landlordId,
             'room_id' => $post->room_id,
             'date' => $data['date'],
             'time' => $data['time'],
-            'note' => $data['note'] ?? null,
+            'note' => $note,
             'status' => 'pending',
             'notified' => false,
         ]);
 
+        //nếu phòng đã có người ở -> tự đồng tạo yêu cầu ở ghép
+        if($post->room && $post->room->current_people > 0){
+            \App\Models\RoommateRequest::create([
+                'room_id' => $post->room_id,
+                'tenant_id' => $userId,
+                'type' => 'stranger',
+                'status' => 'pending',
+                'note' => $note ?: 'Khách đặt lịch xem phòng và muốn ở ghép',
+            ]);
+        }
+        //gửi thông báo tới chủ trọ
         $landlord = $appointment->landlord;
         if ($landlord) {
             $landlord->notify(new NewAppointment($appointment));

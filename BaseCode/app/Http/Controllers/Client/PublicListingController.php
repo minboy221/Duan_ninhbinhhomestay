@@ -192,11 +192,18 @@ class PublicListingController extends Controller
         $post = RoomPost::with('room')->findOrFail($id);
         $roomId = $post->room_id;
         //Thêm dàng buộc cho user nếu đang có hợp đồng active tại cơ sở khác, chặn không cho đặt lịch xem phòng
-        $activeContract = \App\Models\Contract::where('tenant_id', Auth::id())
-            ->where('status', 'active')
-            ->first();
-        if ($activeContract) {
-            return redirect()->back()->with('error', 'Bạn đang có hợp đồng thuê phòng đang hoạt động trên hệ thống, không thể đặt lịch xem phòng mới.');
+        $hasActiveContract = \App\Models\Contract::where('tenant_id',Auth::id())
+        ->whereIn('status',['signed','active','awaiting_upload','expiring','termination_requested'])
+        ->exists();
+        //check nếu khách là thành viên ở ghép đang ở trong phòng
+        if(!$hasActiveContract){
+            $hasActiveContract = \App\Models\RoomResident::where('user_id',Auth::id())
+            ->where('status','active')
+            ->exists();
+        }
+        //nếu đang có hợp đồng/ ở trọ -> chặn  không cho đặt lịch bất kỳ tin đăng phòng trọ khác
+        if($hasActiveContract){
+            return redirect()->back()->with('error','Bạn đang có hợp đồng thuê phòng còn hiệu lực trên hệ thống. Không được phép đặt lịch xem các tin đăng khác!');
         }
         //kiểm tra khung giờ này đã có người đặt trước hoặc đang chờ duyểt
         if ($this->listingService->isSlotOccupied($roomId, $request->date, $request->time)) {

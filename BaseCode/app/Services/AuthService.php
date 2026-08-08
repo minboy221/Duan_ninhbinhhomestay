@@ -5,6 +5,7 @@ use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
+use App\Models\User;
 
 class AuthService
 {
@@ -18,11 +19,16 @@ class AuthService
     public function registerAccount(array $data)
     {
         $data['password'] = Hash::make($data['password']);
-        $user = $this->userRepository->create($data);
+        $user = $this->userRepository->create($data); //  Tạo user từ $data đăng ký thường
+
+        // Tự động khớp vào phòng trọ khi đăng ký tài khoản
+        $this->autoClaimRoommateRequests($user);
+
         event(new \Illuminate\Auth\Events\Registered($user));
         Auth::login($user);
         return $user;
     }
+
 
     public function loginAccount(array $credentials, $remember = false)
     {
@@ -33,7 +39,7 @@ class AuthService
     public function handleGoogleLogin()
     {
         $googleUser = Socialite::driver('google')->stateless()->user();
-        
+
         $user = $this->userRepository->findByGoogleId($googleUser->getId());
 
         if (!$user) {
@@ -70,7 +76,7 @@ class AuthService
     {
         // Generate a 6-digit OTP
         $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-        
+
         // Save to database with 15 minutes expiration
         $this->userRepository->updateUser($user->id, [
             'otp_code' => $otp,
@@ -115,5 +121,60 @@ class AuthService
                 event(new \Illuminate\Auth\Events\PasswordReset($user));
             }
         );
+    }
+
+    // Tự quét và thêm user mới vào phòng nếu có yêu cầu ở ghép khớp với Email
+    public function autoClaimRoommateRequests(User $user): void
+    {
+        // Quét tìm các yêu cầu ở ghép trùng Email vừa đăng ký
+        $requests = \App\Models\RoommateRequest::where(function ($q) use ($user) {
+            $q->where('new_resident_email', $user->email);
+        })->whereIn('status', ['pending', 'approved'])->get();
+
+        foreach ($requests as $req) {
+            // 1. Tự động nạp SĐT và CCCD do User A nhập vào Tài khoản của User B
+            $userDataToUpdate = [];
+            if (empty($user->phone) && !empty($req->new_resident_phone)) {
+                $userDataToUpdate['phone'] = $req->new_resident_phone;
+            }
+            if (empty($user->cccd_number) && !empty($req->new_resident_cccd)) {
+                $userDataToUpdate['cccd_number'] = $req->new_resident_cccd;
+            }
+            if (!empty($userDataToUpdate)) {
+                $user->update($userDataToUpdate);
+            }
+
+            // 2. Tự động thêm User B vào Cư dân ở ghép của phòng
+            \App\Models\RoomResident::firstOrCreate([
+                'room_id' => $req->room_id,
+                'user_id' => $user->id,
+            ], [
+                'start_date' => now()->format('Y-m-d'),
+                'status' => 'active',
+            ]);
+
+            // 3. Tăng số lượng người ở phòng (Khống chế không vượt quá capacity)
+            if ($req->room) {
+                if ($req->room->current_people < $req->room->capacity) {
+                    $req->room->increment('current_people');
+                }
+                
+                // Nếu phòng đã đầy -> Tự động ẩn tin đăng
+                if ($req->room->current_people >= $req->room->capacity) {
+                    \App\Models\RoomPost::where('room_id', $req->room_id)->update(['status' => 'rented']);
+                }
+            }
+
+            // 4. Đổi trạng thái yêu cầu ở ghép thành đã duyệt
+            $req->update(['status' => 'approved']);
+
+            // 5. Gửi thông báo chào mừng cho User B
+            $roomNum = $req->room->room_number ?? '';
+            $user->notify(new \App\Notifications\AdminNotification(
+                'Chào mừng bạn đến với phòng trọ!',
+                "Tài khoản của bạn đã được tự động thêm vào danh sách cư dân ở ghép tại phòng {$roomNum}.",
+                route('quanlynoio')
+            ));
+        }
     }
 }

@@ -477,9 +477,18 @@ class RoomService
             'status' => 'inactive',
             'end_date' => now()->format('Y-m-d'),
         ]);
-
         // Giảm số lượng người ở thực tế
         $room->decrement('current_people');
+        //gửi thông báo cho user bị xoá khỏi phòng
+        $user = $resident->user;
+        if($user){
+            $roomNum = $room->room_number ?? '';
+            $houseName = $room->boardingHouse->name ?? 'nhà trọ';
+            $user->notify(new \App\Notifications\AdminNotification('Thông báo cập nhật cư dân phòng trọ',
+            "Bạn đã được chủ trọ cập nhật xoá khỏi danh sách cư dân ở ghép tại phòng {$roomNum} ({$houseName}).",
+            route('tranguser')
+            ));
+        }
         return true;
     }
 

@@ -148,4 +148,24 @@ class ContractController extends Controller
             return redirect()->back()->with('error', $e->getMessage());
         }
     }
+
+    //nhận request từ giao diện
+    public function transfer(Request $request,Contract $contract){
+        $request->validate([
+            'new_tenant_id' => 'required|exists:users,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+        ]);
+        try{
+            $this->contractService->transferContractToResident(
+                $contract,
+                $request->new_tenant_id,
+                $request->only(['start_date','end_date','monthly_rent','deposit_amount']),
+                Auth::id()
+            );
+            return redirect()->back()->with('success','Đã chuyển giao quyền chủ hợp đồng thành công!');
+        }catch(\Exception $e){
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
 }

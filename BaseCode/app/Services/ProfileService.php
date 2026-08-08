@@ -228,6 +228,26 @@ class ProfileService
             'new_resident_email' => $data['new_resident_email'],
             'new_resident_cccd' => $data['new_resident_cccd'],
         ]);
+        //tự động nạp SĐT và CCCD này vào tài khoản của User B (nếu user B đã đăng ký tài khoản trước đó)
+        $existsUserB = \App\Models\User::where(
+            'email',
+            $data['new_resident_email']
+        )
+            ->orWhere('phone', $data['new_resident_phone'])
+            ->first();
+        if ($existsUserB) {
+            $userDataToUpdate = [];
+            if (empty($existsUserB->phone) && !empty($data['new_resident_phone'])) {
+                $userDataToUpdate['phone'] = $data['new_resident_phone'];
+            }
+            if (empty($existsUserB->cccd_number) && !empty($data['new_resident_cccd'])) {
+                $userDataToUpdate['cccd_number'] = $data['new_resident_cccd'];
+            }
+            if (!empty($userDataToUpdate)) {
+                $existsUserB->update($userDataToUpdate);
+            }
+        }
+
         $landlord = $contract->room->boardingHouse->user ?? null;
         if ($landlord) {
             $roomNum = $contract->room->room_number ?? '';

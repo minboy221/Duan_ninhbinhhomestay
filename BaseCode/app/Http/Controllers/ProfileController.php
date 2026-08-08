@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Redirect;
 use App\Models\RoommateRequest;
 use Inertia\Inertia;
 use Inertia\Response;
+use function Safe\strtotime;
 
 class ProfileController extends Controller
 {
@@ -50,33 +51,33 @@ class ProfileController extends Controller
     public function quanlynoio(Request $request): Response
     {
         $userId = $request->user()->id;
-        //Tìm hợp đồng của người dùng đứng tên đại diện
+        $isPrimaryTenant = false;
+        // Tìm hợp đồng của người dùng đứng tên đại diện
         $contract = \App\Models\Contract::where('tenant_id', $userId)
             ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
-            ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices'])
+            ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices', 'tenant'])
             ->orderBy('created_at', 'desc')
             ->first();
-
-        //nếu người dùng không đại diện ký, check xem họ có phải thành viên ở ghép trong phòng không
-        if (!$contract) {
+        if ($contract) {
+            $isPrimaryTenant = true; // Là Chủ hợp đồng
+        } else {
+            // Check nếu là thành viên ở ghép
             $resident = \App\Models\RoomResident::where('user_id', $userId)
-                ->where('status', 'acive')
+                ->where('status', 'active')
                 ->first();
             if ($resident) {
                 $contract = \App\Models\Contract::where('room_id', $resident->room_id)
                     ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
-                    ->with([
-                        'room.boardingHouse.user',
-                        'room.resident.user',
-                        'invoice'
-                    ])
+                    ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices', 'tenant'])
                     ->orderBy('created_at', 'desc')
                     ->first();
+                $isPrimaryTenant = false; // Là Thành viên ở ghép
             }
         }
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
             'contract' => $contract,
+            'isPrimaryTenant' => $isPrimaryTenant,
         ]);
     }
 
@@ -419,6 +420,51 @@ class ProfileController extends Controller
         /* Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
          */
     }
+
+    // Phần gia hạn hợp đồng từ client
+    public function requestExtension(Request $request, \App\Models\Contract $contract): RedirectResponse
+    {
+        $user = $request->user();
+        if ($contract->tenant_id !== $user->id) {
+            abort(403, 'Bạn không có quyền thực hiện thao tác này.');
+        }
+        //ràng buộc check gửi gia hạn hợp đồng 1 lần
+        if ($contract->cancellation_reason && str_contains($contract->cancellation_reason, 'gia hạn')) {
+            return redirect()->back()->with('error', 'Bạn đã gửi một yêu cầu gia hạn hợp đồng trước đó. Vui lòng chờ chủ trọ phê duyệt!');
+        }
+        $request->validate([
+            'desired_months' => 'required|integer|min:1|max:36',
+            'note' => 'nullable|string|max:1000',
+        ], [
+            'desired_months.required' => 'Vui lòng chọn số tháng muốn gia hạn.',
+            'desired_month.min' => 'Số tháng gia hạn tối thiểu là 1 tháng.',
+        ]);
+        $months = (int) $request->input('desired_months');
+        $note = trim($request->input('note', ''));
+        //tự động tính ngày hết hạn đề xuất mới dựa trên số tháng khách chọn
+        $currentEndDate = $contract->end_date ? \Carbon\Carbon::parse($contract->end_date) : now();
+        $suggestedEndDate = $currentEndDate->addMonths($months)->format('Y-m-d');
+        $requestedInfor = "Khách xin gia hạn thêm {$months} tháng (Ngày kết thúc đề xuất: " . date('d/m/Y', strtotime($suggestedEndDate)) . ")" . ($note ? ". Ghi chú: {$note}" : "");
+        //lưu thông tin đề xuất vào hợp đồng để chủ trọ nạp tự động
+        \App\Models\Contract::$allowImmutableUpdate = true;
+        $contract->update([
+            'cancellation_reason' => $requestedInfor
+        ]);
+
+        \App\Models\Contract::$allowImmutableUpdate = false;
+        //gửi thông báo tới chủ trọ
+        $landlord = $contract->room->boardingHouse->user ?? null;
+        if ($landlord) {
+            $roomNum = $contract->room->room_number ?? "";
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'Yêu cầu gia hạn hợp đồng mới',
+                "Khách thuê tại phòng {$roomNum} ({$user->name}) gửi yêu cầu gia hạn {$months} tháng. {$requestedInfor}",
+                route('landlord.contracts')
+            ));
+        }
+        return redirect()->route('quanlynoio')->with('success', "Đã gửi yêu cầu gia hạn hợp đồng ({$months} tháng) thành công tới chủ trọ!");
+    }
+
     public function submitEntryReadings(Request $request, $contractId)
     {
         $request->validate([

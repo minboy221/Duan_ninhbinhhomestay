@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\RoommateRequest;
 use Barryvdh\DomPDF\Facade\Pdf;
+use PHPUnit\Framework\TestStatus\Notice;
 
 class ContractService
 {
@@ -115,26 +116,52 @@ class ContractService
                 'terms_accepted' => true,
                 'terms_accepted_at' => now(),
             ]);
-            //nếu người này đang ở ghép, chuyển sang inactive vì họ đã lên làm chủ hợp đồng chính thức
-            if ($isAlreadyResident) {
-                RoomResident::where('room_id', $room->id)
-                    ->where('user_id', $tenant->id)
-                    ->where('status', 'active')
-                    ->update([
-                        'status' => 'inactive',
-                        'end_date' => now()->format('Y-m-d')
+            //check xem hợp đồng này đã có hợp động hiệu lực trước đó chưa
+            $hasExistingPrimaryContract = Contract::where('room_id', $room->id)
+                ->where('tenant_id', '!=', $tenant->id)
+                ->whereIn('status', ['signed', 'active'])
+                ->exists();
+            //trường hợp 1:Phòng có người ở -> user mới vô thì tính là người ở ghép
+            if ($hasExistingPrimaryContract || $room->current_people > 0) {
+                if (!$isAlreadyResident) {
+                    //tự động thêm user mới vào danh sách người dùng ở ghép của phòng
+                    RoomResident::create([
+                        'room_id' => $room->id,
+                        'user_id' => $tenant->id,
+                        'start_date' => $data['start_date'],
+                        'status' => 'active',
                     ]);
-            }
-            //cập nhật trạng thái phòng trọ sang đã thuê(rented) và ẩn bào đăng
-            //nếu là người ở ghép lên làm chủ, current_people không thay đổi, nếu không thì thêm người
-            $newPeopleCount = $room->current_people;
-            if (!$isAlreadyResident) {
+                    //tăng số lượng người hiện tại của phòng lên
+                    $newPeopleCount = min($room->capacity, $room->current_people + $numberOfTenants);
+                } else {
+                    // Nếu người này vốn đang là thành viên ở ghép trong phòng -> Đổi trạng thái resident sang inactive (vì đã chính thức đứng tên Chủ HĐ mới)
+                    RoomResident::where('room_id', $room->id)
+                        ->where('user_id', $tenant->id)
+                        ->update([
+                            'status' => 'inactive',
+                            'end_date' => now()->format('Y-m-d')
+                        ]);
+                    $newPeopleCount = $room->current_people;
+                }
+            } else {
+                //trường hợp 2: Thuê phòng trống ban đầu
+                if ($isAlreadyResident) {
+                    RoomResident::where('room_id', $room->id)
+                        ->where('user_id', $tenant->id)
+                        ->where('status', 'active')
+                        ->update([
+                            'status' => 'inactive',
+                            'end_date' => now()->format('Y-m-d')
+                        ]);
+                }
                 $newPeopleCount = min($room->capacity, max(1, $numberOfTenants));
             }
+            //cập nhật trạng thái phòng trọ và số người ở hiện tại
             $room->update([
                 'status' => 'rented',
                 'current_people' => $newPeopleCount
             ]);
+
             RoomPost::where('room_id', $room->id)->update(['status' => 'hidden']);
             //cập nhật lịch hẹn khớp thành công (nếu ký từ lịch hẹn)
             if ($appointment) {
@@ -191,22 +218,39 @@ class ContractService
             if ($tenant) {
                 $tenant->update(['cccd_number' => $data['tenant_cccd']]);
             }
+            //lưu lại lịch sử gia hạn hợp đồng
             ContractExtension::create([
                 'contract_id' => $contract->id,
                 'old_end_date' => $contract->end_date,
-                'new_end_date' => $contract->start_date,
-                'ole_monthly_rent' => $contract->monthly_rent,
+                'new_end_date' => $data['new_end_date'],
+                'old_monthly_rent' => $contract->monthly_rent,
                 'new_monthly_rent' => $contract->monthly_rent,
                 'tenant_cccd_number' => $data['tenant_cccd'],
                 'notes' => $data['notes'] ?? null,
                 'created_by' => $landlordId,
             ]);
+            //cập nhật ngày kết thúc hợp đồng và đưa trạng thái về Active
+            Contract::$allowImmutableUpdate = true;
+            $contract->update([
+                'end_date' => $data['new_end_date'],
+                'status' => 'active',
+                'cancellation_reason' => null,
+            ]);
             Contract::$allowImmutableUpdate = false;
+            //gửi thông báo phản hồi về cho user
+            if ($tenant) {
+                $newEndDateFormatted = date('d/m/Y', strtotime($data['new_end_date']));
+                $roomNum = $contrac->room->room_number ?? '';
+                $tenant->notify(new \App\Notifications\AdminNotification(
+                    'Hợp đồng đã đượ gia hạn thành công',
+                    "Hợp đồng thuê phòng {$roomNum} của bạn đã được chủ trọ phê duyệt gia hạn đến ngày {$newEndDateFormatted}.",
+                    route('quanlynoio')
+                ));
+            }
             return $contract;
         });
     }
     //quét trạng thái hết hạn và hiệu lực hợp đồng (signed->active->exporing->expired)
-
     public function scanContractStatuses($landlordId = null)
     {
         $today = now()->format('Y-m-d');
@@ -275,16 +319,24 @@ class ContractService
                 $request->save();
             } else if ($request->type === 'acquaintance') {
                 //luồng 2: Giới thiệu người quen-> Thêm thành viên vào phòng 
-                $user = User::where('phone', $request->new_resident_phone)->first();
+                $user = User::where('email', $request->new_resident_email)
+                    ->orWhere('phone', $request->new_resident_phone)
+                    ->first();
+
                 if (!$user) {
-                    $user = User::create([
-                        'name' => $request->new_resident_name,
-                        'phone' => $request->new_resident_phone,
-                        'email' => $request->new_resident_email ?: ($request->new_resident_phone . '@temp.com'),
-                        'cccd_number' => $request->new_resident_cccd,
-                        'password' => bcrypt('12345678'),
-                        'role' => 'user',
-                    ]);
+                    throw new \Exception('Thành viên này chưa đăng ký tài khoản trên hệ thống. Vui lòng yêu cầu thành viên đăng ký tài khoản trước!');
+                }
+
+                // Cập nhật SĐT và CCCD nếu tài khoản chưa có
+                $userDataToUpdate = [];
+                if (empty($user->phone) && !empty($request->new_resident_phone)) {
+                    $userDataToUpdate['phone'] = $request->new_resident_phone;
+                }
+                if (empty($user->cccd_number) && !empty($request->new_resident_cccd)) {
+                    $userDataToUpdate['cccd_number'] = $request->new_resident_cccd;
+                }
+                if (!empty($userDataToUpdate)) {
+                    $user->update($userDataToUpdate);
                 }
                 RoomResident::create([
                     'room_id' => $request->room_id,
@@ -293,7 +345,13 @@ class ContractService
                     'status' => 'active',
                 ]);
                 if ($request->room) {
-                    $request->room->increment('current_people');
+                    if ($request->room->current_people < $request->room->capacity) {
+                        $request->room->increment('current_people');
+                    }
+                    // Nếu số người đã đạt/vượt quá sức chứa -> Tự động ẩn tin đăng phòng này
+                    if ($request->room->current_people >= $request->room->capacity) {
+                        \App\Models\RoomPost::where('room_id', $request->room_id)->update(['status' => 'rented']);
+                    }
                 }
                 $request->status = 'approved';
                 $request->save();
@@ -324,14 +382,55 @@ class ContractService
         //gửi thông báo từ chối cho clien
         $tenant = $request->tenant;
         if ($tenant) {
-            $typeLabel = $request->type === 'strangrt' ? 'Tìm người ở ghép (người lạ)' : 'Giới thiệu người ở ghép';
-            $tenant = notify(new \App\Notifications\AdminNotification(
+            $typeLabel = $request->type === 'stranger' ? 'Tìm người ở ghép (người lạ)' : 'Giới thiệu người ở ghép';
+            $tenant->notify(new \App\Notifications\AdminNotification(
                 'Yêu cầu ở ghép bị từ chối',
-                "Yêu cầu '{$typeLabel}' cho phòng của bạn đã bị chủ nhà từ chối.",
+                "Yêu cầu '{$typeLabel}' cho phòng của bạn đã bị chủ trọ từ chối.",
                 route('quanlynoio')
             ));
         }
         return $request;
+    }
+
+    //chuyển giao hợp hợp đồng cho thành viên ở ghép
+    public function transferContractToResident(Contract $oldContract, int $newTenantUserId, array $data, int $landlord)
+    {
+        return DB::transaction(function () use ($oldContract, $newTenantUserId, $data, $landlord) {
+            $newTenant = User::findOrFail($newTenantUserId);
+            //kết thúc hợp đồng cũ của user A
+            Contract::$allowImmutableUpdate = true;
+            $oldContract->update([
+                'status' => 'completed',
+                'cancellation_reason' => "Chuyển giao quyền chủ hợp đồng cho thành viên {$newTenant->name}.",
+            ]);
+            Contract::$allowImmutableUpdate = false;
+            //chuyển trạng thái cư dân user B ở ghép sang inactive lên làm chủ hợp đồng
+            RoomResident::where('room_id', $oldContract->room_id)
+                ->where('user_id', $newTenantUserId)
+                ->update(['status' => 'inactive', 'end_date' => now()->format('Y-m-d')]);
+            //tạo hợp đồng mới đứng tên user B
+            $newContract = Contract::create([
+                'room_id' => $oldContract->room_id,
+                'tenant_id' => $newTenantUserId,
+                'start_date' => $data['start_date'] ?? now()->format('Y-m-d'),
+                'end_date' => $data['end_date'],
+                'monthly_rent' => $data['monthly_rent'] ?? $oldContract->monthly_rent,
+                'deposit_amount' => $data['deposit_amount'] ?? $oldContract->deposit_amount,
+                'status' => 'active',
+                'created_by' => $landlordId,
+            ]);
+            //gửi thông báo cho User A
+            if($oldContract -> tenant){
+                $oldContract->tenant->notify(new \App\Notifications\AdminNotification('Chuyển giao hợp đồng thành công',
+                "Hợp đồng thuê phòng của bạn đã được chuyển giao thành công cho thành viên {$newTenant->name}.",route('quanlynoio')
+                ));
+            }
+            //gửi thông báo cho User B 
+            $newTenant->notify(new \App\Notifications\AdminNotification('Chúc mừng! Bạn đã trở thành Chủ hợp đồng mới', "Bạn đã được chuyển đứng tên chủ hợp đồng chính cho phòng trọ.",
+             route('quanlynoio')
+            ));
+            return $newContract;
+        });
     }
 }
 

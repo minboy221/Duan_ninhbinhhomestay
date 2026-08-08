@@ -442,7 +442,7 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         $boardingHousesId = session('selected_boarding_house_id');
-
+        
         // Quét & cập nhật tự động trạng thái hợp đồng (expiring/expired) theo ngày hiện tại
         \App\Http\Controllers\Landlord\ContractController::scanContractStatuses($landlordId);
 
@@ -480,14 +480,21 @@ class LandlordController extends Controller
 
         // Lấy danh sách Nhà trọ kèm các Tầng và Phòng trọ
         $boardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)
-            ->with(['floors.rooms.residents.user'])
+            ->with(['rooms.residents.user', 'floors.rooms.residents.user'])
             ->get();
-
-
+        //lấy danh sách yêu cầu ở ghép đang chờ tạo hợp đồng
+        $pendingRoommateRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+            ->where('status', 'pending')
+            ->with(['room', 'tenant'])
+            ->get();
         return Inertia::render('Landlord/Contracts/index', [
             'dbContracts' => $contracts,
             'appointments' => $appointments,
+            'pendingRoommateRequests' => $pendingRoommateRequests,
             'boardingHouses' => $boardingHouses,
+            'selectedBoardingHouseId' => $boardingHousesId ?: ($boardingHouses->first()?->id ?? null),
             'authLandlord' => Auth::user(),
         ]);
     }

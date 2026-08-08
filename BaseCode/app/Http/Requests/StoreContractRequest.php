@@ -19,12 +19,14 @@ class StoreContractRequest extends FormRequest
      */
     public function rules(): array
     {
+        $oneMonthAgo = now()->subMonth()->format('Y-m-d');
+        $today = now()->format('Y-m-d');
         return [
+            'start_date' => ['required', 'date', 'after_or_equal:' . $oneMonthAgo],
+            'end_date' => ['required', 'date', 'after:start_date', 'after_or_equal:' . $today],
             'appointment_id' => 'nullable|exists:appointments,id',
             'room_id' => 'required_without:appointment_id|exists:rooms,id',
             'tenant_id' => 'required_without:appointment_id|exists:users,id',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
             'deposit' => 'required|numeric|min:0',
             'contract_file' => 'required|file|mimes:jpeg,png,jpg,pdf|max:10240',
             'number_of_tenants' => 'nullable|integer|min:1',

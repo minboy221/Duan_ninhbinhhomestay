@@ -15,6 +15,8 @@ const props = defineProps({
     appointments: Array,
     boardingHouses: Array,
     authLandlord: Object,
+    pendingRoommateRequests: Array,
+    selectedBoardingHouseId: [Number, String],
 });
 
 const contracts = computed(() => {
@@ -42,9 +44,43 @@ const showModal = ref(false);
 const showAddModal = ref(false);
 const showExtendModal = ref(false);
 const showLiquidationModal = ref(false);
+const showPendingRoommateModal = ref(false);
 const showPendingRequestsModal = ref(false);
-const selectedContract = ref(null);
 const showAddResidentModal = ref(false);
+const selectedContract = ref(null);
+// Ngày bắt đầu được phép lùi về quá khứ tối đa 1 tháng
+const minStartDate = computed(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split("T")[0];
+});
+
+// Ngày kết thúc không cho chọn quá khứ (phải lớn hơn hoặc bằng ngày bắt đầu và từ hôm nay)
+const minDate = computed(() => {
+    const today = new Date().toISOString().split("T")[0];
+    if (addForm.value.start_date && addForm.value.start_date > today) {
+        return addForm.value.start_date;
+    }
+    return today;
+});
+
+// Lấy danh sách cư dân ở ghép hiện có của phòng đang được chọn trong form tạo hợp đồng
+const availableRoomResidents = computed(() => {
+    if (!addForm.value.room_id) return [];
+
+    let targetRoom = null;
+    (props.boardingHouses || []).forEach((bh) => {
+        (bh.floors || []).forEach((f) => {
+            (f.rooms || []).forEach((r) => {
+                if (String(r.id) === String(addForm.value.room_id)) {
+                    targetRoom = r;
+                }
+            });
+        });
+    });
+    return targetRoom?.residents?.filter(res => res.status === 'active') || [];
+});
+
 const residentForm = ref({
     phone: "",
     start_date: new Date().toISOString().split("T")[0],
@@ -57,16 +93,38 @@ const selectedResidentId = ref("");
 
 const openContractForAppointment = (apt) => {
     showPendingRequestsModal.value = false;
-    openAddContract();
-    creationMode.value = "appointment";
-    addForm.value.appointment_id = apt.id;
+    openAddContract(apt.id);
 };
 
+const residentStep = ref(1);
+const selectedRoommateReq = ref(null);
+
+const isRoommateCccdValid = computed(() => {
+    const cccd =
+        selectedRoommateReq.value?.new_resident_cccd ||
+        selectedRoommateReq.value?.tenant?.cccd_number;
+    return cccd && String(cccd).trim().length === 12;
+});
+
 const openAddResidentModal = () => {
+    selectedRoommateReq.value = null;
+    residentStep.value = 1;
     residentForm.value = {
         phone: "",
         start_date: new Date().toISOString().split("T")[0],
     };
+    showAddResidentModal.value = true;
+};
+
+const openAddResidentFromRequest = (req) => {
+    selectedRoommateReq.value = req;
+    residentStep.value = 1;
+    residentForm.value = {
+        room_id: req.room_id,
+        phone: req.new_resident_phone || req.tenant?.phone || "",
+        start_date: new Date().toISOString().split("T")[0],
+    };
+    showPendingRoommateModal.value = false;
     showAddResidentModal.value = true;
 };
 
@@ -78,23 +136,20 @@ const submitAddResident = () => {
         );
         return;
     }
-    const roomId = selectedContract.value.original_contract.room_id;
+    const roomId =
+        residentForm.value.room_id ||
+        selectedContract.value?.original_contract?.room_id;
+    if (!roomId) {
+        showError("Lỗi", "Không tìm thấy thông tin phòng.");
+        return;
+    }
     router.post(`/landlord/rooms/${roomId}/residents`, residentForm.value, {
         preserveScroll: true,
         onSuccess: () => {
             showAddResidentModal.value = false;
             showSuccess("Thành công", "Đã thêm thành viên ở ghép thành công");
             router.reload({
-                only: ["dbContracts"],
-                onSuccess: () => {
-                    // đồng bộ lại dữ liệu của hợp đồng đang mở
-                    const updatedC = props.dbContracts.find(
-                        (c) => c.id === selectedContract.value.id,
-                    );
-                    if (updatedC) {
-                        selectedContract.value.original_contract = updatedC;
-                    }
-                },
+                only: ["dbContracts", "pendingRoommateRequests"],
             });
         },
         onError: (errs) => {
@@ -103,38 +158,57 @@ const submitAddResident = () => {
     });
 };
 
-const removeResident = (resident) => {
-    showConfirm(
+//hàm mở modal tạo hợp đồng tự điền phòng
+const openContractForRoommateRequest = (req) => {
+    showPendingRoommateModal.value = false;
+    openAddContract();
+    creationMode.value = "roommate";
+    selectedBoardingHouseId.value = req.room?.boarding_house_id || "";
+    addForm.value.room_id = req.room_id;
+    addForm.value.room = req.room ? req.room.room_number : "";
+    addForm.value.rent = req.room
+        ? Math.round(Number(req.room.price))
+        : 3000000;
+    addForm.value.deposit = req.room
+        ? Math.round(Number(req.room.price))
+        : 3000000;
+    addForm.value.tenant_id = req.tenant_id;
+};
+
+const removeResident = async (resident) => {
+    const confirmed = await showConfirm(
         "Xóa thành viên ở ghép",
         `Bạn có chắc chắn muốn xóa thành viên ${resident.user?.name || "này"} ra khỏi phòng?`,
-        () => {
-            const roomId = selectedContract.value.original_contract.room_id;
-            router.delete(
-                `/landlord/rooms/${roomId}/residents/${resident.id}`,
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        showSuccess(
-                            "Thành công",
-                            "Đã xóa thành viên ở ghép khỏi phòng.",
-                        );
-                        router.reload({
-                            only: ["dbContracts"],
-                            onSuccess: () => {
-                                const updatedC = props.dbContracts.find(
-                                    (c) => c.id === selectedContract.value.id,
-                                );
-                                if (updatedC) {
-                                    selectedContract.value.original_contract =
-                                        updatedC;
-                                }
-                            },
-                        });
-                    },
-                },
-            );
-        },
+        "Xóa",
+        "Hủy",
     );
+
+    if (confirmed) {
+        const roomId = selectedContract.value.original_contract.room_id;
+        router.delete(`/landlord/rooms/${roomId}/residents/${resident.id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                showSuccess(
+                    "Thành công",
+                    "Đã xóa thành viên ở ghép khỏi phòng.",
+                );
+                router.reload({
+                    only: ["dbContracts"],
+                    onSuccess: () => {
+                        const updatedC = props.dbContracts.find(
+                            (c) => c.id === selectedContract.value.id,
+                        );
+                        if (updatedC) {
+                            selectedContract.value.original_contract = updatedC;
+                        }
+                    },
+                });
+            },
+            onError: (errs) => {
+                showError("Lỗi", Object.values(errs).join("\n"));
+            },
+        });
+    }
 };
 
 const statusMap = {
@@ -253,19 +327,38 @@ const addForm = ref(getInitialAddForm());
 // Lấy các phòng thuộc nhà trọ đang chọn
 const availableRooms = computed(() => {
     if (!selectedBoardingHouseId.value) return [];
-    const bh = props.boardingHouses.find(
+    const bh = (props.boardingHouses || []).find(
         (h) => String(h.id) === String(selectedBoardingHouseId.value),
     );
-    if (!bh || !bh.floors) return [];
-    const list = [];
-    bh.floors.forEach((floor) => {
-        if (floor.rooms) {
-            floor.rooms.forEach((room) => {
-                list.push(room);
+    if (!bh) return [];
+
+    const roomMap = new Map();
+
+    // Thu thập phòng từ bh.floors nếu có
+    if (Array.isArray(bh.floors) && bh.floors.length > 0) {
+        bh.floors.forEach((f) => {
+            (f.rooms || []).forEach((r) => {
+                if (r && r.id && String(r.boarding_house_id || bh.id) === String(selectedBoardingHouseId.value)) {
+                    if (!roomMap.has(String(r.id))) {
+                        roomMap.set(String(r.id), r);
+                    }
+                }
             });
-        }
-    });
-    return list;
+        });
+    }
+
+    // Thu thập phòng từ bh.rooms nếu có
+    if (Array.isArray(bh.rooms) && bh.rooms.length > 0) {
+        bh.rooms.forEach((r) => {
+            if (r && r.id && String(r.boarding_house_id || bh.id) === String(selectedBoardingHouseId.value)) {
+                if (!roomMap.has(String(r.id))) {
+                    roomMap.set(String(r.id), r);
+                }
+            }
+        });
+    }
+
+    return Array.from(roomMap.values());
 });
 
 // Lọc cư dân ở ghép trong phòng đã chọn
@@ -280,11 +373,30 @@ const activeRoomResidents = computed(() => {
 // Lấy thông tin cư dân được chọn
 const selectedResidentOption = computed(() => {
     if (!selectedResidentId.value) return null;
-    return (
-        activeRoomResidents.value.find(
-            (r) => String(r.id) === String(selectedResidentId.value),
-        ) || null
+    const res = activeRoomResidents.value.find(
+        (r) => String(r.id) === String(selectedResidentId.value),
     );
+    if (!res) return null;
+    return res.user || res;
+});
+
+watch(selectedBoardingHouseId, () => {
+    addForm.value.room_id = "";
+    addForm.value.room = "";
+    selectedResidentId.value = "";
+    addForm.value.tenant_id = "";
+});
+
+watch(creationMode, () => {
+    selectedBoardingHouseId.value = props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
+    addForm.value.room_id = "";
+    addForm.value.room = "";
+    addForm.value.appointment_id = "";
+    addForm.value.tenant_id = "";
+    selectedResidentId.value = "";
+    if (typeof selectedDirectUser !== 'undefined') selectedDirectUser.value = null;
+    if (typeof searchQuery !== 'undefined') searchQuery.value = "";
+    if (typeof searchResults !== 'undefined') searchResults.value = [];
 });
 
 watch(
@@ -295,6 +407,11 @@ watch(
                 (a) => String(a.id) === String(newVal),
             );
             if (apt) {
+                const bhId =
+                    apt.room?.boarding_house_id || apt.room?.boardingHouse?.id;
+                if (bhId) {
+                    selectedBoardingHouseId.value = bhId;
+                }
                 addForm.value.room_id = apt.room_id || "";
                 addForm.value.room = apt.room ? apt.room.room_number : "";
                 addForm.value.rent = apt.room
@@ -414,8 +531,8 @@ const displayDeposit = computed({
 
 const openAddContract = (appointmentId = "") => {
     activeStep.value = 1;
-    creationMode.value = appointmentId ? "appointment" : "roommate";
-    selectedBoardingHouseId.value = "";
+    creationMode.value = "appointment"; // Active mặc định là Ký từ Lịch hẹn
+    selectedBoardingHouseId.value = props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
     selectedResidentId.value = "";
     addForm.value = getInitialAddForm(appointmentId);
 
@@ -451,6 +568,7 @@ const openAddContract = (appointmentId = "") => {
 };
 
 onMounted(() => {
+    selectedBoardingHouseId.value = props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("action") === "create_contract") {
         const appointmentId = urlParams.get("appointment_id");
@@ -657,7 +775,10 @@ const submitAddContract = () => {
     const tenantId =
         creationMode.value === "appointment"
             ? selectedAppointment.value?.user_id
-            : addForm.value.tenant_id;
+            : creationMode.value === "roommate"
+                ? selectedResidentOption.value?.id || addForm.value.tenant_id
+                : addForm.value.tenant_id;
+
     if (!tenantId) {
         showWarning("Thiếu thông tin", "Vui lòng chọn người thuê!");
         return;
@@ -685,7 +806,7 @@ const submitAddContract = () => {
     }
 
     const activeContract = checkTenantActiveContract(tenantId);
-    if (activeContract) {
+    if (activeContract && creationMode.value !== "roommate") {
         showError(
             "Không thể tạo hợp đồng!",
             "Khách thuê này đã có hợp đồng đang có hiệu lực trong hệ thống.",
@@ -724,14 +845,28 @@ const submitAddContract = () => {
 
 // Extend Contract State
 const extendForm = ref({ new_end_date: "", tenant_cccd: "", notes: "" });
-const openExtendModal = () => {
-    if (!selectedContract.value) return;
+const openExtendModal = (c = null) => {
+    //tự đồng lấy hợp đồng từ tham số c hoặc hợp đồng đang chọn
+    const target = c && c.status ? c : selectedContract.value;
+    if (!target) return;
+    selectedContract.value = target;
+    const oldEndDateStr =
+        target.original_contract?.end_date?.split("T")[0] ||
+        (target.end ? target.end.split("T")[0] : "");
+    // Tự động tính sẵn ngày hết hạn mới (+6 tháng)
+    let suggestedDate = "";
+    if (oldEndDateStr) {
+        const d = new Date(oldEndDateStr);
+        d.setMonth(d.getMonth() + 6);
+        suggestedDate = d.toISOString().split("T")[0];
+    }
     extendForm.value = {
-        new_end_date:
-            selectedContract.value.original_contract?.end_date?.split("T")[0] ||
+        new_end_date: suggestedDate,
+        tenant_cccd:
+            target.tenant_cccd ||
+            target.original_contract?.tenant?.cccd_number ||
             "",
-        tenant_cccd: selectedContract.value.tenant_cccd || "",
-        notes: "",
+        notes: target.original_contract?.cancellation_reason || "",
     };
     showExtendModal.value = true;
 };
@@ -910,12 +1045,13 @@ const submitMarkExpired = async () => {
         }
     }
 };
-//lọc danh sách lịch hẹn theo nhà trọ (cơ sở) được chọn
+// Lọc danh sách lịch hẹn theo nhà trọ (cơ sở) được chọn
 const filteredAppointments = computed(() => {
-    if (!selectedBoardingHouseId.value) return props.appointments || [];
-    return (props.appointments || []).filter((apt) => {
+    if (!props.appointments || props.appointments.length === 0) return [];
+    if (!selectedBoardingHouseId.value) return props.appointments;
+    return props.appointments.filter((apt) => {
         const bhId = apt.room?.boarding_house_id || apt.room?.boardingHouse?.id;
-        return String(bhId) === String(selectedBoardingHouseId.value);
+        return !bhId || String(bhId) === String(selectedBoardingHouseId.value);
     });
 });
 </script>
@@ -954,6 +1090,19 @@ const filteredAppointments = computed(() => {
                     <button @click="openAddContract('')"
                         class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5">
                         <i class="bi bi-file-earmark-plus"></i> Ký hợp đồng mới
+                    </button>
+                    <button @click="showPendingRoommateModal = true"
+                        class="relative px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-2xl shadow-sm transition-all flex items-center gap-2 cursor-pointer">
+                        <i class="bi bi-person-plus-fill"></i>
+                        <span>Yêu cầu ở ghép ({{
+                            props.pendingRoommateRequests?.length || 0
+                        }})</span>
+                        <!-- Chấm đỏ thông báo khi có yêu cầu ở ghép đang chờ -->
+                        <span v-if="props.pendingRoommateRequests?.length > 0"
+                            class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-500 border-2 border-white"></span>
+                        </span>
                     </button>
                 </div>
             </div>
@@ -1132,6 +1281,18 @@ const filteredAppointments = computed(() => {
                                             class="w-7 h-7 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center transition-colors"
                                             title="Xem chi tiết">
                                             <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button v-if="
+                                            c.original_contract
+                                                ?.cancellation_reason &&
+                                            c.original_contract.cancellation_reason.includes(
+                                                'gia hạn',
+                                            )
+                                        " @click="openExtendModal(c)"
+                                            class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer animate-pulse"
+                                            title="Khách đang xin gia hạn hợp đồng này">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                            Gia hạn ngay
                                         </button>
                                         <a v-if="
                                             c.original_contract
@@ -1525,19 +1686,6 @@ const filteredAppointments = computed(() => {
                         <div v-if="activeStep === 1" class="space-y-4">
                             <!-- LUỒNG A: Ký qua Lịch hẹn -->
                             <div v-if="creationMode === 'appointment'" class="space-y-4">
-                                <!-- Chọn cơ sở nhà trọ -->
-                                <div class="space-y-1">
-                                    <label class="bold text-slate-500">Chọn Nhà trọ / Cơ sở</label>
-                                    <select v-model="selectedBoardingHouseId"
-                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                                        <option value="">
-                                            -- Tất cả cơ sở --
-                                        </option>
-                                        <option v-for="bh in boardingHouses" :key="bh.id" :value="bh.id">
-                                            {{ bh.name }}
-                                        </option>
-                                    </select>
-                                </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500">Chọn lịch hẹn khách ký HĐ
                                         <span class="text-rose-500">*</span></label>
@@ -1553,38 +1701,27 @@ const filteredAppointments = computed(() => {
                                             }})
                                         </option>
                                     </select>
+                                    <p v-if="filteredAppointments.length === 0"
+                                        class="text-[11px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100 mt-1">
+                                        ⚠️ Hiện chưa có Lịch hẹn xem phòng nào (mà khách đã bấm "ƯNG") đang chờ tạo hợp đồng tại cơ sở này.
+                                    </p>
                                 </div>
                             </div>
 
                             <!-- LUỒNG B: Ký cho Cư dân ở ghép -->
                             <div v-else-if="creationMode === 'roommate'" class="space-y-4">
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div class="space-y-1">
-                                        <label class="text-xs font-bold text-slate-500">Chọn Nhà trọ
-                                            <span class="text-rose-500">*</span></label>
-                                        <select v-model="selectedBoardingHouseId"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                                            <option value="">
-                                                -- Chọn nhà trọ --
-                                            </option>
-                                            <option v-for="bh in boardingHouses" :key="bh.id" :value="bh.id">
-                                                {{ bh.name }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-xs font-bold text-slate-500">Chọn Phòng trọ
-                                            <span class="text-rose-500">*</span></label>
-                                        <select v-model="addForm.room_id" :disabled="!selectedBoardingHouseId"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white disabled:bg-slate-50 disabled:cursor-not-allowed">
-                                            <option value="">
-                                                -- Chọn phòng --
-                                            </option>
-                                            <option v-for="r in availableRooms" :key="r.id" :value="r.id">
-                                                Phòng {{ r.room_number }}
-                                            </option>
-                                        </select>
-                                    </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Chọn Phòng trọ
+                                        <span class="text-rose-500">*</span></label>
+                                    <select v-model="addForm.room_id"
+                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
+                                        <option value="">
+                                            -- Chọn phòng trọ --
+                                        </option>
+                                        <option v-for="r in availableRooms" :key="r.id" :value="r.id">
+                                            Phòng {{ r.room_number }}
+                                        </option>
+                                    </select>
                                 </div>
 
                                 <div v-if="addForm.room_id" class="space-y-1">
@@ -1597,9 +1734,14 @@ const filteredAppointments = computed(() => {
                                             phòng --
                                         </option>
                                         <option v-for="res in activeRoomResidents" :key="res.id" :value="res.id">
-                                            {{ res.name }} (SĐT:
-                                            {{ res.phone }} - CCCD:
-                                            {{ res.cccd_number }})
+                                            {{ res.user?.name || res.name }}
+                                            (SĐT:
+                                            {{ res.user?.phone || res.phone }} -
+                                            CCCD:
+                                            {{
+                                                res.user?.cccd_number ||
+                                                res.cccd_number
+                                            }})
                                         </option>
                                     </select>
                                     <p v-if="activeRoomResidents.length === 0"
@@ -1613,33 +1755,18 @@ const filteredAppointments = computed(() => {
 
                             <!-- LUỒNG C: Ký trực tiếp bằng cách tìm tài khoản -->
                             <div v-else class="space-y-4">
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div class="space-y-1">
-                                        <label class="text-xs font-bold text-slate-500">Chọn Nhà trọ
-                                            <span class="text-rose-500">*</span></label>
-                                        <select v-model="selectedBoardingHouseId"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                                            <option value="">
-                                                -- Chọn nhà trọ --
-                                            </option>
-                                            <option v-for="bh in boardingHouses" :key="bh.id" :value="bh.id">
-                                                {{ bh.name }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-xs font-bold text-slate-500">Chọn Phòng trọ
-                                            <span class="text-rose-500">*</span></label>
-                                        <select v-model="addForm.room_id" :disabled="!selectedBoardingHouseId"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white disabled:bg-slate-50 disabled:cursor-not-allowed">
-                                            <option value="">
-                                                -- Chọn phòng --
-                                            </option>
-                                            <option v-for="r in availableRooms" :key="r.id" :value="r.id">
-                                                Phòng {{ r.room_number }}
-                                            </option>
-                                        </select>
-                                    </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Chọn Phòng trọ
+                                        <span class="text-rose-500">*</span></label>
+                                    <select v-model="addForm.room_id"
+                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
+                                        <option value="">
+                                            -- Chọn phòng trọ --
+                                        </option>
+                                        <option v-for="r in availableRooms" :key="r.id" :value="r.id">
+                                            Phòng {{ r.room_number }}
+                                        </option>
+                                    </select>
                                 </div>
 
                                 <div class="space-y-1 relative">
@@ -1819,13 +1946,13 @@ const filteredAppointments = computed(() => {
                                     <div class="space-y-1">
                                         <label class="text-xs font-bold text-slate-500">Ngày bắt đầu hợp đồng
                                             <span class="text-rose-500">*</span></label>
-                                        <input v-model="addForm.start_date" type="date"
+                                        <input v-model="addForm.start_date" type="date" :min="minStartDate"
                                             class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-emerald-500 bg-white" />
                                     </div>
                                     <div class="space-y-1">
                                         <label class="text-xs font-bold text-slate-500">Ngày kết thúc hợp đồng
                                             <span class="text-rose-500">*</span></label>
-                                        <input v-model="addForm.end_date" type="date"
+                                        <input v-model="addForm.end_date" type="date" :min="minDate"
                                             class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white" />
                                     </div>
                                     <div class="space-y-1 sm:col-span-2">
@@ -1974,6 +2101,12 @@ const filteredAppointments = computed(() => {
                                     <span class="text-xs font-bold text-slate-800">{{
                                         apt.user?.name || "Khách thuê"
                                     }}</span>
+                                    <span
+                                        :class="(apt.user?.cccd_number && String(apt.user.cccd_number).length === 12) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'"
+                                        class="px-2 py-0.5 border text-[10px] font-bold rounded-full inline-flex items-center gap-1 whitespace-nowrap">
+                                        <i :class="(apt.user?.cccd_number && String(apt.user.cccd_number).length === 12) ? 'bi bi-check-circle-fill text-emerald-500' : 'bi bi-exclamation-triangle-fill text-rose-500'"></i>
+                                        <span>{{ (apt.user?.cccd_number && String(apt.user.cccd_number).length === 12) ? 'Đủ CCCD' : 'Thiếu CCCD' }}</span>
+                                    </span>
                                 </div>
                                 <div class="text-[11px] text-slate-500 flex items-center gap-3">
                                     <span><i class="bi bi-telephone"></i>
@@ -1987,8 +2120,7 @@ const filteredAppointments = computed(() => {
 
                             <button @click="openContractForAppointment(apt)"
                                 class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-                                <i class="bi bi-file-earmark-plus"></i> Tạo hợp
-                                đồng ngay
+                                <i class="bi bi-file-earmark-plus"></i> Tạo hợp đồng ngay
                             </button>
                         </div>
                     </div>
@@ -2003,32 +2135,92 @@ const filteredAppointments = computed(() => {
             </div>
         </div>
 
-        <!-- Modal thêm người ở ghép trực tiếp trong hợp đồng -->
+        <!-- Modal thêm người ở ghép 2 BƯỚC (Kiểm tra CCCD 12 số -> Nhập ngày & Lưu) -->
         <div v-if="showAddResidentModal"
             class="fixed inset-0 z-55 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
             style="z-index: 60">
             <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 class="text-base font-black text-slate-800 flex items-center gap-1.5">
-                        <i class="bi bi-person-plus-fill text-emerald-600"></i>
-                        Thêm thành viên ở ghép
-                    </h3>
+                    <div>
+                        <h3 class="text-base font-black text-slate-800 flex items-center gap-1.5">
+                            <i class="bi bi-person-plus-fill text-emerald-600"></i>
+                            Thêm thành viên ở ghép vào phòng
+                        </h3>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Bước {{ residentStep }} / 2
+                        </span>
+                    </div>
                     <button @click="showAddResidentModal = false"
                         class="text-slate-400 hover:text-slate-600 text-xl font-bold">
                         &times;
                     </button>
                 </div>
 
-                <form @submit.prevent="submitAddResident" class="space-y-4">
+                <!-- BƯỚC 1: KIỂM TRA THÔNG TIN & GATE CCCD 12 SỐ -->
+                <div v-if="residentStep === 1" class="space-y-4">
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 font-bold">Họ & Tên:</span>
+                            <span class="text-slate-800 font-extrabold">{{
+                                selectedRoommateReq?.new_resident_name ||
+                                selectedRoommateReq?.tenant?.name ||
+                                "Chưa cập nhật"
+                                }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 font-bold">Số điện thoại:</span>
+                            <span class="text-slate-800 font-extrabold">{{
+                                residentForm.phone ||
+                                selectedRoommateReq?.new_resident_phone ||
+                                selectedRoommateReq?.tenant?.phone ||
+                                "Chưa cập nhật"
+                                }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400 font-bold">Số CCCD (12 số):</span>
+                            <span :class="isRoommateCccdValid
+                                ? 'text-emerald-600 font-black'
+                                : 'text-rose-600 font-black'
+                                ">
+                                {{
+                                    selectedRoommateReq?.new_resident_cccd ||
+                                    selectedRoommateReq?.tenant?.cccd_number ||
+                                    "Chưa đủ 12 số"
+                                }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Cảnh báo nếu thiếu CCCD 12 số -->
+                    <div v-if="!isRoommateCccdValid"
+                        class="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill text-lg shrink-0"></i>
+                        <span>Thành viên này chưa cập nhật đủ CCCD 12 số hợp lệ.
+                            Vui lòng yêu cầu khách cập nhật thông tin trước khi
+                            thêm!</span>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" @click="showAddResidentModal = false"
+                            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl">
+                            Hủy
+                        </button>
+                        <button type="button" :disabled="!isRoommateCccdValid" @click="residentStep = 2"
+                            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1 disabled:cursor-not-allowed cursor-pointer">
+                            Thông tin hợp lệ - Qua Bước 2
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 2: CHỈ CHỌN NGÀY VÀO Ở & XÁC NHẬN LƯU VÀO PHÒNG -->
+                <form v-else-if="residentStep === 2" @submit.prevent="submitAddResident" class="space-y-4">
                     <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-500">Số điện thoại của thành viên B
-                            <span class="text-rose-500">*</span></label>
-                        <input v-model="residentForm.phone" type="text" required placeholder="Ví dụ: 0987654321"
-                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold outline-none" />
-                        <p class="text-[10px] text-slate-400 font-semibold">
-                            Hệ thống sẽ tự động tìm kiếm tài khoản của B trên hệ
-                            thống theo Số điện thoại.
-                        </p>
+                        <label class="text-xs font-bold text-slate-500">Số điện thoại thành viên (Đã tự động lấy từ
+                            thông
+                            tin Khách)</label>
+                        <input :value="residentForm.phone" type="text" disabled
+                            class="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 rounded-xl text-xs font-bold text-slate-600 outline-none cursor-not-allowed" />
                     </div>
 
                     <div class="space-y-1">
@@ -2039,13 +2231,14 @@ const filteredAppointments = computed(() => {
                     </div>
 
                     <div class="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
-                        <button type="button" @click="showAddResidentModal = false"
+                        <button type="button" @click="residentStep = 1"
                             class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
-                            Hủy
+                            Quay lại Bước 1
                         </button>
                         <button type="submit"
-                            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
-                            Lưu thành viên
+                            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
+                            <i class="bi bi-check-circle-fill"></i> Xác nhận
+                            Thêm vào Phòng
                         </button>
                     </div>
                 </form>
@@ -2161,6 +2354,60 @@ const filteredAppointments = computed(() => {
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+        <!-- Modal Danh Sách Yêu Cầu Ở Ghép Chờ Ký Hợp Đồng -->
+        <div v-if="showPendingRoommateModal"
+            class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div
+                class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 border border-slate-100 max-h-[85vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-black text-slate-800 flex items-center gap-1.5">
+                        <i class="bi bi-person-plus-fill text-amber-500"></i>
+                        Yêu cầu ở ghép chờ tạo Hợp Đồng
+                    </h3>
+                    <button @click="showPendingRoommateModal = false"
+                        class="text-slate-400 hover:text-slate-600 text-xl font-bold">
+                        &times;
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div v-for="req in props.pendingRoommateRequests" :key="req.id"
+                        class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-slate-100/60 transition-all">
+                        <div>
+                            <div class="font-extrabold text-slate-800 text-sm">
+                                Phòng
+                                {{ req.room ? req.room.room_number : "?" }} -
+                                Người gửi:
+                                {{ req.tenant ? req.tenant.name : "Ẩn danh" }}
+                            </div>
+                            <div class="text-[11px] text-amber-600 font-bold mt-0.5">
+                                Loại yêu cầu:
+                                {{
+                                    req.type === "stranger"
+                                        ? "Tìm người lạ ở ghép"
+                                        : "Giới thiệu người quen: " +
+                                        req.new_resident_name
+                                }}
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-bold mt-1 uppercase flex items-center gap-1">
+                                <i class="bi bi-clock"></i> Gửi ngày:
+                                {{ formatDate(req.created_at) }}
+                            </div>
+                        </div>
+                        <button @click="openAddResidentFromRequest(req)"
+                            class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center cursor-pointer">
+                            <i class="bi bi-person-plus-fill"></i> Duyệt & Thêm
+                            người ở ghép
+                        </button>
+                    </div>
+                    <div v-if="
+                        !props.pendingRoommateRequests ||
+                        props.pendingRoommateRequests.length === 0
+                    " class="text-center p-8 text-slate-400 font-bold text-sm">
+                        Không có yêu cầu ở ghép nào đang chờ tạo hợp đồng.
+                    </div>
+                </div>
             </div>
         </div>
     </LandlordLayout>
