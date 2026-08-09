@@ -34,3 +34,29 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
+
+//hàm xin quyền hiển thị thông báo trên thiết bị điện thoại
+function requestNotificationPermission(){
+    if('Notification' in window && Notification.permission === 'default'){
+        Notification.requestPermission().then(permission => {
+            if(permission === 'granted'){
+                console.log("Người dùng đã cho phép nhận thông báo!");
+            }
+        });
+    }
+}
+
+//hàm âm thanh khi có thông báo mới
+window.playNotificationSound = function(){
+    const audio = new Audio('/sounds/thongbao.mp3');
+    audio.play().catch(err=>{
+        console.log('Tự động phát âm thanh bị chặn bởi trình duyệt, cần người dùng tương tác trước.', err);
+    });
+};
+
+//gọi xin quyền khi ứng dụng khởi chạy
+if(typeof window !== 'undefined'){
+    window.addEventListener('load',() => {
+        requestNotificationPermission();
+    });
+}

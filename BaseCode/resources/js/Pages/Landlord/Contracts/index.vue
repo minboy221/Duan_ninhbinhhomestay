@@ -40,6 +40,64 @@ const contracts = computed(() => {
     }));
 });
 
+// --- PHÂN TRANG CHO HỢP ĐỒNG ---
+const contractPage = ref(1);
+const contractPageSize = 10;
+const contractTotalPages = computed(
+    () => Math.ceil(contracts.value.length / contractPageSize) || 1,
+);
+const paginatedContracts = computed(() => {
+    const start = (contractPage.value - 1) * contractPageSize;
+    return contracts.value.slice(start, start + contractPageSize);
+});
+watch(contracts, () => {
+    contractPage.value = 1;
+});
+
+// --- PHÂN TRANG CHO YÊU CẦU Ở GHÉP ---
+const roommatePage = ref(1);
+const roommatePageSize = 5;
+const roommateTotalPages = computed(
+    () =>
+        Math.ceil(
+            (props.pendingRoommateRequests?.length || 0) / roommatePageSize,
+        ) || 1,
+);
+const paginatedRoommateRequests = computed(() => {
+    const list = props.pendingRoommateRequests || [];
+    const start = (roommatePage.value - 1) * roommatePageSize;
+    return list.slice(start, start + roommatePageSize);
+});
+watch(
+    () => props.pendingRoommateRequests,
+    () => {
+        roommatePage.value = 1;
+    },
+);
+
+// Helper hiển thị danh sách trang có dấu 3 chấm
+const getVisiblePages = (currentPage, totalPages) => {
+    const pages = [];
+    const maxVisible = 5;
+    if (totalPages <= maxVisible) {
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+        pages.push(1);
+        if (currentPage > 3) pages.push("...");
+
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+
+        if (currentPage < totalPages - 2) pages.push("...");
+        pages.push(totalPages);
+    }
+    return pages;
+};
+
 const showModal = ref(false);
 const showAddModal = ref(false);
 const showExtendModal = ref(false);
@@ -78,7 +136,9 @@ const availableRoomResidents = computed(() => {
             });
         });
     });
-    return targetRoom?.residents?.filter(res => res.status === 'active') || [];
+    return (
+        targetRoom?.residents?.filter((res) => res.status === "active") || []
+    );
 });
 
 const residentForm = ref({
@@ -338,7 +398,12 @@ const availableRooms = computed(() => {
     if (Array.isArray(bh.floors) && bh.floors.length > 0) {
         bh.floors.forEach((f) => {
             (f.rooms || []).forEach((r) => {
-                if (r && r.id && String(r.boarding_house_id || bh.id) === String(selectedBoardingHouseId.value)) {
+                if (
+                    r &&
+                    r.id &&
+                    String(r.boarding_house_id || bh.id) ===
+                    String(selectedBoardingHouseId.value)
+                ) {
                     if (!roomMap.has(String(r.id))) {
                         roomMap.set(String(r.id), r);
                     }
@@ -350,7 +415,12 @@ const availableRooms = computed(() => {
     // Thu thập phòng từ bh.rooms nếu có
     if (Array.isArray(bh.rooms) && bh.rooms.length > 0) {
         bh.rooms.forEach((r) => {
-            if (r && r.id && String(r.boarding_house_id || bh.id) === String(selectedBoardingHouseId.value)) {
+            if (
+                r &&
+                r.id &&
+                String(r.boarding_house_id || bh.id) ===
+                String(selectedBoardingHouseId.value)
+            ) {
                 if (!roomMap.has(String(r.id))) {
                     roomMap.set(String(r.id), r);
                 }
@@ -388,15 +458,17 @@ watch(selectedBoardingHouseId, () => {
 });
 
 watch(creationMode, () => {
-    selectedBoardingHouseId.value = props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
+    selectedBoardingHouseId.value =
+        props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
     addForm.value.room_id = "";
     addForm.value.room = "";
     addForm.value.appointment_id = "";
     addForm.value.tenant_id = "";
     selectedResidentId.value = "";
-    if (typeof selectedDirectUser !== 'undefined') selectedDirectUser.value = null;
-    if (typeof searchQuery !== 'undefined') searchQuery.value = "";
-    if (typeof searchResults !== 'undefined') searchResults.value = [];
+    if (typeof selectedDirectUser !== "undefined")
+        selectedDirectUser.value = null;
+    if (typeof searchQuery !== "undefined") searchQuery.value = "";
+    if (typeof searchResults !== "undefined") searchResults.value = [];
 });
 
 watch(
@@ -532,7 +604,8 @@ const displayDeposit = computed({
 const openAddContract = (appointmentId = "") => {
     activeStep.value = 1;
     creationMode.value = "appointment"; // Active mặc định là Ký từ Lịch hẹn
-    selectedBoardingHouseId.value = props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
+    selectedBoardingHouseId.value =
+        props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
     selectedResidentId.value = "";
     addForm.value = getInitialAddForm(appointmentId);
 
@@ -568,7 +641,8 @@ const openAddContract = (appointmentId = "") => {
 };
 
 onMounted(() => {
-    selectedBoardingHouseId.value = props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
+    selectedBoardingHouseId.value =
+        props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("action") === "create_contract") {
         const appointmentId = urlParams.get("appointment_id");
@@ -1100,8 +1174,10 @@ const filteredAppointments = computed(() => {
                         <!-- Chấm đỏ thông báo khi có yêu cầu ở ghép đang chờ -->
                         <span v-if="props.pendingRoommateRequests?.length > 0"
                             class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-500 border-2 border-white"></span>
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                            <span
+                                class="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-500 border-2 border-white"></span>
                         </span>
                     </button>
                 </div>
@@ -1229,7 +1305,7 @@ const filteredAppointments = computed(() => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                            <tr v-for="(c, index) in contracts" :key="c.id" :class="[
+                            <tr v-for="(c, index) in paginatedContracts" :key="c.id" :class="[
                                 'hover:bg-slate-50/40 cursor-pointer',
                                 c.status === 'expiring'
                                     ? 'bg-amber-50/10'
@@ -1297,7 +1373,8 @@ const filteredAppointments = computed(() => {
                                         <a v-if="
                                             c.original_contract
                                                 ?.contract_file_path
-                                        " :href="`/storage/${c.original_contract.contract_file_path}`" target="_blank"
+                                        " :href="`/storage/${c.original_contract.contract_file_path}`"
+                                            target="_blank"
                                             class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center transition-colors"
                                             title="Tải/Xem File"><i class="bi bi-file-earmark-pdf"></i></a>
                                         <button v-if="
@@ -1319,7 +1396,7 @@ const filteredAppointments = computed(() => {
 
             <!-- Mobile List -->
             <div class="block lg:hidden space-y-4">
-                <div v-for="c in contracts" :key="c.id" :class="[
+                <div v-for="c in paginatedContracts" :key="c.id" :class="[
                     'bg-white border border-slate-150 rounded-3xl p-5 shadow-sm space-y-3',
                     c.status === 'expired'
                         ? 'border-rose-200 bg-rose-50/10'
@@ -1364,777 +1441,883 @@ const filteredAppointments = computed(() => {
                 </div>
             </div>
 
-            <!-- Contract Detail Modal -->
-            <div v-if="showModal && selectedContract"
-                class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4"
-                @click.self="closeModal">
-                <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                        <h3 class="text-sm font-bold text-slate-800">
-                            Thông tin Hợp đồng #{{ selectedContract.id }}
-                        </h3>
-                        <button @click="closeModal" class="text-slate-400 hover:text-slate-600 p-1">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-
-                    <div class="p-6 space-y-4 text-xs font-semibold text-slate-600">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
-                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Phòng
-                                    trọ</span>
-                                <p class="text-sm font-bold text-emerald-600">
-                                    Phòng {{ selectedContract.room }}
-                                </p>
-                            </div>
-                            <div class="space-y-1 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
-                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Trạng
-                                    thái</span>
-                                <div :class="[
-                                    'px-2 py-0.5 rounded text-[10px] font-bold w-fit border',
-                                    getStatusConfig(selectedContract.status)
-                                        .cls,
-                                ]">
-                                    {{
-                                        getStatusConfig(selectedContract.status)
-                                            .label
-                                    }}
-                                </div>
-                            </div>
+            <!-- Thanh Phân trang Hợp Đồng -->
+            <div v-if="contractTotalPages > 1"
+                class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-xs">
+                <span class="text-[11px] text-slate-400 font-semibold">
+                    Hiển thị {{ (contractPage - 1) * contractPageSize + 1 }} -
+                    {{
+                        Math.min(
+                            contractPage * contractPageSize,
+                            contracts.length,
+                        )
+                    }}
+                    trong số {{ contracts.length }} hợp đồng
+                </span>
+                <div class="flex items-center gap-1">
+                    <button @click="contractPage = Math.max(1, contractPage - 1)" :disabled="contractPage === 1"
+                        class="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
+                        <i class="bi bi-chevron-left text-xs"></i>
+                    </button>
+                    <button v-for="p in getVisiblePages(
+                        contractPage,
+                        contractTotalPages,
+                    )" :key="p" @click="
+                            typeof p === 'number' ? (contractPage = p) : null
+                            " :class="[
+                            'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all border',
+                            contractPage === p
+                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
+                                : p === '...'
+                                    ? 'border-transparent text-slate-400 cursor-default'
+                                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                        ]">
+                        {{ p }}
+                    </button>
+                    <button @click="
+                        contractPage = Math.min(
+                            contractTotalPages,
+                            contractPage + 1,
+                        )
+                        " :disabled="contractPage === contractTotalPages"
+                        class="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all">
+                        <i class="bi bi-chevron-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="space-y-0">
+                <!-- Contract Detail Modal -->
+                <div v-if="showModal && selectedContract"
+                    class="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen bg-slate-800/40 backdrop-blur-xs flex items-center justify-center z-[99999] p-4"
+                    @click.self="closeModal">
+                    <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] shadow-2xl overflow-hidden">
+                        <div
+                            class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                            <h3 class="text-sm font-bold text-slate-800">
+                                Thông tin Hợp đồng #{{ selectedContract.id }}
+                            </h3>
+                            <button @click="closeModal" class="text-slate-400 hover:text-slate-600 p-1">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
                         </div>
 
-                        <div class="space-y-2 border-t border-slate-100 pt-3">
-                            <h4 class="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
-                                Thông tin Khách Thuê
-                            </h4>
-                            <div
-                                class="grid grid-cols-2 gap-3 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100">
-                                <div>
-                                    <span class="text-[9px] text-slate-400">Họ tên:</span>
-                                    <p class="text-slate-700 font-bold text-xs">
-                                        {{ selectedContract.tenant }}
+                        <div class="p-4 space-y-3 text-xs font-semibold text-slate-600 overflow-y-auto max-h-[70vh]">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Phòng
+                                        trọ</span>
+                                    <p class="text-sm font-bold text-emerald-600">
+                                        Phòng {{ selectedContract.room }}
                                     </p>
                                 </div>
-                                <div>
-                                    <span class="text-[9px] text-slate-400">Điện thoại:</span>
-                                    <p class="text-slate-700 font-bold text-xs">
-                                        {{ selectedContract.phone }}
-                                    </p>
-                                </div>
-                                <div class="col-span-2 pt-1 border-t border-slate-100/50 mt-1">
-                                    <span class="text-[9px] text-slate-400">Căn cước công dân (CCCD):</span>
-                                    <p class="text-slate-800 font-bold text-xs">
+                                <div class="space-y-1 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Trạng
+                                        thái</span>
+                                    <div :class="[
+                                        'px-2 py-0.5 rounded text-[10px] font-bold w-fit border',
+                                        getStatusConfig(
+                                            selectedContract.status,
+                                        ).cls,
+                                    ]">
                                         {{
-                                            selectedContract.tenant_cccd ||
-                                            "⚠️ Chưa cập nhật CCCD"
+                                            getStatusConfig(
+                                                selectedContract.status,
+                                            ).label
                                         }}
-                                    </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Thành viên ở ghép (Roommates) -->
-                        <div class="pt-3 border-t border-slate-100 space-y-2">
-                            <div class="flex justify-between items-center">
-                                <span
-                                    class="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                                    <i class="bi bi-people-fill text-emerald-600"></i>
-                                    Thành viên ở ghép (Roommates)
-                                </span>
-                                <button v-if="
-                                    [
-                                        'active',
-                                        'signed',
-                                        'expiring',
-                                    ].includes(selectedContract.status) &&
-                                    (selectedContract.original_contract.room
-                                        ?.residents?.length || 0) <
-                                    selectedContract.original_contract
-                                        .room?.capacity -
-                                    1
-                                " @click="openAddResidentModal"
-                                    class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer">
-                                    <i class="bi bi-plus-circle-fill"></i> Thêm
-                                    người ở ghép
-                                </button>
-                            </div>
-                            <div class="space-y-2">
-                                <div v-for="res in selectedContract
-                                    .original_contract.room?.residents" :key="res.id"
-                                    class="flex justify-between items-center p-2.5 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100/50 transition-all">
+                            <div class="space-y-2 border-t border-slate-100 pt-3">
+                                <h4 class="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
+                                    Thông tin Khách Thuê
+                                </h4>
+                                <div
+                                    class="grid grid-cols-2 gap-3 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100">
                                     <div>
-                                        <div class="text-xs font-bold text-slate-800">
-                                            {{ res.user?.name || "Thành viên" }}
-                                        </div>
-                                        <div class="text-[10px] font-semibold text-slate-500">
-                                            SĐT: {{ res.user?.phone }} - CCCD:
-                                            {{ res.user?.cccd_number }}
-                                        </div>
-                                        <div class="text-[9px] text-slate-400 font-semibold">
-                                            Bắt đầu ở từ:
-                                            {{ formatDate(res.start_date) }}
-                                        </div>
+                                        <span class="text-[9px] text-slate-400">Họ tên:</span>
+                                        <p class="text-slate-700 font-bold text-xs">
+                                            {{ selectedContract.tenant }}
+                                        </p>
                                     </div>
-                                    <button @click="removeResident(res)"
-                                        class="w-7 h-7 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-lg flex items-center justify-center transition-all cursor-pointer">
-                                        <i class="bi bi-trash-fill text-[11px]"></i>
+                                    <div>
+                                        <span class="text-[9px] text-slate-400">Điện thoại:</span>
+                                        <p class="text-slate-700 font-bold text-xs">
+                                            {{ selectedContract.phone }}
+                                        </p>
+                                    </div>
+                                    <div class="col-span-2 pt-1 border-t border-slate-100/50 mt-1">
+                                        <span class="text-[9px] text-slate-400">Căn cước công dân (CCCD):</span>
+                                        <p class="text-slate-800 font-bold text-xs">
+                                            {{
+                                                selectedContract.tenant_cccd ||
+                                                "⚠️ Chưa cập nhật CCCD"
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Thành viên ở ghép (Roommates) -->
+                            <div class="pt-3 border-t border-slate-100 space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span
+                                        class="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                        <i class="bi bi-people-fill text-emerald-600"></i>
+                                        Thành viên ở ghép (Roommates)
+                                    </span>
+                                    <button v-if="
+                                        [
+                                            'active',
+                                            'signed',
+                                            'expiring',
+                                        ].includes(
+                                            selectedContract.status,
+                                        ) &&
+                                        (selectedContract.original_contract
+                                            .room?.residents?.length || 0) <
+                                        selectedContract
+                                            .original_contract.room
+                                            ?.capacity -
+                                        1
+                                    " @click="openAddResidentModal"
+                                        class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer">
+                                        <i class="bi bi-plus-circle-fill"></i>
+                                        Thêm người ở ghép
                                     </button>
                                 </div>
-                                <div v-if="
-                                    !selectedContract.original_contract.room
-                                        ?.residents ||
-                                    selectedContract.original_contract.room
-                                        ?.residents.length === 0
-                                "
-                                    class="text-xs font-semibold text-slate-400 italic bg-slate-50/50 border border-slate-100 rounded-xl p-3 text-center">
-                                    Chưa có thành viên ở ghép trong phòng này
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-2 border-t border-slate-100 pt-3">
-                            <h4 class="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
-                                Điều khoản thuê
-                            </h4>
-                            <div
-                                class="grid grid-cols-3 gap-2 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100 text-center">
-                                <div>
-                                    <span class="text-[9px] text-slate-400">Giá thuê</span>
-                                    <p class="text-slate-700 font-bold text-xs mt-0.5">
-                                        {{ formatMoney(selectedContract.rent) }}
-                                    </p>
-                                </div>
-                                <div>
-                                    <span class="text-[9px] text-slate-400">Đặt cọc</span>
-                                    <p class="text-slate-700 font-bold text-xs mt-0.5">
-                                        {{
-                                            formatMoney(
-                                                selectedContract.deposit,
-                                            )
-                                        }}
-                                    </p>
-                                </div>
-                                <div>
-                                    <span class="text-[9px] text-slate-400">Kỳ đóng tiền</span>
-                                    <p class="text-slate-700 font-bold text-xs mt-0.5">
-                                        {{
-                                            selectedContract.original_contract
-                                                ?.billing_cycle || 1
-                                        }}
-                                        tháng/lần
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-3 text-slate-500 pt-1.5 font-bold">
-                            <div>
-                                Ngày hiệu lực:
-                                <span class="text-slate-700 font-bold">{{
-                                    formatDate(selectedContract.start)
-                                    }}</span>
-                            </div>
-                            <div>
-                                Ngày kết thúc:
-                                <span class="text-slate-700 font-bold">{{
-                                    formatDate(selectedContract.end)
-                                    }}</span>
-                            </div>
-                        </div>
-
-                        <div v-if="
-                            selectedContract.original_contract
-                                ?.cancellation_reason
-                        " class="p-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl">
-                            <div class="font-bold text-[10px] uppercase tracking-wider text-rose-950">
-                                Lý do chấm dứt / ghi chú:
-                            </div>
-                            <p class="mt-0.5 text-xs font-semibold">
-                                {{
-                                    selectedContract.original_contract
-                                        .cancellation_reason
-                                }}
-                            </p>
-                        </div>
-
-                        <div v-if="
-                            selectedContract.original_contract
-                                ?.contract_file_path
-                        " class="pt-2">
-                            <a :href="`/storage/${selectedContract.original_contract.contract_file_path}`"
-                                target="_blank"
-                                class="w-full py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-xl border border-slate-200 hover:border-emerald-250 flex items-center justify-center gap-1.5 transition-all text-xs font-bold">
-                                <i class="bi bi-file-earmark-pdf-fill"></i> Xem
-                                file đính kèm hợp đồng
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
-                        <button @click="closeModal"
-                            class="px-4 py-2 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl">
-                            Đóng
-                        </button>
-
-                        <!-- Mark Expired (Active / Expiring -> Expired) -->
-                        <button v-if="
-                            selectedContract.status === 'signed' ||
-                            selectedContract.status === 'active' ||
-                            selectedContract.status === 'expiring'
-                        " @click="submitMarkExpired"
-                            class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
-                            {{
-                                selectedContract.end &&
-                                    new Date(selectedContract.end) > new Date()
-                                    ? "Chấm dứt HĐ trước thời hạn"
-                                    : "Chuyển trạng thái Hết Hạn"
-                            }}
-                        </button>
-
-                        <!-- Extend contract -->
-                        <button v-if="
-                            selectedContract.status === 'signed' ||
-                            selectedContract.status === 'active' ||
-                            selectedContract.status === 'expired'
-                        " @click="openExtendModal"
-                            class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
-                            Gia hạn hợp đồng
-                        </button>
-
-                        <!-- Liquidate contract STRICT CHECK -->
-                        <button v-if="
-                            selectedContract.status === 'expired' ||
-                            selectedContract.status ===
-                            'termination_requested'
-                        " @click="openLiquidationModal"
-                            class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center gap-1">
-                            <i class="bi bi-calculator"></i> Thanh lý Hợp Đồng
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Create Contract Modal -->
-            <div v-if="showAddModal"
-                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-2 sm:p-4"
-                @click.self="showAddModal = false">
-                <div
-                    class="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[92vh] transition-all duration-300 mx-auto">
-                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                        <div class="space-y-0.5">
-                            <h3 class="text-base font-bold text-slate-800">
-                                Tạo hợp đồng thuê mới
-                            </h3>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bước {{
-                                activeStep }} / 3</span>
-                        </div>
-                        <button @click="showAddModal = false"
-                            class="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-
-                    <!-- Thanh chuyển đổi chế độ ký hợp đồng -->
-                    <div class="px-6 pt-3 pb-1 flex bg-slate-50/50 border-b border-slate-50 gap-2">
-                        <div class="flex bg-slate-100 p-1 rounded-xl gap-1 text-[11px] font-bold text-slate-500 w-full">
-                            <button type="button" @click="creationMode = 'appointment'" :class="creationMode === 'appointment'
-                                ? 'bg-white text-slate-800 shadow-xs'
-                                : 'hover:text-slate-800'
-                                " class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer">
-                                <i class="bi bi-calendar-event"></i> Ký từ Lịch
-                                hẹn
-                            </button>
-                            <button type="button" @click="creationMode = 'roommate'" :class="creationMode === 'roommate'
-                                ? 'bg-white text-slate-800 shadow-xs'
-                                : 'hover:text-slate-800'
-                                " class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer">
-                                <i class="bi bi-people-fill"></i> Ký cho Cư dân
-                                ở ghép
-                            </button>
-                        </div>
-                    </div>
-
-                    <div
-                        class="px-6 py-3 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center text-xs font-bold text-slate-400">
-                        <button @click="goToStep(1)"
-                            class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 1
-                                ? 'text-emerald-600 font-bold'
-                                : 'text-slate-400'
-                                ">
-                            <span>1. Khách & Kiểm tra CCCD</span>
-                        </button>
-                        <i class="bi bi-chevron-right text-slate-300"></i>
-                        <button @click="goToStep(2)"
-                            class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 2
-                                ? 'text-emerald-600 font-bold'
-                                : 'text-slate-400'
-                                ">
-                            <span>2. Điền Hạn & Tiền Cọc</span>
-                        </button>
-                        <i class="bi bi-chevron-right text-slate-300"></i>
-                        <button @click="goToStep(3)"
-                            class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 3
-                                ? 'text-emerald-600 font-bold'
-                                : 'text-slate-400'
-                                ">
-                            <span>3. Đính kèm Bản Hợp Đồng</span>
-                        </button>
-                    </div>
-
-                    <div class="p-6 space-y-4 overflow-y-auto flex-1">
-                        <!-- Step 1: Chọn khách thuê & Kiểm tra Gate CCCD -->
-                        <div v-if="activeStep === 1" class="space-y-4">
-                            <!-- LUỒNG A: Ký qua Lịch hẹn -->
-                            <div v-if="creationMode === 'appointment'" class="space-y-4">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Chọn lịch hẹn khách ký HĐ
-                                        <span class="text-rose-500">*</span></label>
-                                    <select v-model="addForm.appointment_id"
-                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                                        <option value="" disabled>
-                                            -- Chọn người ký từ lịch hẹn --
-                                        </option>
-                                        <option v-for="apt in filteredAppointments" :key="apt.id" :value="apt.id">
-                                            Phòng {{ apt.room?.room_number }} -
-                                            {{ apt.user?.name }} ({{
-                                                apt.user?.phone
-                                            }})
-                                        </option>
-                                    </select>
-                                    <p v-if="filteredAppointments.length === 0"
-                                        class="text-[11px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100 mt-1">
-                                        ⚠️ Hiện chưa có Lịch hẹn xem phòng nào (mà khách đã bấm "ƯNG") đang chờ tạo hợp đồng tại cơ sở này.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- LUỒNG B: Ký cho Cư dân ở ghép -->
-                            <div v-else-if="creationMode === 'roommate'" class="space-y-4">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Chọn Phòng trọ
-                                        <span class="text-rose-500">*</span></label>
-                                    <select v-model="addForm.room_id"
-                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                                        <option value="">
-                                            -- Chọn phòng trọ --
-                                        </option>
-                                        <option v-for="r in availableRooms" :key="r.id" :value="r.id">
-                                            Phòng {{ r.room_number }}
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <div v-if="addForm.room_id" class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Chọn cư dân ở ghép thăng chức
-                                        <span class="text-rose-500">*</span></label>
-                                    <select v-model="selectedResidentId"
-                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                                        <option value="">
-                                            -- Chọn thành viên đang ở ghép trong
-                                            phòng --
-                                        </option>
-                                        <option v-for="res in activeRoomResidents" :key="res.id" :value="res.id">
-                                            {{ res.user?.name || res.name }}
-                                            (SĐT:
-                                            {{ res.user?.phone || res.phone }} -
-                                            CCCD:
-                                            {{
-                                                res.user?.cccd_number ||
-                                                res.cccd_number
-                                            }})
-                                        </option>
-                                    </select>
-                                    <p v-if="activeRoomResidents.length === 0"
-                                        class="text-[11px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100 mt-1">
-                                        ⚠️ Phòng trọ này hiện chưa ghi nhận
-                                        thành viên ở ghép nào được thêm từ Giai
-                                        đoạn 1.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- LUỒNG C: Ký trực tiếp bằng cách tìm tài khoản -->
-                            <div v-else class="space-y-4">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Chọn Phòng trọ
-                                        <span class="text-rose-500">*</span></label>
-                                    <select v-model="addForm.room_id"
-                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                                        <option value="">
-                                            -- Chọn phòng trọ --
-                                        </option>
-                                        <option v-for="r in availableRooms" :key="r.id" :value="r.id">
-                                            Phòng {{ r.room_number }}
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <div class="space-y-1 relative">
-                                    <label class="text-xs font-bold text-slate-500">Tìm kiếm tài khoản Khách thuê
-                                        <span class="text-rose-500">*</span></label>
-                                    <input v-model="searchQuery" type="text"
-                                        placeholder="Gõ Số điện thoại, Email hoặc Họ tên..."
-                                        @input="performSearchTenant"
-                                        class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white" />
-
-                                    <!-- Dropdown danh sách kết quả tìm kiếm -->
-                                    <div v-if="searchResults.length > 0"
-                                        class="absolute left-0 right-0 top-full bg-white border border-slate-200 rounded-xl shadow-lg mt-1 z-50 max-h-48 overflow-y-auto divide-y divide-slate-100">
-                                        <button type="button" v-for="user in searchResults" :key="user.id"
-                                            @click="selectDirectUser(user)"
-                                            class="w-full text-left px-4 py-2 text-xs hover:bg-slate-50 transition-all block cursor-pointer">
-                                            <div class="font-bold text-slate-800">
-                                                {{ user.name }}
-                                            </div>
-                                            <div class="text-[10px] text-slate-500">
-                                                SĐT: {{ user.phone }} - CCCD:
+                                <div class="space-y-2">
+                                    <div v-for="res in selectedContract
+                                        .original_contract.room?.residents" :key="res.id"
+                                        class="flex justify-between items-center p-2.5 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100/50 transition-all">
+                                        <div>
+                                            <div class="text-xs font-bold text-slate-800">
                                                 {{
-                                                    user.cccd_number ||
-                                                    "Chưa cập nhật"
+                                                    res.user?.name ||
+                                                    "Thành viên"
                                                 }}
                                             </div>
+                                            <div class="text-[10px] font-semibold text-slate-500">
+                                                SĐT: {{ res.user?.phone }} -
+                                                CCCD:
+                                                {{ res.user?.cccd_number }}
+                                            </div>
+                                            <div class="text-[9px] text-slate-400 font-semibold">
+                                                Bắt đầu ở từ:
+                                                {{ formatDate(res.start_date) }}
+                                            </div>
+                                        </div>
+                                        <button @click="removeResident(res)"
+                                            class="w-7 h-7 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-lg flex items-center justify-center transition-all cursor-pointer">
+                                            <i class="bi bi-trash-fill text-[11px]"></i>
                                         </button>
                                     </div>
-                                    <p v-if="
-                                        searchQuery &&
-                                        searchResults.length === 0
-                                    " class="text-[10px] text-slate-400 italic mt-0.5">
-                                        Không tìm thấy tài khoản phù hợp.
-                                    </p>
+                                    <div v-if="
+                                        !selectedContract.original_contract
+                                            .room?.residents ||
+                                        selectedContract.original_contract
+                                            .room?.residents.length === 0
+                                    "
+                                        class="text-xs font-semibold text-slate-400 italic bg-slate-50/50 border border-slate-100 rounded-xl p-3 text-center">
+                                        Chưa có thành viên ở ghép trong phòng
+                                        này
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- KIỂM TRA ĐỊNH DANH CCCD (Chỉ hiện khi đã chọn đối tượng) -->
+                            <div class="space-y-2 border-t border-slate-100 pt-3">
+                                <h4 class="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
+                                    Điều khoản thuê
+                                </h4>
+                                <div
+                                    class="grid grid-cols-3 gap-2 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100 text-center">
+                                    <div>
+                                        <span class="text-[9px] text-slate-400">Giá thuê</span>
+                                        <p class="text-slate-700 font-bold text-xs mt-0.5">
+                                            {{
+                                                formatMoney(
+                                                    selectedContract.rent,
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span class="text-[9px] text-slate-400">Đặt cọc</span>
+                                        <p class="text-slate-700 font-bold text-xs mt-0.5">
+                                            {{
+                                                formatMoney(
+                                                    selectedContract.deposit,
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span class="text-[9px] text-slate-400">Kỳ đóng tiền</span>
+                                        <p class="text-slate-700 font-bold text-xs mt-0.5">
+                                            {{
+                                                selectedContract
+                                                    .original_contract
+                                                    ?.billing_cycle || 1
+                                            }}
+                                            tháng/lần
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 text-slate-500 pt-1.5 font-bold">
+                                <div>
+                                    Ngày hiệu lực:
+                                    <span class="text-slate-700 font-bold">{{
+                                        formatDate(selectedContract.start)
+                                        }}</span>
+                                </div>
+                                <div>
+                                    Ngày kết thúc:
+                                    <span class="text-slate-700 font-bold">{{
+                                        formatDate(selectedContract.end)
+                                        }}</span>
+                                </div>
+                            </div>
+
                             <div v-if="
-                                (creationMode === 'appointment' &&
-                                    addForm.appointment_id) ||
-                                (creationMode === 'roommate' &&
-                                    selectedResidentId) ||
-                                (creationMode === 'direct' &&
-                                    selectedDirectUser)
-                            " class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                                <h4
-                                    class="text-xs font-bold text-slate-800 uppercase tracking-wider pb-2 border-b border-slate-200">
-                                    <i class="bi bi-shield-lock-fill text-emerald-600 mr-1 text-base"></i>
-                                    Kiểm tra định danh khách thuê
-                                </h4>
-                                <div class="grid grid-cols-2 gap-3 text-xs">
-                                    <div>
-                                        <span class="text-[10px] text-slate-400 font-bold">Khách thuê:</span>
-                                        <p class="font-bold text-slate-700">
-                                            {{
-                                                creationMode === "appointment"
-                                                    ? selectedAppointment?.user
-                                                        ?.name
-                                                    : selectedResidentOption?.name
-                                            }}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <span class="text-[10px] text-slate-400 font-bold">Số điện thoại:</span>
-                                        <p class="font-bold text-slate-700">
-                                            {{
-                                                creationMode === "appointment"
-                                                    ? selectedAppointment?.user
-                                                        ?.phone
-                                                    : creationMode ===
-                                                        "roommate"
-                                                        ? selectedResidentOption?.phone
-                                                        : selectedDirectUser?.phone
-                                            }}
-                                        </p>
-                                    </div>
-                                    <div class="col-span-2 pt-2 border-t border-slate-100">
-                                        <span class="text-[10px] text-slate-400 font-bold">Số CCCD:</span>
-                                        <div v-if="isCccdValid"
-                                            class="flex items-center gap-1.5 text-emerald-600 font-bold mt-0.5">
-                                            <i class="bi bi-patch-check-fill text-emerald-500 text-sm"></i>
-                                            <span>Hợp lệ ({{ tenantCccd }})</span>
-                                        </div>
-                                        <div v-else class="flex flex-col gap-1.5 mt-1">
-                                            <div class="flex items-center gap-1.5 text-rose-600 font-bold">
-                                                <i class="bi bi-exclamation-triangle-fill text-rose-500 text-base"></i>
-                                                <span>{{
-                                                    tenantCccd
-                                                        ? `Không hợp lệ (${tenantCccd})`
-                                                        : "Chưa cập nhật"
-                                                }}</span>
-                                            </div>
-                                            <p
-                                                class="text-[11px] leading-relaxed text-slate-500 bg-rose-50/50 p-2.5 rounded-xl border border-rose-100 font-medium">
-                                                ⚠️ Khách thuê bắt buộc phải có
-                                                CCCD đúng 12 chữ số. Hãy nhắc
-                                                khách thuê mở app của họ lên,
-                                                vào trang
-                                                <strong>Cá nhân</strong> để điền
-                                                số CCCD chính xác ngay lúc này!
-                                            </p>
-                                        </div>
-                                    </div>
+                                selectedContract.original_contract
+                                    ?.cancellation_reason
+                            " class="p-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl">
+                                <div class="font-bold text-[10px] uppercase tracking-wider text-rose-950">
+                                    Lý do chấm dứt / ghi chú:
                                 </div>
-                            </div>
-
-                            <!-- Hiển thị Phòng & Số lượng người ở -->
-                            <div v-if="addForm.room" class="grid grid-cols-2 gap-3">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Phòng đã chọn</label>
-                                    <input v-model="addForm.room" readonly
-                                        class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-emerald-600 outline-none" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Số lượng người ở
-                                        <span class="text-rose-500">*</span></label>
-                                    <input v-model.number="addForm.number_of_tenants
-                                        " type="number" min="1" max="20" placeholder="1"
-                                        :disabled="creationMode === 'roommate'" :class="tenantCountErrorMsg
-                                            ? 'border-2 border-rose-500 bg-rose-50/40 text-rose-900 font-bold'
-                                            : 'border-slate-200 focus:border-emerald-500 font-bold'
-                                            "
-                                        class="w-full px-3.5 py-2.5 border rounded-xl text-xs outline-none transition-all disabled:bg-slate-50 disabled:cursor-not-allowed" />
-                                </div>
-                                <p v-if="tenantCountErrorMsg"
-                                    class="col-span-2 text-[11px] text-rose-600 font-bold flex items-center gap-1.5 mt-1 p-2 bg-rose-50 border border-rose-200 rounded-xl">
-                                    <i class="bi bi-exclamation-triangle-fill text-rose-500"></i>
-                                    <span>{{ tenantCountErrorMsg }}</span>
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Step 2: Nhập thời hạn & Tiền đặt cọc -->
-                        <div v-if="activeStep === 2" class="space-y-4">
-                            <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                                <h4
-                                    class="text-xs font-bold text-slate-800 uppercase tracking-wider pb-2 border-b border-slate-200 flex items-center gap-1">
-                                    <i class="bi bi-calendar-check-fill text-amber-600 text-base"></i>
-                                    Thời hạn & Chi phí thuê phòng
-                                </h4>
-
-                                <!-- Banner thông báo logic dọn vào -->
-                                <div v-if="
-                                    creationMode === 'appointment' &&
-                                    isSharingRoom
-                                "
-                                    class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 mb-3 space-y-1">
-                                    <div class="font-bold flex items-center gap-1">
-                                        <i class="bi bi-info-circle-fill text-blue-600"></i>
-                                        <span>Phòng Ở Ghép (Hiện có
-                                            {{ selectedRoomCurrentPeople }}
-                                            người ở)</span>
-                                    </div>
-                                    <p class="leading-relaxed">
-                                        Hợp đồng ở ghép sẽ bắt đầu sau 7 ngày ở
-                                        thử để các thành viên làm quen. Ngày bắt
-                                        đầu đã được tự động lùi lại 7 ngày.
-                                    </p>
-                                </div>
-
-                                <div v-if="creationMode === 'roommate'"
-                                    class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 mb-3 space-y-1">
-                                    <div class="font-bold flex items-center gap-1">
-                                        <i class="bi bi-check-circle-fill text-emerald-600"></i>
-                                        <span>Nâng chức chủ hộ trực tiếp</span>
-                                    </div>
-                                    <p class="leading-relaxed">
-                                        Thành viên ở ghép
-                                        {{ selectedResidentOption?.name }} sẽ
-                                        thăng chức thành Chủ hợp đồng mới đại
-                                        diện phòng.
-                                    </p>
-                                </div>
-
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div class="space-y-1">
-                                        <label class="text-xs font-bold text-slate-500">Ngày bắt đầu hợp đồng
-                                            <span class="text-rose-500">*</span></label>
-                                        <input v-model="addForm.start_date" type="date" :min="minStartDate"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-emerald-500 bg-white" />
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-xs font-bold text-slate-500">Ngày kết thúc hợp đồng
-                                            <span class="text-rose-500">*</span></label>
-                                        <input v-model="addForm.end_date" type="date" :min="minDate"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white" />
-                                    </div>
-                                    <div class="space-y-1 sm:col-span-2">
-                                        <label class="text-xs font-bold text-slate-500">Tiền đặt cọc offline (đ)
-                                            <span class="text-rose-500">*</span></label>
-                                        <input v-model="displayDeposit" type="text"
-                                            placeholder="Nhập số tiền đặt cọc..."
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none bg-white" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Direct Upload File -->
-                        <div v-if="activeStep === 3" class="space-y-4">
-                            <div
-                                class="p-3 bg-blue-50 border border-blue-150 rounded-xl text-xs text-blue-800 font-semibold flex items-center gap-2">
-                                <i class="bi bi-info-circle-fill text-lg text-blue-600"></i>
-                                <span>Chụp ảnh hợp đồng đã ký tay hoặc tải lên
-                                    file đính kèm trực tiếp (ảnh hoặc PDF)</span>
-                            </div>
-
-                            <div class="space-y-2">
-                                <label class="text-xs font-bold text-slate-500">Chọn tệp hợp đồng đính kèm
-                                    <span class="text-rose-500">*</span></label>
-                                <input type="file" accept="image/*,application/pdf" @change="handleFileSelect"
-                                    class="w-full px-3.5 py-3 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs outline-none bg-slate-50 cursor-pointer" />
-                                <p class="text-[10px] text-slate-400 font-semibold">
-                                    Chấp nhận file ảnh (.jpg, .jpeg, .png) hoặc
-                                    tài liệu PDF dưới 10MB.
-                                </p>
-                            </div>
-
-                            <div v-if="addForm.contract_file"
-                                class="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 space-y-1">
-                                <div class="font-bold flex items-center gap-1">
-                                    <i class="bi bi-file-earmark-check-fill text-emerald-600 text-base"></i>
-                                    <span>Tệp đã chọn:</span>
-                                </div>
-                                <p class="font-bold text-slate-700">
-                                    {{ addForm.contract_file.name }} ({{
-                                        (
-                                            addForm.contract_file.size /
-                                            1024 /
-                                            1024
-                                        ).toFixed(2)
+                                <p class="mt-0.5 text-xs font-semibold">
+                                    {{
+                                        selectedContract.original_contract
+                                            .cancellation_reason
                                     }}
-                                    MB)
                                 </p>
                             </div>
 
-                            <div class="pt-2">
-                                <label
-                                    class="flex items-start gap-2 cursor-pointer p-3 bg-white border border-slate-200 rounded-xl text-[11px] font-semibold text-slate-600 shadow-xs">
-                                    <input type="checkbox" required
-                                        class="mt-0.5 rounded text-emerald-500 focus:ring-emerald-400" />
-                                    <span>Xác nhận thông tin hợp đồng giấy tải
-                                        lên trùng khớp với thông tin đã nhập
-                                        trên hệ thống.</span>
-                                </label>
+                            <div v-if="
+                                selectedContract.original_contract
+                                    ?.contract_file_path
+                            " class="pt-2">
+                                <a :href="`/storage/${selectedContract.original_contract.contract_file_path}`"
+                                    target="_blank"
+                                    class="w-full py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-xl border border-slate-200 hover:border-emerald-250 flex items-center justify-center gap-1.5 transition-all text-xs font-bold">
+                                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                                    Xem file đính kèm hợp đồng
+                                </a>
                             </div>
                         </div>
-                    </div>
 
-                    <div
-                        class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-2.5 bg-slate-50/50">
-                        <button v-if="activeStep > 1"
-                            class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors"
-                            @click="activeStep--">
-                            Quay lại
-                        </button>
-                        <div v-else></div>
+                        <div
+                            class="px-4 py-3 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
+                            <button @click="closeModal"
+                                class="px-4 py-2 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl">
+                                Đóng
+                            </button>
 
-                        <div class="flex items-center gap-2">
-                            <button
-                                class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors"
-                                @click="showAddModal = false">
-                                Hủy
+                            <!-- Mark Expired (Active / Expiring -> Expired) -->
+                            <button v-if="
+                                selectedContract.status === 'signed' ||
+                                selectedContract.status === 'active' ||
+                                selectedContract.status === 'expiring'
+                            " @click="submitMarkExpired"
+                                class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
+                                {{
+                                    selectedContract.end &&
+                                        new Date(selectedContract.end) > new Date()
+                                        ? "Chấm dứt HĐ trước thời hạn"
+                                        : "Chuyển trạng thái Hết Hạn"
+                                }}
                             </button>
-                            <button v-if="activeStep < 3" :disabled="activeStep === 1 && !isStep1Valid" :class="[
-                                'px-5 py-2.5 font-bold text-xs rounded-xl transition-all',
-                                activeStep === 1 && !isStep1Valid
-                                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed pointer-events-none opacity-60 shadow-none'
-                                    : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md cursor-pointer',
-                            ]" @click="goToNextStep">
-                                <span>Tiếp tục</span>
+
+                            <!-- Extend contract -->
+                            <button v-if="
+                                selectedContract.status === 'signed' ||
+                                selectedContract.status === 'active' ||
+                                selectedContract.status === 'expired'
+                            " @click="openExtendModal"
+                                class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
+                                Gia hạn hợp đồng
                             </button>
-                            <button v-else :disabled="!addForm.contract_file" :class="[
-                                'px-5 py-2.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5',
-                                !addForm.contract_file
-                                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed pointer-events-none opacity-60 shadow-none'
-                                    : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md',
-                            ]" @click="submitAddContract">
-                                <i class="bi bi-check-circle-fill text-sm"></i>
-                                <span>Ký kết & Kích hoạt Hợp Đồng</span>
+
+                            <!-- Liquidate contract STRICT CHECK -->
+                            <button v-if="
+                                selectedContract.status === 'expired' ||
+                                selectedContract.status ===
+                                'termination_requested'
+                            " @click="openLiquidationModal"
+                                class="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center gap-1">
+                                <i class="bi bi-calculator"></i> Thanh lý Hợp
+                                Đồng
                             </button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Modal Danh sách User ấn ưng / Hợp đồng đang chờ -->
-            <div v-if="showPendingRequestsModal"
-                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                <div
-                    class="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                <!-- Create Contract Modal -->
+                <div v-if="showAddModal"
+                    class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-2 sm:p-4"
+                    @click.self="showAddModal = false">
                     <div
-                        class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-amber-500 to-orange-500 text-white">
-                        <div class="flex items-center gap-2">
-                            <i class="bi bi-heart-fill text-xl"></i>
-                            <div>
-                                <h3 class="text-sm font-bold">
-                                    Danh sách Hợp đồng đang chờ (Khách đã ấn
-                                    ưng)
+                        class="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[92vh] transition-all duration-300 mx-auto">
+                        <div
+                            class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                            <div class="space-y-0.5">
+                                <h3 class="text-base font-bold text-slate-800">
+                                    Tạo hợp đồng thuê mới
                                 </h3>
-                                <p class="text-[11px] text-amber-100">
-                                    Các khách hàng đã nhấn quan tâm / đăng ký
-                                    thuê nhưng chưa tạo hợp đồng
-                                </p>
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bước {{
+                                    activeStep }} / 3</span>
                             </div>
-                        </div>
-                        <button @click="showPendingRequestsModal = false"
-                            class="text-amber-100 hover:text-white transition-colors cursor-pointer">
-                            <i class="bi bi-x-lg text-lg"></i>
-                        </button>
-                    </div>
-
-                    <div class="p-5 overflow-y-auto space-y-3 flex-1">
-                        <div v-if="
-                            !props.appointments ||
-                            props.appointments.length === 0
-                        " class="text-center py-8 text-slate-400 space-y-2">
-                            <i class="bi bi-inbox text-4xl block text-slate-300"></i>
-                            <p class="text-xs font-semibold">
-                                Hiện chưa có khách hàng nào nhấn ưng hoặc chờ
-                                duyệt hợp đồng.
-                            </p>
-                        </div>
-                        <div v-else v-for="apt in props.appointments" :key="apt.id"
-                            class="p-4 bg-slate-50 hover:bg-amber-50/40 border border-slate-200 hover:border-amber-300 rounded-2xl flex items-center justify-between transition-all">
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg">Phòng
-                                        {{ apt.room?.room_number }}</span>
-                                    <span class="text-xs font-bold text-slate-800">{{
-                                        apt.user?.name || "Khách thuê"
-                                    }}</span>
-                                    <span
-                                        :class="(apt.user?.cccd_number && String(apt.user.cccd_number).length === 12) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'"
-                                        class="px-2 py-0.5 border text-[10px] font-bold rounded-full inline-flex items-center gap-1 whitespace-nowrap">
-                                        <i :class="(apt.user?.cccd_number && String(apt.user.cccd_number).length === 12) ? 'bi bi-check-circle-fill text-emerald-500' : 'bi bi-exclamation-triangle-fill text-rose-500'"></i>
-                                        <span>{{ (apt.user?.cccd_number && String(apt.user.cccd_number).length === 12) ? 'Đủ CCCD' : 'Thiếu CCCD' }}</span>
-                                    </span>
-                                </div>
-                                <div class="text-[11px] text-slate-500 flex items-center gap-3">
-                                    <span><i class="bi bi-telephone"></i>
-                                        {{
-                                            apt.user?.phone || "Chưa có SĐT"
-                                        }}</span>
-                                    <span v-if="apt.room?.boarding_house"><i class="bi bi-geo-alt"></i>
-                                        {{ apt.room.boarding_house.name }}</span>
-                                </div>
-                            </div>
-
-                            <button @click="openContractForAppointment(apt)"
-                                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-                                <i class="bi bi-file-earmark-plus"></i> Tạo hợp đồng ngay
+                            <button @click="showAddModal = false"
+                                class="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors">
+                                <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
-                    </div>
 
-                    <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-                        <button @click="showPendingRequestsModal = false"
-                            class="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl">
-                            Đóng
-                        </button>
+                        <!-- Thanh chuyển đổi chế độ ký hợp đồng -->
+                        <div class="px-6 pt-3 pb-1 flex bg-slate-50/50 border-b border-slate-50 gap-2">
+                            <div
+                                class="flex bg-slate-100 p-1 rounded-xl gap-1 text-[11px] font-bold text-slate-500 w-full">
+                                <button type="button" @click="creationMode = 'appointment'" :class="creationMode === 'appointment'
+                                        ? 'bg-white text-slate-800 shadow-xs'
+                                        : 'hover:text-slate-800'
+                                    " class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer">
+                                    <i class="bi bi-calendar-event"></i> Ký từ
+                                    Lịch hẹn
+                                </button>
+                                <button type="button" @click="creationMode = 'roommate'" :class="creationMode === 'roommate'
+                                        ? 'bg-white text-slate-800 shadow-xs'
+                                        : 'hover:text-slate-800'
+                                    " class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer">
+                                    <i class="bi bi-people-fill"></i> Ký cho Cư
+                                    dân ở ghép
+                                </button>
+                            </div>
+                        </div>
+
+                        <div
+                            class="px-6 py-3 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center text-xs font-bold text-slate-400">
+                            <button @click="goToStep(1)"
+                                class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 1
+                                        ? 'text-emerald-600 font-bold'
+                                        : 'text-slate-400'
+                                    ">
+                                <span>1. Khách & Kiểm tra CCCD</span>
+                            </button>
+                            <i class="bi bi-chevron-right text-slate-300"></i>
+                            <button @click="goToStep(2)"
+                                class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 2
+                                        ? 'text-emerald-600 font-bold'
+                                        : 'text-slate-400'
+                                    ">
+                                <span>2. Điền Hạn & Tiền Cọc</span>
+                            </button>
+                            <i class="bi bi-chevron-right text-slate-300"></i>
+                            <button @click="goToStep(3)"
+                                class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 3
+                                        ? 'text-emerald-600 font-bold'
+                                        : 'text-slate-400'
+                                    ">
+                                <span>3. Đính kèm Bản Hợp Đồng</span>
+                            </button>
+                        </div>
+
+                        <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                            <!-- Step 1: Chọn khách thuê & Kiểm tra Gate CCCD -->
+                            <div v-if="activeStep === 1" class="space-y-4">
+                                <!-- LUỒNG A: Ký qua Lịch hẹn -->
+                                <div v-if="creationMode === 'appointment'" class="space-y-4">
+                                    <div class="space-y-1">
+                                        <label class="text-xs font-bold text-slate-500">Chọn lịch hẹn khách ký HĐ
+                                            <span class="text-rose-500">*</span></label>
+                                        <select v-model="addForm.appointment_id"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
+                                            <option value="" disabled>
+                                                -- Chọn người ký từ lịch hẹn --
+                                            </option>
+                                            <option v-for="apt in filteredAppointments" :key="apt.id" :value="apt.id">
+                                                Phòng
+                                                {{ apt.room?.room_number }} -
+                                                {{ apt.user?.name }} ({{
+                                                    apt.user?.phone
+                                                }})
+                                            </option>
+                                        </select>
+                                        <p v-if="
+                                            filteredAppointments.length ===
+                                            0
+                                        "
+                                            class="text-[11px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100 mt-1">
+                                            ⚠️ Hiện chưa có Lịch hẹn xem phòng
+                                            nào (mà khách đã bấm "ƯNG") đang chờ
+                                            tạo hợp đồng tại cơ sở này.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- LUỒNG B: Ký cho Cư dân ở ghép -->
+                                <div v-else-if="creationMode === 'roommate'" class="space-y-4">
+                                    <div class="space-y-1">
+                                        <label class="text-xs font-bold text-slate-500">Chọn Phòng trọ
+                                            <span class="text-rose-500">*</span></label>
+                                        <select v-model="addForm.room_id"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
+                                            <option value="">
+                                                -- Chọn phòng trọ --
+                                            </option>
+                                            <option v-for="r in availableRooms" :key="r.id" :value="r.id">
+                                                Phòng {{ r.room_number }}
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <div v-if="addForm.room_id" class="space-y-1">
+                                        <label class="text-xs font-bold text-slate-500">Chọn cư dân ở ghép thăng chức
+                                            <span class="text-rose-500">*</span></label>
+                                        <select v-model="selectedResidentId"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
+                                            <option value="">
+                                                -- Chọn thành viên đang ở ghép
+                                                trong phòng --
+                                            </option>
+                                            <option v-for="res in activeRoomResidents" :key="res.id" :value="res.id">
+                                                {{ res.user?.name || res.name }}
+                                                (SĐT:
+                                                {{
+                                                    res.user?.phone || res.phone
+                                                }}
+                                                - CCCD:
+                                                {{
+                                                    res.user?.cccd_number ||
+                                                    res.cccd_number
+                                                }})
+                                            </option>
+                                        </select>
+                                        <p v-if="
+                                            activeRoomResidents.length === 0
+                                        "
+                                            class="text-[11px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100 mt-1">
+                                            ⚠️ Phòng trọ này hiện chưa ghi nhận
+                                            thành viên ở ghép nào được thêm từ
+                                            Giai đoạn 1.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- LUỒNG C: Ký trực tiếp bằng cách tìm tài khoản -->
+                                <div v-else class="space-y-4">
+                                    <div class="space-y-1">
+                                        <label class="text-xs font-bold text-slate-500">Chọn Phòng trọ
+                                            <span class="text-rose-500">*</span></label>
+                                        <select v-model="addForm.room_id"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
+                                            <option value="">
+                                                -- Chọn phòng trọ --
+                                            </option>
+                                            <option v-for="r in availableRooms" :key="r.id" :value="r.id">
+                                                Phòng {{ r.room_number }}
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <div class="space-y-1 relative">
+                                        <label class="text-xs font-bold text-slate-500">Tìm kiếm tài khoản Khách thuê
+                                            <span class="text-rose-500">*</span></label>
+                                        <input v-model="searchQuery" type="text"
+                                            placeholder="Gõ Số điện thoại, Email hoặc Họ tên..."
+                                            @input="performSearchTenant"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white" />
+
+                                        <!-- Dropdown danh sách kết quả tìm kiếm -->
+                                        <div v-if="searchResults.length > 0"
+                                            class="absolute left-0 right-0 top-full bg-white border border-slate-200 rounded-xl shadow-lg mt-1 z-50 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                                            <button type="button" v-for="user in searchResults" :key="user.id"
+                                                @click="selectDirectUser(user)"
+                                                class="w-full text-left px-4 py-2 text-xs hover:bg-slate-50 transition-all block cursor-pointer">
+                                                <div class="font-bold text-slate-800">
+                                                    {{ user.name }}
+                                                </div>
+                                                <div class="text-[10px] text-slate-500">
+                                                    SĐT: {{ user.phone }} -
+                                                    CCCD:
+                                                    {{
+                                                        user.cccd_number ||
+                                                        "Chưa cập nhật"
+                                                    }}
+                                                </div>
+                                            </button>
+                                        </div>
+                                        <p v-if="
+                                            searchQuery &&
+                                            searchResults.length === 0
+                                        " class="text-[10px] text-slate-400 italic mt-0.5">
+                                            Không tìm thấy tài khoản phù hợp.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- KIỂM TRA ĐỊNH DANH CCCD (Chỉ hiện khi đã chọn đối tượng) -->
+                                <div v-if="
+                                    (creationMode === 'appointment' &&
+                                        addForm.appointment_id) ||
+                                    (creationMode === 'roommate' &&
+                                        selectedResidentId) ||
+                                    (creationMode === 'direct' &&
+                                        selectedDirectUser)
+                                " class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                                    <h4
+                                        class="text-xs font-bold text-slate-800 uppercase tracking-wider pb-2 border-b border-slate-200">
+                                        <i class="bi bi-shield-lock-fill text-emerald-600 mr-1 text-base"></i>
+                                        Kiểm tra định danh khách thuê
+                                    </h4>
+                                    <div class="grid grid-cols-2 gap-3 text-xs">
+                                        <div>
+                                            <span class="text-[10px] text-slate-400 font-bold">Khách thuê:</span>
+                                            <p class="font-bold text-slate-700">
+                                                {{
+                                                    creationMode ===
+                                                        "appointment"
+                                                        ? selectedAppointment
+                                                            ?.user?.name
+                                                        : selectedResidentOption?.name
+                                                }}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] text-slate-400 font-bold">Số điện thoại:</span>
+                                            <p class="font-bold text-slate-700">
+                                                {{
+                                                    creationMode ===
+                                                        "appointment"
+                                                        ? selectedAppointment
+                                                            ?.user?.phone
+                                                        : creationMode ===
+                                                            "roommate"
+                                                            ? selectedResidentOption?.phone
+                                                            : selectedDirectUser?.phone
+                                                }}
+                                            </p>
+                                        </div>
+                                        <div class="col-span-2 pt-2 border-t border-slate-100">
+                                            <span class="text-[10px] text-slate-400 font-bold">Số CCCD:</span>
+                                            <div v-if="isCccdValid"
+                                                class="flex items-center gap-1.5 text-emerald-600 font-bold mt-0.5">
+                                                <i class="bi bi-patch-check-fill text-emerald-500 text-sm"></i>
+                                                <span>Hợp lệ ({{
+                                                    tenantCccd
+                                                }})</span>
+                                            </div>
+                                            <div v-else class="flex flex-col gap-1.5 mt-1">
+                                                <div class="flex items-center gap-1.5 text-rose-600 font-bold">
+                                                    <i
+                                                        class="bi bi-exclamation-triangle-fill text-rose-500 text-base"></i>
+                                                    <span>{{
+                                                        tenantCccd
+                                                            ? `Không hợp lệ (${tenantCccd})`
+                                                            : "Chưa cập nhật"
+                                                    }}</span>
+                                                </div>
+                                                <p
+                                                    class="text-[11px] leading-relaxed text-slate-500 bg-rose-50/50 p-2.5 rounded-xl border border-rose-100 font-medium">
+                                                    ⚠️ Khách thuê bắt buộc phải
+                                                    có CCCD đúng 12 chữ số. Hãy
+                                                    nhắc khách thuê mở app của
+                                                    họ lên, vào trang
+                                                    <strong>Cá nhân</strong> để
+                                                    điền số CCCD chính xác ngay
+                                                    lúc này!
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Hiển thị Phòng & Số lượng người ở -->
+                                <div v-if="addForm.room" class="grid grid-cols-2 gap-3">
+                                    <div class="space-y-1">
+                                        <label class="text-xs font-bold text-slate-500">Phòng đã chọn</label>
+                                        <input v-model="addForm.room" readonly
+                                            class="w-full bg-slate-50 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-emerald-600 outline-none" />
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-xs font-bold text-slate-500">Số lượng người ở
+                                            <span class="text-rose-500">*</span></label>
+                                        <input v-model.number="addForm.number_of_tenants
+                                            " type="number" min="1" max="20" placeholder="1" :disabled="creationMode === 'roommate'
+                                                " :class="tenantCountErrorMsg
+                                                    ? 'border-2 border-rose-500 bg-rose-50/40 text-rose-900 font-bold'
+                                                    : 'border-slate-200 focus:border-emerald-500 font-bold'
+                                                "
+                                            class="w-full px-3.5 py-2.5 border rounded-xl text-xs outline-none transition-all disabled:bg-slate-50 disabled:cursor-not-allowed" />
+                                    </div>
+                                    <p v-if="tenantCountErrorMsg"
+                                        class="col-span-2 text-[11px] text-rose-600 font-bold flex items-center gap-1.5 mt-1 p-2 bg-rose-50 border border-rose-200 rounded-xl">
+                                        <i class="bi bi-exclamation-triangle-fill text-rose-500"></i>
+                                        <span>{{ tenantCountErrorMsg }}</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Step 2: Nhập thời hạn & Tiền đặt cọc -->
+                            <div v-if="activeStep === 2" class="space-y-4">
+                                <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                                    <h4
+                                        class="text-xs font-bold text-slate-800 uppercase tracking-wider pb-2 border-b border-slate-200 flex items-center gap-1">
+                                        <i class="bi bi-calendar-check-fill text-amber-600 text-base"></i>
+                                        Thời hạn & Chi phí thuê phòng
+                                    </h4>
+
+                                    <!-- Banner thông báo logic dọn vào -->
+                                    <div v-if="
+                                        creationMode === 'appointment' &&
+                                        isSharingRoom
+                                    "
+                                        class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 mb-3 space-y-1">
+                                        <div class="font-bold flex items-center gap-1">
+                                            <i class="bi bi-info-circle-fill text-blue-600"></i>
+                                            <span>Phòng Ở Ghép (Hiện có
+                                                {{ selectedRoomCurrentPeople }}
+                                                người ở)</span>
+                                        </div>
+                                        <p class="leading-relaxed">
+                                            Hợp đồng ở ghép sẽ bắt đầu sau 7
+                                            ngày ở thử để các thành viên làm
+                                            quen. Ngày bắt đầu đã được tự động
+                                            lùi lại 7 ngày.
+                                        </p>
+                                    </div>
+
+                                    <div v-if="creationMode === 'roommate'"
+                                        class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 mb-3 space-y-1">
+                                        <div class="font-bold flex items-center gap-1">
+                                            <i class="bi bi-check-circle-fill text-emerald-600"></i>
+                                            <span>Nâng chức chủ hộ trực
+                                                tiếp</span>
+                                        </div>
+                                        <p class="leading-relaxed">
+                                            Thành viên ở ghép
+                                            {{
+                                                selectedResidentOption?.name
+                                            }}
+                                            sẽ thăng chức thành Chủ hợp đồng mới
+                                            đại diện phòng.
+                                        </p>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-bold text-slate-500">Ngày bắt đầu hợp đồng
+                                                <span class="text-rose-500">*</span></label>
+                                            <input v-model="addForm.start_date" type="date" :min="minStartDate"
+                                                class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-emerald-500 bg-white" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-bold text-slate-500">Ngày kết thúc hợp đồng
+                                                <span class="text-rose-500">*</span></label>
+                                            <input v-model="addForm.end_date" type="date" :min="minDate"
+                                                class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white" />
+                                        </div>
+                                        <div class="space-y-1 sm:col-span-2">
+                                            <label class="text-xs font-bold text-slate-500">Tiền đặt cọc offline (đ)
+                                                <span class="text-rose-500">*</span></label>
+                                            <input v-model="displayDeposit" type="text"
+                                                placeholder="Nhập số tiền đặt cọc..."
+                                                class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none bg-white" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 3: Direct Upload File -->
+                            <div v-if="activeStep === 3" class="space-y-4">
+                                <div
+                                    class="p-3 bg-blue-50 border border-blue-150 rounded-xl text-xs text-blue-800 font-semibold flex items-center gap-2">
+                                    <i class="bi bi-info-circle-fill text-lg text-blue-600"></i>
+                                    <span>Chụp ảnh hợp đồng đã ký tay hoặc tải
+                                        lên file đính kèm trực tiếp (ảnh hoặc
+                                        PDF)</span>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-xs font-bold text-slate-500">Chọn tệp hợp đồng đính kèm
+                                        <span class="text-rose-500">*</span></label>
+                                    <input type="file" accept="image/*,application/pdf" @change="handleFileSelect"
+                                        class="w-full px-3.5 py-3 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs outline-none bg-slate-50 cursor-pointer" />
+                                    <p class="text-[10px] text-slate-400 font-semibold">
+                                        Chấp nhận file ảnh (.jpg, .jpeg, .png)
+                                        hoặc tài liệu PDF dưới 10MB.
+                                    </p>
+                                </div>
+
+                                <div v-if="addForm.contract_file"
+                                    class="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 space-y-1">
+                                    <div class="font-bold flex items-center gap-1">
+                                        <i class="bi bi-file-earmark-check-fill text-emerald-600 text-base"></i>
+                                        <span>Tệp đã chọn:</span>
+                                    </div>
+                                    <p class="font-bold text-slate-700">
+                                        {{ addForm.contract_file.name }} ({{
+                                            (
+                                                addForm.contract_file.size /
+                                                1024 /
+                                                1024
+                                            ).toFixed(2)
+                                        }}
+                                        MB)
+                                    </p>
+                                </div>
+
+                                <div class="pt-2">
+                                    <label
+                                        class="flex items-start gap-2 cursor-pointer p-3 bg-white border border-slate-200 rounded-xl text-[11px] font-semibold text-slate-600 shadow-xs">
+                                        <input type="checkbox" required
+                                            class="mt-0.5 rounded text-emerald-500 focus:ring-emerald-400" />
+                                        <span>Xác nhận thông tin hợp đồng giấy
+                                            tải lên trùng khớp với thông tin đã
+                                            nhập trên hệ thống.</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-2.5 bg-slate-50/50">
+                            <button v-if="activeStep > 1"
+                                class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors"
+                                @click="activeStep--">
+                                Quay lại
+                            </button>
+                            <div v-else></div>
+
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors"
+                                    @click="showAddModal = false">
+                                    Hủy
+                                </button>
+                                <button v-if="activeStep < 3" :disabled="activeStep === 1 && !isStep1Valid
+                                    " :class="[
+                                        'px-5 py-2.5 font-bold text-xs rounded-xl transition-all',
+                                        activeStep === 1 && !isStep1Valid
+                                            ? 'bg-slate-300 text-slate-500 cursor-not-allowed pointer-events-none opacity-60 shadow-none'
+                                            : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md cursor-pointer',
+                                    ]" @click="goToNextStep">
+                                    <span>Tiếp tục</span>
+                                </button>
+                                <button v-else :disabled="!addForm.contract_file" :class="[
+                                    'px-5 py-2.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5',
+                                    !addForm.contract_file
+                                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed pointer-events-none opacity-60 shadow-none'
+                                        : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md',
+                                ]" @click="submitAddContract">
+                                    <i class="bi bi-check-circle-fill text-sm"></i>
+                                    <span>Ký kết & Kích hoạt Hợp Đồng</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Danh sách User ấn ưng / Hợp đồng đang chờ -->
+                <div v-if="showPendingRequestsModal"
+                    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+                    <div
+                        class="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                        <div
+                            class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                            <div class="flex items-center gap-2">
+                                <i class="bi bi-heart-fill text-xl"></i>
+                                <div>
+                                    <h3 class="text-sm font-bold">
+                                        Danh sách Hợp đồng đang chờ (Khách đã ấn
+                                        ưng)
+                                    </h3>
+                                    <p class="text-[11px] text-amber-100">
+                                        Các khách hàng đã nhấn quan tâm / đăng
+                                        ký thuê nhưng chưa tạo hợp đồng
+                                    </p>
+                                </div>
+                            </div>
+                            <button @click="showPendingRequestsModal = false"
+                                class="text-amber-100 hover:text-white transition-colors cursor-pointer">
+                                <i class="bi bi-x-lg text-lg"></i>
+                            </button>
+                        </div>
+
+                        <div class="p-5 overflow-y-auto space-y-3 flex-1">
+                            <div v-if="
+                                !props.appointments ||
+                                props.appointments.length === 0
+                            " class="text-center py-8 text-slate-400 space-y-2">
+                                <i class="bi bi-inbox text-4xl block text-slate-300"></i>
+                                <p class="text-xs font-semibold">
+                                    Hiện chưa có khách hàng nào nhấn ưng hoặc
+                                    chờ duyệt hợp đồng.
+                                </p>
+                            </div>
+                            <div v-else v-for="apt in props.appointments" :key="apt.id"
+                                class="p-4 bg-slate-50 hover:bg-amber-50/40 border border-slate-200 hover:border-amber-300 rounded-2xl flex items-center justify-between transition-all">
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg">Phòng
+                                            {{ apt.room?.room_number }}</span>
+                                        <span class="text-xs font-bold text-slate-800">{{
+                                            apt.user?.name || "Khách thuê"
+                                        }}</span>
+                                        <span :class="apt.user?.cccd_number &&
+                                                String(apt.user.cccd_number)
+                                                    .length === 12
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                                            "
+                                            class="px-2 py-0.5 border text-[10px] font-bold rounded-full inline-flex items-center gap-1 whitespace-nowrap">
+                                            <i :class="apt.user?.cccd_number &&
+                                                    String(apt.user.cccd_number)
+                                                        .length === 12
+                                                    ? 'bi bi-check-circle-fill text-emerald-500'
+                                                    : 'bi bi-exclamation-triangle-fill text-rose-500'
+                                                "></i>
+                                            <span>{{
+                                                apt.user?.cccd_number &&
+                                                    String(apt.user.cccd_number)
+                                                        .length === 12
+                                                    ? "Đủ CCCD"
+                                                    : "Thiếu CCCD"
+                                            }}</span>
+                                        </span>
+                                    </div>
+                                    <div class="text-[11px] text-slate-500 flex items-center gap-3">
+                                        <span><i class="bi bi-telephone"></i>
+                                            {{
+                                                apt.user?.phone || "Chưa có SĐT"
+                                            }}</span>
+                                        <span v-if="apt.room?.boarding_house"><i class="bi bi-geo-alt"></i>
+                                            {{
+                                                apt.room.boarding_house.name
+                                            }}</span>
+                                    </div>
+                                </div>
+
+                                <button @click="openContractForAppointment(apt)"
+                                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                                    <i class="bi bi-file-earmark-plus"></i> Tạo
+                                    hợp đồng ngay
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+                            <button @click="showPendingRequestsModal = false"
+                                class="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl">
+                                Đóng
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-
         <!-- Modal thêm người ở ghép 2 BƯỚC (Kiểm tra CCCD 12 số -> Nhập ngày & Lưu) -->
         <div v-if="showAddResidentModal"
             class="fixed inset-0 z-55 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
@@ -2179,8 +2362,8 @@ const filteredAppointments = computed(() => {
                         <div class="flex justify-between items-center">
                             <span class="text-slate-400 font-bold">Số CCCD (12 số):</span>
                             <span :class="isRoommateCccdValid
-                                ? 'text-emerald-600 font-black'
-                                : 'text-rose-600 font-black'
+                                    ? 'text-emerald-600 font-black'
+                                    : 'text-rose-600 font-black'
                                 ">
                                 {{
                                     selectedRoommateReq?.new_resident_cccd ||
@@ -2372,7 +2555,7 @@ const filteredAppointments = computed(() => {
                     </button>
                 </div>
                 <div class="space-y-3">
-                    <div v-for="req in props.pendingRoommateRequests" :key="req.id"
+                    <div v-for="req in paginatedRoommateRequests" :key="req.id"
                         class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-slate-100/60 transition-all">
                         <div>
                             <div class="font-extrabold text-slate-800 text-sm">
@@ -2406,6 +2589,56 @@ const filteredAppointments = computed(() => {
                         props.pendingRoommateRequests.length === 0
                     " class="text-center p-8 text-slate-400 font-bold text-sm">
                         Không có yêu cầu ở ghép nào đang chờ tạo hợp đồng.
+                    </div>
+                </div>
+
+                <!-- Thanh phân trang Yêu cầu ở ghép -->
+                <div v-if="roommateTotalPages > 1"
+                    class="flex items-center justify-between border-t border-slate-100 pt-3 mt-2">
+                    <span class="text-[11px] text-slate-400 font-semibold">
+                        Hiển thị
+                        {{ (roommatePage - 1) * roommatePageSize + 1 }} -
+                        {{
+                            Math.min(
+                                roommatePage * roommatePageSize,
+                                props.pendingRoommateRequests.length,
+                            )
+                        }}
+                        trên tổng {{ props.pendingRoommateRequests.length }}
+                    </span>
+                    <div class="flex items-center gap-1">
+                        <button @click="
+                            roommatePage = Math.max(1, roommatePage - 1)
+                            " :disabled="roommatePage === 1"
+                            class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-all">
+                            <i class="bi bi-chevron-left text-[9px]"></i>
+                        </button>
+                        <button v-for="p in getVisiblePages(
+                            roommatePage,
+                            roommateTotalPages,
+                        )" :key="p" @click="
+                                typeof p === 'number'
+                                    ? (roommatePage = p)
+                                    : null
+                                " :class="[
+                                'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
+                                roommatePage === p
+                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                                    : p === '...'
+                                        ? 'border-transparent text-slate-400 cursor-default'
+                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                            ]">
+                            {{ p }}
+                        </button>
+                        <button @click="
+                            roommatePage = Math.min(
+                                roommateTotalPages,
+                                roommatePage + 1,
+                            )
+                            " :disabled="roommatePage === roommateTotalPages"
+                            class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-all">
+                            <i class="bi bi-chevron-right text-[9px]"></i>
+                        </button>
                     </div>
                 </div>
             </div>

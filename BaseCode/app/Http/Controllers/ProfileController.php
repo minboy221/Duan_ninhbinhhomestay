@@ -74,6 +74,21 @@ class ProfileController extends Controller
                 $isPrimaryTenant = false; // Là Thành viên ở ghép
             }
         }
+        //tự động kiểm tra và đồng bộ số người ở hiện tại của phòng
+        if ($contract && $contract->room) {
+            $room = $contract->room;
+            $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
+                ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
+                ->count();
+            $activeContractsCount = \App\Models\RoomResident::where('room_id', $room->id)
+                ->where('status', 'active')
+                ->count();
+            $realCurrentPeople = max($activeContractsCount, $activeContractsCount);
+            if ((int) $room->current_people !== $realCurrentPeople) {
+                $room->update(['current_people' => $realCurrentPeople]);
+                $room->current_people = $realCurrentPeople;
+            }
+        }
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
             'contract' => $contract,

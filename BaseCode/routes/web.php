@@ -45,6 +45,10 @@ use Symfony\Component\Routing\Router;
 
 // Route phần clien
 Route::get('/', function (CategoryService $categoryService) {
+    //nếu là tài khoản đã đăng nhập và có vai trò là chủ trọ -> chuyển trực tiếp sang trang quản lý
+    if(auth()->check() && auth()->user()->role === 'landlord'){
+        return redirect()->route('landlord.dashboard');
+    }
     $categoryData = $categoryService->getActiveData();
     return Inertia::render('Client/Index', [
         'canLogin' => Route::has('login'),
