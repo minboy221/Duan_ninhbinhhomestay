@@ -61,6 +61,17 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // Check if account is locked
+        if (Auth::user()->status === 'locked') {
+            $this->authService->logoutAccount();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
+            ]);
+        }
+
         \Illuminate\Support\Facades\RateLimiter::clear($request->throttleKey());
 
         $request->session()->regenerate();

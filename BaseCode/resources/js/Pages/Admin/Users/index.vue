@@ -43,12 +43,21 @@ function openAction(user, action) {
     showModal.value  = true
 }
 
+import Swal from 'sweetalert2'
+
 function confirmAction() {
     if (modalAction.value === 'toggle') {
+        const isLocking = modalUser.value.status === 'active';
         router.patch(route('admin.users.toggle-status', modalUser.value.id), {}, {
             preserveScroll: true,
             onSuccess: () => {
                 showModal.value = false;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Thành công',
+                    text: isLocking ? 'Đã khóa tài khoản thành công.' : 'Đã mở khóa tài khoản thành công.',
+                    confirmButtonText: 'Đóng'
+                });
             }
         });
     } else if (modalAction.value === 'delete') {
@@ -56,6 +65,12 @@ function confirmAction() {
             preserveScroll: true,
             onSuccess: () => {
                 showModal.value = false;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Thành công',
+                    text: 'Đã xóa người dùng thành công.',
+                    confirmButtonText: 'Đóng'
+                });
             }
         });
     }

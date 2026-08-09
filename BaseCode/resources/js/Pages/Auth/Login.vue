@@ -1,10 +1,33 @@
 <script setup>
-import { ref } from 'vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
+import { ref, onMounted, watch } from 'vue'
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
+import Swal from 'sweetalert2'
 
 defineProps({
     canResetPassword: { type: Boolean },
     status: { type: String },
+})
+
+const page = usePage()
+
+const showLockedAlert = () => {
+    if (page.props.flash && page.props.flash.error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Tài khoản bị khóa',
+            text: page.props.flash.error,
+            confirmButtonText: 'Đã hiểu',
+            confirmButtonColor: '#f97316'
+        })
+    }
+}
+
+onMounted(() => {
+    showLockedAlert()
+})
+
+watch(() => page.props.flash?.error, () => {
+    showLockedAlert()
 })
 
 // Tab hiện tại: 'login' | 'signup' | 'forgot'
