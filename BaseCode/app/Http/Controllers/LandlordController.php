@@ -433,9 +433,16 @@ class LandlordController extends Controller
         return redirect()->back()->with('success', 'cập nhật khung giờ cho cơ sở thành công');
     }
 
-    public function tenants()
+    public function tenants(\App\Services\TenantService $tenantService)
     {
-        return Inertia::render('Landlord/Tenants/index');
+        $landlordId = Auth::id();
+        $boardingHouseId = session('selected_boarding_house_id');
+
+        $tenants = $tenantService->getFormattedTenants($landlordId, $boardingHouseId);
+
+        return Inertia::render('Landlord/Tenants/index', [
+            'tenants' => $tenants
+        ]);
     }
 
     public function contracts()
