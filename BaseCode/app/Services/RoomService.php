@@ -301,7 +301,7 @@ class RoomService
         $currentImages = $room->images ?? [];
         // Xóa ảnh được đánh dấu remove
         foreach ($removedImages as $img) {
-            Storage::disk('public')->delete($img);
+            Storage::disk('r2_public')->delete($img);
             $currentImages = array_filter($currentImages, fn($i) => $i !== $img);
         }
         // Upload ảnh mới
@@ -574,7 +574,7 @@ class RoomService
     {
         if (!empty($room->images)) {
             foreach ($room->images as $img) {
-                Storage::disk('public')->delete($img);
+                Storage::disk('r2_public')->delete($img);
             }
         }
     }

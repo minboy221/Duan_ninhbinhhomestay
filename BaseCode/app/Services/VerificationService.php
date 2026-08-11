@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Models\BoardingHouse;
 use App\Repositories\UserRepository;
 use App\Repositories\BoardingHouseRepository;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +45,7 @@ class VerificationService
             $facePath = $data['face_auth_image']->storeAs('kyc/faces', $faceName, 'r2_private');
 
             //trạng thái từ AI gửi lên
-            $kycStatus = $data['is_face_matched'] ? 'approved' : 'rejected';
+            $kycStatus = $data['is_face_matched'] ? 'approved' : 'pending';
 
             //2.chuẩn bị mảng dữ liệu theo schema mới
             $verificationData = [
@@ -53,9 +54,11 @@ class VerificationService
                 'id_card_back' => $backPath,
                 'face_auth_image' => $facePath,
                 'kyc_status' => $kycStatus,
+                'kyc_notes' => null,
             ];
             //3. gọi repository để cập nhật db mới
             $this->userRepository->updateOrCreateVerification($userId, $verificationData);
+            BoardingHouse::where('user_id', $userId)->update(['status' => 'pending']);
 
             //PHẦN XỬ LÝ BƯỚC 2 lưu thông tin trọ
             $contractPaths = [];
@@ -91,7 +94,8 @@ class VerificationService
                     $name = "user_{$userId}_phong_tro_{$index}_{$timestamp}.{$ext}";
                     $roomPaths[] = $file->storeAs('properties/rooms', $name, 'r2_public');
                 }
-            };
+            }
+            ;
             $boardingHouseData = [
                 'user_id' => $userId,
                 'name' => $data['property_name'],

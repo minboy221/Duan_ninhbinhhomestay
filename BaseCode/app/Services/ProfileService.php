@@ -127,11 +127,12 @@ class ProfileService
     {
         // Xóa ảnh cũ nếu có
         if ($user->avatar) {
-            Storage::disk('public')->delete($user->avatar);
+            Storage::disk('r2_public')->delete($user->avatar);
         }
 
         // Lưu ảnh mới
-        $path = $avatarFile->store('avatars', 'public');
+        $ext = $avatarFile->getClientOriginalExtension();
+        $path = $avatarFile->storeAs('avatars', "avatar_user_{$user->id}.{$ext}", 'r2_public');
 
         // Cập nhật database
         $this->userRepository->updateUser($user->id, ['avatar' => $path]);

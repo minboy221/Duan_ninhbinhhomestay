@@ -1,6 +1,6 @@
 <script setup>
 import { Head, router } from "@inertiajs/vue3";
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { showWarning } from "@/Utils/swal";
 
@@ -8,6 +8,27 @@ const props = defineProps({
     user: Object,
     verification: Object,
     boardingHouse: Object,
+});
+
+const photoAddressText = ref("");
+const resolvePhotoAddress = async () => {
+    if (props.boardingHouse?.latitude && props.boardingHouse?.longitude) {
+        try {
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${props.boardingHouse.latitude}&lon=${props.boardingHouse.longitude}&accept-language=vi`
+            );
+            const data = await res.json();
+            if (data && data.display_name) {
+                photoAddressText.value = data.display_name;
+            }
+        } catch (e) {
+            console.error("Lỗi giải mã địa chỉ ảnh:", e);
+        }
+    }
+};
+
+onMounted(() => {
+    resolvePhotoAddress();
 });
 
 // Hàm lấy URL ảnh private
@@ -141,14 +162,16 @@ const formatDate = (dateString) => {
                 </div>
             </div>
 
-            <div class="flex space-x-3 w-full md:w-auto justify-end">
+            <div class="flex items-center gap-3">
                 <button @click="showRejectModal = true"
-                    class="flex items-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 px-5 py-2.5 rounded-lg font-semibold shadow-sm transition duration-200">
-                    <i class="bi bi-x-circle-fill"></i> Từ chối Hồ sơ
+                    class="px-5 py-2.5 rounded-xl bg-red-50 text-red-600 font-bold hover:bg-red-100 transition-all flex items-center gap-1.5 shadow-sm">
+                    <i class="bi bi-x-circle-fill text-lg"></i>
+                    Từ chối hồ sơ
                 </button>
                 <button @click="showApproveModal = true"
-                    class="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md transition duration-200 hover:shadow-lg">
-                    <i class="bi bi-check-circle-fill"></i> Duyệt Cấp Quyền
+                    class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-600/20">
+                    <i class="bi bi-check-circle-fill text-lg"></i>
+                    Phê duyệt hồ sơ
                 </button>
             </div>
         </div>
@@ -355,7 +378,8 @@ const formatDate = (dateString) => {
                         Giấy tờ pháp lý / Hợp đồng:
                     </h4>
                     <div class="grid grid-cols-3 gap-3" v-if="boardingHouse?.contract_images?.length">
-                        <div v-for="(path, index
+                        <div v-for="(
+path, index
                             ) in boardingHouse.contract_images" :key="'contract-' + index"
                             class="relative group overflow-hidden rounded-lg border shadow-sm cursor-pointer aspect-[4/3]"
                             @click="
@@ -412,23 +436,28 @@ const formatDate = (dateString) => {
                         Không có ảnh/video không gian trọ nào.
                     </p>
 
-                    <!-- GPS Map -->
-                    <div class="space-y-2 border-t pt-4 mt-4" v-if="
+                    <!-- GPS Map & Geocoded Address -->
+                    <div class="space-y-3 border-t pt-4 mt-4" v-if="
                         boardingHouse?.latitude && boardingHouse?.longitude
                     ">
-                        <h4 class="text-sm font-bold text-green-700 flex items-center gap-2">
-                            <i class="bi bi-geo-alt-fill"></i>
-                            Tọa độ chụp thực tế
+                        <h4 class="text-sm font-bold text-emerald-700 flex items-center gap-2">
+                            <i class="bi bi-geo-alt-fill text-base"></i>
+                            Vị trí & Tọa độ chụp thực tế từ Ảnh/Video
                         </h4>
 
-                        <p class="text-xs text-blue-600 font-bold bg-blue-50 p-2 rounded">
-                            Tọa độ ảnh chụp thực tế:
-                            {{ boardingHouse.latitude }} ,
-                            {{ boardingHouse.longitude }}
-                        </p>
+                        <div class="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 space-y-1.5 shadow-sm text-xs">
+                            <p class="text-blue-700 font-bold flex items-center gap-1">
+                                <span>📍 Tọa độ GPS trích xuất:</span>
+                                <span>{{ boardingHouse.latitude }} , {{ boardingHouse.longitude }}</span>
+                            </p>
+                            <p v-if="photoAddressText" class="text-slate-800 font-bold flex items-start gap-1 pt-1.5 border-t border-emerald-200/60">
+                                <span class="text-emerald-700 font-extrabold whitespace-nowrap">🏠 Địa chỉ giải mã từ Ảnh:</span>
+                                <span class="text-slate-900 font-semibold leading-relaxed">{{ photoAddressText }}</span>
+                            </p>
+                        </div>
 
-                        <div class="rounded-xl overflow-hidden border border-green-200 shadow-sm mt-2">
-                            <iframe width="100%" height="250" style="border: 0" loading="lazy" :src="'https://maps.google.com/maps?q=' +
+                        <div class="rounded-xl overflow-hidden border border-emerald-200 shadow-sm mt-2">
+                            <iframe width="100%" height="260" style="border: 0" loading="lazy" :src="'https://maps.google.com/maps?q=' +
                                 boardingHouse.latitude +
                                 ',' +
                                 boardingHouse.longitude +
@@ -438,9 +467,8 @@ const formatDate = (dateString) => {
                         </div>
 
                         <p class="text-xs text-gray-500 italic">
-                            * Tọa độ được trích xuất từ dữ liệu GPS trong ảnh
-                            nhằm hỗ trợ đối chiếu tính xác thực của hình ảnh
-                            đăng tải.
+                            * Tọa độ được trích xuất từ dữ liệu GPS trong ảnh/video
+                            nhằm hỗ trợ Admin đối chiếu tính xác thực của hình ảnh đăng tải.
                         </p>
                     </div>
 
