@@ -2,6 +2,7 @@
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { ref, computed } from "vue";
 import { Link, usePage, router } from "@inertiajs/vue3";
+import { showConfirm } from "@/Utils/swal";
 
 const props = defineProps({
     listings: Object,
@@ -38,30 +39,41 @@ const statusMap = {
 };
 
 const formatMoney = (n) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
-const deleteListing = (id) => {
-    if (confirm("Bạn có chắc chắn muốn xóa bài đăng này?")) {
+
+const deleteListing = async (id) => {
+    const confirmed = await showConfirm(
+        "Xác nhận xóa",
+        "Bạn có chắc chắn muốn xóa bài đăng này?",
+        "Xóa tin",
+        "Hủy"
+    );
+    if (confirmed) {
         router.delete(route("landlord.listings.destroy", id));
     }
 };
 
 // Hàm đóng tin đăng
-const closeListing = (id, title) => {
-    if (
-        confirm(
-            `xác nhận xoá tin đăng: "${title}"?\nSau khi đóng khách thuê sẽ không tìm thấy tin đăng này nữa`,
-        )
-    ) {
+const closeListing = async (id, title) => {
+    const confirmed = await showConfirm(
+        "Xác nhận đóng tin đăng",
+        `Sau khi đóng, khách thuê sẽ không tìm thấy tin đăng "${title}" này nữa.`,
+        "Đóng tin",
+        "Hủy"
+    );
+    if (confirmed) {
         router.post(route("landlord.listings.close", id));
     }
 };
 
 //Hàm xoá tin đăng
-const handleDeletePost = (id) => {
-    if (
-        confirm(
-            "Bạn có chắc chắn muốn xoá vĩnh viễn bài đăng này không? Hành động này không thể hoàn tác ",
-        )
-    ) {
+const handleDeletePost = async (id) => {
+    const confirmed = await showConfirm(
+        "Xác nhận xóa vĩnh viễn",
+        "Bạn có chắc chắn muốn xoá vĩnh viễn bài đăng này không? Hành động này không thể hoàn tác.",
+        "Xóa vĩnh viễn",
+        "Hủy"
+    );
+    if (confirmed) {
         router.delete(route("landlord.listings.destroy", id));
     }
 };
@@ -170,6 +182,11 @@ const handleDeletePost = (id) => {
                             <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[ls.status]?.dot"></span>
                             {{ statusMap[ls.status]?.label || ls.status }}
                         </span>
+
+                        <span v-if="ls.room?.current_people > 0 || ls.room?.status === 'rented'"
+                            class="absolute bottom-3 left-3 px-2.5 py-1 bg-emerald-600/90 text-white backdrop-blur-sm shadow-sm rounded-lg text-[9.5px] font-bold flex items-center gap-1">
+                            <i class="bi bi-person-check-fill"></i> Đã có {{ ls.room?.current_people || 1 }} người ở
+                        </span>
                     </div>
 
                     <!-- Middle Info Body -->
@@ -178,8 +195,7 @@ const handleDeletePost = (id) => {
                             <h3 class="text-sm font-bold text-slate-800 leading-snug">
                                 {{ ls.title }}
                             </h3>
-                            <div
-                                class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-400 font-semibold">
+                            <div class="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500">
                                 <span class="flex items-center gap-1"><i class="bi bi-house-door text-emerald-600"></i>
                                     {{ ls.room?.room_number }}</span>
                                 <span class="flex items-center gap-1"><i
@@ -187,6 +203,8 @@ const handleDeletePost = (id) => {
                                     {{ ls.room?.area }} m²</span>
                                 <span class="flex items-center gap-1"><i class="bi bi-geo-alt text-emerald-600"></i>
                                     {{ ls.room?.boarding_house?.name }}</span>
+                                <span class="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-bold border border-blue-100"><i class="bi bi-person-fill text-blue-600"></i>
+                                    Đã có {{ ls.room?.current_people || 0 }}/{{ ls.room?.capacity || 1 }} người ở</span>
                             </div>
                         </div>
 
@@ -234,6 +252,14 @@ const handleDeletePost = (id) => {
                     <!-- Right Action Bar -->
                     <div
                         class="p-6 md:border-l border-slate-50 flex flex-row md:flex-col justify-center gap-2 bg-slate-50/35">
+                        
+                        <!-- Nút Chi tiết -->
+                        <Link :href="route('landlord.listings.show', ls.id)"
+                            class="flex-1 md:flex-none px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-blue-200/40">
+                            <i class="bi bi-eye"></i>
+                            Chi tiết
+                        </Link>
+
                         <!-- 1. Nút Chỉnh sửa: Luôn luôn hiển thị -->
                         <Link :href="route('landlord.listings.edit', ls.id)"
                             class="flex-1 md:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1">

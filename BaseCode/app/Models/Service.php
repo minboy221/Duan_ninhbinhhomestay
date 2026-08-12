@@ -19,6 +19,7 @@ class Service extends Model
         'icon',
         'color',
         'is_active',
+        'boarding_house_id',
     ];
 
     protected $casts = [
@@ -39,5 +40,10 @@ class Service extends Model
     public function rooms()
     {
         return $this->belongsToMany(Room::class);
+    }
+
+    public function boardingHouse()
+    {
+        return $this->belongsTo(BoardingHouse::class, 'boarding_house_id');
     }
 }

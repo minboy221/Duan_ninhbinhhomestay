@@ -100,7 +100,7 @@
      background: rgba(184, 146, 58, 0.12);
      border: 1px solid rgba(184, 146, 58, 0.3);
      padding: 0.35rem 1rem;
-     border-radius: 2rem;
+     border-radius: 0.75rem;
      margin-bottom: 1.5rem;
  }
 
@@ -163,7 +163,7 @@
  .toc-card {
      background: #fff;
      border: 1px solid var(--border);
-     border-radius: 12px;
+     border-radius: 8px;
      padding: 1.5rem;
  }
 
@@ -191,7 +191,7 @@
      color: var(--text-mid);
      text-decoration: none;
      padding: 0.4rem 0.75rem;
-     border-radius: 6px;
+     border-radius: 4px;
      border-left: 2px solid transparent;
      transition: all 0.15s;
      line-height: 1.4;
@@ -213,7 +213,7 @@
  .contact-box {
      margin-top: 1.5rem;
      background: var(--green-light);
-     border-radius: 8px;
+     border-radius: 6px;
      padding: 1rem 1.25rem;
  }
 
@@ -285,7 +285,7 @@
  .highlight-box {
      background: var(--gold-light);
      border-left: 3px solid var(--gold);
-     border-radius: 0 8px 8px 0;
+     border-radius: 0 6px 6px 0;
      padding: 1rem 1.25rem;
      margin: 1rem 0;
  }
@@ -300,7 +300,7 @@
  .info-box {
      background: var(--green-light);
      border-left: 3px solid var(--green-accent);
-     border-radius: 0 8px 8px 0;
+     border-radius: 0 6px 6px 0;
      padding: 1rem 1.25rem;
      margin: 1rem 0;
  }
@@ -357,7 +357,7 @@
  .col-card {
      background: #fff;
      border: 1px solid var(--border);
-     border-radius: 10px;
+     border-radius: 6px;
      padding: 1.1rem 1.25rem;
  }
 

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 
 const props = defineProps({
@@ -11,48 +11,58 @@ const props = defineProps({
 
 const isVisible = ref(false);
 
+const page = usePage();
+const user = computed(() => page.props.auth.user);
+
 const getStorageKey = () => {
-    return user.value ? `ninhbinh_welcome_seen_${user.value.id}` : 'ninhbinh_welcome_seen_guest';
-}
+    return user.value
+        ? `ninhbinh_welcome_seen_${user.value.id}`
+        : "ninhbinh_welcome_seen_guest";
+};
 
 const closePopup = () => {
     isVisible.value = false;
-    // Tự động lưu vào localStorage để không BAO GIỜ hiện lại cho tài khoản này nữa
     localStorage.setItem(getStorageKey(), "true");
 };
 
-const { props: pageProps } = usePage();
-const user = computed(() => pageProps.auth.user);
-
-onMounted(() => {
-    const hasSeen = localStorage.getItem(getStorageKey());
-    // Only show for registered users (user is logged in) and haven't seen it
-    if (user.value && !hasSeen && props.showInitially) {
+//hàm kiểm tra và kích hoạt hiển thị popup
+const checkAndShowPopup = () => {
+    if (!user.value) return; //chỉ hiển thị cho người dùng đã đăng nhập
+    const key = getStorageKey();
+    const hasSeen = localStorage.getItem(key);
+    //nếu chưa xem popup thì sẽ cấu hình hiển thị ban đầu
+    if (!hasSeen && props.showInitially) {
         setTimeout(() => {
             isVisible.value = true;
-        }, 1200); // Show after a short delay
+            localStorage.setItem(key, "true");
+        }, 1200);
     }
+};
+
+onMounted(() => {
+    checkAndShowPopup();
 });
+
+//sử dụng watcher để theo dõi khi user đăng nhập thành công
+watch(
+    user,
+    (newUser) => {
+        if (newUser) {
+            checkAndShowPopup();
+        }
+    },
+    { immediate: true },
+);
 </script>
 
 <template>
-    <div
-        class="popup-chuyen-quyen"
-        v-if="!$page.props.auth.has_submitted_verification">
+    <div class="popup-chuyen-quyen" v-if="!$page.props.auth.has_submitted_verification">
         <Teleport to="body">
             <Transition name="fade">
-                <div
-                    v-if="isVisible"
-                    class="popup-overlay"
-                    @click.self="closePopup"
-                >
+                <div v-if="isVisible" class="popup-overlay" @click.self="closePopup">
                     <Transition name="zoom">
                         <div v-if="isVisible" class="popup-container">
-                            <button
-                                class="close-btn"
-                                @click="closePopup"
-                                aria-label="Close"
-                            >
+                            <button class="close-btn" @click="closePopup" aria-label="Close">
                                 <i class="bi bi-x-lg"></i>
                             </button>
 
@@ -69,15 +79,10 @@ onMounted(() => {
 
                             <div class="role-selection">
                                 <!-- Owner Role -->
-                                <Link
-                                    :href="route('landlord.verify.create')"
-                                    class="role-card owner"
-                                    @click="closePopup"
-                                >
+                                <Link :href="route('landlord.verify.create')" class="role-card owner"
+                                    @click="closePopup">
                                     <div class="role-icon">
-                                        <span class="material-symbols-outlined"
-                                            >home_work</span
-                                        >
+                                        <span class="material-symbols-outlined">home_work</span>
                                     </div>
                                     <div class="role-info">
                                         <h3>Tôi là Chủ Trọ</h3>
@@ -93,15 +98,9 @@ onMounted(() => {
                                 </Link>
 
                                 <!-- Renter Role -->
-                                <Link
-                                    :href="route('timtro')"
-                                    class="role-card renter"
-                                    @click="closePopup"
-                                >
+                                <Link :href="route('timtro')" class="role-card renter" @click="closePopup">
                                     <div class="role-icon">
-                                        <span class="material-symbols-outlined"
-                                            >search_check</span
-                                        >
+                                        <span class="material-symbols-outlined">search_check</span>
                                     </div>
                                     <div class="role-info">
                                         <h3>Tôi Tìm Phòng</h3>
@@ -119,11 +118,7 @@ onMounted(() => {
 
                             <div class="popup-footer">
                                 <p>
-                                    <Link
-                                        :href="route('home')"
-                                        @click="closePopup"
-                                        >Bỏ qua</Link
-                                    >
+                                    <Link :href="route('home')" @click="closePopup">Bỏ qua</Link>
                                 </p>
                             </div>
                         </div>
@@ -155,7 +150,7 @@ onMounted(() => {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 40px;
+    border-radius: 20px;
     width: 100%;
     max-width: 800px;
     max-height: 90vh;
@@ -176,13 +171,13 @@ onMounted(() => {
 
 .popup-container::-webkit-scrollbar-thumb {
     background: #cbd5e1;
-    border-radius: 10px;
+    border-radius: 6px;
 }
 
 @media (max-width: 768px) {
     .popup-container {
         padding: 40px 20px 30px;
-        border-radius: 30px;
+        border-radius: 12px;
         max-width: 500px;
     }
 }
@@ -260,7 +255,7 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     padding: 30px 25px;
-    border-radius: 24px;
+    border-radius: 10px;
     text-decoration: none;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     border: 2px solid transparent;
@@ -278,20 +273,16 @@ onMounted(() => {
 }
 
 .role-card.owner {
-    background: linear-gradient(
-        135deg,
-        rgba(16, 42, 109, 0.05) 0%,
-        rgba(69, 171, 230, 0.05) 100%
-    );
+    background: linear-gradient(135deg,
+            rgba(16, 42, 109, 0.05) 0%,
+            rgba(69, 171, 230, 0.05) 100%);
     border-color: rgba(16, 42, 109, 0.1);
 }
 
 .role-card.renter {
-    background: linear-gradient(
-        135deg,
-        rgba(248, 250, 252, 0.8) 0%,
-        rgba(241, 245, 249, 0.8) 100%
-    );
+    background: linear-gradient(135deg,
+            rgba(248, 250, 252, 0.8) 0%,
+            rgba(241, 245, 249, 0.8) 100%);
     border-color: rgba(0, 0, 0, 0.05);
 }
 
@@ -319,7 +310,7 @@ onMounted(() => {
 .role-icon {
     width: 55px;
     height: 55px;
-    border-radius: 18px;
+    border-radius: 10px;
     background: white;
     display: flex;
     align-items: center;
@@ -335,7 +326,7 @@ onMounted(() => {
         width: 45px;
         height: 45px;
         margin-bottom: 0;
-        border-radius: 12px;
+        border-radius: 8px;
     }
 }
 

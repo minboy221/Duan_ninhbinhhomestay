@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UserUpdateProfileRequest extends FormRequest
 {
@@ -21,36 +22,37 @@ class UserUpdateProfileRequest extends FormRequest
      */
     public function rules(): array
     {
-        $rules = [
+        $userId = $this->user()->id;
+        return [
+            // Bắt buộc điền đầy đủ để phục vụ Ký hợp đồng & Liên hệ
             'name' => ['required', 'string', 'max:255'],
+            'phone' => $this->user()->phone 
+                ? ['nullable', 'string'] 
+                : ['required', 'string', 'regex:/^(0[3|5|7|8|9])+([0-9]{8})$/', Rule::unique('users', 'phone')->ignore($userId)],
+            'cccd_number' => ['required', 'string', 'size:12', 'regex:/^[0-9]{12}$/', Rule::unique('users', 'cccd_number')->ignore($userId)],
+            // Tùy chọn (Không bắt buộc)
             'address' => ['nullable', 'string', 'max:255'],
             'job' => ['nullable', 'string', 'max:255'],
-            'dob' => ['nullable', 'date'],
+            'dob' => ['nullable', 'date', 'before:today'],
             'gender' => ['nullable', 'in:male,female,other'],
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
         ];
-
-        // Cho phép gửi lên và validate nếu user chưa có số điện thoại
-        if (!$this->user()->phone) {
-            $rules['phone'] = [
-                'required', 
-                'string', 
-                'regex:/^(0[3|5|7|8|9])+([0-9]{8})$/', 
-                'unique:users,phone'
-            ];
-        }
-
-        return $rules;
     }
-
     /**
-     * Custom validation messages
+     * Thông báo lỗi tiếng Việt chi tiết cho từng trường
      */
-    public function messages(): array
+        public function messages(): array
     {
         return [
-            'phone.required' => 'Số điện thoại là bắt buộc.',
-            'phone.regex' => 'Số điện thoại không đúng định dạng Việt Nam.',
-            'phone.unique' => 'Số điện thoại này đã được sử dụng bởi tài khoản khác.',
+            'name.required' => 'Họ và tên là bắt buộc.',
+            'email.required' => 'Địa chỉ email là bắt buộc.',
+            'phone.required' => 'Số điện thoại là bắt buộc. Vui lòng nhập SĐT của bạn.',
+            'phone.regex' => 'Số điện thoại không đúng định dạng Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09).',
+            'phone.unique' => 'Số điện thoại này đã được đăng ký bởi tài khoản khác.',
+            'cccd_number.required' => 'Số Căn cước công dân (CCCD 12 số) là bắt buộc. Vui lòng nhập đủ 12 số.',
+            'cccd_number.size' => 'Số căn cước công dân (CCCD) phải đúng 12 chữ số.',
+            'cccd_number.regex' => 'Số CCCD chỉ được phép chứa các chữ số.',
+            'cccd_number.unique' => 'Số CCCD này đã được đăng ký bởi một tài khoản khác.',
         ];
     }
 }

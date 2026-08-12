@@ -45,17 +45,36 @@ class AuthenticatedSessionController extends Controller
         if (!$this->authService->loginAccount($request->only('email', 'password'), $request->boolean('remember'))) {
             \Illuminate\Support\Facades\RateLimiter::hit($request->throttleKey());
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => 'Thông tin đăng nhập không chính xác.',
+            ]);
+        }
+        
+        // Prevent admins from logging in here
+        if (Auth::user()->role === 'admin') {
+            $this->authService->logoutAccount();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            
+            \Illuminate\Support\Facades\RateLimiter::hit($request->throttleKey());
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => 'Thông tin đăng nhập không chính xác.',
+            ]);
+        }
+
+        // Check if account is locked
+        if (Auth::user()->status === 'locked') {
+            $this->authService->logoutAccount();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
             ]);
         }
 
         \Illuminate\Support\Facades\RateLimiter::clear($request->throttleKey());
 
         $request->session()->regenerate();
-
-        if ($request->user()->role === 'admin') {
-            return redirect()->route('admin.dashboard');
-        }
 
         if ($request->user()->role === 'landlord') {
             return redirect()->route('landlord.dashboard');

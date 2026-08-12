@@ -4,7 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use Vinkla\Hashids\Facades\Hashids;
+use Illuminate\Support\Str;
 class RoomPost extends Model
 {
     use HasFactory;
@@ -25,10 +26,18 @@ class RoomPost extends Model
 
     protected $casts = [
         'image' => 'array',
-        'array',
         'published_at' => 'datetime',
     ];
 
+    protected $appends = ['slug_with_hash'];
+
+    //sinh slug kèm theo hashids
+    public function getSlugWithHashAttribute()
+    {
+        $slug = Str::slug($this->title);
+        $hash = Hashids::encode($this->id);
+        return $slug . '-' . $hash;
+    }
     public function landlord()
     {
         return $this->belongsTo(User::class, 'landlord_id', 'id');
