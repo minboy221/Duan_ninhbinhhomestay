@@ -11,6 +11,7 @@ class Service extends Model
 
     protected $fillable = [
         'property_id',
+        'amenity_id',
         'name',
         'price',
         'type',
@@ -28,6 +29,11 @@ class Service extends Model
     public function property()
     {
         return $this->belongsTo(Property::class);
+    }
+
+    public function amenity()
+    {
+        return $this->belongsTo(Amenity::class);
     }
 
     public function rooms()

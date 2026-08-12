@@ -38,13 +38,58 @@ class ServiceManagementService
     public function getServices(int $landlordId)
     {
         $propertyId = $this->getOrCreatePropertyId($landlordId);
-        return $this->serviceRepo->getByPropertyId($propertyId);
+        $configuredServices = $this->serviceRepo->getByPropertyId($propertyId);
+        
+        $activeAmenities = \App\Models\Amenity::where('is_active', true)->get();
+        $merged = collect();
+        
+        foreach ($activeAmenities as $amenity) {
+            $service = $configuredServices->firstWhere('amenity_id', $amenity->id);
+            if ($service) {
+                if ($service->name !== $amenity->name || $service->icon !== $amenity->icon) {
+                    $service->update([
+                        'name' => $amenity->name,
+                        'icon' => $amenity->icon
+                    ]);
+                }
+                $merged->push($service);
+            } else {
+                $merged->push(new \App\Models\Service([
+                    'property_id' => $propertyId,
+                    'amenity_id'  => $amenity->id,
+                    'name'        => $amenity->name,
+                    'icon'        => $amenity->icon,
+                    'price'       => 0,
+                    'type'        => 'fixed',
+                    'is_active'   => false,
+                    'description' => '',
+                    'color'       => 'emerald'
+                ]));
+            }
+        }
+        
+        foreach ($configuredServices as $service) {
+            if (is_null($service->amenity_id)) {
+                $merged->push($service);
+            }
+        }
+        
+        return $merged;
     }
 
     public function createService(int $landlordId, array $data)
     {
         $propertyId = $this->getOrCreatePropertyId($landlordId);
         $data['property_id'] = $propertyId;
+        
+        if (isset($data['amenity_id'])) {
+            $amenity = \App\Models\Amenity::find($data['amenity_id']);
+            if ($amenity) {
+                $data['name'] = $amenity->name;
+                $data['icon'] = $amenity->icon;
+            }
+        }
+        
         return $this->serviceRepo->create($data);
     }
 
@@ -52,7 +97,9 @@ class ServiceManagementService
     {
         $service = $this->serviceRepo->findById($serviceId);
         if (!$service || $service->property->landlord_id !== $landlordId) return false;
-        return $this->serviceRepo->update($service, $data);
+        
+        $updateData = array_intersect_key($data, array_flip(['price', 'type', 'description', 'is_active', 'color']));
+        return $this->serviceRepo->update($service, $updateData);
     }
 
     public function deleteService(int $landlordId, int $serviceId)

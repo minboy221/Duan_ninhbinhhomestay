@@ -1,10 +1,31 @@
 <script setup>
 import MainLayout from '@/Layouts/MainLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+
+const form = useForm({
+    name: '',
+    email: '',
+    subject: '',
+    message: '',
+});
+
+const isSubmitted = ref(false);
+
+const submit = () => {
+    form.post(route('client.contact.store'), {
+        onSuccess: () => {
+            form.reset();
+            isSubmitted.value = true;
+            setTimeout(() => {
+                isSubmitted.value = false;
+            }, 6000);
+        }
+    });
+};
 </script>
 
 <template>
-
     <Head title="Liên Hệ | Ninh Bình HomeStay" />
     <MainLayout>
         <!-- BANNER -->
@@ -12,9 +33,7 @@ import { Head } from '@inertiajs/vue3';
             <img src="/anh/banner.png" alt="banner">
             <div class="banner-text">
                 <h1>Liên Hệ</h1>
-                <p>
-                <p><a href="index.html">Trang Chủ</a> / Liên Hệ</p>
-                </p>
+                <p><a href="/">Trang Chủ</a> / Liên Hệ</p>
             </div>
         </div>
         <!-- form liên hệ -->
@@ -62,16 +81,35 @@ import { Head } from '@inertiajs/vue3';
                         </div>
                     </div>
                     <div class="form_contac">
-                        <form action="">
+                        <!-- Success Message -->
+                        <div v-if="isSubmitted" class="p-4 mb-4 text-xs text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200">
+                            <strong>Thành công!</strong> Gửi liên hệ thành công! Chúng tôi sẽ phản hồi bạn sớm nhất có thể.
+                        </div>
+
+                        <form @submit.prevent="submit">
                             <div class="user_contac">
-                                <input type="text" placeholder="Họ Tên*">
-                                <input type="text" placeholder="Email*">
+                                <div class="w-full">
+                                    <input type="text" v-model="form.name" placeholder="Họ Tên*" required>
+                                    <div v-if="form.errors.name" class="text-rose-500 text-[10px] mt-1">{{ form.errors.name }}</div>
+                                </div>
+                                <div class="w-full">
+                                    <input type="email" v-model="form.email" placeholder="Email*" required>
+                                    <div v-if="form.errors.email" class="text-rose-500 text-[10px] mt-1">{{ form.errors.email }}</div>
+                                </div>
                             </div>
-                            <input type="text" placeholder="Chủ Đề">
-                            <textarea cols="40" rows="10" maxlength="2000" aria-invalid="false" name="" id=""
-                                placeholder="Nội Dung*"></textarea>
+                            <div class="w-full">
+                                <input type="text" v-model="form.subject" placeholder="Chủ Đề">
+                                <div v-if="form.errors.subject" class="text-rose-500 text-[10px] mt-1">{{ form.errors.subject }}</div>
+                            </div>
+                            <div class="w-full">
+                                <textarea cols="40" rows="10" maxlength="2000" v-model="form.message" placeholder="Nội Dung*" required></textarea>
+                                <div v-if="form.errors.message" class="text-rose-500 text-[10px] mt-1">{{ form.errors.message }}</div>
+                            </div>
                             <div class="btn_submit">
-                                <a href="#">Gửi Liên Hệ</a>
+                                <button type="submit" :disabled="form.processing" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2">
+                                    <span v-if="form.processing" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                    Gửi Liên Hệ
+                                </button>
                             </div>
                         </form>
                     </div>

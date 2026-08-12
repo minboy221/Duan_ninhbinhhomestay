@@ -316,35 +316,32 @@ class LandlordController extends Controller
     public function storeService(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'amenity_id' => 'required|integer|exists:amenities,id',
             'price' => 'required|numeric|min:0',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'icon' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
 
         $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
         if (!$result)
-            return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
-        return redirect()->back()->with('success', 'Thêm dịch vụ thành công!');
+            return redirect()->back()->with('error', 'Không thể kích hoạt tiện ích!');
+        return redirect()->back()->with('success', 'Kích hoạt tiện ích thành công!');
     }
 
     public function updateService(Request $request, int $id)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'icon' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
 
         $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
         if (!$result)
-            return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
-        return redirect()->back()->with('success', 'Cập nhật dịch vụ thành công!');
+            return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
+        return redirect()->back()->with('success', 'Cập nhật cấu hình dịch vụ thành công!');
     }
 
     public function deleteService(int $id)
