@@ -260,6 +260,8 @@ class RoomService
 
         if (isset($data['service_ids']) && is_array($data['service_ids'])) {
             $room->services()->sync($data['service_ids']);
+            $serviceNames = $room->services()->pluck('name')->toArray();
+            $room->update(['amenities' => implode(', ', $serviceNames)]);
         }
 
         return $room;
@@ -332,6 +334,8 @@ class RoomService
 
         if ($updated && isset($data['service_ids']) && is_array($data['service_ids'])) {
             $room->services()->sync($data['service_ids']);
+            $serviceNames = $room->services()->pluck('name')->toArray();
+            $room->update(['amenities' => implode(', ', $serviceNames)]);
         }
 
         return $updated;

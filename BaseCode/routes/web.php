@@ -24,6 +24,8 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Owner\InviteController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\AdminPostController;
+use App\Http\Controllers\ClientRoomController;
+use App\Http\Controllers\ContactController;
 use Illuminate\Routing\Controller;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Route;
@@ -78,6 +80,7 @@ Route::get('/tintuc/suggest', [PostController::class, 'suggest'])->name('tintuc.
 Route::get('/lienhe', function () {
     return Inertia::render('Client/lienhe'); // Trỏ đến file Pages/Client/About.vue
 })->name('lienhe');
+Route::post('/contact', [ContactController::class, 'store'])->name('client.contact.store');
 
 // Route cho Trang chi tiết trọ
 Route::get('/chitiettro/{slug?}', [PublicListingController::class, 'show'])->name('chitiettro');
@@ -212,6 +215,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/posts/{id}/edit', [AdminPostController::class, 'edit'])->name('admin.posts.edit');
     Route::post('/posts/{id}', [AdminPostController::class, 'update'])->name('admin.posts.update');
     Route::delete('/posts/{id}', [AdminPostController::class, 'destroy'])->name('admin.posts.destroy');
+
+    // Route quản lý liên hệ của Admin
+    Route::get('/contacts', [ContactController::class, 'index'])->name('admin.contacts.index');
+    Route::patch('/contacts/{id}/status', [ContactController::class, 'updateStatus'])->name('admin.contacts.status');
+    Route::delete('/contacts/{id}', [ContactController::class, 'delete'])->name('admin.contacts.delete');
 
     // Các route trên đã định nghĩa đầy đủ
 });
