@@ -115,6 +115,9 @@ class ContractService
                 'signed_at' => now(),
                 'terms_accepted' => true,
                 'terms_accepted_at' => now(),
+                'entry_elec_index' => isset($data['entry_elec_index']) && $data['entry_elec_index'] !== '' ? (int) $data['entry_elec_index'] : null,
+                'entry_water_index' => isset($data['entry_water_index']) && $data['entry_water_index'] !== '' ? (int) $data['entry_water_index'] : null,
+                'entry_readings_submitted_at' => (isset($data['entry_elec_index']) || isset($data['entry_water_index'])) ? now() : null,
             ]);
             //check xem hợp đồng này đã có hợp động hiệu lực trước đó chưa
             $hasExistingPrimaryContract = Contract::where('room_id', $room->id)

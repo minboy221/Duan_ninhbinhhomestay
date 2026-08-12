@@ -53,6 +53,7 @@ class LandlordController extends Controller
             'bank_name' => 'nullable|string|max:100',
             'bank_account_no' => 'nullable|string|max:50',
             'bank_account_name' => 'nullable|string|max:100',
+            'invoice_billing_day' => 'nullable|integer|between:1,31',
         ]);
 
         $user = Auth::user();
@@ -66,6 +67,11 @@ class LandlordController extends Controller
         }
 
         $user->update($data);
+
+        if ($request->has('invoice_billing_day') && $request->invoice_billing_day) {
+            \App\Models\BoardingHouse::where('user_id', $user->id)
+                ->update(['invoice_billing_day' => (int) $request->invoice_billing_day]);
+        }
 
         return redirect()->back()->with('success', 'Cập nhật thông tin thành công!');
     }
@@ -730,7 +736,18 @@ class LandlordController extends Controller
         // Gửi thông báo cho khách thuê
         $tenant = $contract->tenant;
         if ($tenant) {
-            $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+            $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
+            if ($isFirstInvoice) {
+                $proratedService = new \App\Services\ProratedBillingService();
+                $proratedInfo = $proratedService->calculateProratedRent($contract, $request->billing_month);
+                if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                    $tenant->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                } else {
+                    $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                }
+            } else {
+                $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+            }
         }
         //ghi log
         $isAbnormal = false;
@@ -842,6 +859,8 @@ class LandlordController extends Controller
                     if ($lastElec->meter_image_path)
                         $elecOldImgPath = $lastElec->meter_image_path;
                 }
+            } else if ($contract->entry_elec_index !== null) {
+                $elecOld = (int) $contract->entry_elec_index;
             }
 
             $waterOld = 0;
@@ -852,6 +871,8 @@ class LandlordController extends Controller
                     if ($lastWater->meter_image_path)
                         $waterOldImgPath = $lastWater->meter_image_path;
                 }
+            } else if ($contract->entry_water_index !== null) {
+                $waterOld = (int) $contract->entry_water_index;
             }
 
             if ((int) $r['elec_new'] < $elecOld) {
@@ -954,7 +975,18 @@ class LandlordController extends Controller
             }
 
             if ($contract->tenant) {
-                $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
+                if ($isFirstInvoice) {
+                    $proratedService = new \App\Services\ProratedBillingService();
+                    $proratedInfo = $proratedService->calculateProratedRent($contract, $billingMonth);
+                    if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                        $contract->tenant->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                    } else {
+                        $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                    }
+                } else {
+                    $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                }
             }
         }
 
