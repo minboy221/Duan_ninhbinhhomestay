@@ -61,6 +61,52 @@ class PublicListingService
         ];
     }
 
+    public function getFeaturedRooms(int $limit = 6)
+    {
+        return $this->roomPostRepository->getFeaturedPosts($limit)->map(function ($post) {
+            $room = $post->room;
+            return [
+                'id' => $post->id,
+                'title' => $post->title,
+                'slug' => $post->slug,
+                'image' => is_array($post->image) && count($post->image) > 0 ? $post->image[0] : null,
+                'price' => $room ? $room->price : null,
+                'area' => $room ? $room->area : null,
+                'address' => $room && $room->boardingHouse ? $room->boardingHouse->address_detail : null,
+                'isHot' => $post->view_count > 50, // Example logic
+                'landlord_name' => $post->landlord ? $post->landlord->name : null,
+                'landlord_avatar' => $post->landlord ? $post->landlord->avatar : null,
+            ];
+        });
+    }
+
+    public function getTopReviews(int $limit = 6)
+    {
+        return $this->reviewRepository->getTopReviews($limit)->map(function ($r) {
+            return [
+                'id' => $r->id,
+                'rating' => $r->rating,
+                'comment' => $r->comment,
+                'created_at' => $r->created_at->diffForHumans(),
+                'tenant_name' => $r->tenant->name ?? 'Khách hàng',
+                'tenant_avatar' => $r->tenant->avatar ?? null,
+            ];
+        });
+    }
+
+    public function getSystemStats()
+    {
+        $totalUsers = \App\Models\User::count();
+        $totalLandlords = \App\Models\User::where('role', 'landlord')->count();
+        $averageRating = \App\Models\Review::avg('rating') ?? 5.0;
+
+        return [
+            'totalUsers' => $totalUsers,
+            'totalLandlords' => $totalLandlords,
+            'averageRating' => round($averageRating, 1)
+        ];
+    }
+
     /**
      * Xử lý bộ lọc nâng cao cho danh sách tin đăng công khai
      */
@@ -72,6 +118,13 @@ class PublicListingService
         // Tìm kiếm theo tiêu đề
         if ($request->filled('search')) {
             $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        // Lọc theo loại phòng (Danh mục)
+        if ($request->filled('category_id')) {
+            $query->whereHas('room', function ($q) use ($request) {
+                $q->where('category_id', $request->input('category_id'));
+            });
         }
 
         // Lọc theo khu vực

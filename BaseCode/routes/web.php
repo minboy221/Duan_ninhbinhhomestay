@@ -43,20 +43,10 @@ use Symfony\Component\Routing\Router;
 |
 */
 
+use App\Http\Controllers\Client\HomeController;
+
 // Route phần clien
-Route::get('/', function (CategoryService $categoryService) {
-    $categoryData = $categoryService->getActiveData();
-    return Inertia::render('Client/Index', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('signup'),
-        'canVerfyEmail' => Route::has('canverfyemail'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-        'categories' => $categoryData['types'],
-        'areas' => $categoryData['areas'],
-        'amenities' => $categoryData['amenities'],
-    ]);
-})->name('home');
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 // Route cho Trang Giới thiệu
 Route::get('/about', function () {
