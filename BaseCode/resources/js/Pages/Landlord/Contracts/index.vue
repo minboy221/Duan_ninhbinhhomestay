@@ -377,6 +377,8 @@ const getInitialAddForm = (appointmentId = "") => {
         end_date: "",
         number_of_tenants: 1,
         billing_cycle: 1,
+        entry_elec_index: "",
+        entry_water_index: "",
         contract_file: null,
         tenant_id: "", // Thêm trường này để lưu ID cư dân ở ghép
     };
@@ -900,6 +902,12 @@ const submitAddContract = () => {
     payload.append("deposit", addForm.value.deposit);
     payload.append("billing_cycle", addForm.value.billing_cycle);
     payload.append("number_of_tenants", addForm.value.number_of_tenants);
+    if (addForm.value.entry_elec_index !== "" && addForm.value.entry_elec_index !== null) {
+        payload.append("entry_elec_index", addForm.value.entry_elec_index);
+    }
+    if (addForm.value.entry_water_index !== "" && addForm.value.entry_water_index !== null) {
+        payload.append("entry_water_index", addForm.value.entry_water_index);
+    }
     payload.append("contract_file", addForm.value.contract_file);
 
     router.post("/landlord/contracts/store-draft", payload, {
@@ -2178,6 +2186,54 @@ const filteredAppointments = computed(() => {
                                             nhập trên hệ thống.</span>
                                     </label>
                                 </div>
+                            </div>
+
+                            <div
+                                class="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3"
+                            >
+                                <h4
+                                    class="text-xs font-bold text-emerald-800 uppercase tracking-wider pb-2 border-b border-emerald-200 flex items-center gap-1.5"
+                                >
+                                    <i
+                                        class="bi bi-speedometer2 text-emerald-600 text-base"
+                                    ></i>
+                                    Chỉ số điện & nước bàn giao ban đầu (Mốc nhận phòng)
+                                </h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div class="space-y-1">
+                                        <label
+                                            class="text-xs font-bold text-slate-600"
+                                            >Chỉ số điện bàn giao (kWh)</label
+                                        >
+                                        <input
+                                            v-model.number="
+                                                addForm.entry_elec_index
+                                            "
+                                            type="number"
+                                            min="0"
+                                            placeholder="Ví dụ: 150"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none"
+                                        />
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label
+                                            class="text-xs font-bold text-slate-600"
+                                            >Chỉ số nước bàn giao (m³)</label
+                                        >
+                                        <input
+                                            v-model.number="
+                                                addForm.entry_water_index
+                                            "
+                                            type="number"
+                                            min="0"
+                                            placeholder="Ví dụ: 40"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none"
+                                        />
+                                    </div>
+                                </div>
+                                <p class="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                                    <span>💡 Số điện/nước này sẽ tự động làm mốc "Chỉ số Cũ" cho đợt tính hóa đơn đầu tiên của hợp đồng.</span>
+                                </p>
                             </div>
                         </div>
 
