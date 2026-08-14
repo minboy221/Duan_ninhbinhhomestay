@@ -260,6 +260,8 @@ class RoomService
 
         if (isset($data['service_ids']) && is_array($data['service_ids'])) {
             $room->services()->sync($data['service_ids']);
+            $serviceNames = $room->services()->pluck('name')->toArray();
+            $room->update(['amenities' => implode(', ', $serviceNames)]);
         }
 
         return $room;
@@ -332,6 +334,8 @@ class RoomService
 
         if ($updated && isset($data['service_ids']) && is_array($data['service_ids'])) {
             $room->services()->sync($data['service_ids']);
+            $serviceNames = $room->services()->pluck('name')->toArray();
+            $room->update(['amenities' => implode(', ', $serviceNames)]);
         }
 
         return $updated;
@@ -481,12 +485,13 @@ class RoomService
         $room->decrement('current_people');
         //gửi thông báo cho user bị xoá khỏi phòng
         $user = $resident->user;
-        if($user){
+        if ($user) {
             $roomNum = $room->room_number ?? '';
             $houseName = $room->boardingHouse->name ?? 'nhà trọ';
-            $user->notify(new \App\Notifications\AdminNotification('Thông báo cập nhật cư dân phòng trọ',
-            "Bạn đã được chủ trọ cập nhật xoá khỏi danh sách cư dân ở ghép tại phòng {$roomNum} ({$houseName}).",
-            route('tranguser')
+            $user->notify(new \App\Notifications\AdminNotification(
+                'Thông báo cập nhật cư dân phòng trọ',
+                "Bạn đã được chủ trọ cập nhật xoá khỏi danh sách cư dân ở ghép tại phòng {$roomNum} ({$houseName}).",
+                route('tranguser')
             ));
         }
         return true;
@@ -519,17 +524,18 @@ class RoomService
             ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
             ->count();
 
-        //Nếu room có trạng thái 'rented' hoặc có HĐ active, tự động sinh ít nhất 1 người ở
-        if ($room->status === 'rented' || $activeContractsCount > 0) {
-            $currentPeople = max($currentPeople, $activeContractsCount, 1);
-            //cập nhật đồng bộ lại vào cơ sở dữ liệu nếu có DB đang lưu = 0
-            if (($room->current_people ?? 0) < $currentPeople) {
-                $room->update([
-                    'current_people' => $currentPeople
-                ]);
-            }
+        //số người thực tế là giá trị lớn nhất giữa số hợp đồng active và số cư dân active
+        $activeResidentsCount = \App\Models\RoomResident::where('room_id', $room->id)
+            ->where('status', 'active')
+            ->count();
+        //số người thực tế là giá trị lớn nhất giữa hợp đồng active và cư dân active
+        $currentPeople = max($activeContractsCount, $activeResidentsCount);
+        //tự động đồng bộ lại số người ở vào db
+        if((int) $room->current_people !== $currentPeople){
+            $room->update([
+                'current_people' => $currentPeople
+            ]);
         }
-
         return [
             'id' => $room->id,
             'name' => $room->room_number,

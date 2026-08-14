@@ -27,6 +27,9 @@ class GoogleAuthController extends Controller
         );
 
         Auth::login($user);
+        if (Auth::check() && Auth::user()->role === 'landlord') {
+            return redirect()->route('landlord.dashboard');
+        }
         return redirect('/')->with('success', 'Đăng nhập thành công');
     }
 }

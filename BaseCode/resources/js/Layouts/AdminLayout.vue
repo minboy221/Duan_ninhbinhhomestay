@@ -81,6 +81,7 @@ const navGroups = [
                 ],
             },
             { label: "Đánh Giá", path: "/admin/reviews", icon: "bi-star-fill" },
+            { label: "Liên Hệ", path: "/admin/contacts", icon: "bi-envelope-fill" },
         ],
     },
     {

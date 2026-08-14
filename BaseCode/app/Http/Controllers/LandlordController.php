@@ -439,9 +439,16 @@ class LandlordController extends Controller
         return redirect()->back()->with('success', 'cập nhật khung giờ cho cơ sở thành công');
     }
 
-    public function tenants()
+    public function tenants(\App\Services\TenantService $tenantService)
     {
-        return Inertia::render('Landlord/Tenants/index');
+        $landlordId = Auth::id();
+        $boardingHouseId = session('selected_boarding_house_id');
+
+        $tenants = $tenantService->getFormattedTenants($landlordId, $boardingHouseId);
+
+        return Inertia::render('Landlord/Tenants/index', [
+            'tenants' => $tenants
+        ]);
     }
 
     public function contracts()
@@ -1060,10 +1067,9 @@ class LandlordController extends Controller
     public function storeService(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'amenity_id' => 'required|integer|exists:amenities,id',
             'price' => 'required|numeric|min:0',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'icon' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
@@ -1071,8 +1077,8 @@ class LandlordController extends Controller
         $data['boarding_house_id'] = session('selected_boarding_house_id');
         $result = $this->serviceManagementService->createService(Auth::id(), $data);
         if (!$result)
-            return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
-        return redirect()->back()->with('success', 'Thêm dịch vụ thành công!');
+            return redirect()->back()->with('error', 'Không thể kích hoạt tiện ích!');
+        return redirect()->back()->with('success', 'Kích hoạt tiện ích thành công!');
     }
 
     public function updateService(Request $request, int $id)
@@ -1084,14 +1090,15 @@ class LandlordController extends Controller
         }
         $oldPrice = (float) $oldService->price;
         $request->validate([
-            'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'icon' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
         $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
+        return redirect()->back()->with('success', 'Cập nhật cấu hình dịch vụ thành công!');
         if (!$result) {
             return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
         }

@@ -1420,15 +1420,6 @@ const getAutoCoordinates = () => {
                                 <div class="flex items-center justify-between">
                                     <label class="text-xs font-bold text-slate-500">Địa chỉ chi tiết
                                         <span class="text-rose-500">*</span></label>
-                                    <button @click="getCurrentFloorPosition" type="button"
-                                        class="text-[10px] text-emerald-600 font-bold hover:underline flex items-center gap-1">
-                                        <i class="bi bi-geo-alt-fill"></i>
-                                        {{
-                                            isLocatingFloor
-                                                ? "Đang định vị..."
-                                                : "Lấy vị trí hiện tại"
-                                        }}
-                                    </button>
                                 </div>
                                 <input v-model="addressDetail"
                                     class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
