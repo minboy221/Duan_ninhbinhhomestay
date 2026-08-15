@@ -141,8 +141,15 @@ function resetFilters() {
                         <td class="idx">{{ (currentPage - 1) * perPage + i + 1 }}</td>
                         <td>
                             <div class="user-cell">
-                                <div class="user-ava" :style="`background: hsl(${(u.id * 57) % 360}, 65%, 55%)`">
-                                    {{ u.name[0] }}
+                                <div class="user-ava" :style="u.avatar ? 'overflow: hidden; background: #f1f5f9; padding: 0;' : `background: hsl(${(u.id * 57) % 360}, 65%, 55%)`">
+                                    <img v-if="u.avatar"
+                                        :src="u.avatar.startsWith('/') ? u.avatar : `/storage/${u.avatar}`" 
+                                        :alt="u.name"
+                                        style="width: 100%; height: 100%; object-fit: cover;"
+                                    />
+                                    <template v-else>
+                                        {{ u.name ? u.name[0] : 'U' }}
+                                    </template>
                                 </div>
                                 <div>
                                     <p class="user-name">{{ u.name }}</p>

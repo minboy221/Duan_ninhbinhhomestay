@@ -9,4 +9,5 @@ interface RoomPostRepositoryInterface
     public function recordUniqueView(int $postId, ?int $userId, ?string $ipAddress);
     public function countUniqueViews(int $postId): int;
     public function incrementViewCount(int $postId);
+    public function getFeaturedPosts(int $limit = 6);
 }

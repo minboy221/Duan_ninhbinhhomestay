@@ -405,4 +405,47 @@ class PublicListingController extends Controller
             'recommendations' => $recommendations
         ]);
     }
+    
+    // Lưu bình luận trực tiếp từ trang chi tiết phòng
+    public function submitDirectReview(Request $request, \App\Models\Room $room)
+    {
+        if (!Auth::check()) {
+            return redirect()->back()->with('error', 'Bạn cần đăng nhập để bình luận.');
+        }
+
+        $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'required|string|max:500'
+        ]);
+
+        $user = Auth::user();
+        
+        $isAdmin = $user->role === 'admin';
+        $isOwner = $room->boardingHouse && $user->id === $room->boardingHouse->user_id;
+        
+        // Kiểm tra xem user có hợp đồng hoặc lịch hẹn không (có quyền bình luận không)
+        $hasContract = \App\Models\Contract::where('tenant_id', $user->id)
+            ->where('room_id', $room->id)
+            ->exists();
+            
+        $hasAppointment = \App\Models\Appointment::where('user_id', $user->id)
+            ->where('room_id', $room->id)
+            ->exists();
+            
+        if (!$isAdmin && !$isOwner && !$hasContract && !$hasAppointment) {
+            return redirect()->back()->with('error', 'Bạn phải từng thuê hoặc xem phòng này mới có thể đánh giá.');
+        }
+
+        // Tạo review
+        \App\Models\Review::create([
+            'tenant_id' => $user->id,
+            'boarding_house_id' => $room->boarding_house_id,
+            'room_id' => $room->id,
+            'rating' => $request->rating,
+            'comment' => $request->comment,
+        ]);
+
+        $message = ($isAdmin || $isOwner) ? 'Đã ghim thông báo thành công!' : 'Cảm ơn bạn đã đánh giá!';
+        return redirect()->back()->with('success', $message);
+    }
 }

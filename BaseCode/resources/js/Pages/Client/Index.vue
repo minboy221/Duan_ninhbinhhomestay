@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import MainLayout from '@/Layouts/MainLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import HomePopup from '@/Components/HomePopup.vue';
 
 // Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Route → Inertia)
@@ -14,7 +14,10 @@ const props = defineProps({
     categories: { type: Array, default: () => [] },
     areas: { type: Array, default: () => [] },
     amenities: { type: Array, default: () => [] },
-    settings: { type: Object, default: () => ({}) }
+    settings: { type: Object, default: () => ({}) },
+    featuredRooms: { type: Array, default: () => [] },
+    topReviews: { type: Array, default: () => [] },
+    systemStats: { type: Object, default: () => ({ totalUsers: 100, totalLandlords: 100, averageRating: 5.0 }) }
 })
 
 const activeBanners = computed(() => {
@@ -31,16 +34,18 @@ let bannerInterval = null;
 
 // Slider Phòng Trọ
 const currentPtSlide = ref(0);
-const totalPtSlides = 3;
+const totalPtSlides = computed(() => props.featuredRooms.length || 1);
 let ptSlideInterval = null;
 
 const nextPtSlide = () => {
-    currentPtSlide.value = (currentPtSlide.value + 1) % totalPtSlides;
+    if (totalPtSlides.value === 0) return;
+    currentPtSlide.value = (currentPtSlide.value + 1) % totalPtSlides.value;
 };
 
 const prevPtSlide = () => {
+    if (totalPtSlides.value === 0) return;
     currentPtSlide.value =
-        (currentPtSlide.value - 1 + totalPtSlides) % totalPtSlides;
+        (currentPtSlide.value - 1 + totalPtSlides.value) % totalPtSlides.value;
 };
 
 const goToPtSlide = (index) => {
@@ -74,12 +79,22 @@ const showPriceDropdown = ref(false);
 const selectedPrice = ref(null);
 const priceDropdownRef = ref(null);
 
+// Dữ liệu mẫu Mức Giá (cố định)
 const priceOptions = [
-    { id: '1', name: 'Dưới 1 triệu', icon: 'bi-cash' },
-    { id: '2', name: '1 - 2 triệu', icon: 'bi-cash-coin' },
-    { id: '3', name: '2 - 3 triệu', icon: 'bi-wallet2' },
-    { id: '4', name: 'Trên 3 triệu', icon: 'bi-bank' },
+    { id: '1', name: 'Dưới 1 triệu', icon: 'bi-cash', value: 'duoi-1-trieu' },
+    { id: '2', name: '1 - 2 triệu', icon: 'bi-cash-coin', value: '1-2-trieu' },
+    { id: '3', name: '2 - 3 triệu', icon: 'bi-wallet2', value: '2-3-trieu' },
+    { id: '4', name: 'Trên 3 triệu', icon: 'bi-bank', value: 'tren-3-trieu' },
 ];
+
+const searchRooms = () => {
+    let params = {};
+    if (selectedArea.value) params.area_id = selectedArea.value.id;
+    if (selectedPrice.value) params.price = selectedPrice.value.value;
+    if (selectedCategory.value) params.category_id = selectedCategory.value.id;
+    
+    router.get('/timtro', params);
+};
 
 const selectPrice = (price) => {
     selectedPrice.value = price;
@@ -130,13 +145,13 @@ onUnmounted(() => {
 
 // Slider Đánh Giá
 const currentReviewIndex = ref(0);
-const maxReviewIndex = 3; // Tổng 6 card, hiển thị 3 card cùng lúc -> max index = 3
+const maxReviewIndex = computed(() => Math.max(0, props.topReviews.length - 3));
 
 const scrollReview = (direction) => {
     currentReviewIndex.value += direction;
     if (currentReviewIndex.value < 0) currentReviewIndex.value = 0;
-    if (currentReviewIndex.value > maxReviewIndex)
-        currentReviewIndex.value = maxReviewIndex;
+    if (currentReviewIndex.value > maxReviewIndex.value)
+        currentReviewIndex.value = maxReviewIndex.value;
 };
 </script>
 <template>
@@ -288,7 +303,7 @@ const scrollReview = (direction) => {
                         </ul>
                     </div>
                 </div>
-                <button class="login-btn">
+                <button class="login-btn" @click="searchRooms">
                     <i class="bi bi-search"></i> <span>Tìm Kiếm</span>
                 </button>
             </div>
@@ -329,59 +344,35 @@ const scrollReview = (direction) => {
 
             <!-- Slider fullscreen background -->
             <div class="pt-slider" id="ptSlider">
-                <!-- Slide 1 -->
-                <div class="pt-slide" :class="{ active: currentPtSlide === 0 }"
-                    style="background-image: url(&quot;anh/phong1.jpg&quot;)">
+                <div v-if="featuredRooms.length === 0" class="pt-slide active" style="background-image: url('/anh/phong1.jpg')">
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
-                        <span class="pt-badge">Nổi Bật</span>
-                        <h3 class="pt-name">Phòng số 1</h3>
-                        <p class="pt-addr">
-                            <i class="bi bi-geo-alt-fill"></i> Duy Tiên, Ninh
-                            Bình
-                        </p>
-                        <div class="pt-meta">
-                            <span class="pt-price">1.500.000 <small>/Tháng</small></span>
-                            <span class="pt-area"><i class="bi bi-aspect-ratio"></i> 20m²</span>
-                        </div>
-                        <a class="pt-btn" href="#">Xem Chi Tiết <i class="bi bi-arrow-right"></i></a>
+                        <h3 class="pt-name">Chưa có phòng nổi bật</h3>
+                        <p class="pt-addr">Vui lòng quay lại sau</p>
                     </div>
                 </div>
 
-                <!-- Slide 2 -->
-                <div class="pt-slide" :class="{ active: currentPtSlide === 1 }"
-                    style="background-image: url(&quot;anh/phong1.jpg&quot;)">
-                    <div class="pt-overlay"></div>
-                    <div class="pt-info">
-                        <span class="pt-badge">Hot</span>
-                        <h3 class="pt-name">Phòng số 2</h3>
-                        <p class="pt-addr">
-                            <i class="bi bi-geo-alt-fill"></i> Hoa Lư, Ninh Bình
-                        </p>
-                        <div class="pt-meta">
-                            <span class="pt-price">2.000.000 <small>/Tháng</small></span>
-                            <span class="pt-area"><i class="bi bi-aspect-ratio"></i> 25m²</span>
-                        </div>
-                        <a class="pt-btn" href="#">Xem Chi Tiết <i class="bi bi-arrow-right"></i></a>
+                <div v-for="(room, index) in featuredRooms" :key="room.id" 
+                    class="pt-slide" :class="{ active: currentPtSlide === index }"
+                    :style="room.image ? `background-image: url('${room.image.startsWith('/') ? room.image : '/storage/' + room.image}')` : `background-image: url('/anh/phong1.jpg')`">
+                    
+                    <div class="landlord-avatar-badge" :title="'Đăng bởi: ' + (room.landlord_name || 'Chủ trọ')">
+                        <img :src="room.landlord_avatar ? (room.landlord_avatar.startsWith('/') ? room.landlord_avatar : `/storage/${room.landlord_avatar}`) : '/anh/avatar_d.jpg'" alt="Avatar">
                     </div>
-                </div>
 
-                <!-- Slide 3 -->
-                <div class="pt-slide" :class="{ active: currentPtSlide === 2 }"
-                    style="background-image: url(&quot;anh/phong1.jpg&quot;)">
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
-                        <span class="pt-badge">Mới</span>
-                        <h3 class="pt-name">Phòng số 3</h3>
+                        <span class="pt-badge" v-if="room.isHot">Hot</span>
+                        <span class="pt-badge" v-else>Nổi Bật</span>
+                        <h3 class="pt-name">{{ room.title }}</h3>
                         <p class="pt-addr">
-                            <i class="bi bi-geo-alt-fill"></i> Gia Viễn, Ninh
-                            Bình
+                            <i class="bi bi-geo-alt-fill"></i> {{ room.address || 'Đang cập nhật' }}
                         </p>
                         <div class="pt-meta">
-                            <span class="pt-price">1.800.000 <small>/Tháng</small></span>
-                            <span class="pt-area"><i class="bi bi-aspect-ratio"></i> 22m²</span>
+                            <span class="pt-price">{{ room.price ? new Intl.NumberFormat('vi-VN').format(room.price) : 'Liên hệ' }} <small v-if="room.price">/Tháng</small></span>
+                            <span class="pt-area"><i class="bi bi-aspect-ratio"></i> {{ room.area || 0 }}m²</span>
                         </div>
-                        <a class="pt-btn" href="#">Xem Chi Tiết <i class="bi bi-arrow-right"></i></a>
+                        <a class="pt-btn" :href="route('chitiettro', room.slug)">Xem Chi Tiết <i class="bi bi-arrow-right"></i></a>
                     </div>
                 </div>
 
@@ -393,11 +384,10 @@ const scrollReview = (direction) => {
                     <i class="bi bi-chevron-right"></i>
                 </button>
 
-                <!-- Dots -->
-                <div class="pt-dots">
-                    <span class="pt-dot" :class="{ active: currentPtSlide === 0 }" @click="goToPtSlide(0)"></span>
-                    <span class="pt-dot" :class="{ active: currentPtSlide === 1 }" @click="goToPtSlide(1)"></span>
-                    <span class="pt-dot" :class="{ active: currentPtSlide === 2 }" @click="goToPtSlide(2)"></span>
+                <div class="pt-dots" v-if="featuredRooms.length > 0">
+                    <span v-for="(room, index) in featuredRooms" :key="'dot-' + room.id" 
+                          class="pt-dot" :class="{ active: currentPtSlide === index }" 
+                          @click="goToPtSlide(index)"></span>
                 </div>
             </div>
         </section>
@@ -481,16 +471,16 @@ const scrollReview = (direction) => {
             <div class="baothongso">
                 <div class="infor_thongso">
                     <div class="item_thongso">
-                        <h2>100+</h2>
+                        <h2>{{ systemStats.totalUsers }}+</h2>
                         <p>Người Đã Tìm Được Phòng Ưng Ý</p>
                     </div>
                     <div class="item_thongso">
-                        <h2>100+</h2>
+                        <h2>{{ systemStats.totalLandlords }}+</h2>
                         <p>Chủ trọ uy tín và chuyên nghiệp</p>
                     </div>
                     <div class="item_thongso">
-                        <h2>4.9+</h2>
-                        <p>Điếm Đánh Giá Từ Người Dùng</p>
+                        <h2>{{ systemStats.averageRating }}+</h2>
+                        <p>Điểm Đánh Giá Từ Người Dùng</p>
                     </div>
                 </div>
             </div>
@@ -510,96 +500,20 @@ const scrollReview = (direction) => {
                 <div class="review-track" :style="{
                     transform: `translateX(-${currentReviewIndex * 380}px)`,
                 }">
-                    <!-- card -->
-                    <div class="card">
-                        <h3>Rất tốt</h3>
-                        <div class="stars">★★★★★</div>
-                        <p>
-                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
-                            chuyên nghiệp.
-                        </p>
-                        <div class="user">
-                            <img src="anh/banner.png" />
-                            <div class="name_user">
-                                <b>Phúc Phúc</b>
-                                <span>Khách hàng</span>
-                            </div>
-                        </div>
+                    <div v-if="topReviews.length === 0" class="card">
+                        <h3>Chưa có đánh giá</h3>
+                        <p>Trải nghiệm dịch vụ ngay để trở thành người đầu tiên đánh giá.</p>
                     </div>
-                    <div class="card">
-                        <h3>Rất tốt</h3>
-                        <div class="stars">★★★★★</div>
-                        <p>
-                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
-                            chuyên nghiệp.
-                        </p>
+                    
+                    <div v-for="review in topReviews" :key="review.id" class="card">
+                        <h3>Tuyệt vời</h3>
+                        <div class="stars">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}</div>
+                        <p>{{ review.comment }}</p>
                         <div class="user">
-                            <img src="anh/banner.png" />
+                            <img :src="review.tenant_avatar ? (review.tenant_avatar.startsWith('/') ? review.tenant_avatar : `/storage/${review.tenant_avatar}`) : '/anh/banner.png'" />
                             <div class="name_user">
-                                <b>Phúc Phúc</b>
-                                <span>Khách hàng</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h3>Rất tốt</h3>
-                        <div class="stars">★★★★★</div>
-                        <p>
-                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
-                            chuyên nghiệp.
-                        </p>
-                        <div class="user">
-                            <img src="anh/banner.png" />
-                            <div class="name_user">
-                                <b>Phúc Phúc</b>
-                                <span>Khách hàng</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h3>Rất tốt</h3>
-                        <div class="stars">★★★★★</div>
-                        <p>
-                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
-                            chuyên nghiệp.
-                        </p>
-                        <div class="user">
-                            <img src="anh/banner.png" />
-                            <div class="name_user">
-                                <b>Phúc Phúc</b>
-                                <span>Khách hàng</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <h3>Rất tốt</h3>
-                        <div class="stars">★★★★★</div>
-                        <p>
-                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
-                            chuyên nghiệp.
-                        </p>
-                        <div class="user">
-                            <img src="anh/banner.png" />
-                            <div class="name_user">
-                                <b>Phúc Phúc</b>
-                                <span>Khách hàng</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <h3>Rất tốt</h3>
-                        <div class="stars">★★★★★</div>
-                        <p>
-                            Trải nghiệm tuyệt vời! Tôi rất hài lòng với dịch vụ
-                            chuyên nghiệp.
-                        </p>
-                        <div class="user">
-                            <img src="anh/banner.png" />
-                            <div class="name_user">
-                                <b>Phúc Phúc</b>
-                                <span>Khách hàng</span>
+                                <b>{{ review.tenant_name }}</b>
+                                <span>{{ review.created_at }}</span>
                             </div>
                         </div>
                     </div>
@@ -660,5 +574,31 @@ const scrollReview = (direction) => {
     background: #ffffff;
     transform: scale(1.3);
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.landlord-avatar-badge {
+    position: absolute;
+    top: 25px;
+    right: 25px;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    overflow: hidden;
+    background: #ffffff;
+    transition: transform 0.3s ease;
+    cursor: pointer;
+}
+
+.landlord-avatar-badge:hover {
+    transform: scale(1.1);
+}
+
+.landlord-avatar-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 </style>

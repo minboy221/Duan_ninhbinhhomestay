@@ -37,7 +37,9 @@ class PublicListingService
             $this->roomPostRepository->incrementViewCount($postId);
         }
 
-        $reviews = $this->reviewRepository->getReviewsByRoomId($post->room_id)->map(function ($r) {
+        $reviews = $this->reviewRepository->getReviewsByRoomId($post->room_id)->map(function ($r) use ($post) {
+            $isOwner = $post->room->boardingHouse && $r->tenant_id === $post->room->boardingHouse->user_id;
+            $isAdmin = $r->tenant && $r->tenant->role === 'admin';
             return [
                 'id' => $r->id,
                 'rating' => $r->rating,
@@ -45,12 +47,15 @@ class PublicListingService
                 'created_at' => $r->created_at->diffForHumans(),
                 'tenant_name' => $r->tenant->name ?? 'Người dùng ẩn danh',
                 'tenant_avatar' => $r->tenant->avatar ?? null,
+                'is_admin' => $isAdmin,
+                'is_owner' => $isOwner,
+                'is_notice' => $isAdmin || $isOwner,
             ];
-        });
+        })->sortByDesc('is_notice')->values();
 
         $boardingHouse = $post->room->boardingHouse;
         $boardingHouseRating = $boardingHouse ? $boardingHouse->average_rating : 0;
-        $boardingHouseReviewCount = $boardingHouse ? $boardingHouse->reviews()->count() : 0;
+        $boardingHouseReviewCount = $boardingHouse ? $boardingHouse->realReviews()->count() : 0;
 
         return [
             'post' => $post,
@@ -58,6 +63,52 @@ class PublicListingService
             'reviews' => $reviews,
             'boardingHouseRating' => $boardingHouseRating,
             'boardingHouseReviewCount' => $boardingHouseReviewCount,
+        ];
+    }
+
+    public function getFeaturedRooms(int $limit = 6)
+    {
+        return $this->roomPostRepository->getFeaturedPosts($limit)->map(function ($post) {
+            $room = $post->room;
+            return [
+                'id' => $post->id,
+                'title' => $post->title,
+                'slug' => $post->slug,
+                'image' => is_array($post->image) && count($post->image) > 0 ? $post->image[0] : null,
+                'price' => $room ? $room->price : null,
+                'area' => $room ? $room->area : null,
+                'address' => $room && $room->boardingHouse ? $room->boardingHouse->address_detail : null,
+                'isHot' => $post->view_count > 50, // Example logic
+                'landlord_name' => $post->landlord ? $post->landlord->name : null,
+                'landlord_avatar' => $post->landlord ? $post->landlord->avatar : null,
+            ];
+        });
+    }
+
+    public function getTopReviews(int $limit = 6)
+    {
+        return $this->reviewRepository->getTopReviews($limit)->map(function ($r) {
+            return [
+                'id' => $r->id,
+                'rating' => $r->rating,
+                'comment' => $r->comment,
+                'created_at' => $r->created_at->diffForHumans(),
+                'tenant_name' => $r->tenant->name ?? 'Khách hàng',
+                'tenant_avatar' => $r->tenant->avatar ?? null,
+            ];
+        });
+    }
+
+    public function getSystemStats()
+    {
+        $totalUsers = \App\Models\User::count();
+        $totalLandlords = \App\Models\User::where('role', 'landlord')->count();
+        $averageRating = \App\Models\Review::avg('rating') ?? 5.0;
+
+        return [
+            'totalUsers' => $totalUsers,
+            'totalLandlords' => $totalLandlords,
+            'averageRating' => round($averageRating, 1)
         ];
     }
 
@@ -72,6 +123,13 @@ class PublicListingService
         // Tìm kiếm theo tiêu đề
         if ($request->filled('search')) {
             $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        // Lọc theo loại phòng (Danh mục)
+        if ($request->filled('category_id')) {
+            $query->whereHas('room', function ($q) use ($request) {
+                $q->where('category_id', $request->input('category_id'));
+            });
         }
 
         // Lọc theo khu vực

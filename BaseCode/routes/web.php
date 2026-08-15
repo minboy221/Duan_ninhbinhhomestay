@@ -45,6 +45,8 @@ use Symfony\Component\Routing\Router;
 |
 */
 
+use App\Http\Controllers\Client\HomeController;
+
 // Route phần clien
 Route::get('/', function (CategoryService $categoryService) {
     //nếu là tài khoản đã đăng nhập và có vai trò là chủ trọ -> chuyển trực tiếp sang trang quản lý
@@ -124,6 +126,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/rooms/{room}/favorite', [ProfileController::class, 'toggleFavorite'])->name('rooms.favorite');
 
     // Route Đánh giá sau khi xem phòng
+    Route::post('/rooms/{room}/direct-review', [PublicListingController::class, 'submitDirectReview'])->name('rooms.direct-review');
     Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
     Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
     Route::post('/appointments/{appointment}/cancel-interest', [ProfileController::class, 'cancelInterest'])->name('appointments.cancel_interest');
