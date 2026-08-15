@@ -1802,6 +1802,20 @@ const filteredAppointments = computed(() => {
                                     dân ở ghép
                                 </button>
                             </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Tiền thuê (đ/tháng)</label>
+                                    <input v-model.number="addForm.rent" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                                    <div class="text-[10px] text-emerald-600 font-bold mt-0.5" v-if="addForm.rent">
+                                        Bằng số: {{ new Intl.NumberFormat('vi-VN').format(addForm.rent) }}đ
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">Tiền cọc (đ)</label>
+                                    <input v-model.number="addForm.deposit" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
+                                    <div class="text-[10px] text-emerald-600 font-bold mt-0.5" v-if="addForm.deposit">
+                                        Bằng số: {{ new Intl.NumberFormat('vi-VN').format(addForm.deposit) }}đ
+                                    </div>
                         </div>
 
                         <div

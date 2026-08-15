@@ -186,6 +186,12 @@ class CategoryService
         if (!$amenity) {
             return false;
         }
+
+        $inUse = \App\Models\Service::where('amenity_id', $id)->exists();
+        if ($inUse) {
+            throw new \Exception("Tiện ích này đang được sử dụng bởi các phòng trọ/dịch vụ của chủ trọ!");
+        }
+
         return $this->amenityRepo->delete($amenity);
     }
 

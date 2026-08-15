@@ -382,6 +382,9 @@ const submit = () => {
                                     ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500'
                                     : 'border-slate-200 focus:border-emerald-500',
                             ]" @input="errors.price = ''" />
+                            <div class="text-[10px] text-emerald-600 font-bold mt-1" v-if="form.price">
+                                Bằng số: {{ new Intl.NumberFormat("vi-VN").format(form.price) }}đ
+                            </div>
                             <span v-if="errors.price"
                                 class="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
                                 <i class="bi bi-exclamation-circle"></i>

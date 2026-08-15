@@ -220,6 +220,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/contacts', [ContactController::class, 'index'])->name('admin.contacts.index');
     Route::patch('/contacts/{id}/status', [ContactController::class, 'updateStatus'])->name('admin.contacts.status');
     Route::delete('/contacts/{id}', [ContactController::class, 'delete'])->name('admin.contacts.delete');
+    Route::post('/contacts/{id}/reply', [ContactController::class, 'reply'])->name('admin.contacts.reply');
 
     // Các route trên đã định nghĩa đầy đủ
 });

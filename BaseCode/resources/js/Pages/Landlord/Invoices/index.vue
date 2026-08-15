@@ -1058,6 +1058,14 @@ const goToCreateForContract = (contractId) => {
                                 </label>
                                 <input type="number" v-model.number="invoiceForm.waterOld" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
+                            <div class="flex flex-col items-end gap-1 text-xs text-slate-500 font-bold">
+                                <div class="flex items-center gap-1.5">
+                                    <span>Thành tiền:</span>
+                                    <input type="number" v-model.number="invoiceForm.rent" class="w-28 px-2 py-1 text-right border border-slate-200 focus:border-emerald-500 rounded-lg outline-none font-bold text-slate-800 bg-white" />
+                                </div>
+                                <div class="text-[10px] text-emerald-600 font-bold" v-if="invoiceForm.rent">
+                                    Bằng số: {{ formatMoney(invoiceForm.rent) }}
+                                </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                                     Số mới kỳ này

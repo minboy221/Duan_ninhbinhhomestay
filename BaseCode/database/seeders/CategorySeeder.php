@@ -71,18 +71,17 @@ class CategorySeeder extends Seeder
             Area::firstOrCreate(['name' => $communeName], $data);
         }
 
-        // Tiện ích phòng trọ
+        // Tiện ích phòng trọ (Danh sách tiện ích dịch vụ chuẩn)
         $amenities = [
-            ['name' => 'WiFi',            'icon' => 'bi-wifi'],
-            ['name' => 'Điều hoà',        'icon' => 'bi-thermometer-snow'],
-            ['name' => 'Nóng lạnh',       'icon' => 'bi-droplet-half'],
-            ['name' => 'Bãi xe',          'icon' => 'bi-bicycle'],
-            ['name' => 'Bảo vệ 24/7',    'icon' => 'bi-shield-check'],
-            ['name' => 'Giặt sấy',        'icon' => 'bi-basket2'],
-            ['name' => 'Tủ lạnh',         'icon' => 'bi-box-seam'],
-            ['name' => 'Máy giặt',        'icon' => 'bi-layers'],
-            ['name' => 'Bếp riêng',       'icon' => 'bi-cup-hot'],
-            ['name' => 'Ban công',        'icon' => 'bi-sun'],
+            ['name' => 'Tiền điện',          'icon' => 'bi-lightning-charge'],
+            ['name' => 'Tiền nước',          'icon' => 'bi-droplet'],
+            ['name' => 'Internet/Wi-Fi',     'icon' => 'bi-wifi'],
+            ['name' => 'Phí rác',            'icon' => 'bi-trash'],
+            ['name' => 'Phí gửi xe',         'icon' => 'bi-bicycle'],
+            ['name' => 'Phí dịch vụ/chung',  'icon' => 'bi-tools'],
+            ['name' => 'Phí máy giặt',       'icon' => 'bi-layers'],
+            ['name' => 'Phí điều hòa',       'icon' => 'bi-thermometer-snow'],
+            ['name' => 'Phí phát sinh',      'icon' => 'bi-plus-circle'],
         ];
         foreach ($amenities as $amenity) {
             Amenity::create($amenity);
