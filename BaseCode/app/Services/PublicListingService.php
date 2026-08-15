@@ -37,7 +37,9 @@ class PublicListingService
             $this->roomPostRepository->incrementViewCount($postId);
         }
 
-        $reviews = $this->reviewRepository->getReviewsByRoomId($post->room_id)->map(function ($r) {
+        $reviews = $this->reviewRepository->getReviewsByRoomId($post->room_id)->map(function ($r) use ($post) {
+            $isOwner = $post->room->boardingHouse && $r->tenant_id === $post->room->boardingHouse->user_id;
+            $isAdmin = $r->tenant && $r->tenant->role === 'admin';
             return [
                 'id' => $r->id,
                 'rating' => $r->rating,
@@ -45,12 +47,15 @@ class PublicListingService
                 'created_at' => $r->created_at->diffForHumans(),
                 'tenant_name' => $r->tenant->name ?? 'Người dùng ẩn danh',
                 'tenant_avatar' => $r->tenant->avatar ?? null,
+                'is_admin' => $isAdmin,
+                'is_owner' => $isOwner,
+                'is_notice' => $isAdmin || $isOwner,
             ];
-        });
+        })->sortByDesc('is_notice')->values();
 
         $boardingHouse = $post->room->boardingHouse;
         $boardingHouseRating = $boardingHouse ? $boardingHouse->average_rating : 0;
-        $boardingHouseReviewCount = $boardingHouse ? $boardingHouse->reviews()->count() : 0;
+        $boardingHouseReviewCount = $boardingHouse ? $boardingHouse->realReviews()->count() : 0;
 
         return [
             'post' => $post,
