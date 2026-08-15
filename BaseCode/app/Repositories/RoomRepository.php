@@ -11,7 +11,7 @@ class RoomRepository{
      */
     public function getByPropertyId(int $propertyId): Collection
     {
-        return Room::where('boarding_house_id', $propertyId)
+        return Room::where('property_id', $propertyId)
             ->orderBy('room_number')
             ->get();
     }
@@ -21,9 +21,9 @@ class RoomRepository{
      */
     public function getByLandlordId(int $landlordId): Collection
     {
-        return Room::whereHas('boardingHouse', function ($query) use ($landlordId) {
-            $query->where('user_id', $landlordId);
-        })->with('boardingHouse')->orderBy('room_number')->get();
+        return Room::whereHas('property', function ($query) use ($landlordId) {
+            $query->where('landlord_id', $landlordId);
+        })->with('property')->orderBy('room_number')->get();
     }
 
     /**
@@ -31,7 +31,7 @@ class RoomRepository{
      */
     public function findById(int $id): ?Room
     {
-        return Room::with('boardingHouse')->find($id);
+        return Room::with('property')->find($id);
     }
 
     /**
@@ -63,8 +63,8 @@ class RoomRepository{
      */
     public function countByStatusForLandlord(int $landlordId): array
     {
-        return Room::whereHas('boardingHouse', function ($query) use ($landlordId) {
-            $query->where('user_id', $landlordId);
+        return Room::whereHas('property', function ($query) use ($landlordId) {
+            $query->where('landlord_id', $landlordId);
         })
         ->selectRaw('status, COUNT(*) as total')
         ->groupBy('status')

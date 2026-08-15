@@ -53,6 +53,7 @@ class LandlordController extends Controller
             'bank_name' => 'nullable|string|max:100',
             'bank_account_no' => 'nullable|string|max:50',
             'bank_account_name' => 'nullable|string|max:100',
+            'invoice_billing_day' => 'nullable|integer|between:1,31',
         ]);
 
         $user = Auth::user();
@@ -66,6 +67,11 @@ class LandlordController extends Controller
         }
 
         $user->update($data);
+
+        if ($request->has('invoice_billing_day') && $request->invoice_billing_day) {
+            \App\Models\BoardingHouse::where('user_id', $user->id)
+                ->update(['invoice_billing_day' => (int) $request->invoice_billing_day]);
+        }
 
         return redirect()->back()->with('success', 'Cập nhật thông tin thành công!');
     }
@@ -737,7 +743,18 @@ class LandlordController extends Controller
         // Gửi thông báo cho khách thuê
         $tenant = $contract->tenant;
         if ($tenant) {
-            $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+            $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
+            if ($isFirstInvoice) {
+                $proratedService = new \App\Services\ProratedBillingService();
+                $proratedInfo = $proratedService->calculateProratedRent($contract, $request->billing_month);
+                if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                    $tenant->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                } else {
+                    $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                }
+            } else {
+                $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+            }
         }
         //ghi log
         $isAbnormal = false;
@@ -849,6 +866,8 @@ class LandlordController extends Controller
                     if ($lastElec->meter_image_path)
                         $elecOldImgPath = $lastElec->meter_image_path;
                 }
+            } else if ($contract->entry_elec_index !== null) {
+                $elecOld = (int) $contract->entry_elec_index;
             }
 
             $waterOld = 0;
@@ -859,6 +878,8 @@ class LandlordController extends Controller
                     if ($lastWater->meter_image_path)
                         $waterOldImgPath = $lastWater->meter_image_path;
                 }
+            } else if ($contract->entry_water_index !== null) {
+                $waterOld = (int) $contract->entry_water_index;
             }
 
             if ((int) $r['elec_new'] < $elecOld) {
@@ -961,7 +982,18 @@ class LandlordController extends Controller
             }
 
             if ($contract->tenant) {
-                $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
+                if ($isFirstInvoice) {
+                    $proratedService = new \App\Services\ProratedBillingService();
+                    $proratedInfo = $proratedService->calculateProratedRent($contract, $billingMonth);
+                    if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                        $contract->tenant->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                    } else {
+                        $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                    }
+                } else {
+                    $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                }
             }
         }
 
@@ -1035,19 +1067,25 @@ class LandlordController extends Controller
     public function storeService(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'amenity_id' => 'required|integer|exists:amenities,id',
             'price' => 'required|numeric|min:0',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'icon' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
-        $data = $request->all();
-        $data['boarding_house_id'] = session('selected_boarding_house_id');
-        $result = $this->serviceManagementService->createService(Auth::id(), $data);
+
+        $propertyId = $this->serviceManagementService->getOrCreatePropertyId(Auth::id());
+        $exists = \App\Models\Service::where('property_id', $propertyId)
+            ->where('amenity_id', $request->amenity_id)
+            ->exists();
+        if ($exists) {
+            return redirect()->back()->with('error', 'Tiện ích này đã được kích hoạt!');
+        }
+
+        $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
         if (!$result)
-            return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
-        return redirect()->back()->with('success', 'Thêm dịch vụ thành công!');
+            return redirect()->back()->with('error', 'Không thể kích hoạt tiện ích!');
+        return redirect()->back()->with('success', 'Kích hoạt tiện ích thành công!');
     }
 
     public function updateService(Request $request, int $id)
@@ -1059,14 +1097,24 @@ class LandlordController extends Controller
         }
         $oldPrice = (float) $oldService->price;
         $request->validate([
-            'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'icon' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
+
+        try {
+            $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
+            return redirect()->back()->with('success', 'Cập nhật cấu hình dịch vụ thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
         $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
+        if (!$result)
+            return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
+        return redirect()->back()->with('success', 'Cập nhật cấu hình dịch vụ thành công!');
         if (!$result) {
             return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
         }
@@ -1113,10 +1161,14 @@ class LandlordController extends Controller
 
     public function deleteService(int $id)
     {
-        $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
-        if (!$result)
-            return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
-        return redirect()->back()->with('success', 'Xóa dịch vụ thành công!');
+        try {
+            $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
+            return redirect()->back()->with('success', 'Xóa dịch vụ thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function changeServiceStatus(Request $request, int $id)

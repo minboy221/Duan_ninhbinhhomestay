@@ -176,6 +176,7 @@ const proratedRentInfo = computed(() => {
     const occupiedDays = totalDays - day + 1
     const monthlyRent = Number(contract.room?.price || contract.monthly_rent || 0)
     const suggestedRent = Math.round((monthlyRent / totalDays) * occupiedDays)
+    const isGracePeriod = occupiedDays < 7
 
     return {
         day,
@@ -183,6 +184,7 @@ const proratedRentInfo = computed(() => {
         occupiedDays,
         monthlyRent,
         suggestedRent,
+        isGracePeriod,
         formattedSuggested: new Intl.NumberFormat('vi-VN').format(suggestedRent) + 'đ'
     }
 })
@@ -959,14 +961,19 @@ const goToCreateForContract = (contractId) => {
                     </div>
                     <input type="number" v-model.number="invoiceForm.rent" readonly class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                     
-                    <!-- Gợi ý tính tiền phòng lẻ tháng đầu -->
-                    <div v-if="proratedRentInfo" class="mt-2 p-3 bg-amber-50 border border-amber-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div class="text-xs text-amber-900 font-semibold">
-                            <i class="bi bi-info-circle-fill text-amber-600 mr-1"></i>
-                            Khách vào từ ngày <span class="font-bold">{{ proratedRentInfo.day }}/{{ proratedRentInfo.totalDays }}</span>. Ở <span class="font-bold">{{ proratedRentInfo.occupiedDays }}/{{ proratedRentInfo.totalDays }} ngày</span>.
+                    <!-- Gợi ý tính tiền phòng lẻ tháng đầu / Quy tắc du di -->
+                    <div v-if="proratedRentInfo" class="mt-2 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 border" :class="proratedRentInfo.isGracePeriod ? 'bg-blue-50/70 border-blue-200 text-blue-900' : 'bg-amber-50/70 border-amber-200 text-amber-900'">
+                        <div class="text-xs font-semibold">
+                            <i :class="proratedRentInfo.isGracePeriod ? 'bi bi-shield-check text-blue-600' : 'bi bi-calculator-fill text-amber-600'" class="mr-1 text-sm"></i>
+                            <span v-if="proratedRentInfo.isGracePeriod">
+                                Khách vào ngày <span class="font-bold">{{ proratedRentInfo.day }}</span> (Ở <span class="font-bold">{{ proratedRentInfo.occupiedDays }} ngày</span>, &lt; 7 ngày du di). Bạn có thể gộp sang kỳ tháng sau hoặc áp dụng giá lẻ:
+                            </span>
+                            <span v-else>
+                                Khách ở thực tế <span class="font-bold">{{ proratedRentInfo.occupiedDays }}/{{ proratedRentInfo.totalDays }} ngày</span> (&ge; 7 ngày chia lẻ). Giá lẻ đề xuất:
+                            </span>
                         </div>
-                        <button type="button" @click="applyProratedRent" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition shadow-xs flex-shrink-0 cursor-pointer">
-                            Áp dụng giá lẻ {{ proratedRentInfo.formattedSuggested }}
+                        <button type="button" @click="applyProratedRent" class="px-3 py-1.5 rounded-lg font-bold text-xs transition shadow-xs flex-shrink-0 cursor-pointer text-white" :class="proratedRentInfo.isGracePeriod ? 'bg-blue-600 hover:bg-blue-700' : 'bg-amber-600 hover:bg-amber-700'">
+                            Áp dụng {{ proratedRentInfo.formattedSuggested }}
                         </button>
                     </div>
                 </div>
@@ -989,7 +996,10 @@ const goToCreateForContract = (contractId) => {
                         </div>
                         <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400">Số cũ (Khóa tự động)</label>
+                                <label class="text-[10px] font-bold text-slate-400 flex items-center justify-between">
+                                    <span>Số cũ (Khóa tự động)</span>
+                                    <span v-if="isFirstMonthInvoice && selectedContract?.entry_elec_index !== null && selectedContract?.entry_elec_index !== undefined" class="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Mốc bàn giao HĐ</span>
+                                </label>
                                 <input type="number" v-model.number="invoiceForm.elecOld" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
                             <div class="space-y-1">
@@ -1042,9 +1052,20 @@ const goToCreateForContract = (contractId) => {
                         </div>
                         <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400">Số cũ (Khóa tự động)</label>
+                                <label class="text-[10px] font-bold text-slate-400 flex items-center justify-between">
+                                    <span>Số cũ (Khóa tự động)</span>
+                                    <span v-if="isFirstMonthInvoice && selectedContract?.entry_water_index !== null && selectedContract?.entry_water_index !== undefined" class="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">Mốc bàn giao HĐ</span>
+                                </label>
                                 <input type="number" v-model.number="invoiceForm.waterOld" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
+                            <div class="flex flex-col items-end gap-1 text-xs text-slate-500 font-bold">
+                                <div class="flex items-center gap-1.5">
+                                    <span>Thành tiền:</span>
+                                    <input type="number" v-model.number="invoiceForm.rent" class="w-28 px-2 py-1 text-right border border-slate-200 focus:border-emerald-500 rounded-lg outline-none font-bold text-slate-800 bg-white" />
+                                </div>
+                                <div class="text-[10px] text-emerald-600 font-bold" v-if="invoiceForm.rent">
+                                    Bằng số: {{ formatMoney(invoiceForm.rent) }}
+                                </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                                     Số mới kỳ này

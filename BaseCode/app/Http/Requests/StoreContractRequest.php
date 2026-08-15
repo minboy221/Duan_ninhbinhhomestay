@@ -30,6 +30,8 @@ class StoreContractRequest extends FormRequest
             'deposit' => 'required|numeric|min:0',
             'contract_file' => 'required|file|mimes:jpeg,png,jpg,pdf|max:10240',
             'number_of_tenants' => 'nullable|integer|min:1',
+            'entry_elec_index' => 'nullable|integer|min:0',
+            'entry_water_index' => 'nullable|integer|min:0',
         ];
     }
 

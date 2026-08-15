@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('rooms', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('boarding_house_id')->constrained('boarding_houses')->onDelete('cascade');
+            $table->foreignId('property_id')->constrained('properties')->onDelete('cascade');
             $table->foreignId('floor_id')->nullable()->constrained('floors')->onDelete('set null');
             $table->string('room_number');
             $table->string('address')->nullable()->comment('địa chỉ cụ thể phòng trọ');
@@ -22,6 +22,7 @@ return new class extends Migration
             $table->integer('capacity')->default(2)->comment('số người ở tối đa');
             $table->enum('status',['available','rented','maintenance','depoosited','suspended'])->default('available');
             $table->string('maintenance_reason')->nullable();
+            $table->string('amenities')->nullable()->comment('Danh sách tiện ích dạng chuỗi');
             $table->json('images')->nullable()->comment('Mảng đường dẫn ảnh gốc của phòng');
             $table->timestamps();
         });

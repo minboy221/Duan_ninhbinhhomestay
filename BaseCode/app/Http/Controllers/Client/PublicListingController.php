@@ -158,8 +158,19 @@ class PublicListingController extends Controller
             return redirect()->back()->with('error', 'tài khoản chủ trọ không được phép đặt lịch xem phòng');
         }
 
-        $todayStr = Carbon::today('Asia/Ho_Chi_Minh')->format('Y-m-d');
-        $maxDate = Carbon::today('Asia/Ho_Chi_Minh')->addDays(6)->format('Y-m-d');
+        if ($post->room && $post->room->services) {
+            $post->room->services->map(function ($service) {
+                if ($service->pivot && !is_null($service->pivot->price)) {
+                    $service->price = $service->pivot->price;
+                }
+                return $service;
+            });
+        }
+
+        // Tạm tắt tự động cập nhật timestamps
+        $post->timestamps = false;
+        // Tăng lượt xem (không bắt buộc nhưng tốt cho SEO/thống kê)
+        $post->increment('view_count');
 
 
         $request->validate([

@@ -69,27 +69,35 @@ return [
         ],
 
         //Phần cấu hình cho ảnh public
-        'r2_public' =>[
-            'drive' => 's3',
+        'r2_public' => [
+            'driver' => 's3',
             'key' => env('CLOUDFLARE_R2_ACCESS_KEY_ID'),
-            'secret' => env('CLOUDFLARE_R2_SCRET_ACCESS_KEY'),
+            'secret' => env('CLOUDFLARE_R2_SECRET_ACCESS_KEY'),
             'region' => 'auto',
-            'bucker' => env('CLOUDFLARE_R2_BUCKET_PUBLIC'),
-            'endpoint' => env('CLOUDFLARE_R2_END_POINT'),
+            'bucket' => env(
+                'CLOUDFLARE_R2_BUCKET_PUBLIC',
+                env('CLOUDFLARE_R2_BUCKET')
+            ),
+            'endpoint' => env('CLOUDFLARE_R2_ENDPOINT'),
             'url' => env('CLOUDFLARE_R2_PUBLIC_URL'),
-            'use_path_style_style_endpoint' => true,
+            'use_path_style_endpoint' => true,
+            'throw' => false,
         ],
-        
+
         //Phần cấu hình cho thư mục ảnh private
         'r2_private' => [
-            'drive' => 's3',
+            'driver' => 's3',
             'key' => env('CLOUDFLARE_R2_ACCESS_KEY_ID'),
-            'secret' => env('CLOUDFLARE_R2_SCRET_ACCESS_KEY'),
+            'secret' => env('CLOUDFLARE_R2_SECRET_ACCESS_KEY'),
             'region' => 'auto',
-            'bucker' => env('CLOUDFLARE_R2_BUCKET_PUBLIC'),
-            'endpoint' => env('CLOUDFLARE_R2_END_POINT'),
-            'use_path_style_style_endpoint' => true,
-        ]
+            'bucket' => env(
+                'CLOUDFLARE_R2_BUCKET_PRIVATE',
+                env('CLOUDFLARE_R2_BUCKET')
+            ),
+            'endpoint' => env('CLOUDFLARE_R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+        ],
     ],
 
     /*

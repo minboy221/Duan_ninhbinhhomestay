@@ -13,7 +13,7 @@ const isVerified = computed(() => {
     if (user.value?.role === 'admin' || user.value?.role === 'landlord') {
         return true;
     }
-    return !!(user.value?.phone && user.value?.address);
+    return !!(user.value?.phone && (user.value?.cccd_number || user.value?.address));
 });
 
 const { showBtn, scrollToTop } = useBackToTop()

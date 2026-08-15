@@ -24,6 +24,8 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Owner\InviteController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\AdminPostController;
+use App\Http\Controllers\ClientRoomController;
+use App\Http\Controllers\ContactController;
 use Illuminate\Routing\Controller;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Route;
@@ -46,7 +48,23 @@ use Symfony\Component\Routing\Router;
 use App\Http\Controllers\Client\HomeController;
 
 // Route phần clien
-Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/', function (CategoryService $categoryService) {
+    //nếu là tài khoản đã đăng nhập và có vai trò là chủ trọ -> chuyển trực tiếp sang trang quản lý
+    if(auth()->check() && auth()->user()->role === 'landlord'){
+        return redirect()->route('landlord.dashboard');
+    }
+    $categoryData = $categoryService->getActiveData();
+    return Inertia::render('Client/Index', [
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('signup'),
+        'canVerfyEmail' => Route::has('canverfyemail'),
+        'laravelVersion' => Application::VERSION,
+        'phpVersion' => PHP_VERSION,
+        'categories' => $categoryData['types'],
+        'areas' => $categoryData['areas'],
+        'amenities' => $categoryData['amenities'],
+    ]);
+})->name('home');
 
 // Route cho Trang Giới thiệu
 Route::get('/about', function () {
@@ -64,6 +82,7 @@ Route::get('/tintuc/suggest', [PostController::class, 'suggest'])->name('tintuc.
 Route::get('/lienhe', function () {
     return Inertia::render('Client/lienhe'); // Trỏ đến file Pages/Client/About.vue
 })->name('lienhe');
+Route::post('/contact', [ContactController::class, 'store'])->name('client.contact.store');
 
 // Route cho Trang chi tiết trọ
 Route::get('/chitiettro/{slug?}', [PublicListingController::class, 'show'])->name('chitiettro');
@@ -199,6 +218,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/posts/{id}/edit', [AdminPostController::class, 'edit'])->name('admin.posts.edit');
     Route::post('/posts/{id}', [AdminPostController::class, 'update'])->name('admin.posts.update');
     Route::delete('/posts/{id}', [AdminPostController::class, 'destroy'])->name('admin.posts.destroy');
+
+    // Route quản lý liên hệ của Admin
+    Route::get('/contacts', [ContactController::class, 'index'])->name('admin.contacts.index');
+    Route::patch('/contacts/{id}/status', [ContactController::class, 'updateStatus'])->name('admin.contacts.status');
+    Route::delete('/contacts/{id}', [ContactController::class, 'delete'])->name('admin.contacts.delete');
+    Route::post('/contacts/{id}/reply', [ContactController::class, 'reply'])->name('admin.contacts.reply');
 
     // Các route trên đã định nghĩa đầy đủ
 });

@@ -11,8 +11,10 @@ class Service extends Model
 
     protected $fillable = [
         'property_id',
+        'amenity_id',
         'name',
         'price',
+        'price_updated_at',
         'type',
         'description',
         'icon',
@@ -24,11 +26,17 @@ class Service extends Model
     protected $casts = [
         'price' => 'float',
         'is_active' => 'boolean',
+        'price_updated_at' => 'datetime',
     ];
 
     public function property()
     {
         return $this->belongsTo(Property::class);
+    }
+
+    public function amenity()
+    {
+        return $this->belongsTo(Amenity::class);
     }
 
     public function rooms()

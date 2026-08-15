@@ -115,6 +115,9 @@ class ContractService
                 'signed_at' => now(),
                 'terms_accepted' => true,
                 'terms_accepted_at' => now(),
+                'entry_elec_index' => isset($data['entry_elec_index']) && $data['entry_elec_index'] !== '' ? (int) $data['entry_elec_index'] : null,
+                'entry_water_index' => isset($data['entry_water_index']) && $data['entry_water_index'] !== '' ? (int) $data['entry_water_index'] : null,
+                'entry_readings_submitted_at' => (isset($data['entry_elec_index']) || isset($data['entry_water_index'])) ? now() : null,
             ]);
             //check xem hợp đồng này đã có hợp động hiệu lực trước đó chưa
             $hasExistingPrimaryContract = Contract::where('room_id', $room->id)
@@ -192,19 +195,38 @@ class ContractService
         return DB::transaction(function () use ($contract, $data) {
             $contract->update([
                 'status' => 'terminated',
-                'liquidated_at' => now(), // Đổi thành liquidated_at
-                'deposit_handling' => $data['deposit_handling'], // Đổi thành deposit_handling
-                'deposit_refund_amount' => $data['deposit_refund_amount'] ?? 0, // Đổi thành deposit_refund_amount
+                'liquidated_at' => now(),
+                'deposit_handling' => $data['deposit_handling'],
+                'deposit_refund_amount' => $data['deposit_refund_amount'] ?? 0,
                 'cancellation_reason' => $data['notes'] ?? null,
             ]);
+            // chuyển trạng thái user của người thanh lý sang inactive
+            RoomResident::where('room_id', $contract->room_id)
+                ->where('user_id', $contract->tenant_id)
+                ->update([
+                    'status' => 'inactive',
+                    'end_date' => now()->format('Y-m-d')
+                ]);
             $room = $contract->room;
             if ($room) {
+                //đếm lại số hợp đồng còn hiệu lực
+                $remainingContracts = Contract::where('room_id', $room->id)
+                    ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
+                    ->count();
+                //đếm số cư dân còn hoạt động
+                $remainingResidents = RoomResident::where('room_id', $room->id)
+                    ->where('status', 'active')
+                    ->count();
+                $newCurrentPeople = max($remainingContracts, $remainingResidents);
+                $newRoomStatus = $newCurrentPeople > 0 ? 'rented' : 'available';
                 $room->update([
-                    'status' => 'available',
-                    'current_people' => max(0, $room->current_people - $contract->number_of_tenants)
+                    'status' => $newRoomStatus,
+                    'current_people' => $newCurrentPeople
                 ]);
-                RoomPost::where('room_id', $room->id)->update(['status' => 'approved']);
-                event(new \App\Events\RoomStatusUpdated($room->id, 'available'));
+                if ($newRoomStatus === 'available') {
+                    RoomPost::where('room_id', $room->id)->update(['status' => 'approved']);
+                }
+                event(new \App\Events\RoomStatusUpdated($room->id, $newRoomStatus));
             }
             return $contract;
         });
@@ -420,15 +442,35 @@ class ContractService
                 'created_by' => $landlordId,
             ]);
             //gửi thông báo cho User A
-            if($oldContract -> tenant){
-                $oldContract->tenant->notify(new \App\Notifications\AdminNotification('Chuyển giao hợp đồng thành công',
-                "Hợp đồng thuê phòng của bạn đã được chuyển giao thành công cho thành viên {$newTenant->name}.",route('quanlynoio')
+            if ($oldContract->tenant) {
+                $oldContract->tenant->notify(new \App\Notifications\AdminNotification(
+                    'Chuyển giao hợp đồng thành công',
+                    "Hợp đồng thuê phòng của bạn đã được chuyển giao thành công cho thành viên {$newTenant->name}.",
+                    route('quanlynoio')
                 ));
             }
             //gửi thông báo cho User B 
-            $newTenant->notify(new \App\Notifications\AdminNotification('Chúc mừng! Bạn đã trở thành Chủ hợp đồng mới', "Bạn đã được chuyển đứng tên chủ hợp đồng chính cho phòng trọ.",
-             route('quanlynoio')
+            $newTenant->notify(new \App\Notifications\AdminNotification(
+                'Chúc mừng! Bạn đã trở thành Chủ hợp đồng mới',
+                "Bạn đã được chuyển đứng tên chủ hợp đồng chính cho phòng trọ.",
+                route('quanlynoio')
             ));
+
+            //đếm lại số lượng người ở thực tế của phòng sau khi chuyển giao hợp đồng
+            $room = $oldContract->room;
+            if($room){
+                $activeContracts = Contract::where('room_id', $room->id)
+                ->whereIn('status',['active','signed','pending','awiting_upload','termination_requested','expiring'])
+                ->count();
+                $activeResidents = RoomResident::where('room_id', $room->id)
+                ->where('status','active')
+                ->count();
+                $newCurrentPeople = max($activeContracts,$activeResidents);
+                $room->update([
+                    'status' => 'rented',
+                    'current_people' => $newCurrentPeople
+                ]);
+            }
             return $newContract;
         });
     }
