@@ -1,7 +1,7 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
-import { ref } from 'vue'
-import { useForm, router } from '@inertiajs/vue3'
+import { ref, computed, watch } from 'vue'
+import { useForm, router, usePage } from '@inertiajs/vue3'
 
 const props = defineProps({
     services: {
@@ -54,6 +54,35 @@ const serviceForm = useForm({
     is_active: true
 })
 
+// Hiển thị giá có dấu phẩy trong input
+const priceDisplay = ref('')
+
+const formatPriceInput = (val) => {
+    // Chỉ giữ số
+    const raw = String(val).replace(/[^0-9]/g, '')
+    if (!raw) return ''
+    return new Intl.NumberFormat('en-US').format(parseInt(raw))
+}
+
+const onPriceInput = (e) => {
+    const raw = e.target.value.replace(/[^0-9]/g, '')
+    const num = raw ? parseInt(raw) : 0
+    // Không cho số âm (raw chỉ có số nên luôn >= 0)
+    priceDisplay.value = raw ? new Intl.NumberFormat('en-US').format(num) : ''
+    serviceForm.price = num
+}
+
+const onPriceBlur = () => {
+    // Khi rời input, nếu < 100 thì set về 100
+    if (serviceForm.price > 0 && serviceForm.price < 100) {
+        serviceForm.price = 100
+        priceDisplay.value = '100'
+    } else if (serviceForm.price <= 0) {
+        serviceForm.price = 0
+        priceDisplay.value = ''
+    }
+}
+
 const openConfigureService = (srv) => {
     isEditService.value = false
     selectedService.value = srv
@@ -68,6 +97,7 @@ const openConfigureService = (srv) => {
     serviceForm.color = 'emerald'
     serviceForm.description = ''
     serviceForm.is_active = true
+    priceDisplay.value = ''
     showServiceModal.value = true
 }
 
@@ -83,6 +113,7 @@ const openEditService = (srv) => {
     serviceForm.color = srv.color || 'emerald'
     serviceForm.description = srv.description || ''
     serviceForm.is_active = srv.is_active
+    priceDisplay.value = srv.price ? formatPriceInput(srv.price) : ''
     serviceForm.clearErrors()
     showServiceModal.value = true
 }
@@ -92,14 +123,12 @@ const submitService = () => {
         serviceForm.put(route('landlord.services.update', selectedService.value.id), {
             onSuccess: () => {
                 showServiceModal.value = false
-                showAlert('Thành công', 'Cập nhật cấu hình dịch vụ thành công!', 'success')
             }
         })
     } else {
         serviceForm.post(route('landlord.services.store'), {
             onSuccess: () => {
                 showServiceModal.value = false
-                showAlert('Thành công', 'Kích hoạt dịch vụ thành công!', 'success')
             }
         })
     }
@@ -132,6 +161,26 @@ const handleConfirm = () => {
     }
     confirmModal.value.show = false 
 }
+
+// Watch Flash Messages
+const page = usePage()
+watch(() => page.props.flash, (flash) => {
+    if (flash && flash.error) {
+        showAlert('Lỗi', flash.error, 'danger')
+    } else if (flash && flash.success) {
+        showAlert('Thành công', flash.success, 'success')
+    }
+}, { deep: true })
+
+// Pagination State
+const currentPage = ref(1)
+const perPage = 6
+
+const totalPages = computed(() => Math.max(1, Math.ceil(props.services.length / perPage)))
+const paginatedServices = computed(() => {
+    const start = (currentPage.value - 1) * perPage
+    return props.services.slice(start, start + perPage)
+})
 </script>
 
 <template>
@@ -155,7 +204,7 @@ const handleConfirm = () => {
             <!-- Grid Services -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div 
-                    v-for="srv in services" 
+                    v-for="srv in paginatedServices" 
                     :key="srv.amenity_id || srv.id" 
                     class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200 relative overflow-hidden"
                     :class="{ 'border-dashed border-slate-200 bg-slate-50/50': !srv.id }"
@@ -213,7 +262,7 @@ const handleConfirm = () => {
                             ]" :title="srv.is_active ? 'Khóa dịch vụ' : 'Mở khóa dịch vụ'">
                                 <i :class="['bi', srv.is_active ? 'bi-lock-fill' : 'bi-unlock-fill']"></i>
                             </button>
-                            <button @click="deleteService(srv)" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-xl transition-colors" title="Hủy kích hoạt tiện ích">
+                            <button v-if="!srv.is_active" @click="deleteService(srv)" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-xl transition-colors" title="Hủy kích hoạt tiện ích">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </template>
@@ -235,6 +284,37 @@ const handleConfirm = () => {
                     <h3 class="text-sm font-bold text-slate-700 mb-1">Chưa có tiện ích hệ thống nào</h3>
                     <p class="text-xs text-slate-400 max-w-sm mb-6">Hệ thống chưa thiết lập danh sách tiện ích dùng chung. Vui lòng liên hệ Admin.</p>
                 </div>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div class="flex items-center justify-center gap-2 mt-8" v-if="totalPages > 1">
+                <button 
+                    :disabled="currentPage === 1" 
+                    @click="currentPage--" 
+                    class="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button 
+                    v-for="p in totalPages" 
+                    :key="p" 
+                    @click="currentPage = p" 
+                    :class="[
+                        'px-3.5 py-2 rounded-xl font-bold text-xs transition-all',
+                        currentPage === p 
+                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/10' 
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ]"
+                >
+                    {{ p }}
+                </button>
+                <button 
+                    :disabled="currentPage === totalPages" 
+                    @click="currentPage++" 
+                    class="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <i class="bi bi-chevron-right"></i>
+                </button>
             </div>
         </div>
 
@@ -275,7 +355,23 @@ const handleConfirm = () => {
                         <!-- Price -->
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500">Đơn giá (đ) <span class="text-rose-500">*</span></label>
-                            <input v-model.number="serviceForm.price" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="Nhập số tiền..."/>
+                            <div class="relative">
+                                <input
+                                    :value="priceDisplay"
+                                    @input="onPriceInput"
+                                    @blur="onPriceBlur"
+                                    @keydown="(e) => ['-', 'e', 'E', '+', '.'].includes(e.key) && e.preventDefault()"
+                                    type="text"
+                                    inputmode="numeric"
+                                    class="w-full px-3.5 py-2.5 pr-8 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"
+                                    placeholder="Nhập số tiền (tối thiểu 100đ)..."
+                                />
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">đ</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Tối thiểu: 100đ</div>
+                            <div class="text-[10px] text-emerald-600 font-bold mt-1" v-if="serviceForm.price >= 100">
+                                Bằng chữ: {{ fmtMoney(serviceForm.price) }}
+                            </div>
                             <div v-if="serviceForm.errors.price" class="text-rose-500 text-[10px]">{{ serviceForm.errors.price }}</div>
                         </div>
 

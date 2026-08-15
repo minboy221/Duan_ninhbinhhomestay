@@ -323,6 +323,14 @@ class LandlordController extends Controller
             'description' => 'nullable|string',
         ]);
 
+        $propertyId = $this->serviceManagementService->getOrCreatePropertyId(Auth::id());
+        $exists = \App\Models\Service::where('property_id', $propertyId)
+            ->where('amenity_id', $request->amenity_id)
+            ->exists();
+        if ($exists) {
+            return redirect()->back()->with('error', 'Tiện ích này đã được kích hoạt!');
+        }
+
         $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
         if (!$result)
             return redirect()->back()->with('error', 'Không thể kích hoạt tiện ích!');
@@ -338,18 +346,26 @@ class LandlordController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
-        if (!$result)
-            return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
-        return redirect()->back()->with('success', 'Cập nhật cấu hình dịch vụ thành công!');
+        try {
+            $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
+            return redirect()->back()->with('success', 'Cập nhật cấu hình dịch vụ thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function deleteService(int $id)
     {
-        $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
-        if (!$result)
-            return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
-        return redirect()->back()->with('success', 'Xóa dịch vụ thành công!');
+        try {
+            $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
+            return redirect()->back()->with('success', 'Xóa dịch vụ thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function changeServiceStatus(Request $request, int $id)

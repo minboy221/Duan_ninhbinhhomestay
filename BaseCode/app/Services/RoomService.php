@@ -192,30 +192,19 @@ class RoomService
         if ($exists)
             return null;
 
-        $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
-        if (!$boardingHouse) {
-            $boardingHouse = \App\Models\BoardingHouse::create([
-                'user_id' => $landlordId,
-                'name' => ($floor && $floor->property) ? $floor->property->name : 'Nhà trọ chính',
-                'district' => 'Chưa cập nhật',
-                'address_detail' => ($floor && $floor->property) ? $floor->property->address : 'Chưa cập nhật',
-                'status' => 'approved',
-            ]);
-        }
-
         $room = $this->roomRepo->create([
-            'boarding_house_id' => $boardingHouse->id,
-            'floor_id' => $data['floor_id'],
-            'room_number' => $data['room_number'],
-            'address' => $data['address'] ?? null,
-            'latitude' => $data['latitude'] ?? null,
-            'longitude' => $data['longitude'] ?? null,
-            'price' => $data['price'],
-            'area' => $data['area'],
-            'capacity' => $data['capacity'] ?? 2,
-            'status' => $data['status'] ?? 'available',
-            'amenities' => $data['amenities'] ?? null,
-            'images' => $imagePaths ?: null,
+            'property_id'     => $floor->property_id,
+            'floor_id'        => $data['floor_id'],
+            'room_number'     => $data['room_number'],
+            'address'         => $data['address'] ?? null,
+            'latitude'        => $data['latitude'] ?? null,
+            'longitude'       => $data['longitude'] ?? null,
+            'price'           => $data['price'],
+            'area'            => $data['area'],
+            'capacity'        => $data['capacity'] ?? 2,
+            'status'          => $data['status'] ?? 'available',
+            'amenities'       => $data['amenities'] ?? null,
+            'images'          => $imagePaths ?: null,
         ]);
 
         if (isset($data['service_ids']) && is_array($data['service_ids'])) {
@@ -233,7 +222,7 @@ class RoomService
     public function updateRoom(int $landlordId, int $roomId, array $data, array $newImageFiles = [], array $removedImages = []): bool
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
 
         //chặn người dùng chỉnh sửa nếu phòng đó đã có tin đăngg được hiển thị ở clien
@@ -304,7 +293,7 @@ class RoomService
         if (!in_array($status, Room::STATUSES))
             return false;
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
 
         if (in_array($room->status, ['pending_renewal', 'deposited']) && $status === 'rented' && $room->current_people <= 0) {
@@ -327,7 +316,7 @@ class RoomService
     public function addPerson(int $landlordId, int $roomId)
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
 
         $allowedStatuses = ['deposited', 'rented', 'expiring_soon', 'pending_renewal'];
@@ -348,7 +337,7 @@ class RoomService
     public function removePerson(int $landlordId, int $roomId)
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->landlord_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
 
         if (!in_array($room->status, ['pending_renewal', 'expiring_soon'])) {
@@ -368,7 +357,7 @@ class RoomService
     public function deleteRoom(int $landlordId, int $roomId): bool
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
         //chặn xoá phòng nếu tin đó đã được hiển thị ở clien
         if ($room->roomPosts()->where('status', 'approved')->exists()) {
@@ -396,7 +385,13 @@ class RoomService
             'current_people' => $room->current_people,
             'amenities' => $room->amenities,
             'images' => $room->images ?? [],
-            'services' => $room->relationLoaded('services') ? $room->services->toArray() : [],
+            'services' => $room->relationLoaded('services') ? $room->services->map(function($service) {
+                $srv = $service->toArray();
+                if ($service->pivot && !is_null($service->pivot->price)) {
+                    $srv['price'] = (float)$service->pivot->price;
+                }
+                return $srv;
+            })->toArray() : [],
             'has_approved_post' => $room->roomPosts()->where('status', 'approved')->exists(),
         ];
     }

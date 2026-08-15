@@ -99,6 +99,48 @@ class ServiceManagementService
         if (!$service || $service->property->landlord_id !== $landlordId) return false;
         
         $updateData = array_intersect_key($data, array_flip(['price', 'type', 'description', 'is_active', 'color']));
+        
+        if (isset($data['price']) && (float)$data['price'] !== (float)$service->price) {
+            $isElectricityOrWater = in_array($service->type, ['per_kwh', 'per_m3']) || 
+                                    stripos($service->name, 'điện') !== false || 
+                                    stripos($service->name, 'nước') !== false;
+            
+            if (!$isElectricityOrWater && $service->price_updated_at) {
+                $lastUpdated = \Carbon\Carbon::parse($service->price_updated_at);
+                if ($lastUpdated->diffInDays(\Carbon\Carbon::now()) < 30) {
+                    throw new \Exception("Bạn chỉ được thay đổi giá dịch vụ này tối đa 1 lần trong 30 ngày!");
+                }
+            }
+            
+            // Get all rooms linked to this service
+            $rooms = $service->rooms()->get();
+            foreach ($rooms as $room) {
+                // Check if room has an active (signed) contract
+                $hasActiveContract = \DB::table('contracts')
+                    ->where('room_id', $room->id)
+                    ->where('status', 'signed')
+                    ->exists();
+                if ($hasActiveContract) {
+                    // Freeze the previous price of this service for this room in room_service pivot if not already frozen
+                    $pivot = \DB::table('room_service')
+                        ->where('room_id', $room->id)
+                        ->where('service_id', $service->id)
+                        ->first();
+                    if ($pivot && is_null($pivot->price)) {
+                        \DB::table('room_service')
+                            ->where('room_id', $room->id)
+                            ->where('service_id', $service->id)
+                            ->update([
+                                'price' => $service->price, // freeze previous price
+                                'updated_at' => \Carbon\Carbon::now()
+                            ]);
+                    }
+                }
+            }
+            
+            $updateData['price_updated_at'] = \Carbon\Carbon::now();
+        }
+        
         return $this->serviceRepo->update($service, $updateData);
     }
 
@@ -106,6 +148,16 @@ class ServiceManagementService
     {
         $service = $this->serviceRepo->findById($serviceId);
         if (!$service || $service->property->landlord_id !== $landlordId) return false;
+        
+        if ($service->is_active) {
+            throw new \Exception("Không thể xóa tiện ích đang hoạt động! Vui lòng khóa tiện ích trước.");
+        }
+        
+        $inUse = \DB::table('room_service')->where('service_id', $serviceId)->exists();
+        if ($inUse) {
+            throw new \Exception("Tiện ích này đang được sử dụng ở các phòng trọ của bạn!");
+        }
+        
         return $this->serviceRepo->delete($service);
     }
 

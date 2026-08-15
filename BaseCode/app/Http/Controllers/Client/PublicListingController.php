@@ -48,6 +48,15 @@ class PublicListingController extends Controller
             ->where('status', 'approved')
             ->firstOrFail();
 
+        if ($post->room && $post->room->services) {
+            $post->room->services->map(function ($service) {
+                if ($service->pivot && !is_null($service->pivot->price)) {
+                    $service->price = $service->pivot->price;
+                }
+                return $service;
+            });
+        }
+
         // Tạm tắt tự động cập nhật timestamps
         $post->timestamps = false;
         // Tăng lượt xem (không bắt buộc nhưng tốt cho SEO/thống kê)

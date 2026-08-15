@@ -1,7 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { Head, router } from '@inertiajs/vue3'
-import { ref, computed } from 'vue'
+import { Head, router, usePage } from '@inertiajs/vue3'
+import { ref, computed, watch } from 'vue'
 
 // Props nhận dữ liệu từ CategoryController (Server → Inertia)
 const props = defineProps({
@@ -47,6 +47,15 @@ function showFlash(msg, type = 'success') {
     setTimeout(() => { flashMsg.value = '' }, 3000)
 }
 
+const page = usePage()
+watch(() => page.props.flash, (newFlash) => {
+    if (newFlash && newFlash.success) {
+        showFlash(newFlash.success, 'success')
+    } else if (newFlash && newFlash.error) {
+        showFlash(newFlash.error, 'error')
+    }
+}, { deep: true })
+
 // Icon mặc định theo từng tab
 const defaultIcons = {
     types:     'bi-door-closed',
@@ -78,7 +87,6 @@ function saveItem() {
             preserveScroll: true,
             onSuccess: () => {
                 showForm.value = false
-                showFlash('Cập nhật thành công!')
             },
             onFinish: () => { isSubmitting.value = false },
         })
@@ -88,7 +96,6 @@ function saveItem() {
             preserveScroll: true,
             onSuccess: () => {
                 showForm.value = false
-                showFlash('Thêm mới thành công!')
             },
             onFinish: () => { isSubmitting.value = false },
         })
@@ -100,7 +107,6 @@ function toggleActive(item) {
     const prefix = routeMap[activeTab.value]
     router.patch(route(`${prefix}.toggle`, item.id), {}, {
         preserveScroll: true,
-        onSuccess: () => showFlash('Cập nhật trạng thái thành công!'),
     })
 }
 
@@ -111,7 +117,6 @@ function deleteItem(item) {
     const prefix = routeMap[activeTab.value]
     router.delete(route(`${prefix}.delete`, item.id), {
         preserveScroll: true,
-        onSuccess: () => showFlash('Xóa thành công!'),
     })
 }
 </script>
@@ -189,7 +194,7 @@ function deleteItem(item) {
                                 <i :class="['bi', item.is_active ? 'bi-eye-fill' : 'bi-eye-slash']"></i>
                             </button>
                             <button @click="openEdit(item)" class="edit-btn"><i class="bi bi-pencil-fill"></i></button>
-                            <button @click="deleteItem(item)" class="del-btn"><i class="bi bi-trash3-fill"></i></button>
+                            <button v-if="activeTab !== 'amenities'" @click="deleteItem(item)" class="del-btn"><i class="bi bi-trash3-fill"></i></button>
                         </div>
                     </div>
                 </div>

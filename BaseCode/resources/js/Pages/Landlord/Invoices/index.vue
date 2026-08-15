@@ -481,9 +481,14 @@ const closeViewModal = () => {
                                 <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="bi bi-house-door-fill"></i></div>
                                 <span class="text-xs font-bold text-slate-700">Tiền phòng</span>
                             </div>
-                            <div class="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
-                                <span>Thành tiền:</span>
-                                <input type="number" v-model.number="invoiceForm.rent" class="w-28 px-2 py-1 text-right border border-slate-200 focus:border-emerald-500 rounded-lg outline-none font-bold text-slate-800 bg-white" />
+                            <div class="flex flex-col items-end gap-1 text-xs text-slate-500 font-bold">
+                                <div class="flex items-center gap-1.5">
+                                    <span>Thành tiền:</span>
+                                    <input type="number" v-model.number="invoiceForm.rent" class="w-28 px-2 py-1 text-right border border-slate-200 focus:border-emerald-500 rounded-lg outline-none font-bold text-slate-800 bg-white" />
+                                </div>
+                                <div class="text-[10px] text-emerald-600 font-bold" v-if="invoiceForm.rent">
+                                    Bằng số: {{ formatMoney(invoiceForm.rent) }}
+                                </div>
                             </div>
                         </div>
 

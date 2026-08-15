@@ -14,6 +14,7 @@ class Service extends Model
         'amenity_id',
         'name',
         'price',
+        'price_updated_at',
         'type',
         'description',
         'icon',
@@ -24,6 +25,7 @@ class Service extends Model
     protected $casts = [
         'price' => 'float',
         'is_active' => 'boolean',
+        'price_updated_at' => 'datetime',
     ];
 
     public function property()
