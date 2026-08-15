@@ -30,6 +30,17 @@ const form = ref({
 const submitting = ref(false);
 const originalStatus = ref("available");
 
+const displayPrice = computed({
+    get() {
+        if (form.value.price === null || form.value.price === undefined || form.value.price === '') return ''
+        return new Intl.NumberFormat('en-US').format(form.value.price)
+    },
+    set(val) {
+        const raw = String(val).replace(/\D/g, '')
+        form.value.price = raw ? parseInt(raw, 10) : 0
+    }
+})
+
 const capitalize = (str) =>
     str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 const isInfoLocked = computed(
@@ -229,7 +240,7 @@ const submit = () => {
 
         let maxRoomNum = prefixNum * 100; // e.g. 200
         props.existingRooms.forEach((r) => {
-            const match = r.name.match(/\d+/);
+            const match = r.name ? r.name.match(/\d+/) : null;
             if (match) {
                 const num = parseInt(match[0]);
                 if (num > maxRoomNum && r.name.includes(prefixStr)) {
@@ -365,8 +376,8 @@ const submit = () => {
                             đ
                         </div>
                         <template v-else>
-                            <input v-model.number="form.price" type="number" step="100000" :class="[
-                                'w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium outline-none transition-all',
+                            <input v-model="displayPrice" type="text" placeholder="0" :class="[
+                                'w-full px-3.5 py-2.5 border rounded-xl text-xs font-bold text-slate-700 outline-none transition-all',
                                 errors.price
                                     ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500'
                                     : 'border-slate-200 focus:border-emerald-500',
@@ -438,11 +449,11 @@ const submit = () => {
                         <span class="text-rose-500">*</span></label>
                     <div class="grid grid-cols-2 gap-2 mt-1">
                         <label v-for="(cfg, key) in statusConfig" :key="key" v-show="isEdit
-                                ? allowedKeys(originalStatus).includes(key)
-                                : [
-                                    'available',
-                                    'under_construction',
-                                ].includes(key)
+                            ? allowedKeys(originalStatus).includes(key)
+                            : [
+                                'available',
+                                'under_construction',
+                            ].includes(key)
                             " :class="[
                                 'flex items-center gap-2 p-2.5 border rounded-xl text-[11px] font-bold cursor-pointer transition-all',
                                 form.status === key
@@ -501,10 +512,10 @@ const submit = () => {
                                         ]?.text
                                         : 'text-slate-400',
                                 ]">{{
-                                        new Intl.NumberFormat("vi-VN").format(
-                                            srv.price,
-                                        )
-                                    }}đ</span>
+                                    new Intl.NumberFormat("vi-VN").format(
+                                        srv.price,
+                                    )
+                                }}đ</span>
                             </div>
                         </label>
                     </div>

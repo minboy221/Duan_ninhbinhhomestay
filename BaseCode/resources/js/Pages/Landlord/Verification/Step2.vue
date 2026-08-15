@@ -185,45 +185,41 @@ const nextStep = () => {
                                 class="w-full h-14 px-6 rounded-lg bg-surface-container-lowest border-none ring-1 ring-outline-variant/30 focus:ring-4 focus:ring-primary-container/30 transition-all text-on-surface"
                                 :class="{ 'ring-error/50': errors.property_name }" />
                             <p v-if="errors.property_name" class="text-error text-xs font-bold">{{ errors.property_name
-                                }}</p>
+                            }}</p>
                         </div>
 
                         <!-- Ward & Address detail -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                             <div class="space-y-1" ref="dropdownRef">
-                                <label class="block text-sm font-semibold text-on-surface mb-2 tracking-wide uppercase">Phường / Xã <span class="text-error font-bold">*</span></label>
+                                <label
+                                    class="block text-sm font-semibold text-on-surface mb-2 tracking-wide uppercase">Phường
+                                    / Xã <span class="text-error font-bold">*</span></label>
                                 <div class="relative w-full">
                                     <!-- Custom Trigger Button (matching standard form styles) -->
-                                    <button
-                                        type="button"
-                                        @click="toggleDropdown"
+                                    <button type="button" @click="toggleDropdown"
                                         class="w-full h-14 px-6 pr-10 rounded-lg bg-surface-container-lowest border-none ring-1 ring-outline-variant/30 focus:ring-4 focus:ring-primary-container/30 transition-all text-on-surface flex items-center justify-between text-left cursor-pointer select-none"
-                                        :class="{ 'ring-error/50': errors.ward }"
-                                    >
+                                        :class="{ 'ring-error/50': errors.ward }">
                                         <span :class="{ 'text-on-surface-variant/60': !form.ward }">
                                             {{ form.ward || '-- Chọn Phường/Xã --' }}
                                         </span>
-                                        <span class="material-symbols-outlined text-on-surface-variant transition-transform duration-300" :class="{ 'rotate-180': isDropdownOpen }">
+                                        <span
+                                            class="material-symbols-outlined text-on-surface-variant transition-transform duration-300"
+                                            :class="{ 'rotate-180': isDropdownOpen }">
                                             keyboard_arrow_down
                                         </span>
                                     </button>
 
                                     <!-- Custom Dropdown Options Menu -->
                                     <transition name="dropdown-fade">
-                                        <div
-                                            v-show="isDropdownOpen"
-                                            class="absolute top-full left-0 right-0 mt-2 bg-surface-container-lowest rounded-xl shadow-2xl border border-outline-variant/20 z-[999] p-2 max-h-60 overflow-y-auto custom-scrollbar"
-                                        >
-                                            <button
-                                                v-for="commune in HA_NAM_COMMUNES"
-                                                :key="commune"
-                                                type="button"
+                                        <div v-show="isDropdownOpen"
+                                            class="absolute top-full left-0 right-0 mt-2 bg-surface-container-lowest rounded-xl shadow-2xl border border-outline-variant/20 z-[999] p-2 max-h-60 overflow-y-auto custom-scrollbar">
+                                            <button v-for="commune in HA_NAM_COMMUNES" :key="commune" type="button"
                                                 @click="selectCommune(commune)"
                                                 class="w-full px-4 py-3 rounded-lg text-left text-sm font-medium transition-all duration-150 flex items-center justify-between"
-                                                :class="form.ward === commune ? 'bg-primary/10 text-primary font-bold shadow-sm' : 'hover:bg-surface-container-low text-on-surface-variant hover:text-on-surface'"
-                                            >
+                                                :class="form.ward === commune ? 'bg-primary/10 text-primary font-bold shadow-sm' : 'hover:bg-surface-container-low text-on-surface-variant hover:text-on-surface'">
                                                 <span>{{ commune }}</span>
-                                                <span v-if="form.ward === commune" class="material-symbols-outlined text-sm text-primary font-extrabold">check</span>
+                                                <span v-if="form.ward === commune"
+                                                    class="material-symbols-outlined text-sm text-primary font-extrabold">check</span>
                                             </button>
                                         </div>
                                     </transition>
@@ -253,7 +249,7 @@ const nextStep = () => {
                         <span class="material-symbols-outlined text-primary">description</span>
                         Hồ sơ pháp lý <span class="text-error font-bold">*</span>
                     </h2>
-                    <p class="text-sm text-on-surface-variant mb-6">Tải lên bản quét Sổ đỏ hoặc Giấy phép kinh doanh
+                    <p class="text-sm text-on-surface-variant mb-6">Tải lên bản hợp đồng thuê trọ
                         (Định dạng: JPG, PNG, PDF).</p>
 
                     <!-- Drag Drop Area -->
@@ -269,7 +265,7 @@ const nextStep = () => {
                     </label>
 
                     <p v-if="errors.contract_images" class="text-error text-xs font-bold mt-2">{{ errors.contract_images
-                        }}</p>
+                    }}</p>
 
                     <!-- File Previews List -->
                     <div v-if="form.contract_images_preview?.length" class="space-y-3 mt-4">
@@ -283,7 +279,7 @@ const nextStep = () => {
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-medium text-on-surface truncate" :title="file.name">{{ file.name
-                                    }}</p>
+                                }}</p>
                                 <p class="text-xs text-on-surface-variant">{{ file.size || 'Kích thước ẩn' }}</p>
                             </div>
                             <button type="button" @click="removeFile(index, 'contract_images')"
@@ -382,7 +378,7 @@ const nextStep = () => {
                             <div v-for="(file, index) in form.room_images_preview.slice(3)" :key="'room-extra-' + index"
                                 class="flex items-center justify-between text-xs p-1.5 hover:bg-surface-container rounded transition-colors">
                                 <span class="truncate max-w-[200px] font-medium text-on-surface-variant">{{ file.name
-                                    }}</span>
+                                }}</span>
                                 <button type="button" @click="removeFile(index + 3, 'room_images')"
                                     class="text-error hover:text-error-dim font-bold flex items-center gap-1">
                                     <span class="material-symbols-outlined text-xs">delete</span> Xoá
@@ -435,13 +431,16 @@ select::-ms-expand {
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.1);
     border-radius: 9999px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.2);
 }
@@ -451,6 +450,7 @@ select::-ms-expand {
 .dropdown-fade-leave-active {
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .dropdown-fade-enter-from,
 .dropdown-fade-leave-to {
     opacity: 0;

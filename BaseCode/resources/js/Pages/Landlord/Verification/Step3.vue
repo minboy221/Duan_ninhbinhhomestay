@@ -16,7 +16,7 @@ const props = defineProps({
     currentStep: Number,
 });
 
-const emit = defineEmits(["prev", "submit"]);
+const emit = defineEmits(["prev", "submit", "goToStep1"]);
 
 const videoRef = ref(null);
 const canvasRef = ref(null);
@@ -25,6 +25,7 @@ const statusMsg = ref("Đang chờ khởi tạo hệ thống...");
 const statusColor = ref("bg-slate-500 text-white");
 const isMatched = ref(false);
 
+const failedMatchCount = ref(0);
 let scanInterval = null;
 
 /**
@@ -198,6 +199,14 @@ const startScanning = () => {
             if (!foundMatch && !isMatched.value) {
                 statusMsg.value = "Khuôn mặt không khớp CCCD";
                 statusColor.value = "bg-rose-500 text-white";
+                //nếu khuôn mặt xác minh không khớp sẽ hiển thị số lần
+                failedMatchCount.value++;
+                //nếu sai 5 lần trở lên
+                if(failedMatchCount.value >= 5){
+                    alert("Xác minih khuôn mặt không trùng khớp quá 5 lần! vui lòng quay lại các bước để kiểm tra lại thông tin.");
+                    stopCamera();
+                    emit('goToStep1');
+                }
             }
         } catch (err) {
             console.error("Lỗi quét camera:", err);

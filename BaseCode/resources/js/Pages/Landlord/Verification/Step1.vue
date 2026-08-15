@@ -56,7 +56,7 @@ const nextStep = () => {
         <div class="glass-panel rounded-xl p-8 md:p-12 shadow-2xl shadow-primary/5">
             <header class="mb-10 text-center">
                 <h1 class="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight mb-2">
-                    Xác minh nhân thân (KYC)
+                    Xác minh nhân thân
                 </h1>
                 <p class="text-on-surface-variant font-light text-lg">
                     Để đảm bảo an toàn cho cộng đồng, vui lòng cung cấp thông tin chính xác theo CCCD.
@@ -88,7 +88,7 @@ const nextStep = () => {
                             class="label-md font-semibold text-on-surface-variant tracking-wider block uppercase text-xs"
                             for="id_card"
                         >
-                            ID Card Number (CCCD) <span class="text-error font-bold">*</span>
+                            Số Căn Cước Công Dân <span class="text-error font-bold">*</span>
                         </label>
                         <input
                             v-model="form.id_card_number"
@@ -106,7 +106,7 @@ const nextStep = () => {
                 <div class="space-y-6">
                     <h3 class="text-xl font-bold text-on-surface flex items-center gap-3">
                         <span class="material-symbols-outlined text-primary">cloud_upload</span>
-                        Tài liệu định danh <span class="text-error font-bold">*</span>
+                        Hình Ảnh CCCD <span class="text-error font-bold">*</span>
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Upload Item 1 -->

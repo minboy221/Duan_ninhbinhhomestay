@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use Aws\HasDataTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Traits\Hashidable;
 class Appointment extends Model
 {
-    use HasFactory;
+    use HasFactory, Hashidable;
 
     protected $fillable = [
         'user_id',
@@ -18,11 +19,17 @@ class Appointment extends Model
         'note',
         'status',
         'notified',
+        'feedback_result',
+        'feedback_reason',
+        'feedback_time',
+        'cancellation_reason',
     ];
 
     protected $casts = [
         'notified' => 'boolean',
     ];
+
+    protected $appends = ['hash_id'];
 
     /**
      * Relationship to the tenant (User)

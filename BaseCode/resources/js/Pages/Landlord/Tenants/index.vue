@@ -2,17 +2,16 @@
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, computed } from 'vue'
 
-const tenants = ref([
-    { id: 1, name: 'Nguyễn Văn A', phone: '0912 345 678', cccd: '036091234567', room: 'Phòng 101', floor: 1, moveIn: '2025-06-01', people: 2, status: 'active', avatar: 'A' },
-    { id: 2, name: 'Trần Thị B',   phone: '0987 654 321', cccd: '045098765432', room: 'Phòng 102', floor: 1, moveIn: '2026-01-15', people: 1, status: 'active', avatar: 'B' },
-    { id: 3, name: 'Lê Minh C',    phone: '0901 111 222', cccd: '038001112222', room: 'Phòng 201', floor: 2, moveIn: '2025-09-01', people: 3, status: 'active', avatar: 'C' },
-    { id: 4, name: 'Phạm Thị D',   phone: '0933 444 555', cccd: '034044455555', room: 'Phòng 202', floor: 2, moveIn: '2026-04-20', people: 2, status: 'active', avatar: 'D' },
-    { id: 5, name: 'Hoàng Văn E',  phone: '0966 777 888', cccd: '040077788888', room: 'Phòng 301', floor: 3, moveIn: '2025-03-01', people: 1, status: 'leaving', avatar: 'E' },
-    { id: 6, name: 'Ngô Thị F',    phone: '0944 333 111', cccd: '038033311111', room: 'Phòng 205', floor: 2, moveIn: '2026-02-10', people: 2, status: 'active', avatar: 'F' },
-])
+const props = defineProps({
+    tenants: {
+        type: Array,
+        default: () => []
+    }
+})
+
+const tenants = computed(() => props.tenants)
 
 const showModal  = ref(false)
-const showAdd    = ref(false)
 const selected   = ref(null)
 const searchQ    = ref('')
 const activeTab  = ref('all') // 'all' | 'active' | 'leaving'
@@ -24,7 +23,10 @@ const statusMap = {
 
 const avatarColors = ['#0f766e','#1d4ed8','#7c3aed','#b45309','#dc2626','#0891b2']
 const avatarColor  = (i) => avatarColors[i % avatarColors.length]
-const formatDate = (d) => new Date(d).toLocaleDateString('vi-VN')
+const formatDate = (d) => {
+    if(!d) return 'N/A'
+    return new Date(d).toLocaleDateString('vi-VN')
+}
 
 const filteredTenants = computed(() => {
     return tenants.value.filter(t => {
@@ -35,7 +37,10 @@ const filteredTenants = computed(() => {
         // Search Filter
         if(searchQ.value) {
             const q = searchQ.value.toLowerCase()
-            return t.name.toLowerCase().includes(q) || t.room.toLowerCase().includes(q) || t.phone.includes(q)
+            return (t.name && t.name.toLowerCase().includes(q)) || 
+                   (t.room && t.room.toLowerCase().includes(q)) || 
+                   (t.phone && t.phone.includes(q)) ||
+                   (t.cccd && t.cccd.includes(q))
         }
         return true
     })
@@ -44,36 +49,6 @@ const filteredTenants = computed(() => {
 const openDetail = (t) => { selected.value = t; showModal.value = true }
 const closeModal = () => { showModal.value = false }
 
-// Add tenant form state
-const addForm = ref({
-    name: '',
-    phone: '',
-    cccd: '',
-    room: '',
-    moveIn: '',
-    people: 1
-})
-
-const submitAdd = () => {
-    if(!addForm.value.name || !addForm.value.phone || !addForm.value.room) {
-        alert('Vui lòng điền đủ các thông tin bắt buộc.')
-        return
-    }
-    const nextId = tenants.value.length ? Math.max(...tenants.value.map(t=>t.id)) + 1 : 1
-    tenants.value.push({
-        id: nextId,
-        name: addForm.value.name,
-        phone: addForm.value.phone,
-        cccd: addForm.value.cccd,
-        room: addForm.value.room,
-        floor: 1,
-        moveIn: addForm.value.moveIn || new Date().toISOString().split('T')[0],
-        people: addForm.value.people,
-        status: 'active',
-        avatar: addForm.value.name.charAt(0).toUpperCase()
-    })
-    showAdd.value = false
-}
 </script>
 
 <template>
@@ -92,9 +67,6 @@ const submitAdd = () => {
                     <h2 class="text-lg font-bold text-slate-800">Quản lý Khách hàng</h2>
                     <p class="text-xs text-slate-400">Danh sách khách thuê đang cư trú hoặc chuẩn bị kết thúc thời hạn thuê</p>
                 </div>
-                <button @click="showAdd = true" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5">
-                    <i class="bi bi-person-plus-fill"></i> Thêm người thuê
-                </button>
             </div>
 
             <!-- Stats Grid -->
@@ -176,46 +148,91 @@ const submitAdd = () => {
                     <i class="bi bi-inbox text-3xl text-slate-300 block"></i>
                     <span>Không có khách hàng nào.</span>
                 </div>
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                <th class="py-3.5 px-6">Họ tên khách</th>
-                                <th class="py-3.5 px-4">Số điện thoại</th>
-                                <th class="py-3.5 px-4">Phòng cư trú</th>
-                                <th class="py-3.5 px-4">Ngày vào ở</th>
-                                <th class="py-3.5 px-4">Tình trạng</th>
-                                <th class="py-3.5 px-6 text-right">Xem</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                            <tr v-for="(t, i) in filteredTenants" :key="t.id" class="hover:bg-slate-50/40 cursor-pointer" @click="openDetail(t)">
-                                <td class="py-4 px-6 font-bold text-slate-800 flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs" :style="{ backgroundColor: avatarColor(i) }">
+                <div v-else>
+                    <!-- Desktop Table View (hidden on mobile) -->
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    <th class="py-3.5 px-6">Họ tên khách</th>
+                                    <th class="py-3.5 px-4">Số điện thoại</th>
+                                    <th class="py-3.5 px-4">Phòng cư trú</th>
+                                    <th class="py-3.5 px-4">Ngày vào ở</th>
+                                    <th class="py-3.5 px-4">Tình trạng</th>
+                                    <th class="py-3.5 px-6 text-right">Xem</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
+                                <tr v-for="(t, i) in filteredTenants" :key="t.id" class="hover:bg-slate-50/40 cursor-pointer" @click="openDetail(t)">
+                                    <td class="py-4 px-6 font-bold text-slate-800 flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs" :style="{ backgroundColor: avatarColor(i) }">
+                                            {{ t.avatar }}
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span>{{ t.name }}</span>
+                                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CCCD: {{ t.cccd }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 px-4">{{ t.phone }}</td>
+                                    <td class="py-4 px-4 font-bold text-emerald-600">{{ t.room }}</td>
+                                    <td class="py-4 px-4 text-slate-400">{{ formatDate(t.moveIn) }}</td>
+                                    <td class="py-4 px-4">
+                                        <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', statusMap[t.status].cls]">
+                                            <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[t.status].dot"></span>
+                                            {{ statusMap[t.status].label }}
+                                        </span>
+                                    </td>
+                                    <td class="py-4 px-6 text-right" @click.stop>
+                                        <button @click="openDetail(t)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-500 inline-flex items-center justify-center transition-colors">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Mobile Cards View (hidden on desktop) -->
+                    <div class="block md:hidden divide-y divide-slate-100">
+                        <div v-for="(t, i) in filteredTenants" :key="t.id" 
+                            class="p-4 space-y-3 cursor-pointer hover:bg-slate-50/50" 
+                            @click="openDetail(t)">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-white text-xs shrink-0" 
+                                        :style="{ backgroundColor: avatarColor(i) }">
                                         {{ t.avatar }}
                                     </div>
-                                    <div class="flex flex-col">
-                                        <span>{{ t.name }}</span>
-                                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CCCD: {{ t.cccd }}</span>
+                                    <div class="space-y-0.5">
+                                        <h4 class="text-xs font-bold text-slate-800">{{ t.name }}</h4>
+                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CCCD: {{ t.cccd }}</p>
                                     </div>
-                                </td>
-                                <td class="py-4 px-4">{{ t.phone }}</td>
-                                <td class="py-4 px-4 font-bold text-emerald-600">{{ t.room }}</td>
-                                <td class="py-4 px-4 text-slate-400">{{ formatDate(t.moveIn) }}</td>
-                                <td class="py-4 px-4">
-                                    <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', statusMap[t.status].cls]">
-                                        <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[t.status].dot"></span>
-                                        {{ statusMap[t.status].label }}
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6 text-right" @click.stop>
-                                    <button @click="openDetail(t)" class="w-8 h-8 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-500 inline-flex items-center justify-center transition-colors">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </div>
+                                <span :class="['px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit', statusMap[t.status].cls]">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="statusMap[t.status].dot"></span>
+                                    {{ statusMap[t.status].label }}
+                                </span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500 pt-1">
+                                <div class="flex items-center gap-1.5">
+                                    <i class="bi bi-telephone text-slate-400"></i>
+                                    <span>{{ t.phone }}</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <i class="bi bi-house text-emerald-500"></i>
+                                    <span class="font-bold text-emerald-600">{{ t.room }}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between text-[10px] font-semibold text-slate-400 border-t border-slate-100/50 pt-2">
+                                <span>Ngày vào ở: {{ formatDate(t.moveIn) }}</span>
+                                <button @click.stop="openDetail(t)" class="text-slate-500 hover:text-slate-700 flex items-center gap-0.5 font-bold">
+                                    Chi tiết <i class="bi bi-chevron-right text-[8px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -291,57 +308,6 @@ const submitAdd = () => {
                 </div>
             </div>
 
-            <!-- Add Tenant Modal -->
-            <div v-if="showAdd" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showAdd = false">
-                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                        <h3 class="text-sm font-bold text-slate-800">Thêm người thuê trọ mới</h3>
-                        <button @click="showAdd=false" class="text-slate-400 hover:text-slate-600 p-1">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-
-                    <div class="p-6 space-y-4 overflow-y-auto flex-1">
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500">Họ và tên khách thuê <span class="text-rose-500">*</span></label>
-                            <input v-model="addForm.name" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: Nguyễn Văn A"/>
-                        </div>
-
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500">Số điện thoại <span class="text-rose-500">*</span></label>
-                            <input v-model="addForm.phone" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: 0912345678"/>
-                        </div>
-
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500">Số CCCD / Hộ chiếu</label>
-                            <input v-model="addForm.cccd" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="Nhập 12 số CCCD"/>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Phòng xếp ở <span class="text-rose-500">*</span></label>
-                                <input v-model="addForm.room" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all" placeholder="VD: Phòng 101"/>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">Số người ở cùng</label>
-                                <input v-model.number="addForm.people" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                            </div>
-                        </div>
-
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500">Ngày bắt đầu vào ở</label>
-                            <input v-model="addForm.moveIn" type="date" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                        </div>
-                    </div>
-
-                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
-                        <button class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-colors" @click="showAdd = false">Hủy</button>
-                        <button class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors" @click="submitAdd">
-                            Đăng ký ở
-                        </button>
-                    </div>
-                </div>
-            </div>
         </Teleport>
     </LandlordLayout>
 </template>

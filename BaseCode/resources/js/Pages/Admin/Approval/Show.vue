@@ -2,6 +2,7 @@
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref } from "vue";
+import { showConfirm } from "@/Utils/swal"; 
 
 const props = defineProps({
     post: Object,
@@ -42,10 +43,14 @@ const getStatusClass = (status) => {
 };
 
 // Hàm gọi lệnh Phê duyệt bài viết
-function approvePost() {
-    if (
-        confirm(`Bạn có chắc chắn muốn phê duyệt xuất bản bài đăng này không?`)
-    ) {
+async function approvePost() {
+    const confirmed = await showConfirm(
+        "Phê duyệt bài đăng",
+        "Bạn có chắc chắn muốn phê duyệt xuất bản bài đăng này không?",
+        "Phê duyệt",
+        "Hủy"
+    );
+    if (confirmed) {
         router.post(route("admin.listings.approve", props.post.id));
     }
 }
@@ -110,16 +115,100 @@ const formatMoney = (n) =>
                             {{ post.title }}
                         </h2>
                     </div>
-                    <div class="text-xs text-gray-700 bg-blue-50/40 border border-blue-100 p-3 rounded-xl">
-                        <span class="font-bold block text-blue-900 mb-0.5">📍 Địa chỉ thực tế bài đăng đăng ký:</span>
-                        {{
-                            post.address ||
-                            post.room?.boarding_house?.address_detail ||
-                            "Chủ trọ chưa thiết lập định vị địa chỉ."
-                        }}
+                    <div class="grid grid-cols-2 gap-4 text-xs py-4 text-gray-600 bg-gray-50/50 px-4 rounded-xl border border-gray-100">
+                        <div>
+                            💰 Giá thuê phòng:
+                            <span class="font-extrabold text-red-600 text-sm">{{
+                                formatMoney(post.room?.price)
+                            }}</span>/tháng
+                        </div>
+                        <div>
+                            📐 Diện tích sử dụng:
+                            <span class="font-bold text-gray-900">{{ post.room?.area || "—" }} m²</span>
+                        </div>
+                        <div>
+                            🔢 Số phòng quản lý:
+                            <span class="font-bold text-gray-900">Phòng {{ post.room?.room_number }}</span>
+                        </div>
+                        <div>
+                            📅 Thời gian gửi bài:
+                            <span class="font-bold text-gray-900">{{
+                                formatDate(post.created_at)
+                            }}</span>
+                        </div>
+                        <div>
+                            🏠 Tên khu trọ:
+                            <span class="font-bold text-gray-900">{{
+                                post.room?.boarding_house?.name || "—"
+                            }}</span>
+                        </div>
+                        <div>
+                            👥 Sức chứa tối đa:
+                            <span class="font-bold text-gray-900">{{ post.room?.capacity || "2" }} người</span>
+                        </div>
+                        <div>
+                            🏢 Tầng quản lý:
+                            <span class="font-bold text-gray-900">{{
+                                post.room?.floor?.name || "—"
+                            }}</span>
+                        </div>
+                        <div>
+                            ⚡ Trạng thái phòng:
+                            <span :class="[
+                                'px-2 py-0.5 rounded-md border text-[10px] font-bold',
+                                getStatusClass(post.room?.status),
+                            ]">
+                                {{ getStatusLabel(post.room?.status) }}
+                            </span>
+                        </div>
                     </div>
-                    <div class="mt-4">
-                        <span class="font-bold block text-gray-900 text-xs mb-2">🗺️ Bản đồ vị trí khu trọ:</span>
+
+                    <!-- Các dịch vụ & Tiện ích đi kèm -->
+                    <div v-if="
+                        post.room?.services && post.room.services.length > 0
+                    " class="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                        <span class="font-bold block text-gray-900 text-xs">⚡ Các dịch vụ & Tiện ích đi kèm:</span>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div v-for="service in post.room.services" :key="service.id"
+                                class="flex items-center gap-2 text-xs text-gray-600 bg-white p-2 rounded-lg border border-gray-100">
+                                <i :class="[
+                                    'bi',
+                                    service.icon || 'bi-check-circle-fill',
+                                ]" :style="'color:' + (service.color || '#3b82f6')
+                                        "></i>
+                                <span>{{ service.name }}:
+                                    <strong class="text-red-500">{{
+                                        formatMoney(service.price)
+                                    }}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nội dung mô tả chi tiết -->
+                    <div>
+                        <h4
+                            class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <i class="bi bi-file-text"></i> Nội dung mô tả chi
+                            tiết từ chủ trọ:
+                        </h4>
+                        <div v-html="post.description"
+                            class="p-4 bg-white border border-gray-100 rounded-xl text-xs text-gray-700 leading-relaxed max-h-96 overflow-y-auto detail-content-view shadow-inner">
+                        </div>
+                    </div>
+
+                    <!-- Thông tin vị trí & Địa điểm -->
+                    <div class="space-y-3 pt-2">
+                        <span class="font-bold block text-gray-900 text-xs">📍 Thông tin vị trí & Bản đồ:</span>
+                        
+                        <div class="text-xs text-gray-700 bg-blue-50/40 border border-blue-100 p-3 rounded-xl">
+                            <span class="font-bold block text-blue-900 mb-0.5">Địa chỉ thực tế bài đăng đăng ký:</span>
+                            {{
+                                post.address ||
+                                post.room?.boarding_house?.address_detail ||
+                                "Chủ trọ chưa thiết lập định vị địa chỉ."
+                            }}
+                        </div>
+
                         <div class="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style="height: 250px">
                             <!-- Trường hợp 1: Có tọa độ GPS chính xác (Kinh độ & Vĩ độ) từ tin đăng -->
                             <iframe v-if="post.latitude && post.longitude"
@@ -160,95 +249,6 @@ const formatMoney = (n) =>
                                 Chưa có tọa độ hoặc địa chỉ cụ thể để hiển thị
                                 bản đồ.
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- THÊM DƯỚI ĐÂY -->
-                    <div v-if="
-                        post.room?.services && post.room.services.length > 0
-                    " class="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
-                        <span class="font-bold block text-gray-900 text-xs">⚡ Các dịch vụ & Tiện ích đi kèm:</span>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div v-for="service in post.room.services" :key="service.id"
-                                class="flex items-center gap-2 text-xs text-gray-600 bg-white p-2 rounded-lg border border-gray-100">
-                                <i :class="[
-                                    'bi',
-                                    service.icon || 'bi-check-circle-fill',
-                                ]" :style="'color:' + (service.color || '#3b82f6')
-                                        "></i>
-                                <span>{{ service.name }}:
-                                    <strong class="text-red-500">{{
-                                        formatMoney(service.price)
-                                        }}</strong></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div
-                        class="grid grid-cols-2 gap-4 text-xs py-4 border-t border-b text-gray-600 bg-gray-50/50 px-4 rounded-xl">
-                        <div>
-                            💰 Giá thuê phòng:
-                            <span class="font-extrabold text-red-600 text-sm">{{
-                                formatMoney(post.room?.price)
-                                }}</span>/tháng
-                        </div>
-                        <div>
-                            📐 Diện tích sử dụng:
-                            <span class="font-bold text-gray-900">{{ post.room?.area || "—" }} m²</span>
-                        </div>
-                        <div>
-                            🔢 Số phòng quản lý:
-                            <span class="font-bold text-gray-900">Phòng {{ post.room?.room_number }}</span>
-                        </div>
-                        <div>
-                            📅 Thời gian gửi bài:
-                            <span class="font-bold text-gray-900">{{
-                                formatDate(post.created_at)
-                                }}</span>
-                        </div>
-                        <div>
-                            🏠 Tên khu trọ:
-                            <span class="font-bold text-gray-900">{{
-                                post.room?.boarding_house?.name || "—"
-                                }}</span>
-                        </div>
-                        <div>
-                            👥 Sức chứa tối đa:
-                            <span class="font-bold text-gray-900">{{ post.room?.capacity || "2" }} người</span>
-                        </div>
-                        <div>
-                            🏢 Tầng quản lý:
-                            <span class="font-bold text-gray-900">{{
-                                post.room?.floor?.name || "—"
-                                }}</span>
-                        </div>
-                        <div>
-                            ⚡ Trạng thái phòng:
-                            <span :class="[
-                                'px-2 py-0.5 rounded-md border text-[10px] font-bold',
-                                getStatusClass(post.room?.status),
-                            ]">
-                                {{ getStatusLabel(post.room?.status) }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="text-xs text-gray-700 bg-blue-50/40 border border-blue-100 p-3 rounded-xl">
-                        <span class="font-bold block text-blue-900 mb-0.5">📍 Địa chỉ thực tế bài đăng đăng ký:</span>
-                        {{
-                            post.room?.boarding_house?.address_detail ||
-                            "Chủ trọ chưa thiết lập định vị địa chỉ."
-                        }}
-                    </div>
-
-                    <div>
-                        <h4
-                            class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                            <i class="bi bi-file-text"></i> Nội dung mô tả chi
-                            tiết từ chủ trọ:
-                        </h4>
-                        <div v-html="post.description"
-                            class="p-4 bg-white border border-gray-100 rounded-xl text-xs text-gray-700 leading-relaxed max-h-96 overflow-y-auto detail-content-view shadow-inner">
                         </div>
                     </div>
                 </div>

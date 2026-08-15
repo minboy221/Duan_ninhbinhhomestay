@@ -31,17 +31,17 @@ class VerificationService
             //Ảnh mặt trước
             $extFront = $data['id_card_front']->getClientOriginalExtension(); //lấy đuôi file ảnh
             $frontName = "user_{$userId}_cccd_truoc_{$timestamp}.{$extFront}"; //tạo tên mới
-            $frontPath = $data['id_card_front']->storeAs('private/kyc/id_cards', $frontName, 'local');
+            $frontPath = $data['id_card_front']->storeAs('kyc/id_cards', $frontName, 'r2_private');
 
             //Ảnh mặt sau
             $extBack = $data['id_card_back']->getClientOriginalExtension();
             $backName = "user_{$userId}_cccd_sau_{$timestamp}.{$extBack}";
-            $backPath = $data['id_card_back']->storeAs('private/kyc/id_cards', $backName, 'local');
+            $backPath = $data['id_card_back']->storeAs('kyc/id_cards', $backName, 'r2_private');
 
             //Ảnh khuôn mặt
             $extFace = $data['face_auth_image']->getClientOriginalExtension();
             $faceName = "user_{$userId}_khuon_mat_{$timestamp}.{$extFace}";
-            $facePath = $data['face_auth_image']->storeAs('private/kyc/faces', $faceName, 'local');
+            $facePath = $data['face_auth_image']->storeAs('kyc/faces', $faceName, 'r2_private');
 
             //trạng thái từ AI gửi lên
             $kycStatus = $data['is_face_matched'] ? 'approved' : 'rejected';
@@ -68,7 +68,7 @@ class VerificationService
                 foreach ($data['contract_images'] as $index => $image) {
                     $ext = $image->getClientOriginalExtension();
                     $name = "user_{$userId}_hop_dong_{$index}_{$timestamp}.{$ext}";
-                    $contractPaths[] = $image->storeAs('private/properties/contracts', $name, 'local');
+                    $contractPaths[] = $image->storeAs('properties/contracts', $name, 'r2_private');
                 }
             }
             // Lưu mảng ảnh không gian trọ
@@ -89,7 +89,7 @@ class VerificationService
                         }
                     }
                     $name = "user_{$userId}_phong_tro_{$index}_{$timestamp}.{$ext}";
-                    $roomPaths[] = $file->storeAs('private/properties/rooms', $name, 'local');
+                    $roomPaths[] = $file->storeAs('properties/rooms', $name, 'r2_public');
                 }
             };
             $boardingHouseData = [

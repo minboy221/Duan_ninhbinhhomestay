@@ -18,6 +18,7 @@ class Room extends Model
         'price',
         'area',
         'capacity',
+        'current_people',
         'status',
         'images',
     ];
@@ -25,6 +26,36 @@ class Room extends Model
     protected $casts = [
         'images' => 'array',
     ];
+
+    protected $appends = [
+        'current_people',
+    ];
+
+    public function contracts()
+    {
+        return $this->hasMany(Contract::class, 'room_id');
+    }
+
+    //phần thêm người ở ghép
+    public function residents(){
+        return $this->hasMany(RoomResident::class,'room_id')->where('status','active');
+    }
+
+    public function getCurrentPeopleAttribute()
+    {
+        $dbValue = (int) ($this->attributes['current_people'] ?? 0);
+        $activeContractsSum = (int) $this->contracts()
+            ->whereIn('status', ['active', 'signed', 'pending', 'awaiting_upload', 'termination_requested', 'expiring'])
+            ->sum('number_of_tenants');
+            
+        $base = max($dbValue, $activeContractsSum);
+        
+        if (in_array($this->attributes['status'] ?? '', ['rented', 'deposited'])) {
+            return max($base, 1);
+        }
+        
+        return $base;
+    }
 
     /**
      * Danh sách trạng thái hợp lệ

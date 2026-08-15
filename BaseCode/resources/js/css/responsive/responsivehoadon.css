@@ -19,7 +19,7 @@
 
     .baohoadon {
         padding: 20px;
-        border-radius: 25px;
+        border-radius: 10px;
     }
 
     .title_hoadon h2 {
@@ -55,7 +55,7 @@
         background: rgba(255, 255, 255, 0.4);
         backdrop-filter: blur(10px);
         margin-bottom: 20px;
-        border-radius: 20px;
+        border-radius: 10px;
         padding: 15px;
         border: 1px solid rgba(255, 255, 255, 0.3);
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
@@ -113,7 +113,7 @@
     /* Modal Mobile */
     .modal-box {
         padding: 20px;
-        border-radius: 20px;
+        border-radius: 10px;
         width: 90%;
     }
 

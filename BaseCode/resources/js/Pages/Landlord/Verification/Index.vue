@@ -209,6 +209,7 @@ const submitVerification = () => {
             :currentStep="currentStep"
             @prev="prevStep"
             @submit="submitVerification"
+            $go-to-step1 = "currentStep = 1"
         />
         
         <!-- Popup Thông Báo (Success / Error) -->

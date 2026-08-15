@@ -42,7 +42,7 @@
 
 ::-webkit-scrollbar-thumb {
     background: #144470;
-    border-radius: 5px;
+    border-radius: 4px;
     transition: all 0.3s ease;
 }
 
@@ -78,7 +78,6 @@ body {
         0 8px 32px rgba(0, 0, 0, 0.25),
         inset 0 0 10px rgba(255, 255, 255, 0.2);
     z-index: 1000;
-    font-family: 'Inter', sans-serif;
 }
 
 /* LOGO */
@@ -103,7 +102,7 @@ body {
     color: rgb(79, 76, 76);
     font-size: 15px;
     padding: 8px 16px;
-    border-radius: 20px;
+    border-radius: 10px;
     transition: all 0.3s ease;
     font-weight: 500;
 }
@@ -140,7 +139,6 @@ body {
 .btn {
     margin-top: 15px;
     padding: 12px 15px;
-    font-family: 'Inter', sans-serif;
     border: none;
     cursor: pointer;
     transition: 0.3s;
@@ -160,13 +158,12 @@ body {
 
 .btn_xem {
     padding: 10px 10px;
-    font-family: 'Inter', sans-serif;
     cursor: pointer;
     transition: 0.3s;
     font-weight: 600;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     color: #fff;
-    border-radius: 15px;
+    border-radius: 8px;
     transition: 0.3s;
     text-align: center;
     text-decoration: none;
@@ -202,7 +199,7 @@ body {
     right: 45px;
     width: 350px;
     background: #fff;
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
     padding: 15px;
     display: none;
@@ -231,7 +228,7 @@ body {
 }
 .notification-box ul::-webkit-scrollbar-thumb {
     background: #cbd5e1;
-    border-radius: 10px;
+    border-radius: 6px;
 }
 
 .notification-box ul {
@@ -299,12 +296,11 @@ body {
     background: rgba(255, 255, 255, 1);
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
-    border-radius: 25px;
+    border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
         inset 0 0 10px rgba(255, 255, 255, 0.2);
-    font-family: 'Inter', sans-serif;
 }
 
 .dropdown.show {
@@ -382,7 +378,7 @@ body {
 
 .dropdown ul li:hover {
     background: #e0e0e0;
-    border-radius: 10px;
+    border-radius: 6px;
     color: #45abe6;
 }
 
@@ -530,12 +526,13 @@ body {
 
 .search input {
     padding: 10px 25px;
-    border-radius: 5px;
+    border-radius: 4px;
 }
 
 .search select {
     padding: 10px 25px;
-    border-radius: 5px;
+    border-radius: 4px;
+    color: #000;
 }
 
 /* phần giới thiệu */
@@ -611,11 +608,10 @@ body {
     height: 90%;
     object-fit: cover;
     filter: brightness(80%);
-    border-radius: 25px;
+    border-radius: 10px;
 }
 
 .title1 h2 {
-    font-family: 'Inter', sans-serif;
     position: absolute;
     top: -15%;
     left: 27%;
@@ -673,7 +669,7 @@ body {
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 25px;
+    border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
@@ -988,7 +984,7 @@ body {
     border: none;
     margin: 5px;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 6px;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     color: white;
 
@@ -996,7 +992,7 @@ body {
 
 /* phần đăng ký */
 .dangky {
-    transform: translate(0%, -19%);
+    transform: translate(0%, -17%);
     display: flex;
     justify-content: space-between;
     gap: 40px;
@@ -1013,7 +1009,7 @@ body {
     gap: 60px;
     justify-content: space-between;
     background: linear-gradient(90deg, #273e79, #45abe6);
-    border-radius: 10px;
+    border-radius: 30px;
 
 }
 
@@ -1141,7 +1137,7 @@ body {
 .footer_col input {
     width: 100%;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: 1px solid #444;
     background: transparent;
     color: #fff;
@@ -1155,7 +1151,7 @@ body {
     width: 100px;
     background: #3f7a9c;
     border: none;
-    border-radius: 10px;
+    border-radius: 25px;
     color: #fff;
     cursor: pointer;
     font-weight: 600;
@@ -1205,7 +1201,7 @@ body {
     height: 36px;
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50px;
+    border-radius: 12px;
     cursor: pointer;
     padding: 7px;
     transition: 0.3s;
@@ -1323,7 +1319,7 @@ body {
     align-items: center;
     gap: 12px;
     padding: 13px 15px;
-    border-radius: 12px;
+    border-radius: 8px;
     text-decoration: none;
     color: #333;
     font-size: 15px;
@@ -1421,7 +1417,7 @@ body {
 .pt-badge {
     display: inline-block;
     padding: 4px 14px;
-    border-radius: 20px;
+    border-radius: 10px;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     font-size: 12px;
     font-weight: 600;
