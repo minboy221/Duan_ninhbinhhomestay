@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\RoomPost;
 use App\Models\Amenity;
 use App\Models\Area;
+use App\Models\Category;
 use App\Models\Appointment;
 use App\Notifications\AppointmentStatusUpdated;
 use App\Notifications\NewAppointment;
@@ -18,13 +19,16 @@ class PublicListingService
 {
     protected $roomPostRepository;
     protected $reviewRepository;
+    protected $aiSearchService;
 
     public function __construct(
         RoomPostRepositoryInterface $roomPostRepository,
-        ReviewRepositoryInterface $reviewRepository
+        ReviewRepositoryInterface $reviewRepository,
+        AiRoomSearchService $aiSearchService
     ) {
         $this->roomPostRepository = $roomPostRepository;
         $this->reviewRepository = $reviewRepository;
+        $this->aiSearchService = $aiSearchService;
     }
 
     public function getPublicPostDetails(int $postId, ?int $userId, ?string $ipAddress)
@@ -62,31 +66,52 @@ class PublicListingService
     }
 
     /**
-     * Xử lý bộ lọc nâng cao cho danh sách tin đăng công khai
+     * Xử lý bộ lọc nâng cao kết hợp AI Text-to-Filter cho danh sách tin đăng công khai
      */
     public function getFilteredListings(Request $request)
     {
-        $query = RoomPost::with(['room.boardingHouse', 'landlord'])
-            ->where('status', 'approved');
+        $aiParsed = null;
+        $aiPrompt = $request->input('ai_prompt');
 
-        // Tìm kiếm theo tiêu đề
-        if ($request->filled('search')) {
-            $query->where('title', 'like', '%' . $request->search . '%');
+        if ($request->filled('ai_prompt')) {
+            $aiParsed = $this->aiSearchService->parseSearchPrompt($aiPrompt);
         }
 
-        // Lọc theo khu vực
-        if ($request->filled('area_id')) {
-            $area = Area::find($request->input('area_id'));
+        $query = RoomPost::with(['room.boardingHouse', 'room.floor', 'landlord'])
+            ->where('status', 'approved');
+
+        // 1. Tìm kiếm theo từ khóa (Keyword / Title / Description / Address)
+        $search = $request->input('search') ?: ($aiParsed['keyword'] ?? null);
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', '%' . $search . '%')
+                  ->orWhere('description', 'like', '%' . $search . '%')
+                  ->orWhereHas('room.boardingHouse', function ($bq) use ($search) {
+                      $bq->where('name', 'like', '%' . $search . '%')
+                         ->orWhere('address_detail', 'like', '%' . $search . '%')
+                         ->orWhere('district', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        // 2. Lọc theo khu vực (Area)
+        $areaId = $request->input('area_id') ?: ($aiParsed['area_id'] ?? null);
+        if ($areaId) {
+            $area = Area::find($areaId);
             if ($area) {
                 $query->whereHas('room.boardingHouse', function ($q) use ($area) {
-                    $q->where('address_detail', 'like', "%{$area->name}%"); // Đã sửa lỗi address_detaill
+                    $q->where('address_detail', 'like', "%{$area->name}%")
+                      ->orWhere('district', 'like', "%{$area->name}%");
                 });
             }
         }
 
-        // Lọc theo khoảng giá
-        if ($request->filled('price')) {
-            $priceRange = $request->input('price');
+        // 3. Lọc theo khoảng giá (Price Range hoặc Numeric Min/Max)
+        $priceRange = $request->input('price');
+        $priceMin = $request->input('price_min') ?: ($aiParsed['price_min'] ?? null);
+        $priceMax = $request->input('price_max') ?: ($aiParsed['price_max'] ?? null);
+
+        if ($priceRange) {
             $query->whereHas('room', function ($q) use ($priceRange) {
                 if ($priceRange === 'duoi-1-trieu') {
                     $q->where('price', '<', 1000000);
@@ -98,11 +123,24 @@ class PublicListingService
                     $q->where('price', '>', 3000000);
                 }
             });
+        } elseif ($priceMin !== null || $priceMax !== null) {
+            $query->whereHas('room', function ($q) use ($priceMin, $priceMax) {
+                if ($priceMin !== null && $priceMax !== null) {
+                    $q->whereBetween('price', [$priceMin, $priceMax]);
+                } elseif ($priceMin !== null) {
+                    $q->where('price', '>=', $priceMin);
+                } elseif ($priceMax !== null) {
+                    $q->where('price', '<=', $priceMax);
+                }
+            });
         }
 
-        // Lọc theo diện tích
-        if ($request->filled('dientich')) {
-            $sizeRange = $request->input('dientich');
+        // 4. Lọc theo diện tích (Size Range hoặc Numeric Min/Max)
+        $sizeRange = $request->input('dientich');
+        $areaMin = $request->input('area_min') ?: ($aiParsed['area_min'] ?? null);
+        $areaMax = $request->input('area_max') ?: ($aiParsed['area_max'] ?? null);
+
+        if ($sizeRange) {
             $query->whereHas('room', function ($q) use ($sizeRange) {
                 if ($sizeRange === 'duoi-20') {
                     $q->where('area', '<', 20);
@@ -114,21 +152,74 @@ class PublicListingService
                     $q->where('area', '>', 50);
                 }
             });
-        }
-
-        // Lọc theo mảng tiện ích
-        if ($request->filled('amenities') && is_array($request->input('amenities'))) {
-            $amenityIds = $request->input('amenities');
-            $amenityNames = Amenity::whereIn('id', $amenityIds)->pluck('name')->toArray();
-
-            $query->whereHas('room', function ($q) use ($amenityNames) {
-                foreach ($amenityNames as $name) {
-                    $q->where('amenities', 'like', "%{$name}%");
+        } elseif ($areaMin !== null || $areaMax !== null) {
+            $query->whereHas('room', function ($q) use ($areaMin, $areaMax) {
+                if ($areaMin !== null && $areaMax !== null) {
+                    $q->whereBetween('area', [$areaMin, $areaMax]);
+                } elseif ($areaMin !== null) {
+                    $q->where('area', '>=', $areaMin);
+                } elseif ($areaMax !== null) {
+                    $q->where('area', '<=', $areaMax);
                 }
             });
         }
 
-        return $query->latest()->paginate(10)->withQueryString();
+        // 5. Lọc theo tầng (Floor number)
+        $floorNumber = $request->input('floor') ?: ($aiParsed['floor_number'] ?? null);
+        if ($floorNumber !== null) {
+            $query->whereHas('room.floor', function ($q) use ($floorNumber) {
+                $q->where('sort_order', $floorNumber)
+                  ->orWhere('name', 'like', "%Tầng {$floorNumber}%")
+                  ->orWhere('name', 'like', "%Tầng {$floorNumber}")
+                  ->orWhere('name', 'like', "{$floorNumber}");
+            });
+        }
+
+        // 6. Lọc theo Loại phòng (Categories)
+        $categoryIds = $request->input('categories');
+        if (empty($categoryIds) && !empty($aiParsed['category_id'])) {
+            $categoryIds = [$aiParsed['category_id']];
+        }
+        if (!empty($categoryIds) && is_array($categoryIds)) {
+            $categoryNames = Category::whereIn('id', $categoryIds)->pluck('name')->toArray();
+            if (!empty($categoryNames)) {
+                $query->where(function ($q) use ($categoryNames) {
+                    foreach ($categoryNames as $catName) {
+                        $q->orWhere('title', 'like', "%{$catName}%")
+                          ->orWhere('description', 'like', "%{$catName}%");
+                    }
+                });
+            }
+        }
+
+        // 7. Lọc theo Tiện ích (Amenities)
+        $amenityIds = $request->input('amenities');
+        if (empty($amenityIds) && !empty($aiParsed['amenity_ids'])) {
+            $amenityIds = $aiParsed['amenity_ids'];
+        }
+        if (!empty($amenityIds) && is_array($amenityIds)) {
+            $amenityNames = Amenity::whereIn('id', $amenityIds)->pluck('name')->toArray();
+            if (!empty($amenityNames)) {
+                $query->where(function ($mainQ) use ($amenityNames) {
+                    foreach ($amenityNames as $name) {
+                        $mainQ->where(function ($subQ) use ($name) {
+                            $subQ->where('description', 'like', "%{$name}%")
+                                 ->orWhere('title', 'like', "%{$name}%")
+                                 ->orWhereHas('room.services', function ($sq) use ($name) {
+                                     $sq->where('name', 'like', "%{$name}%");
+                                 });
+                        });
+                    }
+                });
+            }
+        }
+
+        $paginatedListings = $query->latest()->paginate(10)->withQueryString();
+
+        return [
+            'listings' => $paginatedListings,
+            'ai_parsed' => $aiParsed,
+        ];
     }
 
     /**

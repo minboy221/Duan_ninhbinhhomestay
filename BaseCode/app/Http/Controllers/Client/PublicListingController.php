@@ -28,16 +28,25 @@ class PublicListingController extends Controller
     public function index(Request $request, CategoryService $categoryService)
     {
         //Giao việc lọc dữ liệu cho Service
-        $listings = $this->listingService->getFilteredListings($request);
+        $filteredData = $this->listingService->getFilteredListings($request);
         $categoryData = $categoryService->getActiveData();
 
         return Inertia::render('Client/timtro', [
-            'listings' => $listings,
-            'filters' => $request->only(['search']),
+            'listings' => $filteredData['listings'],
+            'ai_parsed' => $filteredData['ai_parsed'],
+            'filters' => $request->only(['search', 'ai_prompt', 'area_id', 'price', 'dientich', 'categories', 'amenities', 'price_min', 'price_max', 'floor']),
             'categories' => $categoryData['types'],
             'areas' => $categoryData['areas'],
             'amenities' => $categoryData['amenities'],
         ]);
+    }
+
+    // API phân tích nhanh prompt AI cho Client
+    public function parseAiSearch(Request $request, \App\Services\AiRoomSearchService $aiSearchService)
+    {
+        $prompt = (string) $request->input('prompt', '');
+        $result = $aiSearchService->parseSearchPrompt($prompt);
+        return response()->json($result);
     }
 
     // Hiển thị chi tiết 1 tin đăng phòng trọ

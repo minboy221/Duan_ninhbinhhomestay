@@ -31,6 +31,10 @@ const submitTerminateRequest = () => {
         },
         onError: (err) => {
             showError('Thao tác thất bại', err.reason || 'Có lỗi xảy ra khi gửi yêu cầu.');
+        }
+    });
+};
+
 const showEntryModal = ref(false);
 
 const elecImgPreview = ref(null);

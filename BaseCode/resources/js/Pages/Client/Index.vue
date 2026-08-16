@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import MainLayout from '@/Layouts/MainLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import HomePopup from '@/Components/HomePopup.vue';
 
 // Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Route → Inertia)
@@ -128,15 +128,22 @@ onUnmounted(() => {
     window.removeEventListener('click', handleGlobalClick);
 });
 
-// Slider Đánh Giá
-const currentReviewIndex = ref(0);
-const maxReviewIndex = 3; // Tổng 6 card, hiển thị 3 card cùng lúc -> max index = 3
-
-const scrollReview = (direction) => {
-    currentReviewIndex.value += direction;
-    if (currentReviewIndex.value < 0) currentReviewIndex.value = 0;
-    if (currentReviewIndex.value > maxReviewIndex)
-        currentReviewIndex.value = maxReviewIndex;
+const searchRooms = () => {
+    const params = {};
+    if (selectedArea.value) params.area_id = selectedArea.value.id;
+    if (selectedPrice.value) {
+        const priceMap = {
+            '1': 'duoi-1-trieu',
+            '2': '1-2-trieu',
+            '3': '2-3-trieu',
+            '4': 'tren-3-trieu',
+        };
+        params.price = priceMap[selectedPrice.value.id] || null;
+    }
+    if (selectedCategory.value) {
+        params.categories = [selectedCategory.value.id];
+    }
+    router.get('/timtro', params);
 };
 </script>
 <template>
@@ -163,6 +170,7 @@ const scrollReview = (direction) => {
         </div>
         <!-- phần tìm kiếm -->
         <div class="boloc">
+            <!-- Standard Dropdowns Bar -->
             <div class="search">
                 <div class="location relative" ref="areaDropdownRef">
                     <label for="">Khu Vực:</label>
@@ -288,7 +296,7 @@ const scrollReview = (direction) => {
                         </ul>
                     </div>
                 </div>
-                <button class="login-btn">
+                <button class="login-btn" @click="searchRooms">
                     <i class="bi bi-search"></i> <span>Tìm Kiếm</span>
                 </button>
             </div>
