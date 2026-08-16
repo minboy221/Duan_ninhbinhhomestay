@@ -360,11 +360,20 @@ class ProfileController extends Controller
             'feedback_result' => 'cancel_requested',
             'cancellation_reason' => $request->reason,
             'feedback_reason' => $request->reason,
-            'feedback_time' => now()
+            'feedback_time' => now(),
+            'status' => 'cancel_requested',
         ]);
 
+        //gửi thông báo cho chủ trọ
+        $appointment->load(['user', 'room', 'landlord']);
+        $landlord =  $appointment->landlord ?? $appointment->room?->boardingHouse?->user ?? null;
+        if($landlord){
+            $landlord->notify(new \App\Notifications\TenantCancelledNotification($appointment));
+        }
+
         // Nếu có hợp đồng liên quan chưa chính thức ký, cập nhật trạng thái hủy
-        $contract = \App\Models\Contract::where('appointment_id', $appointment->id)
+        $contract = \App\Models\Contract::where('room_id', $appointment->room_id)
+            ->where('tenant_id', $appointment->user_id)
             ->whereIn('status', ['draft', 'awaiting_upload', 'pending', 'signed', 'active', 'termination_requested'])
             ->first();
 
@@ -378,7 +387,7 @@ class ProfileController extends Controller
             \App\Models\Contract::$allowImmutableUpdate = false;
         }
 
-        return Redirect::back()->with('success', 'Đã gửi yêu cầu hủy đăng ký hợp đồng tới Chủ trọ thành công!');
+        return redirect()->back()->with('success', 'Đã gửi yêu cầu hủy đăng ký hợp đồng tới Chủ trọ thành công!');
     }
 
     /**
@@ -562,6 +571,16 @@ class ProfileController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
+    }
+
+    //hàm nhận token từ điện thoại
+    public function updateFcmToken(Request $request){
+        $request->validate(['fcm_token' => 'required|string',]);
+        $user = auth()->user();
+        if($user){
+            $user->update(['fcm_token' => $request->fcm_token]);
+        }
+        return response()->json(['messeage' => 'Cập nhật FCM Token thành công!']);
     }
 }
 

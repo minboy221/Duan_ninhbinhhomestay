@@ -75,6 +75,13 @@ watch(
     },
 );
 
+//hiển thị khách huỷ trong giao diện
+const rejectAppointment = (aptId) => {
+    if(confirm('Xác nhận loại bỏ khách này khỏi danh sách chờ hợp đồng và giải phóng phòng?')){
+        router.post(route('landlord.appointments.confirm_cancel', aptId));
+    }
+};
+
 // Helper hiển thị danh sách trang có dấu 3 chấm
 const getVisiblePages = (currentPage, totalPages) => {
     const pages = [];
@@ -2300,11 +2307,18 @@ const filteredAppointments = computed(() => {
                                     </div>
                                 </div>
 
-                                <button @click="openContractForAppointment(apt)"
-                                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-                                    <i class="bi bi-file-earmark-plus"></i> Tạo
-                                    hợp đồng ngay
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button @click="openContractForAppointment(apt)"
+                                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                                        <i class="bi bi-file-earmark-plus"></i> Tạo
+                                        hợp đồng ngay
+                                    </button>
+                                    <button @click="rejectAppointment(apt.id)"
+                                        class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                                        title="Hủy / Loại bỏ khỏi danh sách">
+                                        <i class="bi bi-x-circle-fill"></i> Hủy
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

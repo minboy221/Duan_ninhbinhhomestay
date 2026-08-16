@@ -40,6 +40,8 @@ class ContractController extends Controller
     //Phần tạo hợp đồng mới
     public function storeDraftAndExport(StoreContractRequest $request)
     {
+        // $user = auth()->user();
+        // // $room = \App\Model\Room::where()
         try {
             $file = $request->file('contract_file');
             $this->contractService->createContract($request->validated(), $file);

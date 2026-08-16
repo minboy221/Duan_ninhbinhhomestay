@@ -1,0 +1,594 @@
+<script setup>
+import { ref, computed } from "vue";
+import { useForm, router } from "@inertiajs/vue3";
+import AdminLayout from "@/Layouts/AdminLayout.vue";
+
+const props = defineProps({
+    plans: Array,
+    features: Array,
+    adminBank: Object,
+});
+
+//hàm nhận biết các tính năng thuộc dạng giới hạn số lượng
+const isQuantityFeature = (code) => {
+    return ['max_boarding_houses', 'max_rooms', 'max_listings', 'max_properties', 'priority_listing'].includes(code);
+};
+
+//hàm bấn 1 click để đặt giá trị vô hạn (-1)
+const setUnlimited = (featId) => {
+    form.features[featId] = '-1';
+};
+
+//hàm đặt số ngày vô hạn cho gói miễn phí
+const setUnlimitedDuration = () => {
+    form.duration_days = -1;
+};
+
+
+// Hàm gạt nút Bật/Tắt Toggle Switch
+const toggleFeature = (featId) => {
+    const current = form.features[featId];
+    if (current === 'true' || current === true) {
+        form.features[featId] = 'false';
+    } else {
+        form.features[featId] = 'true';
+    }
+};
+
+//biến đóng mở modal popup cấu hình ngân hàng
+const isBankModalOpen = ref(false);
+
+//danh sách những ngân hàng phổ biến
+const popularBanks = [
+    { name: "MBBank", code: "MB" },
+    { name: "Vietcombank", code: "VCB" },
+    { name: "Techcombank", code: "TCB" },
+    { name: "BIDV", code: "BIDV" },
+    { name: "Agribank", code: "VBA" },
+    { name: "VietinBank", code: "CTG" },
+    { name: "TPBank", code: "TPB" },
+    { name: "VPBank", code: "VPB" },
+    { name: "ACB", code: "ACB" },
+];
+
+const showModal = ref(false);
+const editingPlan = ref(null);
+
+const form = useForm({
+    name: "",
+    price: 0,
+    duration_days: 30,
+    badge: "",
+    sort_order: 0,
+    description: "",
+    is_active: true,
+    features: {},
+});
+
+//form lưu thông tin ngân hàng của admin
+const bankForm = useForm({
+    bank_name: props.adminBank?.bank_name || "TPBank",
+    bank_code: props.adminBank?.account_no || "",
+    account_no: props.adminBank?.account_no || "",
+    account_name: props.adminBank?.account_name || "",
+});
+
+const openBankModal = () => {
+    bankForm.clearErrors();
+    isBankModalOpen.value = true;
+};
+
+const selectBank = (bank) => {
+    bankForm.bank_name = bank.name;
+    bankForm.bank_code = bank.code;
+};
+
+//auto viết hoa tên chủ tài khoản
+const onAccountNameInput = (e) => {
+    bankForm.account_name = e.target.value.toUpperCase();
+};
+
+//tính toán link sing mã VietQR tự động xem trước
+const qrPreviewUrl = computed(() => {
+    if (!bankForm.bank_name || !bankForm.account_no) return null;
+    const bankCode = bankForm.bank_code || bankForm.bank_name;
+    return `https://img.vietqr.io/image/${bankCode}-${bankForm.account_no}-compact2.png?accountName=${encodeURIComponent(bankForm.account_name)}`;
+});
+const submitBankSettings = () => {
+    bankForm.post(route("admin.subscription-plans.bank-settings"), {
+        preserveScroll: true,
+        onSuccess: () => {
+            isBankModalOpen.value = false;
+        },
+    });
+};
+
+const formatMoney = (val) =>
+    new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+    }).format(val);
+
+const getFeatureValue = (plan, featureId) => {
+    const found = plan.features?.find((f) => f.id === featureId);
+    if (!found) return "-";
+    const val = found.pivot.feature_value;
+    if (val === "-1" || val === -1) return "Vô hạn";
+    if (val === "true" || val === true) return "Có";
+    if (val === "false" || val === false) return "Không";
+    if (val === "gold") return "Khung VIP Vàng";
+    return val;
+};
+
+//tự động tìm gói miễn phí (giá 0đ) hiện có trong danh sách
+const trialPlan = computed(() => {
+    return props.plans?.find((p) => p.price == 0) || props.plans?.[0];
+});
+
+//form cập nhật số ngày dùng thử miễn phí
+const trialForm = useForm({
+    duration_days: trialPlan.value?.duration_days || 60,
+});
+const submitTrialDays = () => {
+    trialForm.clearErrors();
+    if (!trialPlan.value) return;
+
+    if (!trialForm.duration_days || trialForm.duration_days <= 0) {
+        trialForm.setError("duration_days", "Số ngày dùng thử phải lớn hơn 0.");
+        return;
+    }
+
+    // gửi dữ liệu số ngày dùng thử mới lên server
+    trialForm.put(
+        route("admin.subscription-plans.update", trialPlan.value.id),
+        {
+            preserveScroll: true,
+        },
+    );
+};
+
+const openModal = (plan = null) => {
+    editingPlan.value = plan;
+    if (plan) {
+        form.name = plan.name;
+        form.price = plan.price;
+        form.duration_days = plan.duration_days;
+        form.badge = plan.badge || "";
+        form.sort_order = plan.sort_order || 0;
+        form.description = plan.description || "";
+        form.is_active = plan.is_active;
+
+        const featMap = {};
+        plan.features?.forEach((f) => {
+            featMap[f.id] = f.pivot.feature_value;
+        });
+        form.features = featMap;
+    } else {
+        form.reset();
+        form.features = {};
+    }
+    showModal.value = true;
+};
+
+const savePlan = () => {
+    if (editingPlan.value) {
+        form.put(
+            route("admin.subscription-plans.update", editingPlan.value.id),
+            {
+                onSuccess: () => (showModal.value = false),
+            },
+        );
+    } else {
+        form.post(route("admin.subscription-plans.store"), {
+            onSuccess: () => (showModal.value = false),
+        });
+    }
+};
+
+const deletePlan = (plan) => {
+    if (confirm(`Bạn có chắc muốn xóa gói "${plan.name}" không?`)) {
+        router.delete(route("admin.subscription-plans.destroy", plan.id));
+    }
+};
+</script>
+
+<template>
+    <AdminLayout title="Quản lý Gói dịch vụ & Tính năng">
+        <div class="p-6 space-y-6">
+            <!-- Header -->
+            <div
+                class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800">
+                        Quản lý Gói dịch vụ
+                    </h1>
+                    <p class="text-slate-500 text-sm mt-1">
+                        Cấu hình giá gói và đặc quyền dành cho Chủ trọ
+                    </p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button @click="openBankModal()"
+                        class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer">
+                        <i class="bi bi-bank text-sm"></i>
+                        <span>Cấu Hình Ngân Hàng</span>
+                    </button>
+                    <button @click="openModal()"
+                        class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-md transition-all flex items-center gap-2">
+                        <i class="bi bi-plus-lg"></i> Thêm Gói mới
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Popup Cấu hình Ngân Hàng -->
+            <div v-if="isBankModalOpen"
+                class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <div
+                    class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+                    <!-- Modal Header -->
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <i class="bi bi-bank text-emerald-500 text-lg"></i>
+                            <span>Cấu Hình Tài Khoản Ngân Hàng Nhận Thanh Toán
+                                VietQR</span>
+                        </h3>
+                        <button @click="isBankModalOpen = false"
+                            class="text-slate-400 hover:text-rose-500 transition-colors p-1 rounded-lg">
+                            <i class="bi bi-x-lg text-lg"></i>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body (Gồm 2 cột) -->
+                    <div class="p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <!-- Cột Trái (7 phần): Form nhập -->
+                        <div class="lg:col-span-7 space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Chọn
+                                    nhanh ngân hàng</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button type="button" v-for="bank in popularBanks" :key="bank.code"
+                                        @click="selectBank(bank)" :class="[
+                                            'px-3 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer',
+                                            bankForm.bank_name === bank.name
+                                                ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-500/20'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300',
+                                        ]">
+                                        <span class="w-2 h-2 rounded-full" :class="bankForm.bank_name === bank.name
+                                            ? 'bg-emerald-500'
+                                            : 'bg-slate-300'
+                                            "></span>
+                                        {{ bank.name }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <form @submit.prevent="submitBankSettings" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Tên Ngân Hàng
+                                        <span class="text-rose-500">*</span></label>
+                                    <input v-model="bankForm.bank_name" type="text"
+                                        class="w-full px-4 py-3 rounded-2xl border text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                                        :class="bankForm.errors.bank_name
+                                            ? 'border-rose-400 bg-rose-50/20'
+                                            : 'border-slate-200'
+                                            " placeholder="Nhập tên ngân hàng" />
+                                    <span v-if="bankForm.errors.bank_name"
+                                        class="text-xs text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                                        <i class="bi bi-exclamation-circle-fill"></i>
+                                        {{ bankForm.errors.bank_name }}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Số Tài Khoản Ngân Hàng
+                                        <span class="text-rose-500">*</span></label>
+                                    <input v-model="bankForm.account_no" type="text"
+                                        class="w-full px-4 py-3 rounded-2xl border text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                                        :class="bankForm.errors.account_no
+                                            ? 'border-rose-400 bg-rose-50/20'
+                                            : 'border-slate-200'
+                                            " placeholder="Ví dụ: 0912345678" />
+                                    <span v-if="bankForm.errors.account_no"
+                                        class="text-xs text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                                        <i class="bi bi-exclamation-circle-fill"></i>
+                                        {{ bankForm.errors.account_no }}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Tên Chủ Tài Khoản (Viết
+                                        hoa không dấu)
+                                        <span class="text-rose-500">*</span></label>
+                                    <input :value="bankForm.account_name" @input="onAccountNameInput" type="text"
+                                        class="w-full px-4 py-3 rounded-2xl border text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 uppercase transition-all"
+                                        :class="bankForm.errors.account_name
+                                            ? 'border-rose-400 bg-rose-50/20'
+                                            : 'border-slate-200'
+                                            " placeholder="VÍ DỤ: NGUYEN VAN A" />
+                                    <span v-if="bankForm.errors.account_name"
+                                        class="text-xs text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                                        <i class="bi bi-exclamation-circle-fill"></i>
+                                        {{ bankForm.errors.account_name }}
+                                    </span>
+                                </div>
+
+                                <div class="pt-2 flex justify-end gap-2">
+                                    <button type="button" @click="isBankModalOpen = false"
+                                        class="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-2xl">
+                                        Hủy
+                                    </button>
+                                    <button type="submit" :disabled="bankForm.processing"
+                                        class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                        Lưu Thông Tin
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Cột Phải (5 phần): Mã QR VietQR Xem trước Kích thước To Nét -->
+                        <div
+                            class="lg:col-span-5 bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col items-center justify-between text-center">
+                            <h4 class="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
+                                <i class="bi bi-eye text-emerald-500"></i>
+                                <span>Xem Trước Mã VietQR Khách Nhìn Thấy</span>
+                            </h4>
+
+                            <div
+                                class="w-full bg-white p-4 rounded-2xl border border-slate-200 flex flex-col items-center justify-center min-h-[280px]">
+                                <template v-if="qrPreviewUrl">
+                                    <img :src="qrPreviewUrl" alt="VietQR Preview"
+                                        class="w-full max-w-[260px] max-h-[300px] object-contain rounded-lg shadow-sm" />
+                                    <span class="text-[11px] font-bold text-emerald-600 mt-2">Mã QR VietQR Chuẩn
+                                        100%</span>
+                                </template>
+                                <template v-else>
+                                    <i class="bi bi-qr-code text-5xl text-slate-300 mb-2"></i>
+                                    <p class="text-xs font-semibold text-slate-400">
+                                        Vui lòng điền Tên ngân hàng và Số tài
+                                        khoản để xem trước mã QR.
+                                    </p>
+                                </template>
+                            </div>
+
+                            <div class="mt-3 p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-left">
+                                <p class="text-[11px] text-emerald-700 font-semibold leading-relaxed">
+                                    <i class="bi bi-shield-check text-emerald-600"></i>
+                                    Mã QR này sẽ tự động hiển thị cho tất cả Chủ
+                                    trọ khi chọn phương thức thanh toán VietQR.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danh sách Gói dạng Card Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <div v-for="plan in plans" :key="plan.id"
+                    class="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col justify-between hover:shadow-lg transition-all relative overflow-hidden">
+                    <div v-if="plan.badge" class="absolute top-4 right-4">
+                        <span
+                            class="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
+                            {{ plan.badge }}
+                        </span>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800">
+                            {{ plan.name }}
+                        </h3>
+                        <p class="text-slate-500 text-xs mt-1 min-h-[32px]">
+                            {{ plan.description || "Chưa có mô tả" }}
+                        </p>
+
+                        <div class="my-4">
+                            <span class="text-3xl font-extrabold text-indigo-600">
+                                {{
+                                    plan.price == 0
+                                        ? "Miễn phí"
+                                        : formatMoney(plan.price)
+                                }}
+                            </span>
+                            <span v-if="plan.duration_days == -1 || plan.duration_days == 3650" class="text-emerald-600 font-bold text-sm">
+                                / Vĩnh viễn (Miễn phí)</span>
+                            <span v-else-if="plan.price > 0" class="text-slate-400 text-sm">
+                                / {{ plan.duration_days }} ngày</span>
+                            <span v-else class="text-slate-400 text-sm">
+                                / {{ plan.duration_days }} ngày dùng thử</span>
+                        </div>
+
+                        <!-- Danh sách tính năng của gói -->
+                        <div class="border-t border-slate-100 pt-4 space-y-2.5">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                Tính năng đi kèm:
+                            </p>
+                            <div v-for="feature in features" :key="feature.id"
+                                class="flex justify-between items-center text-sm">
+                                <span class="text-slate-600">{{
+                                    feature.name
+                                }}</span>
+                                <span class="font-semibold text-slate-800">
+                                    {{ getFeatureValue(plan, feature.id) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Action -->
+                    <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                        <span class="px-2.5 py-0.5 rounded text-xs font-medium" :class="plan.is_active
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-rose-100 text-rose-700'
+                            ">
+                            {{ plan.is_active ? "Đang hoạt động" : "Tạm ẩn" }}
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <button @click="openModal(plan)"
+                                class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-colors">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button @click="deletePlan(plan)"
+                                class="p-2 text-slate-500 hover:text-rose-600 hover:bg-slate-50 rounded-lg transition-colors">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Thêm / Sửa Gói -->
+            <div v-if="showModal"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center pb-4 border-b border-slate-100">
+                        <h3 class="text-lg font-bold text-slate-800">
+                            {{
+                                editingPlan
+                                    ? "Chỉnh sửa Gói dịch vụ"
+                                    : "Thêm Gói dịch vụ Mới"
+                            }}
+                        </h3>
+                        <button @click="showModal = false" class="text-slate-400 hover:text-slate-600">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="savePlan" class="mt-4 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Tên gói dịch vụ *</label>
+                                <input v-model="form.name" type="text"
+                                    class="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    placeholder="VD: Gói Chuyên Nghiệp" required />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Giá tiền (VNĐ) *</label>
+                                <input v-model="form.price" type="number" min="0"
+                                    class="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    placeholder="0" required />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Số ngày sử dụng *</label>
+                                <div class="flex items-center gap-2">
+                                    <input v-model="form.duration_days" type="number"
+                                        class="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm font-bold text-slate-800"
+                                        placeholder="VD: 30 hoặc -1" required />
+                                    <!-- Nút bấm 1-click chọn Vô hạn / Vĩnh viễn -->
+                                    <button type="button" @click="setUnlimitedDuration"
+                                        class="px-3 py-2.5 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer"
+                                        :class="form.duration_days == -1 ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'">
+                                        ∞ Vô Hạn
+                                    </button>
+                                </div>
+                                <span class="text-[11px] text-emerald-600 font-semibold mt-1 block">
+                                    💡 Nhập <strong class="font-bold">-1</strong> hoặc bấm <strong>∞ Vô Hạn</strong>
+                                    dành cho Gói Cơ
+                                    Bản sử dụng vĩnh viễn.
+                                </span>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Huy hiệu / Badge</label>
+                                <input v-model="form.badge" type="text"
+                                    class="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    placeholder="VD: Phổ biến" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Thứ tự sắp xếp</label>
+                                <input v-model="form.sort_order" type="number"
+                                    class="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Mô tả gói</label>
+                            <textarea v-model="form.description" rows="2"
+                                class="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                placeholder="Nhập mô tả ngắn..."></textarea>
+                        </div>
+
+                        <!-- Cấu hình Features -->
+                        <div class="border-t border-slate-100 pt-4">
+                            <h4 class="font-semibold text-slate-800 text-sm mb-3">
+                                Cấu hình giá trị cho các tính năng:
+                            </h4>
+                            <div class="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/60">
+                                <div v-for="feat in features" :key="feat.id"
+                                    class="grid grid-cols-1 sm:grid-cols-12 items-center gap-2 pb-2 border-b border-slate-200/40 last:border-0 last:pb-0">
+                                    <!-- Tên Tính Năng -->
+                                    <span class="sm:col-span-6 text-xs font-bold text-slate-700">
+                                        {{ feat.name }}
+                                        <span class="text-[10px] text-slate-400 font-normal">({{ feat.feature_code
+                                            }})</span>:
+                                    </span>
+
+                                    <!-- CỘT BÊN PHẢI: Ô NHẬP THEO TỪNG LOẠI TÍNH NĂNG -->
+                                    <div class="sm:col-span-6">
+                                        <!-- 1. DẠNG GIỚI HẠN SỐ LƯỢNG (Số phòng, cơ sở, tin đăng) -->
+                                        <div v-if="isQuantityFeature(feat.feature_code)"
+                                            class="flex items-center gap-2">
+                                            <input v-model="form.features[feat.id]" type="text"
+                                                class="w-full rounded-xl border-slate-200 text-xs font-bold text-slate-800 focus:ring-indigo-500 focus:border-indigo-500"
+                                                placeholder="VD: 5 hoặc -1" />
+                                            <button type="button" @click="setUnlimited(feat.id)"
+                                                class="px-2.5 py-2 text-[11px] font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer"
+                                                :class="form.features[feat.id] == '-1' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'">
+                                                ∞ Vô hạn
+                                            </button>
+                                        </div>
+
+                                        <!-- 2. DẠNG KHUNG AVATAR SPECIAL EFFECT -->
+                                        <select v-else-if="feat.feature_code === 'avatar_frame'"
+                                            v-model="form.features[feat.id]"
+                                            class="w-full rounded-xl border-slate-200 text-xs font-bold text-slate-800 focus:ring-indigo-500 focus:border-indigo-500">
+                                            <option value="gold">✨ Khung Vàng VIP Lấp Lánh</option>
+                                            <option value="none">⚪ Khung Thường</option>
+                                        </select>
+
+                                        <!-- 3. DẠNG BẬT / TẮT QUYỀN (Nút Gạt Toggle Switch Xanh Ngọc Bật/Tắt) -->
+                                        <div v-else class="flex items-center gap-3">
+                                            <button type="button" @click="toggleFeature(feat.id)"
+                                                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                                                :class="(form.features[feat.id] === 'true' || form.features[feat.id] === true) ? 'bg-emerald-500' : 'bg-slate-300'">
+                                                <span
+                                                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                                    :class="(form.features[feat.id] === 'true' || form.features[feat.id] === true) ? 'translate-x-5' : 'translate-x-0'"></span>
+                                            </button>
+                                            <span class="text-xs font-bold transition-colors"
+                                                :class="(form.features[feat.id] === 'true' || form.features[feat.id] === true) ? 'text-emerald-600' : 'text-slate-400'">
+                                                {{ (form.features[feat.id] === 'true' || form.features[feat.id] ===
+                                                    true) ? 'Bật' :
+                                                    'Tắt' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-2">
+                            <input v-model="form.is_active" type="checkbox" id="is_active"
+                                class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <label for="is_active" class="text-sm text-slate-700 font-medium">Bật trạng thái hoạt
+                                động</label>
+                        </div>
+
+                        <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                            <button type="button" @click="showModal = false"
+                                class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200">
+                                Hủy
+                            </button>
+                            <button type="submit"
+                                class="px-5 py-2 bg-indigo-600 text-white rounded-xl font-medium text-sm hover:bg-indigo-700 shadow-md">
+                                Lưu Gói
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </AdminLayout>
+</template>

@@ -47,6 +47,8 @@ class HandleInertiaRequests extends Middleware
 
         $boardingHouses = [];
         $selectedBoardingHouseId = session('selected_boarding_house_id');
+        $isOwner = false;
+        $managerPermissions = [];
 
         if ($user && $user->role === 'landlord') {
             //lấy danh sách ID cơ sở do chủ trọ sở hữu
@@ -62,19 +64,66 @@ class HandleInertiaRequests extends Middleware
             //lấy thông tin cơ sở
             $boardingHouses = \App\Models\BoardingHouse::whereIn('id', $allHouseIds)
                 ->where('status', 'approved')
-                ->get(['id', 'name', 'address_detail', 'district', 'latitude','longitude']);
+                ->get(['id', 'name', 'address_detail', 'district', 'latitude', 'longitude']);
             //tự động chọn cơ sở đầu tiên trong session chưa lưu cơ sở nào
             if (!$selectedBoardingHouseId && $boardingHouses->isNotEmpty()) {
                 $selectedBoardingHouseId = $boardingHouses->first()->id;
                 session(['selected_boarding_house_id' => $selectedBoardingHouseId]);
             }
+            //xác định quyền trên cơ sở đang chọn
+            if($selectedBoardingHouseId){
+                //check user có phải chủ sở hữu chính của cơ sở
+                $currentHouse = \App\Models\BoardingHouse::find($selectedBoardingHouseId);
+                if($currentHouse && $currentHouse->user_id === $user->id){
+                    $isOwner = true;
+                    $managerPermissions = ['*']; //toàn quyền
+                }else{
+                    //nếu là tài khoản phụ -> lấy mảng permissions từ bảng PropertyManager
+                    $manager = \App\Models\PropertyManager::where('boarding_house_id', $selectedBoardingHouseId)
+                    ->where('user_id', $user->id)
+                    ->first();
+                    $managerPermissions = $manager ? ($manager->permissions ?? []) : [];
+                }
+            }
+        }
+
+        $userData = null;
+        if ($user) {
+            $user->load('verification');
+            $activeSub = $user->activeSubscription;
+            $hasVipFrame = false;
+
+            if ($activeSub && $activeSub->plan) {
+                $frameFeat = $activeSub->plan->features->where('feature_code', 'avatar_frame')->first();
+                $hasVipFrame = $frameFeat && in_array($frameFeat->pivot->feature_value, ['gold', 'true', '1']);
+            }
+
+            $userData = array_merge($user->toArray(), [
+                'has_vip_frame' => $hasVipFrame,
+                'features' => [
+                    'manage_invoices'  => $user->hasFeature('manage_invoices'),
+                    'manage_contracts' => $user->hasFeature('manage_contracts'),
+                    'manage_roommates' => $user->hasFeature('manage_roommates'),
+                    'manage_reports'   => $user->hasFeature('manage_reports'),
+                    'manage_managers'  => $user->hasFeature('manage_managers'),
+                ],
+            ]);
         }
 
         return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $user ? $user->load('verification') : null,
+                'user' => $userData,
                 'boarding_houses' => $boardingHouses,
                 'selected_boarding_house_id' => $selectedBoardingHouseId,
+                'is_owner' => $isOwner,
+                'permissions' => $managerPermissions,
+                'features' => $request->user() ? [
+                    'manage_invoices' => $request->user()->hasFeature('manage_invoices'),
+                    'manage_contracts' => $request->user()->hasFeature('manage_contracts'),
+                    'manage_roommates' => $request->user()->hasFeature('manage_roommates'),
+                    'manage_reports' => $request->user()->hasFeature('manage_reports'),
+                    'manage_managers' => $request->user()->hasFeature('manage_managers'),
+                ] : [],
                 'has_submitted_verification' => $user
                     ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $user->id)->exists() : false,
                 'notifications' => $user ? $user->unreadNotifications : [],
@@ -95,21 +144,21 @@ class HandleInertiaRequests extends Middleware
                             if ($type === \App\Models\Room::class) {
                                 $query->whereHas('boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
                                     $q->where('user_id', $user->id)
-                                      ->where('id', $selectedBoardingHouseId);
+                                        ->where('id', $selectedBoardingHouseId);
                                 });
                             } elseif ($type === \App\Models\Invoice::class) {
                                 $query->whereHas('contract.room.boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
                                     $q->where('user_id', $user->id)
-                                      ->where('id', $selectedBoardingHouseId);
+                                        ->where('id', $selectedBoardingHouseId);
                                 });
                             } elseif ($type === \App\Models\Contract::class) {
                                 $query->whereHas('room.boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
                                     $q->where('user_id', $user->id)
-                                      ->where('id', $selectedBoardingHouseId);
+                                        ->where('id', $selectedBoardingHouseId);
                                 });
                             } elseif ($type === \App\Models\BoardingHouse::class) {
                                 $query->where('user_id', $user->id)
-                                      ->where('id', $selectedBoardingHouseId);
+                                    ->where('id', $selectedBoardingHouseId);
                             }
                         })->count() : 0,
                 'admin_counts' => $user && $user->role === 'admin' ? [

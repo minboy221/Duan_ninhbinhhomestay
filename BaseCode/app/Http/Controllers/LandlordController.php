@@ -129,6 +129,16 @@ class LandlordController extends Controller
 
     public function storeFloor(Request $request)
     {
+        $user = auth()->user();
+        //đếm tổng số tầng hiện tại của chủ trọ
+        $currentFloorCount = \App\Models\Floor::whereHas('property', function ($q) use ($user){
+            $q->where('landlord_id', $user->id);
+        })->count();
+        //kiểm tra với giới hạn max_properties của Gói dịch vụ
+        if(!$user->canCreateResource('max_properties', $currentFloorCount)){
+            $limit = $user->getFeatureValue('max_properties');
+            return redirect()->back()->with('error', "Gói dịch vụ của bạn cho phép tạo tối đa {$limit} Tầng/Dãy nhà. Bạn hiện đang có {$currentFloorCount} Tầng. Vui lòng nâng cấp gói để tạo thêm!");
+        }
         $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:255',
@@ -171,6 +181,15 @@ class LandlordController extends Controller
 
     public function storeRoom(Request $request)
     {
+        $user = auth()->user();
+        //đếm tổng số phòng hiện tại của chủ trọ
+        $currentRoomCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user){
+            $q->where('user_id',$user->id);
+        })->count();
+        //check với giới hạn max_rooms trong gói dịch vụ
+        if(!$user->canCreateResource('max_rooms', $currentRoomCount)){
+            return redirect()->back()->with('error','Bạn đã đạt giới hạn số lượng phòng tối đa của gói dịch vụ hiện tại. Vui lòng nâng cấp gói để thêm phòng mới!');
+        }
         $request->validate([
             'floor_id' => 'required|integer|exists:floors,id',
             'room_numbers' => 'nullable|array',
@@ -367,6 +386,32 @@ class LandlordController extends Controller
         }
     }
 
+    public function confirmCancelAppointment(Request $request, int $id)
+    {
+        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
+        //cập nhật trạng thái lịch hẹn
+        $appointment->update([
+            'status' => 'cancelled',
+            'feedback_result' => 'cancelled',
+            'cancellation_reason' => $request->input('reason', $appointment->cancellation_reason ?? 'Khách chọn chỗ khác')
+        ]);
+        //mở lại phòng trọ về trạng thái trống
+        if ($appointment->room) {
+            $appointment->room->update(['status' => 'available']);
+        }
+
+        // Hủy bất kỳ dự thảo hợp đồng nào liên quan
+        \App\Models\Contract::where('room_id', $appointment->room_id)
+            ->where('tenant_id', $appointment->user_id)
+            ->where('status', 'draft', 'awaiting_upload', 'pending', 'termination_requested')
+            ->update(['status' => 'cancelled', 'cancellation_reason' => 'Khách hàng đổi ý chọn chỗ khác']);
+        //gửi thông báo tới khách thuê
+        if($appointment->user){
+            $appointment->user->notify(new \App\Notifications\AppointmentStatusUpdated($appointment));
+        }
+        return redirect()->back()->with('success', 'Đã xác nhận hủy lịch hẹn và phòng trọ đã được giải phóng trở lại trạng thái trống!');
+    }
+
     // Phần hiển thị cấu hình giờ cho chủ trọ
     public function editAvailabilities()
     {
@@ -442,7 +487,7 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         $boardingHousesId = session('selected_boarding_house_id');
-        
+
         // Quét & cập nhật tự động trạng thái hợp đồng (expiring/expired) theo ngày hiện tại
         \App\Http\Controllers\Landlord\ContractController::scanContractStatuses($landlordId);
 

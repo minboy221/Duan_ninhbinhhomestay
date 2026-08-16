@@ -88,6 +88,16 @@ const statusMap = {
         cls: "bg-gray-50 text-gray-500 border-gray-100",
         dot: "bg-gray-400",
     },
+    cancel_requested: {
+        label: "Yêu cầu hủy",
+        cls: "bg-orange-50 text-orange-600 border-orange-200",
+        dot: "bg-orange-500",
+    },
+    cancelled: {
+        label: "Đã hủy",
+        cls: "bg-rose-50 text-rose-600 border-rose-200",
+        dot: "bg-rose-500",
+    },
 };
 
 const approveApt = (apt) => {
@@ -97,6 +107,17 @@ const approveApt = (apt) => {
         { preserveScroll: true },
     );
 };
+
+const confirmCancelApt = (apt) => {
+    if (confirm("Xác nhận duyệt Yêu cầu Hủy lịch hẹn này và giải phóng phòng trọ về Trống?")) {
+        router.post(
+            route("landlord.appointments.confirm_cancel", apt.id),
+            {},
+            { preserveScroll: true }
+        );
+    }
+};
+
 const openRejectModal = (apt) => {
     selectedAptId.value = apt.id;
     rejectForm.cancellation_reason = "";
@@ -105,10 +126,20 @@ const openRejectModal = (apt) => {
 };
 
 //hàm lấy trạng thái an toàn
-const getStatusData = (status) => {
+const getStatusData = (aptOrStatus) => {
+    let key = aptOrStatus;
+    if (typeof aptOrStatus === 'object' && aptOrStatus !== null) {
+        if (aptOrStatus.feedback_result === 'cancel_requested' || aptOrStatus.status === 'cancel_requested') {
+            key = 'cancel_requested';
+        } else if (aptOrStatus.feedback_result === 'cancelled' || aptOrStatus.status === 'cancelled') {
+            key = 'cancelled';
+        } else {
+            key = aptOrStatus.status;
+        }
+    }
     return (
-        statusMap[status] || {
-            label: status || "Không rõ",
+        statusMap[key] || {
+            label: key || "Không rõ",
             cls: "bg-slate-50 text-slate-500 border-slate-100",
             dot: "bg-slate-500",
         }
@@ -424,7 +455,7 @@ const getVisiblePages = (currentPage, totalPages) => {
                                         <th class="py-3 px-4">Phòng xem</th>
                                         <th class="py-3 px-4">Ngày & Giờ</th>
                                         <th class="py-3 px-4">Trạng thái</th>
-                                        <th class="py-3 px-4">Hợp đồng</th>
+                                        <th class="py-3 px-4 text-center">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
@@ -451,21 +482,20 @@ const getVisiblePages = (currentPage, totalPages) => {
                                         <td class="py-3 px-4">
                                             <span :class="[
                                                 'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
-                                                getStatusData(apt.status)
-                                                    .cls,
+                                                getStatusData(apt).cls,
                                             ]">
-                                                <span class="w-1.5 h-1.5 rounded-full" :class="getStatusData(
-                                                    apt.status,
-                                                ).dot
-                                                    "></span>
-                                                {{
-                                                    getStatusData(apt.status)
-                                                        .label
-                                                }}
+                                                <span class="w-1.5 h-1.5 rounded-full" :class="getStatusData(apt).dot"></span>
+                                                {{ getStatusData(apt).label }}
                                             </span>
                                         </td>
-                                        <td class="py-3 px-4">
-                                            <span class="text-slate-400">-</span>
+                                        <td class="py-3 px-4 text-center">
+                                            <button v-if="apt.status === 'cancel_requested' || apt.feedback_result === 'cancel_requested'"
+                                                @click="confirmCancelApt(apt)"
+                                                class="px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold hover:bg-rose-100 transition-all inline-flex items-center gap-1"
+                                                title="Xác nhận Hủy & Giải phóng phòng">
+                                                <i class="bi bi-x-circle-fill"></i> Xác nhận Hủy
+                                            </button>
+                                            <span v-else class="text-slate-400">-</span>
                                         </td>
                                     </tr>
                                 </tbody>

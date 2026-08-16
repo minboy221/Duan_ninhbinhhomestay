@@ -167,13 +167,28 @@ class RoomService
     public function deleteFloor(int $landlordId, int $floorId): bool
     {
         $floor = $this->floorRepo->findById($floorId);
-        if (!$floor || $floor->property->landlord_id !== $landlordId)
+        if (!$floor || $floor->property->landlord_id !== $landlordId) {
             return false;
-
-        $restrictedStatuses = ['rented', 'deposited', 'expiring_soon', 'pending_renewal'];
+        }
         foreach ($floor->rooms as $room) {
-            if (in_array($room->status, $restrictedStatuses)) {
-                throw new \Exception('Tầng này có phòng đang trong trạng thái Đã thuê, Đã đặt cọc, Sắp hết hạn HĐ hoặc Chờ gia hạn. Không thể xóa!');
+            //chặn nếu phòng trong tầng/dãy đang có bài đăng tin công khai trên hệ thống
+            $hasActivePost = \App\Models\RoomPost::where('room_id', $room->id)
+                ->whereIn('status', ['published', 'approved', 'pending'])
+                ->exists();
+                if($hasActivePost){
+                    throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang có bài đăng tin trên hệ thống. Vui lòng gỡ hoặc ẩn tin đăng trước!");
+                }
+            //chặn nếu trong phòng, tầng/dãy có hợp đồng thuê còn hiệu lực
+            $hasActiveContract = \App\Models\Contract::where('room_id',$room->id)
+            ->whereIn('status',['active','signed','awaiting_upload','pending_renewal'])
+            ->exists();
+            if($hasActiveContract){
+                throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang có Hợp Đồng thuê còn hiệu lực!");
+            }
+            //chặn nếu phòng đang ở trạng thái đã thuê hoặc đặt cọc
+            $restrictedStatuses = ['rented','deposited','expiring_soon','pending_renewal'];
+            if(in_array($room->status, $restrictedStatuses)){
+                throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang trong trạng thái Đã thuê hoặc Đặt cọc!");
             }
         }
 
@@ -527,7 +542,7 @@ class RoomService
         //số người thực tế là giá trị lớn nhất giữa hợp đồng active và cư dân active
         $currentPeople = max($activeContractsCount, $activeResidentsCount);
         //tự động đồng bộ lại số người ở vào db
-        if((int) $room->current_people !== $currentPeople){
+        if ((int) $room->current_people !== $currentPeople) {
             $room->update([
                 'current_people' => $currentPeople
             ]);

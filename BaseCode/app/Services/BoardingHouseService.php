@@ -154,10 +154,17 @@ class BoardingHouseService
     }
     public function deleteBoardingHouse(int $id, int $userId){
         $house = \App\Models\BoardingHouse::where('id',$id)->where('user_id',$userId)->firstOrFail();
-        //check phòng nào của cơ sở này đang có hợp đồng hiệu lực
+        //chặn nếu cơ sở trọ này đang có bài đăng tin rao phòng public trên hệ thống
+        $hasActivePosts = \App\Models\RoomPost::whereHas('room',function ($q) use ($id){
+            $q->where('boarding_house_id',$id);
+        })->whereIn('status',['published','approved','pending'])->exists();
+        if($hasActivePosts){
+            throw new \Exception('Không thể xoá cơ sở này vì đang có Bài đăng tin rao phòng công khai trên hệ thống. Vui lòng gỡ tin đăng trước!');
+        }
+        //Chặn nếu cơ sở trọ này đang có hợp đồng thuê trọ còn hiệu lực
         $hasActiveContracts = \App\Models\Contract::whereHas('room', function($q) use ($id){
             $q->where('boarding_house_id',$id);
-        })->whereIn('status',['active','signed','awaiting_upload'])->exists();
+        })->whereIn('status',['active', 'signed', 'awaiting_upload', 'pending_renewal'])->exists();
         if($hasActiveContracts){
             throw new \Exception('Không thể xoá cơ sở này vì vẫn còn hợp đồng đang có hiệu lực!');
         }
