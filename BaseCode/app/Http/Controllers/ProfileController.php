@@ -10,8 +10,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
+use App\Models\RoommateRequest;
 use Inertia\Inertia;
 use Inertia\Response;
+use function Safe\strtotime;
 
 class ProfileController extends Controller
 {
@@ -33,7 +35,7 @@ class ProfileController extends Controller
         $user = $request->user();
         $profileData = $this->profileService->getProfileData($user);
         //lấy danh sách các lý do báo cáo đang active
-        $reasons = \App\Models\ReportReason::where('is_active',true)->get();
+        $reasons = \App\Models\ReportReason::where('is_active', true)->get();
         return Inertia::render('Profile/tranguser', [
             'user' => $user,
             'rentalStatus' => $profileData['rentalStatus'],
@@ -48,15 +50,49 @@ class ProfileController extends Controller
     //trang quản lý nơi ở
     public function quanlynoio(Request $request): Response
     {
-        $contract = \App\Models\Contract::where('tenant_id', $request->user()->id)
-            ->whereIn('status', ['awaiting_upload', 'signed', 'active'])
-            ->with(['room.boardingHouse.user', 'invoices'])
+        $userId = $request->user()->id;
+        $isPrimaryTenant = false;
+        // Tìm hợp đồng của người dùng đứng tên đại diện
+        $contract = \App\Models\Contract::where('tenant_id', $userId)
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+            ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices', 'tenant'])
             ->orderBy('created_at', 'desc')
             ->first();
-
+        if ($contract) {
+            $isPrimaryTenant = true; // Là Chủ hợp đồng
+        } else {
+            // Check nếu là thành viên ở ghép
+            $resident = \App\Models\RoomResident::where('user_id', $userId)
+                ->where('status', 'active')
+                ->first();
+            if ($resident) {
+                $contract = \App\Models\Contract::where('room_id', $resident->room_id)
+                    ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+                    ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices', 'tenant'])
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+                $isPrimaryTenant = false; // Là Thành viên ở ghép
+            }
+        }
+        //tự động kiểm tra và đồng bộ số người ở hiện tại của phòng
+        if ($contract && $contract->room) {
+            $room = $contract->room;
+            $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
+                ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
+                ->count();
+            $activeContractsCount = \App\Models\RoomResident::where('room_id', $room->id)
+                ->where('status', 'active')
+                ->count();
+            $realCurrentPeople = max($activeContractsCount, $activeContractsCount);
+            if ((int) $room->current_people !== $realCurrentPeople) {
+                $room->update(['current_people' => $realCurrentPeople]);
+                $room->current_people = $realCurrentPeople;
+            }
+        }
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
             'contract' => $contract,
+            'isPrimaryTenant' => $isPrimaryTenant,
         ]);
     }
 
@@ -66,9 +102,9 @@ class ProfileController extends Controller
         $invoices = \App\Models\Invoice::whereHas('contract', function ($q) use ($request) {
             $q->where('tenant_id', $request->user()->id);
         })
-        ->with(['details.service', 'contract.room.boardingHouse.user'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+            ->with(['details.service', 'contract.room.boardingHouse.user'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
 
@@ -205,7 +241,7 @@ class ProfileController extends Controller
     public function toggleFavorite(Request $request, $roomId): RedirectResponse
     {
         $user = $request->user();
-        
+
         // Kiểm tra xem phòng đã được yêu thích chưa
         if ($user->favoriteRooms()->where('room_id', $roomId)->exists()) {
             // Bỏ yêu thích
@@ -270,13 +306,26 @@ class ProfileController extends Controller
 
         $request->validate([
             'result' => 'required|in:interested,not_interested',
-            'cccd' => 'nullable|string|max:20',
+            'reason' => 'nullable|string|max:255',
         ]);
 
+        //cập nhật trạng thái lịch hẹn khi thay đổi
+        $status = $request->result === 'interested' ? 'success_matched' : 'false_matched';
+
         $appointment->update([
+            'status' => $status,
             'feedback_result' => $request->result,
+            'feedback_reason' => $request->reason,
             'feedback_time' => now()
         ]);
+
+        if ($request->result === 'interested') {
+            $appointment->load(['user', 'room.boardingHouse']);
+            $landlord = $appointment->room->boardingHouse->user ?? null;
+            if ($landlord) {
+                $landlord->notify(new \App\Notifications\TenantInterestedNotification($appointment));
+            }
+        }
 
         if ($request->filled('cccd')) {
             $user->update(['cccd_number' => $request->cccd]);
@@ -311,11 +360,20 @@ class ProfileController extends Controller
             'feedback_result' => 'cancel_requested',
             'cancellation_reason' => $request->reason,
             'feedback_reason' => $request->reason,
-            'feedback_time' => now()
+            'feedback_time' => now(),
+            'status' => 'cancel_requested',
         ]);
 
+        //gửi thông báo cho chủ trọ
+        $appointment->load(['user', 'room', 'landlord']);
+        $landlord =  $appointment->landlord ?? $appointment->room?->boardingHouse?->user ?? null;
+        if($landlord){
+            $landlord->notify(new \App\Notifications\TenantCancelledNotification($appointment));
+        }
+
         // Nếu có hợp đồng liên quan chưa chính thức ký, cập nhật trạng thái hủy
-        $contract = \App\Models\Contract::where('appointment_id', $appointment->id)
+        $contract = \App\Models\Contract::where('room_id', $appointment->room_id)
+            ->where('tenant_id', $appointment->user_id)
             ->whereIn('status', ['draft', 'awaiting_upload', 'pending', 'signed', 'active', 'termination_requested'])
             ->first();
 
@@ -329,7 +387,7 @@ class ProfileController extends Controller
             \App\Models\Contract::$allowImmutableUpdate = false;
         }
 
-        return Redirect::back()->with('success', 'Đã gửi yêu cầu hủy đăng ký hợp đồng tới Chủ trọ thành công!');
+        return redirect()->back()->with('success', 'Đã gửi yêu cầu hủy đăng ký hợp đồng tới Chủ trọ thành công!');
     }
 
     /**
@@ -385,6 +443,50 @@ class ProfileController extends Controller
         return Redirect::back()->with('success', 'Đã gửi yêu cầu chấm dứt hợp đồng thành công. Vui lòng chờ chủ trọ xác nhận thanh lý.');
     }
 
+    // Phần gia hạn hợp đồng từ client
+    public function requestExtension(Request $request, \App\Models\Contract $contract): RedirectResponse
+    {
+        $user = $request->user();
+        if ($contract->tenant_id !== $user->id) {
+            abort(403, 'Bạn không có quyền thực hiện thao tác này.');
+        }
+        //ràng buộc check gửi gia hạn hợp đồng 1 lần
+        if ($contract->cancellation_reason && str_contains($contract->cancellation_reason, 'gia hạn')) {
+            return redirect()->back()->with('error', 'Bạn đã gửi một yêu cầu gia hạn hợp đồng trước đó. Vui lòng chờ chủ trọ phê duyệt!');
+        }
+        $request->validate([
+            'desired_months' => 'required|integer|min:1|max:36',
+            'note' => 'nullable|string|max:1000',
+        ], [
+            'desired_months.required' => 'Vui lòng chọn số tháng muốn gia hạn.',
+            'desired_months.min' => 'Số tháng gia hạn tối thiểu là 1 tháng.',
+        ]);
+        $months = (int) $request->input('desired_months');
+        $note = trim($request->input('note', ''));
+        //tự động tính ngày hết hạn đề xuất mới dựa trên số tháng khách chọn
+        $currentEndDate = $contract->end_date ? \Carbon\Carbon::parse($contract->end_date) : now();
+        $suggestedEndDate = $currentEndDate->addMonths($months)->format('Y-m-d');
+        $requestedInfor = "Khách xin gia hạn thêm {$months} tháng (Ngày kết thúc đề xuất: " . date('d/m/Y', strtotime($suggestedEndDate)) . ")" . ($note ? ". Ghi chú: {$note}" : "");
+        //lưu thông tin đề xuất vào hợp đồng để chủ trọ nạp tự động
+        \App\Models\Contract::$allowImmutableUpdate = true;
+        $contract->update([
+            'cancellation_reason' => $requestedInfor
+        ]);
+
+        \App\Models\Contract::$allowImmutableUpdate = false;
+        //gửi thông báo tới chủ trọ
+        $landlord = $contract->room->boardingHouse->user ?? null;
+        if ($landlord) {
+            $roomNum = $contract->room->room_number ?? "";
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'Yêu cầu gia hạn hợp đồng mới',
+                "Khách thuê tại phòng {$roomNum} ({$user->name}) gửi yêu cầu gia hạn {$months} tháng. {$requestedInfor}",
+                route('landlord.contracts')
+            ));
+        }
+        return redirect()->route('quanlynoio')->with('success', "Đã gửi yêu cầu gia hạn hợp đồng ({$months} tháng) thành công tới chủ trọ!");
+    }
+
     /**
      * Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
      */
@@ -433,5 +535,54 @@ class ProfileController extends Controller
 
         return Redirect::back()->with('success', 'Đã cập nhật chỉ số điện/nước nhận phòng thành công!');
     }
+
+    //gửi yêu cầu tìm người lạ ở ghép
+    public function requestStrangerRoommate(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        try {
+            $this->profileService->createStrangerRequest($request->user());
+            return redirect()->back()->with('success', 'Gửi yêu cầu tìm người ở ghép thành công! Vui lòng chờ chủ trọ phê duyệt.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+    //gửi yêu cầu giới thiệu người quen vào ở ghép
+    public function requestAcquaintanceRoommate(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $request->validate([
+            'new_resident_name' => 'required|string|max:255',
+            'new_resident_phone' => 'required|string|max:15',
+            'new_resident_email' => 'required|email|max:255',
+            'new_resident_cccd' => 'required|string|regex:/^\d{12}$/', // CCCD 12 số
+        ], [
+            'new_resident_name.required' => 'Họ tên người quen là bắt buộc.',
+            'new_resident_phone.required' => 'Số điện thoại là bắt buộc.',
+            'new_resident_email.required' => 'Email là bắt buộc.',
+            'new_resident_cccd.required' => 'Số CCCD là bắt buộc.',
+            'new_resident_cccd.regex' => 'Số CCCD bắt buộc phải đúng 12 chữ số.'
+        ]);
+        try {
+            $this->profileService->createAcquaintanceRequest($request->user(), $request->only([
+                'new_resident_name',
+                'new_resident_phone',
+                'new_resident_email',
+                'new_resident_cccd',
+            ]));
+            return redirect()->back()->with('success', 'Gửi thông báo giới thiệu thành viên mới thành công! Vui lòng chờ chủ trọ duyệt.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    //hàm nhận token từ điện thoại
+    public function updateFcmToken(Request $request){
+        $request->validate(['fcm_token' => 'required|string',]);
+        $user = auth()->user();
+        if($user){
+            $user->update(['fcm_token' => $request->fcm_token]);
+        }
+        return response()->json(['messeage' => 'Cập nhật FCM Token thành công!']);
+    }
 }
+
 

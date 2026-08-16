@@ -41,6 +41,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'bank_account_name',
         'last_seen_at',
         'cccd_number',
+        'fcm_token'
     ];
 
     protected $appends = ['is_online'];
@@ -119,11 +120,71 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     //kiểm tra người dùng có đang online hay không
-    public function getIsOnlineAttribute(): bool{
-        if(!$this->last_seen_at){
+    public function getIsOnlineAttribute(): bool
+    {
+        if (!$this->last_seen_at) {
             return false;
         }
         //so sánh thời gian hoạt động cuối dùng có lớn hơn thời điểm cách đây 3 phút
         return $this->last_seen_at->gt(now()->subMinutes(3));
+    }
+
+    public function propertyManagers()
+    {
+        return $this->hasMany(PropertyManager::class, 'user_id');
+    }
+
+    public function subscriptions()
+    {
+        return $this->hasMany(LandlordSubscription::class);
+    }
+    public function activeSubscription()
+    {
+        return $this->hasOne(LandlordSubscription::class)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>=', now()->toDateString());
+            })->latestOfMany();
+    }
+
+    //hàm check lấy giá trị của feature_code từ gói dịch vụ đang hoạt động
+    public function getFeatureValue(string $featureCode)
+    {
+        $activeSub = $this->activeSubscription()->with('plan.features')->first();
+        if (!$activeSub || !$activeSub->plan) {
+            return null;
+        }
+        $feature = $activeSub->plan->features->firstWhere('feature_code', $featureCode);
+        return $feature ? $feature->pivot->feature_value : null;
+    }
+
+    //hàm check xem chủ trọ có thể tạo thêm tài nguyên trong hệ thống không
+    public function canCreateResource(string $featureCode, int $currentCount): bool
+    {
+        $limit = $this->getFeatureValue($featureCode);
+        if ($limit === null)
+            return true;
+        if ($limit === '-1' || (int) $limit === -1)
+            return true; //giá trị -1 là vô hạn
+        return $currentCount < (int) $limit;
+    }
+
+    //hàm check xem chủ trọ có quyền bật/tắt tính năng hay không
+    public function hasFeature(string $featureCode): bool
+    {
+        $val = $this->getFeatureValue($featureCode);
+        return $val === 'true' || $val === true || $val === 'gold';
+    }
+
+    //check tài khoản của chủ trọ có bị đóng băng do vượt hạn mức của gói không
+    public function isRoomFrozen(int $roomIndex): bool
+    {
+        $limit = $this->getFeatureValue('max_rooms');
+        if ($limit === null || $limit === '-1' || (int) $limit === -1) {
+            return false; //gói vô hạn không bị đóng băng
+        }
+        //nếu thứ tự phòng lớn hơn giới hạn gói -> bị đóng băng
+        return $roomIndex > (int) $limit;
     }
 }

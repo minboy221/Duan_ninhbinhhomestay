@@ -26,17 +26,21 @@ class ServiceManagementService
         }
         $property = $this->propertyRepo->create([
             'landlord_id' => $landlordId,
-            'name'        => 'Nhà trọ chính',
-            'address'     => 'Chưa cập nhật',
-            'city'        => 'Ninh Bình',
-            'type'        => 'motel_room',
-            'is_active'   => true,
+            'name' => 'Nhà trọ chính',
+            'address' => 'Chưa cập nhật',
+            'city' => 'Ninh Bình',
+            'type' => 'motel_room',
+            'is_active' => true,
         ]);
         return $property->id;
     }
 
-    public function getServices(int $landlordId)
+    public function getServices(int $landlordId, ?int $boardingHouseId = null)
     {
+        if ($boardingHouseId) {
+            return $this->serviceRepo->getByBoardingHouseId($boardingHouseId);
+        }
+
         $propertyId = $this->getOrCreatePropertyId($landlordId);
         return $this->serviceRepo->getByPropertyId($propertyId);
     }
@@ -51,21 +55,24 @@ class ServiceManagementService
     public function updateService(int $landlordId, int $serviceId, array $data)
     {
         $service = $this->serviceRepo->findById($serviceId);
-        if (!$service || $service->property->landlord_id !== $landlordId) return false;
+        if (!$service || $service->property->landlord_id !== $landlordId)
+            return false;
         return $this->serviceRepo->update($service, $data);
     }
 
     public function deleteService(int $landlordId, int $serviceId)
     {
         $service = $this->serviceRepo->findById($serviceId);
-        if (!$service || $service->property->landlord_id !== $landlordId) return false;
+        if (!$service || $service->property->landlord_id !== $landlordId)
+            return false;
         return $this->serviceRepo->delete($service);
     }
 
     public function changeStatus(int $landlordId, int $serviceId, bool $isActive)
     {
         $service = $this->serviceRepo->findById($serviceId);
-        if (!$service || $service->property->landlord_id !== $landlordId) return false;
+        if (!$service || $service->property->landlord_id !== $landlordId)
+            return false;
         return $this->serviceRepo->update($service, ['is_active' => $isActive]);
     }
 }

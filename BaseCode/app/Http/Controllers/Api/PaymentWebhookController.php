@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\LandlordSubscription;
+use App\Services\SubscriptionService;
 use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,13 +16,13 @@ class PaymentWebhookController extends Controller
      */
     public function handleWebhook(Request $request)
     {
-        $content = $request->input('content') 
-            ?? $request->input('description') 
-            ?? $request->input('data.description') 
+        $content = $request->input('content')
+            ?? $request->input('description')
+            ?? $request->input('data.description')
             ?? $request->input('memo', '');
-            
-        $amount = floatval($request->input('transferAmount') 
-            ?? $request->input('amount') 
+
+        $amount = floatval($request->input('transferAmount')
+            ?? $request->input('amount')
             ?? $request->input('data.amount', 0));
 
         if (empty($content)) {
@@ -29,6 +31,33 @@ class PaymentWebhookController extends Controller
 
         Log::info("Webhook Payment Received:", ['content' => $content, 'amount' => $amount]);
 
+        //Kiểm tra nếu là thanh toán mua gói dịch vụ chủ trọ (chứa mã SUB)
+        if (preg_match('/SUB\d+/', $content, $matches)) {
+            $subCode = $matches[0];
+            $subscription = LandlordSubscription::where('payment_code', $subCode)
+                ->where('status', 'pending')
+                ->first();
+            if ($subscription) {
+                //kích hoạt gói dịch vụ
+                $subscriptionService = app(SubscriptionService::class);
+                $subscriptionService->activateSubscription($subscription);
+                Log::info("Tự động kích hoạt gói thành công qua Webhook:", [
+                    'payment_code' => $subCode,
+                    'user_id' => $subscription->user_id,
+                    'plan_id' => $subscription->plan_id
+                ]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Thanh toán & Tự động kích hoạt gói dịch vụ thnafh công cho mã ' . $subCode,
+                    'subscription_id' => $subscription->id,
+                    'user_id' => $subscription->user_id,
+                    'plan_name' => $subscription->plan->name ?? '',
+                    'start_date' => $subscription->start_date ? $subscription->start_date->toDateString() : null,
+                    'end_date' => $subscription->end_date ? $subscription->end_date->toDateString() : null,
+                ]);
+            }
+        }
+        // nếu không phải mua gói -> tiếp tục kiểm tra hoá đơn tiền trọ như cũ
         $invoice = $this->findInvoiceFromContent($content);
 
         if (!$invoice) {
@@ -112,7 +141,8 @@ class PaymentWebhookController extends Controller
         if (preg_match('/HD[-\w\d]+/', $content, $matches)) {
             $code = $matches[0];
             $inv = Invoice::where('invoice_code', $code)->orWhere('invoice_code', '#' . $code)->first();
-            if ($inv) return $inv;
+            if ($inv)
+                return $inv;
         }
 
         // 2. Tìm theo Mẫu 1: P[Số phòng] ... TT thang [Tháng]
@@ -127,13 +157,14 @@ class PaymentWebhookController extends Controller
             $inv = Invoice::whereHas('contract.room', function ($q) use ($roomNum) {
                 $q->where('room_number', 'LIKE', '%' . $roomNum . '%');
             })
-            ->where(function ($q) use ($rawMonth, $billingMonth) {
-                $q->where('billing_month', $rawMonth)->orWhere('billing_month', $billingMonth);
-            })
-            ->where('status', 'unpaid')
-            ->first();
+                ->where(function ($q) use ($rawMonth, $billingMonth) {
+                    $q->where('billing_month', $rawMonth)->orWhere('billing_month', $billingMonth);
+                })
+                ->where('status', 'unpaid')
+                ->first();
 
-            if ($inv) return $inv;
+            if ($inv)
+                return $inv;
         }
 
         // 3. Fallback: Tìm bất kỳ hóa đơn nào chưa thanh toán mà invoice_code xuất hiện trong content
@@ -147,5 +178,26 @@ class PaymentWebhookController extends Controller
         }
 
         return null;
+    }
+
+
+    //test local thanh toán mua gói
+    public function simulateSubscriptionPayment(Request $request)
+    {
+        $subscriptionId = $request->input('subscription_id');
+        $subscription = LandlordSubscription::find($subscriptionId);
+        if (!$subscription) {
+            return response()->json([
+                'success' => false,
+                'messeage' => 'Đơn đăng ký gói không tồn tại'
+            ], 404);
+        }
+        $subscriptionService = app(SubscriptionService::class);
+        $subscriptionService->activateSubscription($subscription);
+        return response()->json([
+            'success' => true,
+            'message' => 'Giả lập thanh toán ngân hàng cho ggosi dịch vụ thành công!',
+            'subscription' => $subscription->load('plan')
+        ]);
     }
 }

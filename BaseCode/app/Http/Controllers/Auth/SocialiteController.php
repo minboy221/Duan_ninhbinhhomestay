@@ -36,7 +36,10 @@ class SocialiteController extends Controller
             $this->authService->handleGoogleLogin();
 
             // Redirect to home or dashboard
-            return redirect('/');
+           if(auth()->check() && auth()->user()->role() === 'landlord'){
+            return redirect()->route('landlord.dashboard');
+           }
+           redirect('/');
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Google Login Error: ' . $e->getMessage());
             // Handle error, e.g., user denied access

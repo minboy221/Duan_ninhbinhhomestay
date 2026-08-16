@@ -1,11 +1,35 @@
 <script setup>
-import { useForm, Head } from "@inertiajs/vue3";
+import { useForm, Head, usePage } from "@inertiajs/vue3";
+import { onMounted, watch } from "vue";
+import Swal from "sweetalert2";
 
 // Khởi tạo form đồng bộ dữ liệu với Backend qua Inertia
 const form = useForm({
     email: "",
     password: "",
     remember: false,
+});
+
+const page = usePage();
+
+const showLockedAlert = () => {
+    if (page.props.flash && page.props.flash.error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Tài khoản bị khóa',
+            text: page.props.flash.error,
+            confirmButtonText: 'Đã hiểu',
+            confirmButtonColor: '#f97316'
+        });
+    }
+};
+
+onMounted(() => {
+    showLockedAlert();
+});
+
+watch(() => page.props.flash?.error, () => {
+    showLockedAlert();
 });
 
 // Hàm xử lý submit form
@@ -26,7 +50,7 @@ const submit = () => {
                 <div class="flex justify-center mb-4">
                     <img src="/anh/logo.png" alt="Logo" class="h-20 w-auto object-contain" />
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 tracking-tight">HỆ THỐNG QUẢN TRỊ NAVIS</h2>
+                <h2 class="text-2xl font-bold text-gray-900 tracking-tight">HỆ THỐNG QUẢN TRỊ NinhBinhHomeStay</h2>
                 <p class="text-sm text-gray-500 mt-2">Dành riêng cho quản trị viên hệ thống</p>
             </div>
 

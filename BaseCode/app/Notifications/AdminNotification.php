@@ -4,7 +4,7 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
-
+use Illuminate\Notifications\Messages\BroadcastMessage;
 class AdminNotification extends Notification
 {
     use Queueable;
@@ -24,7 +24,7 @@ class AdminNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database','broadcast'];
     }
 
     public function toArray(object $notifiable): array
@@ -35,5 +35,20 @@ class AdminNotification extends Notification
             'type' => $this->type,
             'url' => $this->url
         ];
+    }
+
+    //định nghĩa dữ liệu phát đi thời gian thực
+    public function toBroadcast(object $notifiable):BroadcastMessage{
+        return new BroadcastMessage([
+            'id' => $this->id,
+            'data' => [
+                'title' => $this->title,
+                'message' => $this->message,
+                'type' => $this->type,
+                'url' => $this->url
+            ],
+            'read_at' => null,
+            'created_at' => now()->toIso8601String(),
+        ]);
     }
 }

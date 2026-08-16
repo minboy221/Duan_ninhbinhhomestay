@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use Aws\HasDataTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Traits\Hashidable;
 
 class Invoice extends Model
 {
-    use HasFactory;
+    use HasFactory,Hashidable;
 
     protected $fillable = [
         'contract_id',
@@ -29,6 +31,8 @@ class Invoice extends Model
         'due_date' => 'date',
     ];
 
+    protected $appends = ['hash_id'];
+    
     public function scopeActive($query)
     {
         return $query->whereNull('archived_at');

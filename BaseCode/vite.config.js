@@ -28,9 +28,9 @@ export default defineConfig({
             injectRegister: 'false',
             manifest: {
                 name: 'Ninh Bình Home Stay',
-                short_name: 'NB Homesta',
+                short_name: 'NB Homestay',
                 description: 'Ứng dụng đặt phòng trọ và quản lý trực tuyến tại Ninh Bình',
-                theme_color: '#4f46e5',
+                theme_color: '#45abe6',
                 background_color: '#ffffff',
                 display: 'standalone',
                 start_url: '/',
@@ -54,9 +54,19 @@ export default defineConfig({
                         type: 'image/png',
                         purpose: 'maskable'
                     }
+                ],
+                shortcuts: [
+                    {
+                        name: 'Trang Quản Lý Chủ Trọ',
+                        short_name: 'Quản lý',
+                        description: 'Truy cập nhanh vào bảng điều khiển quản lý',
+                        url: '/landlord/dashboard',
+                        icons: [{ src: '/anh/logoPWA512x512.png', sizes: '192x192', }]
+                    }
                 ]
             },
             workbox: {
+                navigateFallback: null,
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
                 globIgnores: ['**/storage/**'],
                 maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,

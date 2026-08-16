@@ -108,11 +108,18 @@ class LandlordController extends Controller
         $statusCounts = $this->roomService->getStatusCounts($landlordId, $boardingHouseId);
 
         // Fetch active services
-        $allServices = $this->serviceManagementService->getServices($landlordId);
+        $allServices = $this->serviceManagementService->getServices($landlordId, $boardingHouseId);
         $services = $allServices->where('is_active', true)->values();
 
+        //lấy tất cả tầng của chủ trọ để dùng riêng cho chọn tầng khi tạo phòng mới
+        $propertyId = $this->roomService->getOrCreatePropertyId($landlordId);
+        $allFloors = \App\Models\Floor::where('property_id', $propertyId)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->toArray();
         return Inertia::render('Landlord/Rooms/index', [
             'floors' => $floors,
+            'allFloors' => $allFloors,
             'statusCounts' => $statusCounts,
             'services' => $services,
         ]);
@@ -122,6 +129,16 @@ class LandlordController extends Controller
 
     public function storeFloor(Request $request)
     {
+        $user = auth()->user();
+        //đếm tổng số tầng hiện tại của chủ trọ
+        $currentFloorCount = \App\Models\Floor::whereHas('property', function ($q) use ($user){
+            $q->where('landlord_id', $user->id);
+        })->count();
+        //kiểm tra với giới hạn max_properties của Gói dịch vụ
+        if(!$user->canCreateResource('max_properties', $currentFloorCount)){
+            $limit = $user->getFeatureValue('max_properties');
+            return redirect()->back()->with('error', "Gói dịch vụ của bạn cho phép tạo tối đa {$limit} Tầng/Dãy nhà. Bạn hiện đang có {$currentFloorCount} Tầng. Vui lòng nâng cấp gói để tạo thêm!");
+        }
         $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:255',
@@ -164,6 +181,15 @@ class LandlordController extends Controller
 
     public function storeRoom(Request $request)
     {
+        $user = auth()->user();
+        //đếm tổng số phòng hiện tại của chủ trọ
+        $currentRoomCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user){
+            $q->where('user_id',$user->id);
+        })->count();
+        //check với giới hạn max_rooms trong gói dịch vụ
+        if(!$user->canCreateResource('max_rooms', $currentRoomCount)){
+            return redirect()->back()->with('error','Bạn đã đạt giới hạn số lượng phòng tối đa của gói dịch vụ hiện tại. Vui lòng nâng cấp gói để thêm phòng mới!');
+        }
         $request->validate([
             'floor_id' => 'required|integer|exists:floors,id',
             'room_numbers' => 'nullable|array',
@@ -301,8 +327,12 @@ class LandlordController extends Controller
 
     public function appointments()
     {
+        $boardingHouseId = session('selected_boarding_house_id');
         $appointments = Appointment::with(['user', 'room.boardingHouse'])
             ->where('landlord_id', auth()->id())
+            ->whereHas('room', function ($q) use ($boardingHouseId) {
+                $q->where('boarding_house_id', $boardingHouseId); //lấy lịch hẹn của phòng thuộc cơ sở đang chọn
+            })
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')
             ->get()
@@ -356,17 +386,45 @@ class LandlordController extends Controller
         }
     }
 
+    public function confirmCancelAppointment(Request $request, int $id)
+    {
+        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
+        //cập nhật trạng thái lịch hẹn
+        $appointment->update([
+            'status' => 'cancelled',
+            'feedback_result' => 'cancelled',
+            'cancellation_reason' => $request->input('reason', $appointment->cancellation_reason ?? 'Khách chọn chỗ khác')
+        ]);
+        //mở lại phòng trọ về trạng thái trống
+        if ($appointment->room) {
+            $appointment->room->update(['status' => 'available']);
+        }
+
+        // Hủy bất kỳ dự thảo hợp đồng nào liên quan
+        \App\Models\Contract::where('room_id', $appointment->room_id)
+            ->where('tenant_id', $appointment->user_id)
+            ->where('status', 'draft', 'awaiting_upload', 'pending', 'termination_requested')
+            ->update(['status' => 'cancelled', 'cancellation_reason' => 'Khách hàng đổi ý chọn chỗ khác']);
+        //gửi thông báo tới khách thuê
+        if($appointment->user){
+            $appointment->user->notify(new \App\Notifications\AppointmentStatusUpdated($appointment));
+        }
+        return redirect()->back()->with('success', 'Đã xác nhận hủy lịch hẹn và phòng trọ đã được giải phóng trở lại trạng thái trống!');
+    }
+
     // Phần hiển thị cấu hình giờ cho chủ trọ
     public function editAvailabilities()
     {
         //lấy danh sách các cơ sở trọ thuộc sở hữu của chủ trọ
         $boardingHouses = BoardingHouse::where('user_id', auth()->id())->get();
-        //lấy các cấu hình giờ rảnh để hiển thị lại trên form
+        //lấy ID cơ sở trọ đang chọn trong session
+        $selectBoardingHouseId = session('selected_boarding_house_id') ?: ($boardingHouses->first()?->id ?? null);
+        //lấy các cấu hình khung giờ rảnh để hiển thị lại trên form 
         $currentAvailabilities = LandlordAvailability::where('landlord_id', auth()->id())->get();
-        //render sang trang vue
         return Inertia::render('Landlord/Availabilities/Edit', [
             'boardingHouses' => $boardingHouses,
-            'currentAvailabilities' => $currentAvailabilities
+            'currentAvailabilities' => $currentAvailabilities,
+            'selectedBoardingHouseId' => $selectBoardingHouseId ? (int) $selectBoardingHouseId : null
         ]);
     }
 
@@ -428,24 +486,31 @@ class LandlordController extends Controller
     public function contracts()
     {
         $landlordId = Auth::id();
+        $boardingHousesId = session('selected_boarding_house_id');
 
         // Quét & cập nhật tự động trạng thái hợp đồng (expiring/expired) theo ngày hiện tại
         \App\Http\Controllers\Landlord\ContractController::scanContractStatuses($landlordId);
 
-        $contracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
+        $query = \App\Models\Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
             $q->where('user_id', $landlordId);
-        })
-        ->with(['room', 'tenant'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+        });
+        //nếu chủ trọ chọn 1 cơ sở cụ thể trên header -> lấy hợp đồng thuộc cơ sở đó
+        if ($boardingHousesId) {
+            $query->whereHas('room', function ($q) use ($boardingHousesId) {
+                $q->where('boarding_house_id', $boardingHousesId);
+            });
+        }
+        $contracts = $query->with(['room.residents.user', 'tenant'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         // Danh sách ID phòng đã có hợp đồng còn hiệu lực / chờ upload
-        $existingContractRoomIds = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
-            $q->where('user_id', $landlordId);
+        $existingContractRoomIds = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHousesId) {
+            $q->where('boarding_house_id', $boardingHousesId);
         })
-        ->whereIn('status', ['awaiting_upload', 'active', 'signed'])
-        ->pluck('room_id')
-        ->toArray();
+            ->whereIn('status', ['awaiting_upload', 'active', 'signed'])
+            ->pluck('room_id')
+            ->toArray();
 
         // Chỉ lấy những lịch hẹn mà:
         // 1. Trạng thái là approved, viewed hoặc waiting_contract
@@ -460,13 +525,21 @@ class LandlordController extends Controller
 
         // Lấy danh sách Nhà trọ kèm các Tầng và Phòng trọ
         $boardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)
-            ->with(['floors.rooms'])
+            ->with(['rooms.residents.user', 'floors.rooms.residents.user'])
             ->get();
-
+        //lấy danh sách yêu cầu ở ghép đang chờ tạo hợp đồng
+        $pendingRoommateRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+            ->where('status', 'pending')
+            ->with(['room', 'tenant'])
+            ->get();
         return Inertia::render('Landlord/Contracts/index', [
             'dbContracts' => $contracts,
             'appointments' => $appointments,
+            'pendingRoommateRequests' => $pendingRoommateRequests,
             'boardingHouses' => $boardingHouses,
+            'selectedBoardingHouseId' => $boardingHousesId ?: ($boardingHouses->first()?->id ?? null),
             'authLandlord' => Auth::user(),
         ]);
     }
@@ -474,46 +547,55 @@ class LandlordController extends Controller
     public function invoices()
     {
         $landlordId = Auth::id();
-        
-        $baseQuery = \App\Models\Invoice::whereHas('contract.room.boardingHouse', function($q) use($landlordId) {
-            $q->where('user_id', $landlordId);
+        $boardingHouseId = session('selected_boarding_house_id');
+        $baseQuery = \App\Models\Invoice::whereHas('contract.room', function ($q) use ($boardingHouseId) {
+            $q->where('boarding_house_id', $boardingHouseId);
         })
-        ->with(['contract.room', 'contract.tenant', 'details.service']);
+            ->with(['contract.room', 'contract.tenant', 'details.service']);
 
         $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->get();
         $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->get();
 
-        $activeContracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
-            $q->where('user_id', $landlordId);
+        $activeContracts = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHouseId) {
+            $q->where('boarding_house_id', $boardingHouseId);
+            //lọc theo cơ sở được chọn
         })
-        ->where('status', '!=', 'terminated')
-        ->with(['room.services', 'tenant', 'invoices' => function($q) {
-            $q->orderBy('billing_month', 'desc')->with('details');
-        }])
-        ->get();
+            ->where('status', '!=', 'terminated')
+            ->with([
+                'room.services',
+                'tenant',
+                'invoices' => function ($q) {
+                    $q->orderBy('billing_month', 'desc')->with('details');
+                }
+            ])
+            ->get();
 
         $boardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)
             ->where('status', 'approved')
             ->get();
 
         $currentMonth = date('Y-m');
-        $pendingBillingContracts = \App\Models\Contract::whereHas('room.boardingHouse', function($q) use($landlordId) {
+        $pendingBillingContracts = \App\Models\Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
             $q->where('user_id', $landlordId);
         })
-        ->whereIn('status', ['active', 'signed'])
-        ->whereDoesntHave('invoices', function($q) use($currentMonth) {
-            $q->where('billing_month', $currentMonth);
-        })
-        ->with(['room.services', 'tenant', 'room.boardingHouse', 'invoices' => function($q) {
-            $q->orderBy('billing_month', 'desc')->with('details');
-        }])
-        ->get();
+            ->whereIn('status', ['active', 'signed'])
+            ->whereDoesntHave('invoices', function ($q) use ($currentMonth) {
+                $q->where('billing_month', $currentMonth);
+            })
+            ->with([
+                'room.services',
+                'tenant',
+                'room.boardingHouse',
+                'invoices' => function ($q) {
+                    $q->orderBy('billing_month', 'desc')->with('details');
+                }
+            ])
+            ->get();
 
         // Get landlord services
-        $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
-        $propertyId = $boardingHouse ? $this->roomService->getOrCreatePropertyId($landlordId) : null;
-        $services = $propertyId ? \App\Models\Service::where('property_id', $propertyId)->where('is_active', true)->get() : collect();
-
+        $services = $this->serviceManagementService->getServices($landlordId, $boardingHouseId)
+            ->where('is_active', true)
+            ->values();
         return Inertia::render('Landlord/Invoices/index', [
             'invoices' => $invoices,
             'archivedInvoices' => $archivedInvoices,
@@ -543,16 +625,15 @@ class LandlordController extends Controller
             'water_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'water_old_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
         ]);
-
         $contract = \App\Models\Contract::with('room')->findOrFail($request->contract_id);
-        
+
         // Kiểm tra kỳ thanh toán phải nằm trong khoảng thời hạn hợp đồng
         $startMonth = substr($contract->start_date, 0, 7);
         $endMonth = substr($contract->end_date, 0, 7);
         if ($request->billing_month < $startMonth || $request->billing_month > $endMonth) {
             return redirect()->back()->with('error', "Kỳ thanh toán phải nằm trong khoảng thời hạn hợp đồng ({$startMonth} đến {$endMonth})!");
         }
-        
+
         // Ràng buộc không cho phép tạo kỳ thanh toán trước quá 1 tháng so với tháng hiện tại
         $maxAllowedMonth = \Carbon\Carbon::now()->addMonth()->format('Y-m');
         if ($request->billing_month > $maxAllowedMonth) {
@@ -631,7 +712,8 @@ class LandlordController extends Controller
                 }
                 $quantity = $newIndex - $oldIndex;
                 $meterImg = $elecImgPath;
-                if ($elecOldImgPath) $oldMeterImg = $elecOldImgPath;
+                if ($elecOldImgPath)
+                    $oldMeterImg = $elecOldImgPath;
             } elseif (str_contains($itemName, 'Nước')) {
                 if ($newIndex === null || $newIndex === '') {
                     return redirect()->back()->with('error', 'Vui lòng nhập chỉ số nước mới!');
@@ -655,7 +737,8 @@ class LandlordController extends Controller
                 }
                 $quantity = $newIndex - $oldIndex;
                 $meterImg = $waterImgPath;
-                if ($waterOldImgPath) $oldMeterImg = $waterOldImgPath;
+                if ($waterOldImgPath)
+                    $oldMeterImg = $waterOldImgPath;
             }
 
             $subtotal = $price * $quantity;
@@ -694,7 +777,35 @@ class LandlordController extends Controller
         if ($tenant) {
             $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
         }
-
+        //ghi log
+        $isAbnormal = false;
+        $reasons = [];
+        //lấy ngưỡng tổng tiền hoá đơn cảnh báo cho Admin
+        $maxInvoiceAmount = (float) (\App\Models\Setting::where('key', 'warning_invoice_amount')->value('value') ?? 10000000);
+        if ($totalAmount > $maxInvoiceAmount) {
+            $isAbnormal = true;
+            $reasons[] = "Tổng hoá đơn lớn hơn ngưỡng thiết lập (" . number_format($totalAmount) . " đ/Ngưỡng: " . number_format($maxInvoiceAmount) . "đ)";
+        }
+        //kiểm tra lượng điện/nước tiêu thụ bất thường phòng
+        foreach ($processedDetails as $pd) {
+            if (str_contains($pd['item_name'], 'Điện') && $pd['quantity'] > 1000) {
+                $isAbnormal = true;
+                $reasons[] = "Tiêu thụ điện bất thường: " . $pd['quantity'] . "kWh";
+            }
+            if (str_contains($pd['item_name'], 'Nước') && $pd['quantity'] > 50) {
+                $isAbnormal = true;
+                $reasons[] = "Tiêu thụ Nước bất thường: " . $pd['quantity'] . "m3";
+            }
+        }
+        //ghi log
+        $action = $isAbnormal ? 'abnormal_invoice' : 'create_invoice';
+        $logMesseage = "Chủ trọ" . Auth::user()->name . "Tạo hoá đơn {$invoice->invoice_code} cho phòng" . ($contract->room->room_number ?? 'N/A') . " (Kỳ: {$request->billing_month})";
+        if ($isAbnormal) {
+            $logMesseage .= " [CẢNH BÁO BẤT THƯỜNG]: " . implode(';', $reasons);
+        } else {
+            $logMesseage .= " với tổng tiền" . number_format($totalAmount) . "đ";
+        }
+        \App\Services\AuditLogger::log($action, $logMesseage, $isAbnormal);
         return redirect()->back()->with('success', 'Tạo hóa đơn thành công!');
     }
 
@@ -755,7 +866,7 @@ class LandlordController extends Controller
             $roomPrice = $contract->room ? (float) $contract->room->price : 0;
             $elecPrice = 3000;
             $waterPrice = 15000;
-            
+
             // Override with room services
             if ($contract->room) {
                 foreach ($contract->room->services as $service) {
@@ -773,7 +884,8 @@ class LandlordController extends Controller
                 $lastElec = $lastInv->details->first(fn($dt) => str_contains(strtolower($dt->item_name), 'điện'));
                 if ($lastElec && $lastElec->new_index !== null) {
                     $elecOld = (int) $lastElec->new_index;
-                    if ($lastElec->meter_image_path) $elecOldImgPath = $lastElec->meter_image_path;
+                    if ($lastElec->meter_image_path)
+                        $elecOldImgPath = $lastElec->meter_image_path;
                 }
             }
 
@@ -782,19 +894,20 @@ class LandlordController extends Controller
                 $lastWater = $lastInv->details->first(fn($dt) => str_contains(strtolower($dt->item_name), 'nước'));
                 if ($lastWater && $lastWater->new_index !== null) {
                     $waterOld = (int) $lastWater->new_index;
-                    if ($lastWater->meter_image_path) $waterOldImgPath = $lastWater->meter_image_path;
+                    if ($lastWater->meter_image_path)
+                        $waterOldImgPath = $lastWater->meter_image_path;
                 }
             }
 
-            if ((int)$r['elec_new'] < $elecOld) {
+            if ((int) $r['elec_new'] < $elecOld) {
                 return redirect()->back()->with('error', "Chỉ số điện mới của phòng " . ($contract->room ? $contract->room->room_number : $contractId) . " không được nhỏ hơn chỉ số cũ ({$elecOld})!");
             }
-            if ((int)$r['water_new'] < $waterOld) {
+            if ((int) $r['water_new'] < $waterOld) {
                 return redirect()->back()->with('error', "Chỉ số nước mới của phòng " . ($contract->room ? $contract->room->room_number : $contractId) . " không được nhỏ hơn chỉ số cũ ({$waterOld})!");
             }
 
-            $elecQty = (int)$r['elec_new'] - $elecOld;
-            $waterQty = (int)$r['water_new'] - $waterOld;
+            $elecQty = (int) $r['elec_new'] - $elecOld;
+            $waterQty = (int) $r['water_new'] - $waterOld;
 
             $processedDetails = [];
 
@@ -816,7 +929,7 @@ class LandlordController extends Controller
                 'service_id' => null,
                 'item_name' => 'Tiền Điện',
                 'old_index' => $elecOld,
-                'new_index' => (int)$r['elec_new'],
+                'new_index' => (int) $r['elec_new'],
                 'meter_image_path' => $elecImgPath,
                 'old_meter_image_path' => $elecOldImgPath,
                 'quantity' => $elecQty,
@@ -829,7 +942,7 @@ class LandlordController extends Controller
                 'service_id' => null,
                 'item_name' => 'Tiền Nước',
                 'old_index' => $waterOld,
-                'new_index' => (int)$r['water_new'],
+                'new_index' => (int) $r['water_new'],
                 'meter_image_path' => $waterImgPath,
                 'old_meter_image_path' => $waterOldImgPath,
                 'quantity' => $waterQty,
@@ -849,8 +962,8 @@ class LandlordController extends Controller
                             'meter_image_path' => null,
                             'old_meter_image_path' => null,
                             'quantity' => 1,
-                            'price' => (float)$service->price,
-                            'subtotal' => (float)$service->price,
+                            'price' => (float) $service->price,
+                            'subtotal' => (float) $service->price,
                         ];
                     } elseif ($service->type === 'per_person') {
                         $ppl = $contract->room->current_people ?: 1;
@@ -862,8 +975,8 @@ class LandlordController extends Controller
                             'meter_image_path' => null,
                             'old_meter_image_path' => null,
                             'quantity' => $ppl,
-                            'price' => (float)$service->price,
-                            'subtotal' => (float)$service->price * $ppl,
+                            'price' => (float) $service->price,
+                            'subtotal' => (float) $service->price * $ppl,
                         ];
                     }
                 }
@@ -932,7 +1045,7 @@ class LandlordController extends Controller
     public function deleteInvoice($id)
     {
         $invoice = \App\Models\Invoice::findOrFail($id);
-        
+
         if ($invoice->status === 'paid') {
             return redirect()->back()->with('error', 'Không thể xóa hóa đơn đã hoàn thành thanh toán! Vui lòng lưu trữ.');
         }
@@ -950,7 +1063,8 @@ class LandlordController extends Controller
 
     public function services()
     {
-        $services = $this->serviceManagementService->getServices(Auth::id());
+        $boardingHouseId = session('selected_boarding_house_id');
+        $services = $this->serviceManagementService->getServices(Auth::id(), $boardingHouseId);
         return Inertia::render('Landlord/Services/index', [
             'services' => $services
         ]);
@@ -966,8 +1080,9 @@ class LandlordController extends Controller
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
-
-        $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
+        $data = $request->all();
+        $data['boarding_house_id'] = session('selected_boarding_house_id');
+        $result = $this->serviceManagementService->createService(Auth::id(), $data);
         if (!$result)
             return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
         return redirect()->back()->with('success', 'Thêm dịch vụ thành công!');
@@ -975,6 +1090,12 @@ class LandlordController extends Controller
 
     public function updateService(Request $request, int $id)
     {
+        // lấy thông tin dịch vụ cũ để so sánh
+        $oldService = \App\Models\Service::find($id);
+        if (!$oldService) {
+            return redirect()->back->with('error', 'Không tìm thấy dịch vụ!');
+        }
+        $oldPrice = (float) $oldService->price;
         $request->validate([
             'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
@@ -983,10 +1104,48 @@ class LandlordController extends Controller
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
-
         $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
-        if (!$result)
+        if (!$result) {
             return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
+        }
+        //Logic kiểm tra giá tăng bất thường
+        $newPrice = (float) 
+            $request->price;
+        $isAbnormal = false;
+        $reason = "";
+
+        //cảnh báo nếu giá tăng đột biến hơn 50% so với giá cũ
+        if ($oldPrice > 0 && ($newPrice - $oldPrice) / $oldPrice >= 0.5) {
+            $isAbnormal = true;
+            $reason = "Tăng giá đột ngột hơn 50% (Từ " . number_format($oldPrice) . "đ lên " . number_format($newPrice) . "đ)";
+        }
+
+        //ngưỡng giá thay đổi bất thường
+        $maxElecPrice = (float) (\App\Models\Setting::where('key', 'waring_electricity_price')->value('value') ?? 8000);
+        $maxWaterPrice = (float) (\App\Models\Setting::where('key', 'warning_water_price')->value('value') ?? 40000);
+        if (str_contains($request->name, 'Điện') && $newPrice > $maxElecPrice) {
+            $isAbnormal = true;
+            $reason = "Giá điện bất thường cao: " . number_format($newPrice) . "đ/kWh
+            (Ngưỡng Admin thiết lập: " . number_format($maxElecPrice) . "đ)";
+        }
+        if (str_contains($request->name, 'Nước') && $newPrice > $maxWaterPrice) {
+            $isAbnormal = true;
+            $reason = "Giá nước bất thường cao: " . number_format($newPrice) . "đ/m3
+            (Ngưỡng Admin thiết lập: " . number_format($maxWaterPrice) . "đ)";
+        }
+        //ghi log
+        $action = $isAbnormal ? 'abnormal_service_price' : 'update_service';
+        $logMessage = "Chủ trọ" . Auth::user()->name . " thay đổi giá dịch vụ ' {$request->name} '";
+        if ($isAbnormal) {
+            $logMessage .= " [CẢNH BÁO BẤT THƯỜNG]: {$reason}";
+        } else {
+            $logMessage .= " từ " . number_format($oldPrice) . " đ thành " . number_format($newPrice) . "đ";
+        }
+        \App\Services\AuditLogger::log(
+            $action,
+            $logMessage,
+            $isAbnormal
+        );
         return redirect()->back()->with('success', 'Cập nhật dịch vụ thành công!');
     }
 
@@ -1089,4 +1248,29 @@ class LandlordController extends Controller
             return response()->json(['error' => 'Đã xảy ra lỗi khi gọi AI xử lý ảnh: ' . $e->getMessage()], 500);
         }
     }
+    public function addResident(Request $request, int $roomId)
+    {
+        $request->validate([
+            'phone' => 'required|string',
+            'start_date' => 'required|date',
+        ]);
+
+        try {
+            $this->roomService->addResident(Auth::id(), $roomId, $request->phone, $request->start_date);
+            return redirect()->back()->with('success', 'Đã thêm thành viên ở ghép thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function removeResident(Request $request, int $roomId, int $residentId)
+    {
+        try {
+            $this->roomService->removeResident(Auth::id(), $roomId, $residentId);
+            return redirect()->back()->with('success', 'Đã xóa thành viên ở ghép khỏi phòng!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
 }

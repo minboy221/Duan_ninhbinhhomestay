@@ -36,7 +36,7 @@ class ReportController extends Controller
         //ràng buộc điều kiện tố cáo với phòng hoặc cơ sở trọ
         if (in_array($type, ['Room', 'Property', 'BoardingHouse'])) {
             $roomId = null;
-            $boardingHouse = null;
+            $boardingHouseId = null;
             if ($type === 'Room') {
                 $roomId = $id;
                 $room = \App\Models\Room::find($id);
@@ -59,7 +59,7 @@ class ReportController extends Controller
                 })->exists();
             //check user đã có lịch hẹn xem phòng ở trạng thái 'viewed' chưa
             $hasAppointment = \App\Models\Appointment::where('user_id', $userId)
-                ->where('status', 'viewed')
+                ->whereIn('status', ['viewed', 'success_matched', 'false_matched'])
                 ->wherehas('room', function ($q) use ($roomId, $boardingHouseId) {
                     if ($roomId) {
                         $q->where('id', $roomId);
@@ -74,8 +74,8 @@ class ReportController extends Controller
             }
         }
         //nếu thoả mãn điều kiện hoặc báo cáo thì tiến hành lưu báo cáo
-        $this->reportService->createReport($request->validated(),$userId);
-        return redirect()->back()->with('success','Gửi báo cáo thành công! Hệ thống sẽ hỗ trợ bạn xử lý');
+        $this->reportService->createReport($request->validated(), $userId);
+        return redirect()->back()->with('success', 'Gửi báo cáo thành công! Hệ thống sẽ hỗ trợ bạn xử lý');
     }
     //phần 2 bên xử lý
     public function resolveSelf(ResolveReportRequest $request, $id)
@@ -85,33 +85,69 @@ class ReportController extends Controller
     }
 
     //Phần hiển thị danh sách báo cáo dành cho chủ trọ
-    public function landlordIndex(){
+    public function landlordIndex()
+    {
         $landlordId = auth()->id();
-        //lấy các báo cáo mà user báo cáo của chủ trọ này
-        $reports = \App\Models\Report::whereHasMorph('reportable',
-        [\App\Models\Room::class,
-        \App\Models\Invoice::class,
-        \App\Models\Contract::class
-        ],
-        function ($query,$type) use($landlordId){
-            if($type === \App\Models\Room::class){
-                $query->whereHas('boardingHouse', function ($q) use ($landlordId){
-                    $q->where('user_id',$landlordId);
-                });
-            }elseif($type === \App\Models\Invoice::class){
-                $query->whereHas('contract.room.boardingHouse', function ($q) use ($landlordId){
-                    $q->where('user_id',$landlordId);
-                });
-            }elseif($type === \App\Models\Contract::class){
-                $query->whereHas('room.boardingHouse', function ($q) use($landlordId){
-                    $q->where('user_id',$landlordId);
-                });
+        $boardingHouseId = session('selected_boarding_house_id');
+        //tự động gán cơ sở trọ đầu tiên nếu session trống
+        if (!$boardingHouseId) {
+            $firstHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)
+                ->where('status', 'approved')
+                ->first();
+            if ($firstHouse) {
+                $boardingHouseId = $firstHouse->id;
+                session(['selected_boarding_house_id' => $boardingHouseId]);
             }
         }
-        )->with(['reportable','reporter'])
-        ->orderBy('created_at','desc')
-        ->paginate(10);
-        return Inertia::render('Landlord/Reports/Index',[
+        //lấy các báo cáo mà user báo cáo của chủ trọ này
+        $reports = \App\Models\Report::whereHasMorph(
+            'reportable',
+            [
+                \App\Models\Room::class,
+                \App\Models\Invoice::class,
+                \App\Models\Contract::class
+            ],
+            function ($query, $type) use ($landlordId, $boardingHouseId) {
+                if ($type === \App\Models\Room::class) {
+                    $query->whereHas('boardingHouse', function ($q) use ($landlordId, $boardingHouseId) {
+                        $q->where('user_id', $landlordId)
+                            ->where('id', $boardingHouseId);
+                    });
+                } elseif ($type === \App\Models\Invoice::class) {
+                    $query->whereHas('contract.room.boardingHouse', function ($q) use ($landlordId, $boardingHouseId) {
+                        $q->where('user_id', $landlordId)
+                            ->where('id', $boardingHouseId);
+                    });
+                } elseif ($type === \App\Models\Contract::class) {
+                    $query->whereHas('room.boardingHouse', function ($q) use ($landlordId, $boardingHouseId) {
+                        $q->where('user_id', $landlordId)
+                            ->where('id', $boardingHouseId);
+                    });
+                }
+            }
+        )->with(['reportable', 'reporter'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+        $reports->getCollection()->transform(function ($report) {
+            $roomNumber = null;
+            $floorName = null;
+            if ($report->reportable_type === \App\Models\Room::class) {
+                $roomNumber = $report->reportable->room_number ?? null;
+                $floorName = $report->reportable->floot->name ?? null;
+            } elseif ($report->reportable_type === \App\Models\Invoice::class) {
+                $report->reportable->loadMissing('contract.room.floor');
+                $roomNumber = $report->reportable->contract->room->floor->name ?? null;
+                $floorName = $report->reportable->contract->room->Floor->name ?? null;
+            } elseif ($report->reportable_type === \App\Models\Contract::class) {
+                $report->reportable->loadMissing('room.floor');
+                $roomNumber = $report->reportable->room->room_number ?? null;
+                $floorName = $report->reportable->room->floor->name ?? null;
+            }
+            $report->room_number = $roomNumber;
+            $report->floor_name = $floorName;
+            return $report;
+        });
+        return Inertia::render('Landlord/Reports/Index', [
             'reports' => $reports
         ]);
     }

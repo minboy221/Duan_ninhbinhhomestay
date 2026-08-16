@@ -20,12 +20,21 @@ use App\Http\Controllers\Api\VerificationController;
 use App\Http\Controllers\Client\PublicListingController;
 //Phần nhận báo cáo
 use App\Http\Controllers\ReportController;
-
+//phần Phân quyền của chủ trọ
+use App\Http\Controllers\Owner\InviteController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\AdminPostController;
+use Illuminate\Routing\Controller;
+use Illuminate\Routing\Controllers\Middleware;
+//phần mua gói
+use App\Http\Controllers\SubscriptionPlanController;
+use App\Http\Controllers\LandlordSubscriptionController as AdminLandlordSubscriptionController;
+use App\Http\Controllers\Landlord\SubscriptionController as LandlordSubscriptionController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Response;
 use Inertia\Inertia;
+use Psy\Readline\Interactive\Input\IndentationPolicy;
+use Symfony\Component\Routing\Router;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +49,10 @@ use Inertia\Inertia;
 
 // Route phần clien
 Route::get('/', function (CategoryService $categoryService) {
+    //nếu là tài khoản đã đăng nhập và có vai trò là chủ trọ -> chuyển trực tiếp sang trang quản lý
+    if (auth()->check() && auth()->user()->role === 'landlord') {
+        return redirect()->route('landlord.dashboard');
+    }
     $categoryData = $categoryService->getActiveData();
     return Inertia::render('Client/Index', [
         'canLogin' => Route::has('login'),
@@ -72,7 +85,7 @@ Route::get('/lienhe', function () {
 })->name('lienhe');
 
 // Route cho Trang chi tiết trọ
-Route::get('/chitiettro/{id?}', [PublicListingController::class, 'show'])->name('chitiettro');
+Route::get('/chitiettro/{slug?}', [PublicListingController::class, 'show'])->name('chitiettro');
 
 // Route cho Trang chi tiết tin tức (lấy động theo slug)
 Route::get('/tintuc/{slug}', [PostController::class, 'show'])->name('chitiettintuc');
@@ -88,7 +101,7 @@ Route::get('/chitietdieukhoan', function () {
 })->name('chitietdieukhoan');
 
 
-//PHẦN NÀY ĐỂ LÀM LOGIC ĐĂNG NHẬP SAU
+//PHẦN LOGIC ĐĂNG NHẬP
 Route::middleware('auth')->group(function () {
     Route::get('/tranguser', [ProfileController::class, 'index'])->name('tranguser');
     Route::post('/tranguser', [ProfileController::class, 'updateProfile'])->name('tranguser.update');
@@ -101,13 +114,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
+    //Phần gia hạn thêm hợp đồng của clien
+    Route::post('/profile/contracts/{contract}/request-extension', [ProfileController::class, 'requestExtension'])->name('profile.contracts.request-extension');
     // Route lịch hẹn của khách thuê
     Route::get('/lichhen', [ProfileController::class, 'appointments'])->name('profile.appointments');
     Route::post('/chitiettro/{id}/book', [PublicListingController::class, 'book'])->name('rooms.book');
     //route API layas các khung giờ đã trùng
     Route::get('/chitiettro/{id}/booked_slots', [PublicListingController::class, 'getBookedSlots'])->name('rooms.booked-slots');
 
+    //Route nhận thông báo từ firebase
+    Route::post('/user/fcm_token', [App\Http\Controllers\ProfileController::class, 'updateFcmToken'])->middleware('auth')->name('user.update-fcm-token');
     // Route thả tim (yêu thích) phòng trọ
     Route::post('/rooms/{room}/favorite', [ProfileController::class, 'toggleFavorite'])->name('rooms.favorite');
 
@@ -119,9 +135,15 @@ Route::middleware('auth')->group(function () {
     // Route Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
     Route::post('/profile/contracts/{contract}/entry-readings', [ProfileController::class, 'submitEntryReadings'])->name('profile.entry-readings.submit');
 
+    //gửi yêu cầu tìm người ghép hoặc giới thiệu từ clien
+    Route::post('/profile/roommate-requests/stranger', [ProfileController::class, 'requestStrangerRoommate'])->name('profile.roommate.request_stranger');
+    Route::post('/profile/roommate-requests/acquaintance', [ProfileController::class, 'requestAcquaintanceRoommate'])->name('profile.roommate.request_acquaintance');
+
     // Route chung để xem file private (CCCD, Hợp đồng...)
     Route::get('/files/private/{type}/{filename}', [AdminVerificationController::class, 'showPrivateFile'])
         ->name('files.private');
+    //Phần phân quyền quét QR thêm vào nhóm quản lý
+    Route::get('/manager/invite/accept', [App\Http\Controllers\Owner\InviteController::class, 'accept'])->name('manager.invite.accept')->middleware('signed');
 });
 
 // ROUTER cho admin
@@ -167,7 +189,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
     Route::patch('/reports/{id}', [AdminController::class, 'updateReport'])->name('admin.reports.update');
     Route::post('/reports/settings/days', [AdminController::class, 'updateReportDays'])->name('admin.reports.update-days');
-        //CRUD lý do báo cáo vi phạm
+    //CRUD lý do báo cáo vi phạm
     Route::get('/report-reasons', [AdminController::class, 'reportReasons'])->name('admin.report-reasons.index');
     Route::post('/report-reasons', [AdminController::class, 'storeReportReason'])->name('admin.report-reasons.store');
     Route::put('/report-reasons/{id}', [AdminController::class, 'updateReportReason'])->name('admin.report-reasons.update');
@@ -197,16 +219,27 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/posts/{id}/edit', [AdminPostController::class, 'edit'])->name('admin.posts.edit');
     Route::post('/posts/{id}', [AdminPostController::class, 'update'])->name('admin.posts.update');
     Route::delete('/posts/{id}', [AdminPostController::class, 'destroy'])->name('admin.posts.destroy');
-
-    // Các route trên đã định nghĩa đầy đủ
+    //phần cấu hình ngân hàng của admin
+    Route::post('/subscription-plans/bank-settings', [SubscriptionPlanController::class, 'updateBankSettings'])->name('admin.subscription-plans.bank-settings');
+    //Phần quản lý mua gói
+    Route::get('/subscription-plans', [SubscriptionPlanController::class, 'index'])->name('admin.subscription-plans.index');
+    Route::post('/subscription-plans', [SubscriptionPlanController::class, 'store'])->name('admin.subscription-plans.store');
+    Route::put('subscription-plans/{id}', [SubscriptionPlanController::class, 'update'])->name('admin.subscription-plans.update');
+    Route::delete('/subscription-plans/{id}', [SubscriptionPlanController::class, 'destroy'])->name('admin.subscription-plans.destroy');
+    //quản lý & duyệt đơn mua gói của chủ trọ dành cho Admin
+    Route::get('/landlord-subscriptions', [AdminLandlordSubscriptionController::class, 'index'])->name('admin.landlord-subscriptions.index');
+    Route::post('/landlord-subscriptions/{id}/approve', [AdminLandlordSubscriptionController::class, 'approve'])->name('admin.landlord-subscriptions.approve');
+    Route::post('/landlord-subscriptions/{id}/reject', [AdminLandlordSubscriptionController::class, 'reject'])->name('admin.landlord-subscriptions.reject');
 });
 
 // ROUTER cho landlord (chủ trọ)
 Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/dashboard', [LandlordController::class, 'dashboard'])->name('landlord.dashboard');
-
-    // Phần quản lý cơ sở của chủ trọ
+    //Phần quản lý cơ sở của chủ trọ
     Route::get('/boarding-houses', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'index'])->name('landlord.boarding-houses.index');
+    Route::get('/boarding-houses/{id}/edit', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'edit'])->name('landlord.boarding-houses.edit');
+    Route::post('/boarding-houses/{id}/update', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'update'])->name('landlord.boarding-houses.update');
+    Route::delete('/boarding-houses/{id}', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'destroy'])->name('landlord.boarding-houses.destroy');
     Route::get('/boarding-houses/history', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'history'])->name('landlord.boarding-houses.history');
     Route::get('/boarding-houses/create', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'create'])->name('landlord.boarding-houses.create');
     Route::post('/boarding-houses', [\App\Http\Controllers\Landlord\BoardingHouseController::class, 'store'])->name('landlord.boarding-houses.store');
@@ -218,7 +251,8 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/bank-settings', [LandlordController::class, 'bankSettings'])->name('landlord.bank-settings');
     Route::post('/bank-settings', [LandlordController::class, 'updateBankSettings'])->name('landlord.bank-settings.update');
     Route::get('/rooms', [LandlordController::class, 'rooms'])->name('landlord.rooms');
-
+    //Phần tạo mã QR của chủ trọ
+    Route::post('/boarding-houses/{boardingHouse}/generate-qr', [App\Http\Controllers\Owner\InviteController::class, 'generateQr'])->name('landlord.boarding-house.generate-qr');
     //Phần tiếp nhận báo cáo của chủ trọ
     Route::get('/reports', [ReportController::class, 'landlordIndex'])->name('landlord.reports.index');
     // CRUD routes cho Tầng
@@ -235,16 +269,18 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::delete('/rooms/{id}', [LandlordController::class, 'deleteRoom'])->name('landlord.rooms.delete');
 
     //CRUD tin đăng phòng trọ
-    Route::get('/listings', [RoomListingController::class, 'index'])->name('landlord.listings.index');
-    Route::get('/listings/create', [RoomListingController::class, 'create'])->name('landlord.listings.create');
-    // Route lấy chi tiết phòng để đăng tin
-    Route::get('/rooms/{id}/details-for-listing', [RoomListingController::class, 'getRoomDetails'])->name('landlord.rooms.details');
-    Route::post('/listings', [RoomListingController::class, 'store'])->name('landlord.listings.store');
-    Route::get('/listings/{id}', [RoomListingController::class, 'show'])->name('landlord.listings.show');
-    Route::get('/listings/{id}/edit', [RoomListingController::class, 'edit'])->name('landlord.listings.edit');
-    Route::put('/listings/{id}', [RoomListingController::class, 'update'])->name('landlord.listings.update');
-    Route::delete('/listings/{id}', [RoomListingController::class, 'destroy'])->name('landlord.listings.destroy');
-    Route::post('/listings/{id}/close', [RoomListingController::class, 'close'])->name('landlord.listings.close');
+    Route::middleware('check_manager_permissions:manage_listings')->group(function () {
+        Route::get('/listings', [RoomListingController::class, 'index'])->name('landlord.listings.index');
+        Route::get('/listings/create', [RoomListingController::class, 'create'])->name('landlord.listings.create');
+        // Route lấy chi tiết phòng để đăng tin
+        Route::get('/rooms/{id}/details-for-listing', [RoomListingController::class, 'getRoomDetails'])->name('landlord.rooms.details');
+        Route::post('/listings', [RoomListingController::class, 'store'])->name('landlord.listings.store');
+        Route::get('/listings/{id}', [RoomListingController::class, 'show'])->name('landlord.listings.show');
+        Route::get('/listings/{id}/edit', [RoomListingController::class, 'edit'])->name('landlord.listings.edit');
+        Route::put('/listings/{id}', [RoomListingController::class, 'update'])->name('landlord.listings.update');
+        Route::delete('/listings/{id}', [RoomListingController::class, 'destroy'])->name('landlord.listings.destroy');
+        Route::post('/listings/{id}/close', [RoomListingController::class, 'close'])->name('landlord.listings.close');
+    });
     // Lấy dịch vụ tiện ích của các phòng
     Route::get('/rooms/{id}/services', [RoomListingController::class, 'getRoomServices']);
 
@@ -252,6 +288,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/appointments', [LandlordController::class, 'appointments'])->name('landlord.appointments');
     Route::post('/appointments/{id}/approve', [LandlordController::class, 'approveAppointment'])->name('landlord.appointments.approve');
     Route::post('/appointments/{id}/reject', [LandlordController::class, 'rejectAppointment'])->name('landlord.appointments.reject');
+    Route::post('/appointments/{id}/confirm-cancel', [LandlordController::class, 'confirmCancelAppointment'])->name('landlord.appointments.confirm_cancel');
     Route::get('/appointments/availabilities', [LandlordController::class, 'editAvailabilities'])->name('landlord.availabilities.edit');
     Route::post('/appointments/availabilities', [LandlordController::class, 'storeAvailabilities'])->name('landlord.availabilities.store');
     Route::get('/tenants', [LandlordController::class, 'tenants'])->name('landlord.tenants');
@@ -259,16 +296,19 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     // Đăng ký hợp đồng & Quản lý hợp đồng
     Route::get('/search-tenant', [\App\Http\Controllers\Landlord\ContractController::class, 'searchTenant'])->name('landlord.tenants.search');
-    Route::get('/contracts/create-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'createDraft'])->name('landlord.contracts.create_draft');
     Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
     Route::post('/contracts/scan', [\App\Http\Controllers\Landlord\ContractController::class, 'scanContracts'])->name('landlord.contracts.scan');
-    Route::post('/contracts/extract-ocr', [\App\Http\Controllers\Landlord\ContractController::class, 'extractOcrData'])->name('landlord.contracts.extract_ocr');
-    Route::post('/contracts/{contract}/upload-signed', [\App\Http\Controllers\Landlord\ContractController::class, 'uploadSignedContract'])->name('landlord.contracts.upload_signed');
-    Route::post('/contracts/{contract}/cancel-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'cancelDraft'])->name('landlord.contracts.cancel_draft');
     Route::post('/contracts/{contract}/expire', [\App\Http\Controllers\Landlord\ContractController::class, 'markAsExpired'])->name('landlord.contracts.expire');
     Route::post('/contracts/{contract}/liquidate', [\App\Http\Controllers\Landlord\ContractController::class, 'liquidateContract'])->name('landlord.contracts.liquidate');
     Route::post('/contracts/{contract}/extend', [\App\Http\Controllers\Landlord\ContractController::class, 'extendContract'])->name('landlord.contracts.extend');
+    //chuyển giao hợp đồng
+    Route::post('/contracts/{contract}/transfer', [\App\Http\Controllers\Landlord\ContractController::class, 'transfer'])->name('landlord.contracts.transfer');
+    //quản lý và phê duyệt yêu cầu ở ghép của chủ trọ
+    Route::get('/roommate-requests', [\App\Http\Controllers\Landlord\ContractController::class, 'roommateRequests'])->name('landlord.roommate-requests');
+    Route::post('/roommate-requests/{id}/approve', [\App\Http\Controllers\Landlord\ContractController::class, 'approveRoommateRequest'])->name('landlord.roommate-requests.approve');
+    Route::post('/roommate-requests/{id}/reject', [\App\Http\Controllers\Landlord\ContractController::class, 'rejectRoommateRequest'])->name('landlord.roommate-requests.reject');
 
+    //quản lý hoá đơn
     Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
     Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');
     Route::post('/invoices/quick-bulk', [LandlordController::class, 'storeQuickBulkInvoices'])->name('landlord.invoices.quick-bulk');
@@ -278,6 +318,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::patch('/invoices/{id}/archive', [LandlordController::class, 'archiveInvoice'])->name('landlord.invoices.archive');
     Route::patch('/invoices/{id}/restore', [LandlordController::class, 'restoreInvoice'])->name('landlord.invoices.restore');
     Route::delete('/invoices/{id}', [LandlordController::class, 'deleteInvoice'])->name('landlord.invoices.delete');
+
     Route::get('/finance', [LandlordController::class, 'finance'])->name('landlord.finance');
     Route::get('/services', [LandlordController::class, 'services'])->name('landlord.services');
     Route::post('/services', [LandlordController::class, 'storeService'])->name('landlord.services.store');
@@ -286,6 +327,52 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::patch('/services/{id}/status', [LandlordController::class, 'changeServiceStatus'])->name('landlord.services.status');
     Route::get('/pricing-sheets', [LandlordController::class, 'pricingSheets'])->name('landlord.pricing-sheets');
     Route::get('/pricing-sheets/create', [LandlordController::class, 'pricingSheetsCreate'])->name('landlord.pricing-sheets.create');
+
+    //Phần quản lý tài khoản phân quyền
+    Route::get('/managers', [App\Http\Controllers\Owner\InviteController::class, 'index'])->name('landlord.managers.index');
+    Route::delete('/managers/{manager}', [App\Http\Controllers\Owner\InviteController::class, 'destroy'])->name('landlord.managers.destroy');
+    Route::post('/boarding-houses/{boardingHouse}/generate-qr', [App\Http\Controllers\Owner\InviteController::class, 'generateQr'])->name('landlord.boarding-houses.generate-qr');
+    Route::put('/managers/{manager}', [App\Http\Controllers\Owner\InviteController::class, 'update'])->name('landlord.managers.update');
+
+
+    //Nhóm 1: Quản lý phòng & tầng(Chỉ cho phép ai có quyền)
+    Route::middleware('check_manager_permissions:manage_rooms')->group(function () {
+        Route::post('/rooms/{id}', [LandlordController::class, 'updateRoom'])->name('landlord.rooms.update');
+        Route::delete('/rooms/{id}', [LandlordController::class, 'deleteRoom'])->name('landlord.rooms.delete');
+        Route::post('/floors', [LandlordController::class, 'storeFloor'])->name('landlord.floors.store');
+        //phần thêm người ở ghép
+        Route::post('/rooms/{id}/residents', [LandlordController::class, 'addResident'])->name('landlord.rooms.add_resident');
+        Route::delete('/rooms/{id}/residents/{residentId}', [LandlordController::class, 'removeResident'])->name('landlord.rooms.remove_resident');
+    });
+
+    //Nhóm 2: Quản lý hợp đồng(chỉ cho phép ai có quyền)
+    Route::middleware('check_manager_permissions:manage_contracts')->group(function () {
+        Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
+        Route::post('/contracts/{contract}/extend', [\App\Http\Controllers\Landlord\ContractController::class, 'extendContract'])->name('landlord.contracts.extend');
+        Route::post('/contracts/{contract}/terminate', [\App\Http\Controllers\Landlord\ContractController::class, 'terminateContract'])->name('landlord.contracts.terminate');
+    });
+
+    //Nhóm 3: Quản lý hoá đơn(chỉ cho phép ai có quyền)
+    Route::middleware('check_manager_permissions:manage_invoices')->group(function () {
+        Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
+        Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');
+        Route::put('/invoices/{id}', [LandlordController::class, 'updateInvoice'])->name('landlord.invoices.update');
+        Route::patch('/invoices/{id}/status', [LandlordController::class, 'updateInvoiceStatus'])->name('landlord.invoices.status');
+        Route::patch('/invoices/{id}/archive', [LandlordController::class, 'archiveInvoice'])->name('landlord.invoices.archive');
+        Route::patch('/invoices/{id}/restore', [LandlordController::class, 'restoreInvoice'])->name('landlord.invoices.restore');
+        Route::delete('/invoices/{id}', [LandlordController::class, 'deleteInvoice'])->name('landlord.invoices.delete');
+    });
+
+    //Nhóm 4: Xem & xử lý khiếu nại (chỉ cho phép ai có quyền)
+    Route::middleware('check_manager_permissions:manage_reports')->group(function () {
+        Route::get('/reports', [ReportController::class, 'landlordIndex'])->name('landlord.reports.index');
+    });
+
+    //quản lý và đăng ký gói dịch vụ cho chủ trọ
+    Route::get('/subscriptions', [\App\Http\Controllers\Landlord\SubscriptionController::class, 'index'])->name('landlord.subscriptions.index');
+    Route::post('/subscriptions/purchase', [\App\Http\Controllers\Landlord\SubscriptionController::class, 'purchase'])->name('landlord.subscriptions.purchase');
+    Route::post('/subscriptions/{id}/proof', [\App\Http\Controllers\Landlord\SubscriptionController::class, 'uploadProof'])->name('landlord.subscriptions.upload-proof');
+    Route::get('/subscriptions/{id}/status', [\App\Http\Controllers\Landlord\SubscriptionController::class, 'checkStatus'])->name('landlord.subscriptions.status');
 });
 // Route cho phần xác minh đăng ký chủ trọ và thông báo
 Route::middleware(['auth'])->group(function () {
@@ -330,6 +417,17 @@ Route::middleware(['auth'])->group(function () {
         return response()->json(['status' => 'success']);
     })->name('user.ping');
 });
+
+//Route sinh mã QR chỉ cho chủ trọ đăng nhập
+Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
+    Route::post('/boarding-house/{boardingHouse}/generate-qr', [App\Http\Controllers\Owner\InviteController::class, 'generateQr'])
+        ->name('landlord.boarding-house.generate-qr');
+});
+
+//route chấp nhận quyền dành cho tài khoản được phân quyền, quyét mã QR
+Route::get('/manager/invite/accept', [App\Http\Controllers\Owner\InviteController::class, 'accept'])
+    ->name('manager.invite.accept')
+    ->middleware(['auth', 'signed']);
 
 // Admin Login Routes
 Route::middleware('guest')->group(function () {

@@ -118,12 +118,43 @@ const displayTrashPrice = makeMoneyComputed('trashPrice')
 const displayParkingPrice = makeMoneyComputed('parkingPrice')
 const displayManagementPrice = makeMoneyComputed('management')
 
+// Dynamic active room services based on the selected contract's room configuration
+const activeRoomServices = computed(() => {
+    const room = selectedContract.value?.room
+    if (room && Array.isArray(room.services) && room.services.length > 0) {
+        return room.services
+    }
+    return props.services || []
+})
+
 // Find services lookup helper
-const elecService = computed(() => props.services.find(s => s.type === 'per_kwh' || s.name.includes('Điện')))
-const waterService = computed(() => props.services.find(s => s.type === 'per_m3' || s.name.includes('Nước')))
-const internetService = computed(() => props.services.find(s => s.name.includes('Mạng') || s.name.includes('Internet')))
-const trashService = computed(() => props.services.find(s => s.name.includes('Rác')))
-const parkingService = computed(() => props.services.find(s => s.name.includes('Xe') || s.name.includes('Gửi xe')))
+const elecService = computed(() => activeRoomServices.value.find(s => s.type === 'per_kwh' || (s.name && s.name.toLowerCase().includes('điện'))))
+const hasElecService = computed(() => !!elecService.value)
+
+const waterService = computed(() => activeRoomServices.value.find(s => s.type === 'per_m3' || (s.name && s.name.toLowerCase().includes('nước'))))
+const hasWaterService = computed(() => !!waterService.value)
+
+const internetService = computed(() => activeRoomServices.value.find(s => s.name && (s.name.toLowerCase().includes('mạng') || s.name.toLowerCase().includes('internet') || s.name.toLowerCase().includes('wifi'))))
+const hasInternetService = computed(() => !!internetService.value)
+
+const trashService = computed(() => activeRoomServices.value.find(s => s.name && (s.name.toLowerCase().includes('rác') || s.name.toLowerCase().includes('vệ sinh'))))
+const hasTrashService = computed(() => !!trashService.value)
+
+const parkingService = computed(() => activeRoomServices.value.find(s => s.name && (s.name.toLowerCase().includes('xe') || s.name.toLowerCase().includes('gửi xe'))))
+const hasParkingService = computed(() => !!parkingService.value)
+
+// Custom services present on the room that are not matched to standard types above
+const customRoomServices = computed(() => {
+    return activeRoomServices.value.filter(s => 
+        s.id !== elecService.value?.id &&
+        s.id !== waterService.value?.id &&
+        s.id !== internetService.value?.id &&
+        s.id !== trashService.value?.id &&
+        s.id !== parkingService.value?.id
+    )
+})
+const customServicesPrice = ref({})
+const customServicesQty = ref({})
 
 // Helper tính tiền phòng lẻ tháng đầu nếu khách nhận phòng giữa tháng
 const selectedContract = computed(() => props.activeContracts.find(c => c.id === selectedContractId.value))
@@ -173,46 +204,64 @@ watch(selectedContractId, (newContractId) => {
         const lastInv = props.invoices.find(i => i.contract_id === newContractId)
         
         // Electricity
-        const lastElecDetail = lastInv?.details?.find(d => d.item_name.includes('Điện'))
-        if (lastElecDetail) {
-            invoiceForm.elecOld = lastElecDetail.new_index ?? 0
-            elecOldMeterPreview.value = lastElecDetail.meter_image_path || null
-        } else if (contract.entry_elec_index !== null && contract.entry_elec_index !== undefined) {
-            invoiceForm.elecOld = contract.entry_elec_index
-            elecOldMeterPreview.value = contract.entry_elec_image || null
-        } else {
-            invoiceForm.elecOld = 0
-            elecOldMeterPreview.value = null
+        if (hasElecService.value) {
+            const lastElecDetail = lastInv?.details?.find(d => d.item_name.includes('Điện'))
+            if (lastElecDetail) {
+                invoiceForm.elecOld = lastElecDetail.new_index ?? 0
+                elecOldMeterPreview.value = lastElecDetail.meter_image_path || null
+            } else if (contract.entry_elec_index !== null && contract.entry_elec_index !== undefined) {
+                invoiceForm.elecOld = contract.entry_elec_index
+                elecOldMeterPreview.value = contract.entry_elec_image || null
+            } else {
+                invoiceForm.elecOld = 0
+                elecOldMeterPreview.value = null
+            }
+            invoiceForm.elecNew = ''
+            invoiceForm.elecPrice = elecService.value ? Number(elecService.value.price) : 3000
         }
-        invoiceForm.elecNew = ''
-        invoiceForm.elecPrice = elecService.value ? Number(elecService.value.price) : 3000
 
         // Water
-        const lastWaterDetail = lastInv?.details?.find(d => d.item_name.includes('Nước'))
-        if (lastWaterDetail) {
-            invoiceForm.waterOld = lastWaterDetail.new_index ?? 0
-            waterOldMeterPreview.value = lastWaterDetail.meter_image_path || null
-        } else if (contract.entry_water_index !== null && contract.entry_water_index !== undefined) {
-            invoiceForm.waterOld = contract.entry_water_index
-            waterOldMeterPreview.value = contract.entry_water_image || null
-        } else {
-            invoiceForm.waterOld = 0
-            waterOldMeterPreview.value = null
+        if (hasWaterService.value) {
+            const lastWaterDetail = lastInv?.details?.find(d => d.item_name.includes('Nước'))
+            if (lastWaterDetail) {
+                invoiceForm.waterOld = lastWaterDetail.new_index ?? 0
+                waterOldMeterPreview.value = lastWaterDetail.meter_image_path || null
+            } else if (contract.entry_water_index !== null && contract.entry_water_index !== undefined) {
+                invoiceForm.waterOld = contract.entry_water_index
+                waterOldMeterPreview.value = contract.entry_water_image || null
+            } else {
+                invoiceForm.waterOld = 0
+                waterOldMeterPreview.value = null
+            }
+            invoiceForm.waterNew = ''
+            invoiceForm.waterPrice = waterService.value ? Number(waterService.value.price) : 15000
         }
-        invoiceForm.waterNew = ''
-        invoiceForm.waterPrice = waterService.value ? Number(waterService.value.price) : 15000
 
         // Fixed services
-        invoiceForm.internetPrice = internetService.value ? Number(internetService.value.price) : 50000
-        invoiceForm.trashPrice = trashService.value ? Number(trashService.value.price) : 30000
-        invoiceForm.parkingPrice = parkingService.value ? Number(parkingService.value.price) : 15000
+        if (hasInternetService.value) {
+            invoiceForm.internetPrice = internetService.value ? Number(internetService.value.price) : 50000
+            invoiceForm.internetQty = 1
+        }
+        if (hasTrashService.value) {
+            invoiceForm.trashPrice = trashService.value ? Number(trashService.value.price) : 30000
+            invoiceForm.trashQty = 1
+        }
+        if (hasParkingService.value) {
+            invoiceForm.parkingPrice = parkingService.value ? Number(parkingService.value.price) : 15000
+            invoiceForm.parkingQty = 1
+        }
+
+        // Custom services
+        customServicesPrice.value = {}
+        customServicesQty.value = {}
+        customRoomServices.value.forEach(srv => {
+            customServicesPrice.value[srv.id] = Number(srv.price || 0)
+            customServicesQty.value[srv.id] = 1
+        })
         
-        invoiceForm.internetQty = 1
-        invoiceForm.trashQty = 1
-        invoiceForm.parkingQty = 1
         invoiceForm.management = 0
     }
-})
+}, { immediate: true })
 
 // Photo handlers
 const handlePhotoUpload = (event, type) => {
@@ -253,14 +302,26 @@ const internetTotal = computed(() => invoiceForm.internetQty * invoiceForm.inter
 const trashTotal = computed(() => invoiceForm.trashQty * invoiceForm.trashPrice)
 const parkingTotal = computed(() => invoiceForm.parkingQty * invoiceForm.parkingPrice)
 
+const customTotal = computed(() => {
+    let sum = 0
+    customRoomServices.value.forEach(srv => {
+        const price = Number(customServicesPrice.value[srv.id] ?? srv.price ?? 0)
+        const qty = Number(customServicesQty.value[srv.id] ?? 1)
+        sum += price * qty
+    })
+    return sum
+})
+
 const formTotal = computed(() => {
-    return Number(invoiceForm.rent) +
-        elecTotal.value +
-        waterTotal.value +
-        internetTotal.value +
-        trashTotal.value +
-        parkingTotal.value +
-        Number(invoiceForm.management)
+    let total = Number(invoiceForm.rent)
+    if (hasElecService.value) total += elecTotal.value
+    if (hasWaterService.value) total += waterTotal.value
+    if (hasInternetService.value) total += internetTotal.value
+    if (hasTrashService.value) total += trashTotal.value
+    if (hasParkingService.value) total += parkingTotal.value
+    total += customTotal.value
+    total += Number(invoiceForm.management || 0)
+    return total
 })
 
 // Filters
@@ -345,25 +406,29 @@ const saveInvoice = async () => {
     }
 
     // Điện
-    if (invoiceForm.elecNew !== null && invoiceForm.elecNew !== '') {
-        if (Number(invoiceForm.elecNew) < Number(invoiceForm.elecOld)) {
-            showError('Lỗi nhập liệu', `Chỉ số điện mới (${invoiceForm.elecNew}) không được nhỏ hơn chỉ số cũ (${invoiceForm.elecOld})!`)
+    if (hasElecService.value) {
+        if (invoiceForm.elecNew !== null && invoiceForm.elecNew !== '') {
+            if (Number(invoiceForm.elecNew) < Number(invoiceForm.elecOld)) {
+                showError('Lỗi nhập liệu', `Chỉ số điện mới (${invoiceForm.elecNew}) không được nhỏ hơn chỉ số cũ (${invoiceForm.elecOld})!`)
+                return
+            }
+        } else {
+            showError('Lỗi nhập liệu', 'Vui lòng nhập chỉ số điện mới!')
             return
         }
-    } else {
-        showError('Lỗi nhập liệu', 'Vui lòng nhập chỉ số điện mới!')
-        return
     }
 
     // Nước
-    if (invoiceForm.waterNew !== null && invoiceForm.waterNew !== '') {
-        if (Number(invoiceForm.waterNew) < Number(invoiceForm.waterOld)) {
-            showError('Lỗi nhập liệu', `Chỉ số nước mới (${invoiceForm.waterNew}) không được nhỏ hơn chỉ số cũ (${invoiceForm.waterOld})!`)
+    if (hasWaterService.value) {
+        if (invoiceForm.waterNew !== null && invoiceForm.waterNew !== '') {
+            if (Number(invoiceForm.waterNew) < Number(invoiceForm.waterOld)) {
+                showError('Lỗi nhập liệu', `Chỉ số nước mới (${invoiceForm.waterNew}) không được nhỏ hơn chỉ số cũ (${invoiceForm.waterOld})!`)
+                return
+            }
+        } else {
+            showError('Lỗi nhập liệu', 'Vui lòng nhập chỉ số nước mới!')
             return
         }
-    } else {
-        showError('Lỗi nhập liệu', 'Vui lòng nhập chỉ số nước mới!')
-        return
     }
 
     const details = [
@@ -373,8 +438,11 @@ const saveInvoice = async () => {
             quantity: 1,
             subtotal: Number(invoiceForm.rent),
             service_id: null
-        },
-        {
+        }
+    ]
+
+    if (hasElecService.value) {
+        details.push({
             item_name: 'Tiền Điện',
             price: Number(invoiceForm.elecPrice),
             quantity: elecDiff.value,
@@ -382,8 +450,11 @@ const saveInvoice = async () => {
             old_index: Number(invoiceForm.elecOld),
             new_index: Number(invoiceForm.elecNew),
             service_id: elecService.value?.id || null
-        },
-        {
+        })
+    }
+
+    if (hasWaterService.value) {
+        details.push({
             item_name: 'Tiền Nước',
             price: Number(invoiceForm.waterPrice),
             quantity: waterDiff.value,
@@ -391,29 +462,50 @@ const saveInvoice = async () => {
             old_index: Number(invoiceForm.waterOld),
             new_index: Number(invoiceForm.waterNew),
             service_id: waterService.value?.id || null
-        },
-        {
-            item_name: 'Phí internet / wifi',
+        })
+    }
+
+    if (hasInternetService.value) {
+        details.push({
+            item_name: internetService.value?.name || 'Phí internet / wifi',
             price: Number(invoiceForm.internetPrice),
             quantity: Number(invoiceForm.internetQty),
             subtotal: internetTotal.value,
             service_id: internetService.value?.id || null
-        },
-        {
-            item_name: 'Thu gom rác',
+        })
+    }
+
+    if (hasTrashService.value) {
+        details.push({
+            item_name: trashService.value?.name || 'Thu gom rác',
             price: Number(invoiceForm.trashPrice),
             quantity: Number(invoiceForm.trashQty),
             subtotal: trashTotal.value,
             service_id: trashService.value?.id || null
-        },
-        {
-            item_name: 'Tiền gửi xe',
+        })
+    }
+
+    if (hasParkingService.value) {
+        details.push({
+            item_name: parkingService.value?.name || 'Tiền gửi xe',
             price: Number(invoiceForm.parkingPrice),
             quantity: Number(invoiceForm.parkingQty),
             subtotal: parkingTotal.value,
             service_id: parkingService.value?.id || null
-        }
-    ]
+        })
+    }
+
+    customRoomServices.value.forEach(srv => {
+        const qty = Number(customServicesQty.value[srv.id] || 1)
+        const price = Number(customServicesPrice.value[srv.id] ?? srv.price ?? 0)
+        details.push({
+            item_name: srv.name,
+            price: price,
+            quantity: qty,
+            subtotal: price * qty,
+            service_id: srv.id
+        })
+    })
 
     if (Number(invoiceForm.management) > 0) {
         details.push({
@@ -881,10 +973,16 @@ const goToCreateForContract = (contractId) => {
 
                 <!-- Services Form -->
                 <div class="space-y-4">
-                    <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Chi tiết chỉ số & Dịch vụ</h3>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Chi tiết chỉ số & Dịch vụ</h3>
+                        <span v-if="selectedContract?.room" class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100/80 px-2.5 py-1 rounded-xl flex items-center gap-1.5 w-fit">
+                            <i class="bi bi-check-circle-fill text-emerald-500"></i>
+                            Đã tải {{ activeRoomServices.length }} dịch vụ được đăng ký theo Phòng {{ selectedContract.room.room_number }}
+                        </span>
+                    </div>
                     
                     <!-- Electricity section -->
-                    <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                    <div v-if="hasElecService" class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
                         <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
                             <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center"><i class="bi bi-lightning-charge-fill"></i></div>
                             <span class="text-xs font-bold text-slate-700">Tiền điện (chỉ số công tơ)</span>
@@ -937,7 +1035,7 @@ const goToCreateForContract = (contractId) => {
                     </div>
 
                     <!-- Water section -->
-                    <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                    <div v-if="hasWaterService" class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
                         <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
                             <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-droplet-fill"></i></div>
                             <span class="text-xs font-bold text-slate-700">Tiền nước (chỉ số đồng hồ)</span>
@@ -990,10 +1088,10 @@ const goToCreateForContract = (contractId) => {
                     </div>
 
                     <!-- Internet section -->
-                    <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                    <div v-if="hasInternetService" class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
                         <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
                             <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="bi bi-wifi"></i></div>
-                            <span class="text-xs font-bold text-slate-700">Internet</span>
+                            <span class="text-xs font-bold text-slate-700">Internet / Wifi</span>
                         </div>
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
                             <div class="space-y-1">
@@ -1012,8 +1110,8 @@ const goToCreateForContract = (contractId) => {
                     </div>
 
                     <!-- Trash & Parking section -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                    <div v-if="hasTrashService || hasParkingService" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div v-if="hasTrashService" class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
                             <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
                                 <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center"><i class="bi bi-trash-fill"></i></div>
                                 <span class="text-xs font-bold text-slate-700">Vệ sinh / Rác</span>
@@ -1030,7 +1128,7 @@ const goToCreateForContract = (contractId) => {
                             </div>
                         </div>
 
-                        <div class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                        <div v-if="hasParkingService" class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
                             <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
                                 <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center"><i class="bi bi-p-square-fill"></i></div>
                                 <span class="text-xs font-bold text-slate-700">Phí gửi xe</span>
@@ -1043,6 +1141,30 @@ const goToCreateForContract = (contractId) => {
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
                                     <div class="w-full px-3 py-1.5 bg-slate-50 text-purple-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">{{ formatMoney(parkingTotal) }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom Services Section -->
+                    <div v-if="customRoomServices.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div v-for="srv in customRoomServices" :key="srv.id" class="p-4 border border-slate-100 rounded-2xl space-y-3 bg-white">
+                            <div class="flex items-center gap-3 border-b border-slate-50 pb-2">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                    <i :class="['bi', srv.icon || 'bi-box-seam-fill']"></i>
+                                </div>
+                                <span class="text-xs font-bold text-slate-700">{{ srv.name }}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 items-end">
+                                <div class="space-y-1">
+                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
+                                    <input type="number" v-model.number="customServicesPrice[srv.id]" class="w-full px-3 py-1.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
+                                    <div class="w-full px-3 py-1.5 bg-slate-50 text-emerald-600 rounded-xl text-xs font-extrabold text-right border border-slate-100">
+                                        {{ formatMoney((customServicesPrice[srv.id] || 0) * (customServicesQty[srv.id] || 1)) }}
+                                    </div>
                                 </div>
                             </div>
                         </div>

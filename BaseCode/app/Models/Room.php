@@ -36,6 +36,11 @@ class Room extends Model
         return $this->hasMany(Contract::class, 'room_id');
     }
 
+    //phần thêm người ở ghép
+    public function residents(){
+        return $this->hasMany(RoomResident::class,'room_id')->where('status','active');
+    }
+
     public function getCurrentPeopleAttribute()
     {
         $dbValue = (int) ($this->attributes['current_people'] ?? 0);

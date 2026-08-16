@@ -66,4 +66,8 @@ class BoardingHouse extends Model
     {
         return $this->reviews()->count() > 0 ? round($this->reviews()->avg('rating'), 1) : 0;
     }
+
+    public function propertyManager(){
+        return $this->hasOne(propertyManager::class,'boarding_house_id');
+    }
 }

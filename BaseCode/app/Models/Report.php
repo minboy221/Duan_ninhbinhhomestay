@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Traits\Hashidable;
 class Report extends Model
 {
-    use HasFactory;
+    use HasFactory, Hashidable;
 
     protected $fillable = [
         'reporter_id',
@@ -35,6 +35,8 @@ class Report extends Model
         'reporter_resolved' => 'boolean',
     ];
 
+    protected $appends = ['hash_id'];
+
     //lấy đối tượng bị báo cáo (bài đăng,cơ sở,hợp đồng,hoá đơn)
     public function reportable()
     {
@@ -48,6 +50,6 @@ class Report extends Model
     //admin xử lý
     public function resolver()
     {
-        return $this->belongsTo(User::class,'resolved_by');
+        return $this->belongsTo(User::class, 'resolved_by');
     }
 }

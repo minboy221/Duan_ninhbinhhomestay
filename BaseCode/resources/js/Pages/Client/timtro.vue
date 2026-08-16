@@ -411,13 +411,9 @@ const getRoomImageUrl = (images) => {
                                 <div class="p-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
                                     <div class="relative flex items-center">
                                         <i class="bi bi-search absolute left-3 text-slate-400 text-xs"></i>
-                                        <input 
-                                            v-model="areaSearchQuery"
-                                            type="text"
-                                            placeholder="Gõ tìm phường, xã..."
+                                        <input v-model="areaSearchQuery" type="text" placeholder="Gõ tìm phường, xã..."
                                             class="w-full pl-8 pr-3 py-1.5 text-xs bg-white rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                            @click.stop
-                                        />
+                                            @click.stop />
                                     </div>
                                 </div>
 
@@ -441,7 +437,8 @@ const getRoomImageUrl = (images) => {
                                         </span>
                                         <i v-if="selectedArea?.id === area.id" class="bi bi-check2 text-blue-600 font-bold"></i>
                                     </li>
-                                    <li v-if="filteredAreas.length === 0" class="px-3 py-4 text-center text-xs text-slate-400">
+                                    <li v-if="filteredAreas.length === 0"
+                                        class="px-3 py-4 text-center text-xs text-slate-400">
                                         Không tìm thấy khu vực
                                     </li>
                                 </ul>
@@ -625,7 +622,7 @@ const getRoomImageUrl = (images) => {
                                         <div class="text-[11px] text-slate-400">cập nhật {{ timeAgo(post.updated_at) }}</div>
                                     </div>
                                 </div>
-                                <Link :href="'/chitiettro/' + post.id" class="btn">
+                                <Link :href="'/chitiettro/' + (post.slug_with_hash || post.id)" class="btn">
                                     Xem chi tiết <i class="bi bi-arrow-right text-xs"></i>
                                 </Link>
                             </div>

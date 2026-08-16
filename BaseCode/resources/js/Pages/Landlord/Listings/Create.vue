@@ -1,6 +1,6 @@
 <script setup>
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
-import { ref, watch } from "vue";
+import { ref, watch,onMounted } from "vue";
 import { useForm, Link } from "@inertiajs/vue3";
 import axios from "axios";
 import { computed } from "vue";
@@ -40,7 +40,11 @@ watch(selectedHouse, (newHouse) => {
     selectedFloor.value = null;
     form.room_id = "";
     roomDetails.value = null;
-    availableFloors.value = newHouse ? newHouse.floors : [];
+    availableFloors.value = newHouse 
+        ? newHouse.floors.filter(floor => 
+            floor.rooms && floor.rooms.some(room => room.boarding_house_id === newHouse.id)
+          )
+        : [];
 });
 
 watch(selectedFloor, (newFloor) => {
@@ -48,6 +52,9 @@ watch(selectedFloor, (newFloor) => {
     roomDetails.value = null;
     availableRooms.value = newFloor
         ? newFloor.rooms.filter((r) => {
+            //lấy những phòng thuộc cơ sở trọ đang chọn
+            const belongsToSelectedHouse = selectedHouse.value && r.boarding_house_id === selectedHouse.value.id;
+            if(!belongsToSelectedHouse) return false;
             //lấy mảng bài viết
             const posts = r.room_posts || r.roomPosts;
             //kiểm tra phòng này có tin dăng nháp, chờ, hay đã duyệt chx
@@ -385,6 +392,12 @@ function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 
         reader.onerror = (error) => reject(error);
     });
 }
+
+onMounted(()=>{
+    if(props.boardingHouses && props.boardingHouses.length === 1){
+        selectedHouse.value = props.boardingHouses[0];
+    }
+});
 </script>
 
 <template>

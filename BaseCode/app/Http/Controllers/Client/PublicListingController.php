@@ -50,20 +50,28 @@ class PublicListingController extends Controller
     }
 
     // Hiển thị chi tiết 1 tin đăng phòng trọ
-    public function show($id = null)
+    public function show($slug = null)
     {
-        if ($id === null) {
+        if ($slug === null) {
             $firstPost = RoomPost::where('status', 'approved')->first();
             if (!$firstPost) {
                 return redirect()->route('timtro')->with('error', 'Không tìm thấy bài đăng trọ nào.');
             }
-            return redirect()->route('chitiettro', $firstPost->id);
+            return redirect()->route('chitiettro', $firstPost->slug_with_hash);
         }
-
+        $postId = $slug;
+        if (!is_numeric($slug)) {
+            $parts = explode('-', $slug);
+            $hash = end($parts);
+            $decoded = \Vinkla\Hashids\Facades\Hashids::decode($hash);
+            if (empty($decoded)) {
+                abort(404, 'Không tìm thấy bài đăng trọ.');
+            }
+            $postId = $decoded[0];
+        }
         $userId = auth()->id();
         $ipAddress = request()->ip();
-
-        $data = $this->listingService->getPublicPostDetails($id, $userId, $ipAddress);
+        $data = $this->listingService->getPublicPostDetails($postId, $userId, $ipAddress);
         $post = $data['post'];
         $room = $data['room'];
         $reviews = $data['reviews'];
@@ -91,7 +99,31 @@ class PublicListingController extends Controller
             'services' => $room->services ?? [],
             'reviews' => $reviews,
         ];
-
+        //Tính toán quyền báo cáo vi phạm/ nhà trọ
+        $hasReportPermission = false;
+        if ($userId) {
+            $roomId = $room->id;
+            $boardingHouseId = $room->boarding_house_id;
+            //check người dùng đã từng có hợp đồng thuê phòng này chưa
+            $hasContract = \App\Models\Contract::where('tenant_id', $userId)->whereHas('room', function ($q) use ($roomId, $boardingHouseId) {
+                if ($roomId) {
+                    $q->where('id', $roomId);
+                }
+                if ($boardingHouseId) {
+                    $q->where('boarding_house_id', $boardingHouseId);
+                }
+            })->exists();
+            //check user đã từng đặt lịch hẹn và xem phòng chưa
+            $hasAppointment = \App\Models\Appointment::where('user_id', $userId)->whereIn('status', ['viewed', 'success_matched', 'false_matched'])->whereHas('room', function ($q) use ($roomId, $boardingHouseId) {
+                if ($roomId) {
+                    $q->where('id', $roomId);
+                }
+                if ($boardingHouseId) {
+                    $q->where('boarding_house_id', $boardingHouseId);
+                }
+            })->exists();
+            $hasReportPermission = $hasContract || $hasAppointment;
+        }
         // Danh sách phòng tương tự (cùng nhà trọ)
         $similarPosts = RoomPost::with(['room.boardingHouse'])
             ->where('id', '!=', $post->id)
@@ -120,6 +152,7 @@ class PublicListingController extends Controller
             'room' => $roomData,
             'similarRooms' => $similarPosts,
             'reasons' => $reasons,
+            'hasReportPermission' => $hasReportPermission
         ]);
     }
     //Đặt Lịch hẹn xem phòng (Đã sửa sạch lỗi cú pháp ]; )
@@ -168,11 +201,18 @@ class PublicListingController extends Controller
         $post = RoomPost::with('room')->findOrFail($id);
         $roomId = $post->room_id;
         //Thêm dàng buộc cho user nếu đang có hợp đồng active tại cơ sở khác, chặn không cho đặt lịch xem phòng
-        $activeContract = \App\Models\Contract::where('tenant_id', Auth::id())
-            ->where('status', 'active')
-            ->first();
-        if ($activeContract) {
-            return redirect()->back()->with('error', 'Bạn đang có hợp đồng thuê phòng đang hoạt động trên hệ thống, không thể đặt lịch xem phòng mới.');
+        $hasActiveContract = \App\Models\Contract::where('tenant_id',Auth::id())
+        ->whereIn('status',['signed','active','awaiting_upload','expiring','termination_requested'])
+        ->exists();
+        //check nếu khách là thành viên ở ghép đang ở trong phòng
+        if(!$hasActiveContract){
+            $hasActiveContract = \App\Models\RoomResident::where('user_id',Auth::id())
+            ->where('status','active')
+            ->exists();
+        }
+        //nếu đang có hợp đồng/ ở trọ -> chặn  không cho đặt lịch bất kỳ tin đăng phòng trọ khác
+        if($hasActiveContract){
+            return redirect()->back()->with('error','Bạn đang có hợp đồng thuê phòng còn hiệu lực trên hệ thống. Không được phép đặt lịch xem các tin đăng khác!');
         }
         //kiểm tra khung giờ này đã có người đặt trước hoặc đang chờ duyểt
         if ($this->listingService->isSlotOccupied($roomId, $request->date, $request->time)) {
@@ -278,8 +318,6 @@ class PublicListingController extends Controller
         ]);
     }
 
-
-
     //phần gửi dữ liệu form feedback cho người dùng
     public function submitFeedback(Request $request, $id)
     {
@@ -289,7 +327,7 @@ class PublicListingController extends Controller
             'reason' => 'nullable|string'
         ]);
         //tìm lịch hẹn tương ứng và kiểm tra xem có phải của user đăng nhập hay không
-        $appointment = Appointment::where('id', $id)
+        $appointment = Appointment::with(['user', 'room.boardingHouse'])->where('id', $id)
             ->where('user_id', auth()->id())
             ->firstOrFail();
         //Phần khách hàng ưng ý
@@ -300,9 +338,13 @@ class PublicListingController extends Controller
                 'feedback_time' => now()
             ]);
             //gửi thông báo Notification/email cho chủ trọ
+            $landlord = \App\Models\User::find($appointment->landlord_id);
+            if ($landlord) {
+                $landlord->notify(new \App\Notifications\TenantInterestedNotification($appointment));
+            }
             return response()->json([
                 'message' => 'Cảm ơn bạn đã phản hồi! HomeStay đã báo cho chủ nhà chuẩn bị hợp đồng',
-                'recommendations' => [] //thành công thì sẽ không gợi ý phòng khác
+                'recommendations' => []
             ]);
         }
 

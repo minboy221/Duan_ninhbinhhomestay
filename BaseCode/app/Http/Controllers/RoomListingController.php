@@ -41,7 +41,10 @@ class RoomListingController extends Controller
     // Phần hiển thị form nhập đăng tin
     public function create(): Response
     {
+        $boardingHousesId = session('selected_boarding_house_id');
         $boardingHouses = BoardingHouse::where('user_id', auth()->id())
+            ->where('id', $boardingHousesId)
+            //lọc theo cơ sở đang chọn
             ->where('status', 'approved')
             ->with(['floors.rooms.roomPosts'])
             ->get();
@@ -62,6 +65,20 @@ class RoomListingController extends Controller
 
     public function store(StoreRoomPostRequest $request)
     {
+        $user = auth()->user();
+        $room = \App\Models\Room::findOrFail($request->room_id);
+        //tính thứ tự phòng của chủ trọ trong db
+        $roomOrderIndex = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user){
+            $q->where('user_id',$user->id);
+        })->where('id', '<=', $room->id)->count();
+        //nếu phòng này bị đóng băng, chặn không cho đăng tin
+        if($user->isRoomFrozen($roomOrderIndex)){
+            return redirect()->back()->with('error','Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ.Vui lòng nâng cấp gói để đăng tin cho thuê!');
+        }
+        $currentListings = \App\Models\Post::where('user_id', auth()->id())->count();
+        if(!auth()->user()->canCreateResource('max_listings',$currentListings)){
+            return redirect()->back()->with('error','Bạn đã đạt giới hạn số lượng bài đăng của gói hiện tại!');
+        }
         //xác định trạng thái dựa trên btn ở frontend
         $status = $request->input('action') === 'draft' ? 'draft' : 'pending';
         //gọi đến services sử lý
@@ -116,6 +133,8 @@ class RoomListingController extends Controller
             abort(403, 'Bạn không có quyền sửa bài đăng này');
         }
         $boardingHouses = BoardingHouse::where('user_id', auth()->id())
+            ->where('id', $post->room->boarding_house_id)
+            //khoá theo cơ sở của bài đăng
             ->where('status', 'approved')
             ->with(['floors.rooms.roomPosts'])
             ->get();

@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use App\Traits\Hashidable;
 class Contract extends Model
 {
-    use HasFactory;
+    use HasFactory, Hashidable;
 
     public static bool $allowImmutableUpdate = false;
 
@@ -54,6 +54,8 @@ class Contract extends Model
         'deposit_refund_amount' => 'decimal:2',
         'number_of_tenants' => 'integer',
     ];
+
+    protected $appends = ['hash_id'];
 
     /**
      * Boot function from Laravel.

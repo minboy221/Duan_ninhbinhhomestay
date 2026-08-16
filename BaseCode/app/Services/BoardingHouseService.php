@@ -106,4 +106,71 @@ class BoardingHouseService
     {
         return $this->boardingHouseRepository->findById($id);
     }
+
+    //logic đồng bộ địa chỉ xuống tầng & phòng, và kiểm tra ràng buộc hợp đồng
+    public function updateBoardingHouse(int $id, array $data, $roomImages, $contractImages, int $userId)
+    {
+        $house = \App\Models\BoardingHouse::where('id',$id)->where('user_id',$userId)->firstOrFail();
+        //xử lý ảnh hợp đồng mẫu nếu có tải lên mới
+        if($contractImages){
+            $contractImagesPath  = [];
+
+            foreach($contractImages as $file){
+                $contractImagesPath[] = $file->store('boarding_houses/contracts','public');
+            }
+            $data['contract_images'] = json_encode($contractImagesPath);
+        }
+        //xử lý ảnh cơ sở nếu có ảnh tải lên mới
+        if($roomImages){
+            $roomImagesPath = [];
+            foreach($roomImages as $file){
+                $roomImagesPath[] = $file->store('boarding_houses/rooms','public');
+            }
+            $data['room_images'] = json_encode($roomImagesPath);
+        }
+        //cập nhật thông tin cơ sở trọ
+        $house->update($data);
+
+        //đồng bộ hoá địa chỉ và toạ độ mới xuống phòng và tầng của cơ sở
+        $fullAddress = $house->address_detail . ($house->district ? ',' .$house->distinct : '');
+        //cập nhật phòng
+        \App\Models\Room::where('boarding_house_id',$house->id)->update([
+            'address' => $fullAddress,
+        ]);
+        //cập nhật tầng
+        $floorIds = \App\Models\Room::where('boarding_house_id',$house->id)
+        ->pluck('floor_id')
+        ->unique()
+        ->filter()
+        ->toArray();
+        if(!empty($floorIds)){
+            \App\Models\Floor::whereIn('id',$floorIds)->update([
+                'address' => $fullAddress,
+                'latitude' => $house->latitude,
+                'longitude' => $house->longitude,
+            ]);
+        }
+        return $house;
+    }
+    public function deleteBoardingHouse(int $id, int $userId){
+        $house = \App\Models\BoardingHouse::where('id',$id)->where('user_id',$userId)->firstOrFail();
+        //chặn nếu cơ sở trọ này đang có bài đăng tin rao phòng public trên hệ thống
+        $hasActivePosts = \App\Models\RoomPost::whereHas('room',function ($q) use ($id){
+            $q->where('boarding_house_id',$id);
+        })->whereIn('status',['published','approved','pending'])->exists();
+        if($hasActivePosts){
+            throw new \Exception('Không thể xoá cơ sở này vì đang có Bài đăng tin rao phòng công khai trên hệ thống. Vui lòng gỡ tin đăng trước!');
+        }
+        //Chặn nếu cơ sở trọ này đang có hợp đồng thuê trọ còn hiệu lực
+        $hasActiveContracts = \App\Models\Contract::whereHas('room', function($q) use ($id){
+            $q->where('boarding_house_id',$id);
+        })->whereIn('status',['active', 'signed', 'awaiting_upload', 'pending_renewal'])->exists();
+        if($hasActiveContracts){
+            throw new \Exception('Không thể xoá cơ sở này vì vẫn còn hợp đồng đang có hiệu lực!');
+        }
+        \App\Models\Room::where('boarding_house_id',$house->id)->delete();
+        //xoá cơ sở
+        $house->delete();
+        return true;
+    }
 }

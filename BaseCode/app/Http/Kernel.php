@@ -39,6 +39,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\UpdateLastSeenAt::class,
+            \App\Http\Middleware\CheckUserStatus::class,
         ],
 
         'api' => [
@@ -56,7 +57,7 @@ class Kernel extends HttpKernel
      * @var array<string, class-string|string>
      */
     protected $middlewareAliases = [
-        'admin'    => \App\Http\Middleware\AdminMiddleware::class,
+        'admin' => \App\Http\Middleware\AdminMiddleware::class,
         'landlord' => \App\Http\Middleware\LandlordMiddleware::class,
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
@@ -68,5 +69,6 @@ class Kernel extends HttpKernel
         'signed' => \App\Http\Middleware\ValidateSignature::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+        'check_manager_permissions' => \App\Http\Middleware\CheckPropertyManagerPermission::class,
     ];
 }

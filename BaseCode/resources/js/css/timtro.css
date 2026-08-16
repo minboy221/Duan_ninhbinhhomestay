@@ -835,6 +835,7 @@ input[type="radio"]:checked::after {
 .user_room .name_user {
     font-weight: 600;
     color: #1e293b;
+    font-size: 13px;
 }
 
 .btn {

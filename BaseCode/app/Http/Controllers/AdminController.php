@@ -40,8 +40,17 @@ class AdminController extends Controller
     public function toggleUserStatus($id)
     {
         $user = User::findOrFail($id);
+        $oldStatus = $user->status;
         $user->status = $user->status === 'active' ? 'locked' : 'active';
         $user->save();
+        $action = $user->status === 'locked' ? 'lock_user' : 'unlock_user';
+        $actionText = $user->status === 'locked' ? 'Khóa' : 'Mở khóa';
+        //ghi log
+        \App\Services\AuditLogger::log(
+            $action,
+            "{$actionText} tài khoản người dùng: {$user->email} (Trạng thái cũ: {$oldStatus})",
+            true
+        );
 
         return redirect()->back()->with('success', 'Đã cập nhật trạng thái người dùng thành công.');
     }
@@ -54,6 +63,12 @@ class AdminController extends Controller
         if ($user->role === 'admin' && User::where('role', 'admin')->count() <= 1) {
             return redirect()->back()->with('error', 'Không thể xóa Admin duy nhất của hệ thống.');
         }
+        //ghi log
+        \App\Services\AuditLogger::log(
+            'delete_user',
+            "Xoá vĩnh viễn tài khoản người dùng: {$user->email}",
+            true
+        );
 
         $user->delete();
 
@@ -114,6 +129,14 @@ class AdminController extends Controller
         ]);
         $post = RoomPost::findOrFail($id);
         $this->roomPostService->rejectPost($post, $request->reject_reason);
+
+        //ghi log
+        \App\Services\AuditLogger::log(
+            'reject_post',
+            "Từ chối bài đâng phòng trọ:" . ($post->title ?? "ID # {$id}") . " . Lý do: " . $request->reject_reason,
+            false
+        );
+
         return redirect()->back()->with('success', 'đã từ chối bài viết và gửi lỗi đến chủ trọ');
     }
 
@@ -135,6 +158,12 @@ class AdminController extends Controller
         $post = RoomPost::findOrFail($id);
         //gọi services xử lý rồi đẩy sang thông báo
         $this->roomPostService->approvePost($post);
+        //ghi log
+        \App\Services\AuditLogger::log(
+            'approve_post',
+            "Phê duyệt bài đăng phòng trọ:" . ($post->title ?? "ID#{$id}"),
+            false
+        );
         return redirect()->back()->with('success', 'Đã phê duyệt và xuất bản tin đăng trọ thành công');
     }
 
@@ -205,15 +234,23 @@ class AdminController extends Controller
         ]);
 
         $report = Report::with('reportable.boardingHouse.user', 'reporter')->findOrFail($id);
-        
+
         $report->update([
             'status' => $request->status,
             'admin_note' => $request->admin_note,
             'resolved_by' => auth()->id(),
             'resolved_at' => now(),
         ]);
-
-        $statusLabel = 'N/A';
+        //ghi log
+        $action = $request->status === 'resolved' ? 'resolved_report' : 'ignore_report';
+        $statusText = $request->status === 'resolved' ? 'Chấp nhận giải quyết' : ($request->status === 'ignored' ? 'Bỏ qua' : 'Từ chối');
+        $noteText = $request->admin_note ? " (Ghi chú: " . $request->admin_note . ")" : "";
+        $reporterEmail = $report->reporter ? $report->reporter->email : "N/A";
+        \App\Services\AuditLogger::log(
+            $action,
+            "{$statusText} khiếu nại báo cáo ID #{$report->id} của khách thuê: {$reporterEmail}{$noteText}",
+            true
+        );
         if ($request->status === 'resolved') {
             $statusLabel = 'đã được giải quyết (Chấp nhận khiếu nại)';
         } elseif ($request->status === 'ignored' || $request->status === 'rejected') {
@@ -243,7 +280,8 @@ class AdminController extends Controller
                 ));
             }
         }
-
+        //phát sự kiện realtime với khách thuê & chủ trọ
+        event(new \App\Events\ReportUpdated($report));
         return redirect()->back()->with('success', 'Cập nhật trạng thái báo cáo thành công');
     }
 
@@ -262,9 +300,10 @@ class AdminController extends Controller
     }
 
     //CRUD lý do cho Admin
-    public function reportReasons(){
-        $reasons = \App\Models\ReportReason::orderBy('created_at','desc')->get();
-        return Inertia::render('Admin/ReportReasons/Index',[
+    public function reportReasons()
+    {
+        $reasons = \App\Models\ReportReason::orderBy('created_at', 'desc')->get();
+        return Inertia::render('Admin/ReportReasons/Index', [
             'reasons' => $reasons
         ]);
     }
@@ -300,10 +339,11 @@ class AdminController extends Controller
         return redirect()->back()->with('success', 'Cập nhật lý do báo cáo thành công.');
     }
 
-    public function destroyReportReason($id){
+    public function destroyReportReason($id)
+    {
         $reason = \App\Models\ReportReason::findOrFail($id);
-        $reason ->delete();
-        return redirect()->back()->with('success','xoá lý do báo cáo thành công');
+        $reason->delete();
+        return redirect()->back()->with('success', 'xoá lý do báo cáo thành công');
     }
 
     public function reviews()
@@ -321,9 +361,35 @@ class AdminController extends Controller
         return Inertia::render('Admin/Roles/index');
     }
 
-    public function auditlog()
+    public function auditlog(Request $request)
     {
-        return Inertia::render('Admin/AuditLog/index');
+        //khởi tạo truy vấn log kèm thông tin User
+        $query = \App\Models\AuditLog::with('user:id,name')
+            ->orderBy('created_at', 'desc');
+
+        //tìm kiếm theo từ khoá (tên user, IP,Nội dung)
+        if ($request->filled('search')) {
+            $q = $request->search;
+            $query->where(function ($sub) use ($q) {
+                $sub->where('target', 'like', "%{$q}")->orWhere('ip_address', 'like', "%{$q}")->orWhereHas('user', function ($u) use ($q) {
+                    $u->where('name', 'like', "%{$q}%");
+                });
+            });
+        }
+        //lọc theo mức độ của hành động
+        if ($request->filled('type') && $request->type !== 'all') {
+            if ($request->type === 'sensitive') {
+                $query->where('sensitive', true);
+            } else {
+                $query->where('action', $request->type);
+            }
+        }
+        //phân trang
+        $logs = $query->paginate(15)->withQueryString();
+        return Inertia::render('Admin/AuditLog/index', [
+            'logs' => $logs,
+            'filters' => $request->only(['search', 'type'])
+        ]);
     }
 
     public function website()
@@ -350,6 +416,11 @@ class AdminController extends Controller
             'banners' => 'nullable|array',
             //cấu hình thời hạn báo cáo
             'report_negotiation_days' => 'required|integer|min:1|max:30',
+            'warning_electricity_price' => 'required|numeric|min:0',
+            'warning_invoice_amount' => 'required|numeric|min:0',
+            'warning_water_price' => 'required|numeric|min:0',
+            'warning_monthly_rent' => 'required|numeric|min:0',
+            'not_interested_reasons' => 'nullable|array',
         ], [
             'hero_title.required' => 'Tiêu đề chính không được để trống.',
             'hero_subtitle.required' => 'Mô tả phụ không được để trống.',
@@ -360,6 +431,18 @@ class AdminController extends Controller
             'report_negotiation_days.required' => 'Thời hạn thương lượng không được để trống.',
             'report_negotiation_days.integer' => 'Thời hạn thương lượng phải là số nguyên.',
             'report_negotiation_days.min' => 'Thời hạn tối thiểu là 1 ngày.',
+            'warning_electricity_price.required' => 'Ngưỡng giá điện không được để trống',
+            'warning_electricity_price.numeric' => 'Ngưỡng giá điện phải là số.',
+            'warning_electricity_price.min' => 'Ngưỡng giá điện không được nhỏ hơn 0',
+            'warning_water_price.required' => 'Ngưỡng giá nước không được để trống.',
+            'warning_water_price.numeric' => 'Ngưỡng giá nước phải là số.',
+            'warning_water_price.min' => 'Ngưỡng giá nước không được nhỏ hơn 0.',
+            'warning_invoice_amount.required' => 'Ngưỡng tổng tiền hóa đơn không được để trống.',
+            'warning_invoice_amount.numeric' => 'Ngưỡng tổng tiền hóa đơn phải là số.',
+            'warning_invoice_amount.min' => 'Ngưỡng tổng tiền hóa đơn không được nhỏ hơn 0.',
+            'warning_monthly_rent.required' => 'Ngưỡng tiền thuê phòng không được để trống.',
+            'warning_monthly_rent.numeric' => 'Ngưỡng tiền thuê phòng phải là số.',
+            'warning_monthly_rent.min' => 'Ngưỡng tiền thuê phòng không được nhỏ hơn 0.',
         ]);
         \App\Models\Setting::updateOrCreate(['key' => 'report_negotiation_days'], ['value' => $request->report_negotiation_days]);
         \App\Models\Setting::updateOrCreate(['key' => 'hero_title'], ['value' => $request->hero_title]);
@@ -368,7 +451,11 @@ class AdminController extends Controller
         \App\Models\Setting::updateOrCreate(['key' => 'contact_email'], ['value' => $request->contact_email]);
         \App\Models\Setting::updateOrCreate(['key' => 'contact_address'], ['value' => $request->contact_address]);
         \App\Models\Setting::updateOrCreate(['key' => 'contact_map'], ['value' => $request->contact_map]);
-
+        \App\Models\Setting::updateOrCreate(['key' => 'warning_electricity_price'], ['value' => $request->warning_electricity_price]);
+        \App\Models\Setting::updateOrCreate(['key' => 'warning_water_price'], ['value' => $request->warning_water_price]);
+        \App\Models\Setting::updateOrCreate(['key' => 'warning_invoice_amount'], ['value' => $request->warning_invoice_amount]);
+        \App\Models\Setting::updateOrCreate(['key' => 'warning_monthly_rent'], ['value' => $request->warning_monthly_rent]);
+        \App\Models\Setting::updateOrCreate(['key' => 'not_interested_reasons'], ['value' => json_encode($request->input('not_interested_reasons', []), JSON_UNESCAPED_UNICODE)]);
         $banners = $request->input('banners', []);
         $files = $request->file('banners');
 
@@ -390,6 +477,13 @@ class AdminController extends Controller
         }
 
         \App\Models\Setting::updateOrCreate(['key' => 'banners'], ['value' => json_encode(array_values($banners), JSON_UNESCAPED_UNICODE)]);
+
+        //ghi log
+        \App\Services\AuditLogger::log(
+            'update_website',
+            "Cập nhật lại toàn bộ cấu hình hiển thị và thông tin của website chính",
+            true
+        );
 
         return redirect()->back()->with('success', 'Đã cập nhật cấu hình giao diện website thành công!');
     }

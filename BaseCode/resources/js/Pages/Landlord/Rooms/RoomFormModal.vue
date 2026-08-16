@@ -32,14 +32,19 @@ const originalStatus = ref("available");
 
 const displayPrice = computed({
     get() {
-        if (form.value.price === null || form.value.price === undefined || form.value.price === '') return ''
-        return new Intl.NumberFormat('en-US').format(form.value.price)
+        if (
+            form.value.price === null ||
+            form.value.price === undefined ||
+            form.value.price === ""
+        )
+            return "";
+        return new Intl.NumberFormat("en-US").format(form.value.price);
     },
     set(val) {
-        const raw = String(val).replace(/\D/g, '')
-        form.value.price = raw ? parseInt(raw, 10) : 0
-    }
-})
+        const raw = String(val).replace(/\D/g, "");
+        form.value.price = raw ? parseInt(raw, 10) : 0;
+    },
+});
 
 const capitalize = (str) =>
     str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
@@ -167,12 +172,13 @@ const validate = () => {
         }
 
         const isDuplicate = props.floors.some((f) =>
-            f.rooms.some((r) => {
+            (f.rooms || []).some((r) => {
                 if (props.isEdit && props.room && r.id === props.room.id)
                     return false;
                 return r.name.trim().toLowerCase() === name.toLowerCase();
             }),
         );
+
         if (isDuplicate) {
             errors.value.room_number = `Số phòng "${name}" đã tồn tại`;
             return false;
@@ -259,7 +265,12 @@ const submit = () => {
         });
     }
 
-    emit("submitted", fd);
+    emit("submitted",{
+        formData: fd,
+        resetSubmitting: () => {
+            submitting.value = false;
+        }
+    });
 };
 </script>
 
@@ -437,7 +448,6 @@ const submit = () => {
                             </span>
                         </template>
                     </div>
-
                 </div>
 
                 <!-- Status Select Grid -->
@@ -446,11 +456,11 @@ const submit = () => {
                         <span class="text-rose-500">*</span></label>
                     <div class="grid grid-cols-2 gap-2 mt-1">
                         <label v-for="(cfg, key) in statusConfig" :key="key" v-show="isEdit
-                            ? allowedKeys(originalStatus).includes(key)
-                            : [
-                                'available',
-                                'under_construction',
-                            ].includes(key)
+                                ? allowedKeys(originalStatus).includes(key)
+                                : [
+                                    'available',
+                                    'under_construction',
+                                ].includes(key)
                             " :class="[
                                 'flex items-center gap-2 p-2.5 border rounded-xl text-[11px] font-bold cursor-pointer transition-all',
                                 form.status === key
@@ -509,10 +519,10 @@ const submit = () => {
                                         ]?.text
                                         : 'text-slate-400',
                                 ]">{{
-                                    new Intl.NumberFormat("vi-VN").format(
-                                        srv.price,
-                                    )
-                                }}đ</span>
+                                        new Intl.NumberFormat("vi-VN").format(
+                                            srv.price,
+                                        )
+                                    }}đ</span>
                             </div>
                         </label>
                     </div>
