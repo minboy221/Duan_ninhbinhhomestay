@@ -212,16 +212,16 @@ const getStatusLabel = (status) => {
 
 const getStatusClass = (status) => {
     const classes = {
-        available: 'bg-green-100 text-green-700 border-green-200',
-        rented: 'bg-gray-100 text-gray-600 border-gray-200',
-        maintenance: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-        deposited: 'bg-blue-100 text-blue-700 border-blue-200',
-        expiring_soon: 'bg-orange-100 text-orange-700 border-orange-200',
-        pending_renewal: 'bg-purple-100 text-purple-700 border-purple-200',
-        suspended: 'bg-red-100 text-red-700 border-red-200',
-        under_construction: 'bg-teal-100 text-teal-700 border-teal-200'
+        available: 'room-badge-available',
+        rented: 'room-badge-rented',
+        maintenance: 'room-badge-maintenance',
+        deposited: 'room-badge-deposited',
+        expiring_soon: 'room-badge-expiring',
+        pending_renewal: 'room-badge-renewal',
+        suspended: 'room-badge-suspended',
+        under_construction: 'room-badge-construction'
     };
-    return classes[status] || 'bg-gray-100 text-gray-600 border-gray-200';
+    return classes[status] || 'room-badge-rented';
 };
 
 const getAvatarUrl = (avatar) => {
@@ -572,10 +572,10 @@ const getRoomImageUrl = (images) => {
                                     <span class="text-base font-bold text-rose-600">
                                         {{ new Intl.NumberFormat('vi-VN').format(post.room?.price || 0) }} <span class="text-xs font-normal text-slate-500">đ/tháng</span>
                                     </span>
-                                    <span class="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
+                                    <span class="room-badge room-badge-area">
                                         {{ post.room?.area }} m²
                                     </span>
-                                    <span class="text-xs text-slate-600 flex items-center gap-1 truncate max-w-[280px]"
+                                    <span class="text-xs text-slate-600 flex items-center gap-1.5 truncate max-w-[280px]"
                                         :title="post.room?.boarding_house?.address_detail || 'Ninh Bình'">
                                         <i class="bi bi-geo-alt text-blue-500"></i>
                                         {{ post.room?.boarding_house?.address_detail || 'Ninh Bình' }}
@@ -583,26 +583,21 @@ const getRoomImageUrl = (images) => {
                                 </div>
 
                                 <!-- BADGE TRẠNG THÁI & THÔNG TIN PHÒNG -->
-                                <div v-if="post.room?.status" class="mt-2">
-                                    <div class="flex items-center gap-2 flex-wrap text-xs">
-                                        <span :class="[
-                                            'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border',
-                                            getStatusClass(post.room.status)
-                                        ]">
+                                <div v-if="post.room?.status" class="mt-2.5">
+                                    <div class="room-badge-list">
+                                        <span class="room-badge" :class="getStatusClass(post.room.status)">
                                             {{ getStatusLabel(post.room.status) }}
                                         </span>
-                                        <span v-if="post.room?.floor?.name"
-                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                            <i class="bi bi-layers-fill mr-1"></i> {{ post.room.floor.name }}
+                                        <span v-if="post.room?.floor?.name" class="room-badge room-badge-floor">
+                                            <i class="bi bi-layers-fill"></i> {{ post.room.floor.name }}
                                         </span>
-                                        <span v-if="post.room?.current_people > 0 || post.room?.status === 'rented'"
-                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                            <i class="bi bi-person-check-fill mr-1"></i> Đã có {{ post.room?.current_people || 1 }} người ở
+                                        <span v-if="post.room?.current_people > 0 || post.room?.status === 'rented'" class="room-badge room-badge-residents">
+                                            <i class="bi bi-person-check-fill"></i> Đã có {{ post.room?.current_people || 1 }} người ở
                                         </span>
-                                        <span v-if="post.room?.boarding_house?.average_rating > 0" class="text-yellow-500 font-bold inline-flex items-center gap-1">
+                                        <span v-if="post.room?.boarding_house?.average_rating > 0" class="room-badge-rating">
                                             <i class="bi bi-star-fill"></i> {{ post.room.boarding_house.average_rating }}
                                         </span>
-                                        <span v-else class="text-gray-400 italic text-xs">Chưa có đánh giá</span>
+                                        <span v-else class="room-badge-no-rating">Chưa có đánh giá</span>
                                     </div>
                                     <div class="about_room mt-2">
                                         <p
