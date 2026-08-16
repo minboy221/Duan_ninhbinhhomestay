@@ -147,6 +147,57 @@ INSTRUCTION;
     }
 
     /**
+     * Chuyển đổi chuỗi số tiền tiếng Việt sang số nguyên VND
+     */
+    private function parseVietnamesePriceAmount(string $str): ?int
+    {
+        $str = trim(mb_strtolower($str, 'UTF-8'));
+        $str = preg_replace('/\s+/', '', $str);
+
+        // Pattern 1: 2tr5 / 2tr500 / 2củ5
+        if (preg_match('/^([0-9]+)(?:triệu|trieu|tr|củ|cu)([0-9]+)(?:k)?$/ui', $str, $m)) {
+            $main = intval($m[1]);
+            $sub = $m[2];
+            if (strlen($sub) === 1) {
+                return $main * 1000000 + intval($sub) * 100000;
+            } elseif (strlen($sub) === 2) {
+                return $main * 1000000 + intval($sub) * 10000;
+            } elseif (strlen($sub) === 3) {
+                return $main * 1000000 + intval($sub) * 1000;
+            }
+            return $main * 1000000 + intval($sub);
+        }
+
+        // Pattern 2: 800k / 800 nghìn / 800 ngàn
+        if (preg_match('/^([0-9]+(?:[\.,][0-9]+)?)(?:nghìn|ngàn|nghin|ngan|k)$/ui', $str, $m)) {
+            $num = floatval(str_replace(',', '.', $m[1]));
+            return (int) round($num * 1000);
+        }
+
+        // Pattern 3: Dạng số đầy đủ có chấm/phẩy: 3.000.000 / 3,000,000 / 3000000
+        if (preg_match('/^([0-9]{1,3}(?:[\.,][0-9]{3})+|[0-9]{6,10})(?:đồng|dong|vnd|d|đ)?$/ui', $str, $m)) {
+            $clean = preg_replace('/[\.,]/', '', $m[1]);
+            return intval($clean);
+        }
+
+        // Pattern 4: 2.5 triệu / 3tr / 3 củ / 3m / 3
+        if (preg_match('/^([0-9]+(?:[\.,][0-9]+)?)(?:triệu|trieu|tr|củ|cu|đồng|dong|vnd|m|d|đ)?$/ui', $str, $m)) {
+            $num = floatval(str_replace(',', '.', $m[1]));
+            if ($num >= 100000) {
+                return (int) $num;
+            }
+            if ($num <= 50) {
+                return (int) round($num * 1000000);
+            }
+            if ($num <= 999) {
+                return (int) round($num * 1000);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Bộ phân tích Fallback sử dụng Rule-based NLP Regex (Không cần mạng internet, không tốn chi phí)
      */
     public function parseWithRuleBasedFallback(string $prompt, array $areas, array $categories, array $amenities): array
@@ -160,22 +211,51 @@ INSTRUCTION;
         $result['success'] = true;
 
         $explanationParts = [];
+        $extractedSegments = [];
 
         // 1. Phân tích Khoảng giá (Price)
-        // Dưới X triệu / <= X tr / dưới X tr5 / Xk
-        if (preg_match('/(?:dưới|<|nhỏ hơn|tối đa|tam|tầm)\s*([0-9]+(?:\.[0-9]+)?)\s*(?:tr|trieu|triệu|m)/ui', $lowerPrompt, $m)) {
-            $result['price_max'] = (int) (floatval($m[1]) * 1000000);
-            $explanationParts[] = 'Giá tối đa ' . number_format($result['price_max'], 0, ',', '.') . ' đ';
-        } elseif (preg_match('/([0-9]+)\s*tr\s*([0-9]+)/ui', $lowerPrompt, $m)) { // Ví dụ 2tr5 -> 2.500.000
-            $result['price_max'] = (int) ($m[1] * 1000000 + $m[2] * 100000);
-            $explanationParts[] = 'Giá khoảng ' . number_format($result['price_max'], 0, ',', '.') . ' đ';
-        } elseif (preg_match('/(?:từ|tu)\s*([0-9]+(?:\.[0-9]+)?)\s*(?:đến|den|-|tới|toi)\s*([0-9]+(?:\.[0-9]+)?)\s*(?:tr|trieu|triệu)/ui', $lowerPrompt, $m)) {
-            $result['price_min'] = (int) (floatval($m[1]) * 1000000);
-            $result['price_max'] = (int) (floatval($m[2]) * 1000000);
-            $explanationParts[] = 'Giá từ ' . number_format($result['price_min'], 0, ',', '.') . ' đ - ' . number_format($result['price_max'], 0, ',', '.') . ' đ';
-        } elseif (preg_match('/(?:trên|>|lớn hơn)\s*([0-9]+(?:\.[0-9]+)?)\s*(?:tr|trieu|triệu)/ui', $lowerPrompt, $m)) {
-            $result['price_min'] = (int) (floatval($m[1]) * 1000000);
-            $explanationParts[] = 'Giá trên ' . number_format($result['price_min'], 0, ',', '.') . ' đ';
+        // 1A. Khoảng giá: từ X đến Y / X - Y triệu / từ 1tr5 đến 3tr
+        if (preg_match('/(?:từ|tu|khoảng|tầm)?\s*([0-9]+(?:[\.,][0-9]+)?(?:\s*(?:triệu|trieu|tr|củ|k))?|[0-9]+\s*tr\s*[0-9]+|[0-9]{1,3}(?:[\.,][0-9]{3})+)\s*(?:đến|den|-|tới|toi)\s*([0-9]+(?:[\.,][0-9]+)?\s*(?:triệu|trieu|tr|củ|k|nghìn|ngàn|nghin|ngan|đ|dong|đồng|vnd)?|[0-9]+\s*tr\s*[0-9]+|[0-9]{1,3}(?:[\.,][0-9]{3})+)/ui', $lowerPrompt, $m)) {
+            $p1 = $this->parseVietnamesePriceAmount($m[1]);
+            $p2 = $this->parseVietnamesePriceAmount($m[2]);
+            if ($p1 && $p2) {
+                $result['price_min'] = min($p1, $p2);
+                $result['price_max'] = max($p1, $p2);
+                $explanationParts[] = 'Giá ' . number_format($result['price_min'], 0, ',', '.') . ' đ - ' . number_format($result['price_max'], 0, ',', '.') . ' đ';
+                $extractedSegments[] = $m[0];
+            }
+        }
+
+        // 1B. Giá tối đa (Dưới X / <= X / tối đa X / nhỏ hơn X)
+        if (!$result['price_max'] && preg_match('/(?:dưới|duoi|<|nhỏ hơn|nho hon|tối đa|toi da|khong qua|không quá|<=|ít hơn|it hon)\s*([0-9]+(?:[\.,][0-9]+)?\s*(?:triệu|trieu|tr|củ|cu|nghìn|ngàn|nghin|ngan|k|đ|dong|đồng|vnd)?|[0-9]+\s*tr\s*[0-9]+|[0-9]{1,3}(?:[\.,][0-9]{3})+)/ui', $lowerPrompt, $m)) {
+            $p = $this->parseVietnamesePriceAmount($m[1]);
+            if ($p) {
+                $result['price_max'] = $p;
+                $explanationParts[] = 'Giá ≤ ' . number_format($p, 0, ',', '.') . ' đ';
+                $extractedSegments[] = $m[0];
+            }
+        }
+
+        // 1C. Giá tối thiểu (Trên X / > X / lớn hơn X / từ X trở lên / tối thiểu X)
+        if (!$result['price_min'] && preg_match('/(?:trên|tren|>|lớn hơn|lon hon|tối thiểu|toi thieu|>=)\s*([0-9]+(?:[\.,][0-9]+)?\s*(?:triệu|trieu|tr|củ|cu|nghìn|ngàn|nghin|ngan|k|đ|dong|đồng|vnd)?|[0-9]+\s*tr\s*[0-9]+|[0-9]{1,3}(?:[\.,][0-9]{3})+)/ui', $lowerPrompt, $m)) {
+            $p = $this->parseVietnamesePriceAmount($m[1]);
+            if ($p) {
+                $result['price_min'] = $p;
+                $explanationParts[] = 'Giá ≥ ' . number_format($p, 0, ',', '.') . ' đ';
+                $extractedSegments[] = $m[0];
+            }
+        }
+
+        // 1D. Mức giá đơn / giá cụ thể: "giá 3 triệu", "giá 3tr", "3 triệu", "3tr", "tầm 3tr", "khoảng 3 triệu", "phòng 3tr", "3.000.000"
+        if (!$result['price_max'] && !$result['price_min']) {
+            if (preg_match('/(?:giá|gia|tầm|tam|khoảng|khoang|quanh|mức|muc|phòng|phong|nhà|nha)?\s*(?:là|la)?\s*([0-9]+(?:[\.,][0-9]+)?\s*(?:triệu|trieu|tr|củ|cu|nghìn|ngàn|nghin|ngan|k)|[0-9]+\s*tr\s*[0-9]+|[0-9]{1,3}(?:[\.,][0-9]{3})+)\s*(?:\/tháng|\/thang|đ|vnd|dong|đồng)?/ui', $lowerPrompt, $m)) {
+                $p = $this->parseVietnamesePriceAmount($m[1]);
+                if ($p && $p >= 100000) {
+                    $result['price_max'] = $p;
+                    $explanationParts[] = 'Giá ≤ ' . number_format($p, 0, ',', '.') . ' đ';
+                    $extractedSegments[] = $m[0];
+                }
+            }
         }
 
         // 2. Phân tích Số tầng (Floor)
@@ -190,19 +270,23 @@ INSTRUCTION;
                     $explanationParts[] = 'Tầng ' . $result['floor_number'];
                 }
             }
+            $extractedSegments[] = $m[0];
         }
 
         // 3. Phân tích Diện tích (Area size)
         if (preg_match('/(?:dưới|<)\s*([0-9]+)\s*(?:m2|m²|mét vuông|met vuong)/ui', $lowerPrompt, $m)) {
             $result['area_max'] = floatval($m[1]);
             $explanationParts[] = 'Diện tích < ' . $result['area_max'] . 'm²';
+            $extractedSegments[] = $m[0];
         } elseif (preg_match('/(?:trên|>)\s*([0-9]+)\s*(?:m2|m²|mét vuông|met vuong)/ui', $lowerPrompt, $m)) {
             $result['area_min'] = floatval($m[1]);
             $explanationParts[] = 'Diện tích > ' . $result['area_min'] . 'm²';
+            $extractedSegments[] = $m[0];
         } elseif (preg_match('/([0-9]+)\s*(?:đến|-)\s*([0-9]+)\s*(?:m2|m²)/ui', $lowerPrompt, $m)) {
             $result['area_min'] = floatval($m[1]);
             $result['area_max'] = floatval($m[2]);
             $explanationParts[] = 'Diện tích ' . $result['area_min'] . ' - ' . $result['area_max'] . 'm²';
+            $extractedSegments[] = $m[0];
         }
 
         // 4. Phân tích Khu vực (Area matching)
@@ -223,6 +307,8 @@ INSTRUCTION;
                 $result['area_id'] = $areaId;
                 $result['area_name'] = $areaName;
                 $explanationParts[] = 'Khu vực ' . $areaName;
+                $extractedSegments[] = $cleanAreaName;
+                $extractedSegments[] = $areaName;
                 break;
             }
         }
@@ -238,6 +324,7 @@ INSTRUCTION;
                 $result['category_id'] = $catId;
                 $result['category_name'] = $catName;
                 $explanationParts[] = 'Loại ' . $catName;
+                $extractedSegments[] = $catName;
                 break;
             }
         }
@@ -247,17 +334,17 @@ INSTRUCTION;
         $matchedAmenityNames = [];
         
         $amenityAliases = [
-            'thú cưng' => ['thú cưng', 'chó mèo', 'pet', 'nuôi pet', 'nuôi chó', 'nuôi mèo', 'thucung'],
-            'gác xép' => ['gác xép', 'gác lửng', 'gac xep', 'gac lung'],
-            'điều hòa' => ['điều hòa', 'điều hoà', 'dieu hoa', 'máy lạnh', 'may lanh'],
+            'thú cưng' => ['thú cưng', 'thu cung', 'chó mèo', 'cho meo', 'pet', 'nuôi pet', 'nuoi pet', 'nuôi chó', 'nuôi mèo', 'thucung'],
+            'gác xép' => ['gác xép', 'gac xep', 'gác lửng', 'gac lung'],
+            'điều hòa' => ['điều hòa', 'dieu hoa', 'điều hoà', 'máy lạnh', 'may lanh'],
             'nóng lạnh' => ['nóng lạnh', 'nong lanh', 'bình nóng lạnh', 'nuoc nong'],
             'máy giặt' => ['máy giặt', 'may giat'],
             'tủ lạnh' => ['tủ lạnh', 'tu lanh'],
             'wifi' => ['wifi', 'mạng', 'internet'],
             'ban công' => ['ban công', 'ban cong', 'cửa sổ', 'cua so', 'thoáng mát'],
-            'bếp' => ['bếp', 'nấu ăn', 'tu bep', 'ke bep', 'nau an'],
+            'bếp' => ['bếp', 'bep', 'nấu ăn', 'nau an', 'tu bep', 'ke bep'],
             'camera' => ['camera', 'an ninh', 'bảo vệ'],
-            'chỗ để xe' => ['chỗ để xe', 'để xe', 'de xe', 'gui xe', 'nhà xe', 'bãi xe', 'bai xe'],
+            'chỗ để xe' => ['chỗ để xe', 'để xe', 'de xe', 'gui xe', 'gửi xe', 'nhà xe', 'bãi xe', 'bai xe'],
         ];
 
         foreach ($amenities as $amenity) {
@@ -270,6 +357,7 @@ INSTRUCTION;
 
             if (stripos($normalizedPrompt, $amNorm) !== false || stripos($lowerPrompt, mb_strtolower($amName, 'UTF-8')) !== false) {
                 $isMatched = true;
+                $extractedSegments[] = $amName;
             } else {
                 foreach ($amenityAliases as $key => $aliases) {
                     if (stripos($amNorm, $this->removeVietnameseTones($key)) !== false) {
@@ -278,11 +366,13 @@ INSTRUCTION;
                             if (mb_strlen($normAlias, 'UTF-8') <= 3) {
                                 if (preg_match('/(?:\b|\s|^)' . preg_quote($normAlias, '/') . '(?:\b|\s|$)/iu', $normalizedPrompt)) {
                                     $isMatched = true;
+                                    $extractedSegments[] = $alias;
                                     break 2;
                                 }
                             } else {
                                 if (stripos($normalizedPrompt, $normAlias) !== false) {
                                     $isMatched = true;
+                                    $extractedSegments[] = $alias;
                                     break 2;
                                 }
                             }
@@ -303,33 +393,57 @@ INSTRUCTION;
             $explanationParts[] = 'Có: ' . implode(', ', $result['amenity_names']);
         }
 
-        // 7. Trích xuất địa điểm tự do (nếu chưa khớp Area DB)
-        if (empty($result['area_id'])) {
-            if (preg_match('/(?:quanh khu|khu vực|gần|tại|ở)\s+([A-Za-zÀ-ỹ0-9\s]+?)(?:,|$|\.|\bdưới\b|\btrên\b|\btừ\b|\bcó\b|\bcho\b|\bgiá\b)/iu', $prompt, $locMatch)) {
-                $locWord = trim($locMatch[1]);
-                if (mb_strlen($locWord, 'UTF-8') >= 2) {
-                    $result['keyword'] = $locWord;
-                    $explanationParts[] = 'Khu vực tự do: ' . $locWord;
-                }
+        // 7. Đặc tính bổ sung ngoài bảng Amenities (vd: Gác xép, Thú cưng)
+        if (preg_match('/\b(gác xép|gác lửng|gac xep|gac lung)\b/iu', $lowerPrompt, $featM)) {
+            if (!in_array('Gác xép', $result['amenity_names'])) {
+                $explanationParts[] = 'Đặc điểm: Gác xép';
+                $extractedSegments[] = $featM[0];
+            }
+        }
+        if (preg_match('/\b(thú cưng|chó mèo|nuôi pet|nuoi pet|pet)\b/iu', $lowerPrompt, $featM)) {
+            if (!in_array('Cho nuôi thú cưng', $result['amenity_names'])) {
+                $explanationParts[] = 'Đặc điểm: Cho nuôi thú cưng';
+                $extractedSegments[] = $featM[0];
             }
         }
 
-        // 8. Trích xuất đặc tính bổ sung nếu chưa có trong bảng Amenities (vd: Gác xép, Thú cưng)
-        $extraFeatures = [];
-        if (preg_match('/\b(gác xép|gác lửng|gac xep|gac lung)\b/iu', $prompt)) {
-            $extraFeatures[] = 'Gác xép';
-        }
-        if (preg_match('/\b(thú cưng|chó mèo|nuôi pet|pet)\b/iu', $prompt)) {
-            $extraFeatures[] = 'Cho nuôi thú cưng';
-        }
-        if (!empty($extraFeatures)) {
-            $explanationParts[] = 'Đặc điểm: ' . implode(', ', $extraFeatures);
-            if (empty($result['keyword'])) {
-                $result['keyword'] = implode(' ', $extraFeatures);
-            }
+        // 8. Tinh lọc từ khóa còn lại (Loại bỏ stop words và các cụm từ đã nhận diện)
+        $cleanPrompt = $lowerPrompt;
+        foreach ($extractedSegments as $seg) {
+            $cleanPrompt = preg_replace('/' . preg_quote($seg, '/') . '/ui', ' ', $cleanPrompt);
         }
 
-        // Tóm tắt kết quả
+        // Danh sách từ dừng phổ biến trong câu tìm kiếm phòng trọ
+        $stopWords = [
+            'phòng trọ', 'phong tro', 'phòng', 'phong', 'nhà trọ', 'nha tro', 'nhà', 'nha',
+            'tìm kiếm', 'tim kiem', 'tìm phòng', 'tim phong', 'tìm', 'tim', 'cần tìm', 'can tim', 'cần', 'can',
+            'cho thuê', 'cho thue', 'thuê phòng', 'thue phong', 'thuê trọ', 'thue tro', 'thuê', 'thue',
+            'ở ghép', 'o ghep', 'ở', 'o', 'tại', 'tai', 'quanh khu', 'quanh', 'khu vực', 'khu vuc', 'gần', 'gan',
+            'giá rẻ', 'gia re', 'giá', 'gia', 'rẻ', 're', 'đẹp', 'dep', 'xinh',
+            'khoảng', 'khoang', 'tầm', 'tam', 'mức', 'muc', 'dưới', 'duoi', 'trên', 'tren', 'từ', 'tu', 'đến', 'den',
+            'có', 'co', 'và', 'va', 'với', 'voi', 'được', 'duoc', 'cho', 'nào', 'nao', 'là', 'la',
+            'tháng', 'thang', 'người', 'nguoi', 'sinh viên', 'sinh vien', 'diện tích', 'dien tich',
+            'tầng', 'tang', 'lầu', 'lau', 'm2', 'm²', 'triệu', 'trieu', 'tr', 'k', 'củ', 'cu', 'đồng', 'dong', 'đ', 'vnd'
+        ];
+
+        // Sắp xếp stop words theo độ dài giảm dần để regex replace các cụm dài trước
+        usort($stopWords, fn($a, $b) => mb_strlen($b, 'UTF-8') - mb_strlen($a, 'UTF-8'));
+        foreach ($stopWords as $sw) {
+            $cleanPrompt = preg_replace('/(?<![\p{L}\p{N}])' . preg_quote($sw, '/') . '(?![\p{L}\p{N}])/ui', ' ', $cleanPrompt);
+        }
+
+        // Làm sạch dấu câu và khoảng trắng thừa
+        $cleanPrompt = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $cleanPrompt));
+        $cleanPrompt = trim(preg_replace('/\s+/', ' ', $cleanPrompt));
+
+        if (mb_strlen($cleanPrompt, 'UTF-8') >= 2) {
+            $result['keyword'] = $cleanPrompt;
+            $explanationParts[] = 'Từ khóa: "' . $cleanPrompt . '"';
+        } else {
+            $result['keyword'] = null;
+        }
+
+        // Tóm tắt kết quả giải thích
         if (!empty($explanationParts)) {
             $result['explanation'] = 'Đã lọc theo: ' . implode(' • ', $explanationParts);
         } else {
