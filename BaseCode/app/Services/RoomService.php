@@ -234,7 +234,8 @@ class RoomService
             return null;
 
         $room = $this->roomRepo->create([
-            'property_id'     => $floor->property_id,
+            'boarding_house_id' => $boardingHouse ? $boardingHouse->id : null,
+            'property_id'     => $floor->property_id ?? null,
             'floor_id'        => $data['floor_id'],
             'room_number'     => $data['room_number'],
             'address'         => $data['address'] ?? null,

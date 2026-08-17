@@ -1066,6 +1066,7 @@ const goToCreateForContract = (contractId) => {
                                 <div class="text-[10px] text-emerald-600 font-bold" v-if="invoiceForm.rent">
                                     Bằng số: {{ formatMoney(invoiceForm.rent) }}
                                 </div>
+                            </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                                     Số mới kỳ này

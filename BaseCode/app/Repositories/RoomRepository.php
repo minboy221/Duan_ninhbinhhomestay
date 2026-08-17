@@ -7,23 +7,23 @@ use Illuminate\Database\Eloquent\Collection;
 
 class RoomRepository{
     /**
-     * Lấy tất cả phòng theo property_id
+     * Lấy tất cả phòng theo boarding_house_id / property_id
      */
     public function getByPropertyId(int $propertyId): Collection
     {
-        return Room::where('property_id', $propertyId)
+        return Room::where('boarding_house_id', $propertyId)
             ->orderBy('room_number')
             ->get();
     }
 
     /**
-     * Lấy tất cả phòng thuộc các property của 1 landlord
+     * Lấy tất cả phòng thuộc các property/boarding house của 1 landlord
      */
     public function getByLandlordId(int $landlordId): Collection
     {
-        return Room::whereHas('property', function ($query) use ($landlordId) {
-            $query->where('landlord_id', $landlordId);
-        })->with('property')->orderBy('room_number')->get();
+        return Room::whereHas('boardingHouse', function ($query) use ($landlordId) {
+            $query->where('user_id', $landlordId);
+        })->with('boardingHouse')->orderBy('room_number')->get();
     }
 
     /**
@@ -31,7 +31,7 @@ class RoomRepository{
      */
     public function findById(int $id): ?Room
     {
-        return Room::with('property')->find($id);
+        return Room::with('boardingHouse')->find($id);
     }
 
     /**
@@ -63,8 +63,8 @@ class RoomRepository{
      */
     public function countByStatusForLandlord(int $landlordId): array
     {
-        return Room::whereHas('property', function ($query) use ($landlordId) {
-            $query->where('landlord_id', $landlordId);
+        return Room::whereHas('boardingHouse', function ($query) use ($landlordId) {
+            $query->where('user_id', $landlordId);
         })
         ->selectRaw('status, COUNT(*) as total')
         ->groupBy('status')
