@@ -18,11 +18,29 @@ const statusLabels = {
     spam: 'Spam'
 }
 
+const categoryLabels = {
+    general: 'Góp ý / Yêu cầu chung',
+    consultation: 'Tư vấn & Đặt phòng',
+    technical: 'Báo lỗi & Kỹ thuật',
+    partnership: 'Hợp tác cho thuê'
+}
+
 const statusBadgeClasses = {
     pending: 'bg-amber-50 text-amber-600 border border-amber-200',
     read: 'bg-blue-50 text-blue-600 border border-blue-200',
     replied: 'bg-emerald-50 text-emerald-600 border border-emerald-200',
     spam: 'bg-rose-50 text-rose-600 border border-rose-200'
+}
+
+// Quick Reply Templates
+const quickTemplates = [
+    { title: 'Xác nhận tư vấn', text: 'Chào bạn,\nCảm ơn bạn đã quan tâm đến dịch vụ của Ninh Bình HomeStay. Chúng tôi đã nhận được yêu cầu tư vấn đặt phòng của bạn và sẽ liên hệ hỗ trợ bạn trong thời gian sớm nhất.\nTrân trọng!' },
+    { title: 'Tiếp nhận hỗ trợ kỹ thuật', text: 'Chào bạn,\nCảm ơn bạn đã phản hồi. Yêu cầu hỗ trợ kỹ thuật/báo lỗi của bạn đã được chuyển đến bộ phận liên quan để xử lý. Chúng tôi sẽ thông báo lại ngay khi hoàn tất.\nTrân trọng!' },
+    { title: 'Cảm ơn đóng góp', text: 'Chào bạn,\nCảm ơn bạn đã gửi ý kiến đóng góp cho Ninh Bình HomeStay. Những góp ý của bạn rất quý giá giúp chúng tôi nâng cao chất lượng dịch vụ tốt hơn mỗi ngày.\nTrân trọng!' }
+]
+
+const applyTemplate = (text) => {
+    replyForm.reply_message = text
 }
 
 // Modal State
@@ -263,15 +281,28 @@ watch(activeTab, () => {
                                 <!-- Customer Info -->
                                 <td class="px-6 py-4">
                                     <div class="flex flex-col gap-0.5">
-                                        <span class="font-bold text-slate-800 text-sm">{{ contact.name }}</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-bold text-slate-800 text-sm">{{ contact.name }}</span>
+                                            <span v-if="contact.ticket_code" class="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200">
+                                                {{ contact.ticket_code }}
+                                            </span>
+                                        </div>
                                         <span class="text-slate-400 font-semibold">{{ contact.email }}</span>
-                                        <span class="text-[10px] text-slate-400" v-if="contact.phone">SĐT: {{ contact.phone }}</span>
+                                        <div class="flex items-center gap-2 text-[10px] text-slate-400">
+                                            <span v-if="contact.phone">SĐT: {{ contact.phone }}</span>
+                                            <span v-if="contact.user" class="text-blue-600 font-bold bg-blue-50 px-1.5 py-0.2 rounded">
+                                                <i class="bi bi-person-check-fill"></i> Thành viên
+                                            </span>
+                                        </div>
                                     </div>
                                 </td>
 
-                                <!-- Subject & Preview -->
+                                <!-- Subject & Category -->
                                 <td class="px-6 py-4 max-w-xs">
-                                    <div class="flex flex-col gap-0.5">
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                                            {{ categoryLabels[contact.category] || 'Góp ý / Yêu cầu chung' }}
+                                        </span>
                                         <span class="font-bold text-slate-700 truncate">{{ contact.subject || 'Không có tiêu đề' }}</span>
                                         <span class="text-slate-400 truncate text-[11px]">{{ contact.message }}</span>
                                     </div>
@@ -392,7 +423,12 @@ watch(activeTab, () => {
                 <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                     <!-- Head -->
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                        <h3 class="text-sm font-bold text-slate-800">Chi Tiết Thư Liên Hệ</h3>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-bold text-slate-800">Chi Tiết Thư Liên Hệ</h3>
+                            <span v-if="selectedContact.ticket_code" class="text-[11px] font-mono font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-200">
+                                {{ selectedContact.ticket_code }}
+                            </span>
+                        </div>
                         <button @click="showViewModal = false" class="text-slate-400 hover:text-slate-600 p-1">
                             <i class="bi bi-x-lg"></i>
                         </button>
@@ -405,6 +441,9 @@ watch(activeTab, () => {
                             <div>
                                 <span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tên khách hàng</span>
                                 <span class="text-sm font-bold text-slate-800">{{ selectedContact.name }}</span>
+                                <span v-if="selectedContact.user" class="block text-[10px] text-blue-600 font-bold mt-0.5">
+                                    <i class="bi bi-person-check-fill"></i> TK: {{ selectedContact.user.name }}
+                                </span>
                             </div>
                             <div>
                                 <span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Thời gian nhận</span>
@@ -415,8 +454,8 @@ watch(activeTab, () => {
                                 <span class="text-xs font-semibold text-blue-600 underline">{{ selectedContact.email }}</span>
                             </div>
                             <div>
-                                <span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Số điện thoại</span>
-                                <span class="text-xs font-semibold text-slate-700">{{ selectedContact.phone || 'Chưa cập nhật' }}</span>
+                                <span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Phân loại yêu cầu</span>
+                                <span class="text-xs font-bold text-emerald-600">{{ categoryLabels[selectedContact.category] || 'Góp ý / Yêu cầu chung' }}</span>
                             </div>
                         </div>
 
@@ -438,7 +477,24 @@ watch(activeTab, () => {
 
                         <!-- Email Reply Section -->
                         <div v-if="selectedContact.email" class="border-t border-slate-100 pt-4 space-y-3">
-                            <span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Phản hồi qua Email khách hàng</span>
+                            <div class="flex items-center justify-between">
+                                <span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Phản hồi qua Email khách hàng</span>
+                            </div>
+
+                            <!-- Quick Reply Templates -->
+                            <div class="flex items-center gap-1.5 flex-wrap bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                <span class="text-[10px] text-slate-400 font-bold uppercase">Mẫu phản hồi nhanh:</span>
+                                <button 
+                                    v-for="(tpl, idx) in quickTemplates" 
+                                    :key="idx" 
+                                    type="button"
+                                    @click="applyTemplate(tpl.text)"
+                                    class="px-2.5 py-1 text-[10px] font-bold bg-white hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded-lg transition-colors border border-slate-200 shadow-sm"
+                                >
+                                    {{ tpl.title }}
+                                </button>
+                            </div>
+
                             <div class="space-y-2">
                                 <textarea 
                                     v-model="replyForm.reply_message" 
