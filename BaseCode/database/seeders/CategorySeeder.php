@@ -20,7 +20,7 @@ class CategorySeeder extends Seeder
             ['name' => 'Căn hộ dịch vụ',   'icon' => 'bi-buildings'],
         ];
         foreach ($categories as $cat) {
-            Category::create($cat);
+            Category::firstOrCreate(['name' => $cat['name']], $cat);
         }
 
         // Khu vực (Nạp đầy đủ 33 Phường/Xã thuộc Hà Nam từ hằng số HA_NAM_COMMUNES)
@@ -84,7 +84,7 @@ class CategorySeeder extends Seeder
             ['name' => 'Phí phát sinh',      'icon' => 'bi-plus-circle'],
         ];
         foreach ($amenities as $amenity) {
-            Amenity::create($amenity);
+            Amenity::firstOrCreate(['name' => $amenity['name']], $amenity);
         }
 
         $this->command->info('✅ Dữ liệu danh mục đã được tạo thành công!');
