@@ -147,6 +147,41 @@ const closeInviteModal = () => {
 onUnmounted(() => {
     if (timerInerval) clearInterval(timerInerval);
 });
+
+const showEditModal = ref(false);
+const editingManager = ref(null);
+const editPermissions = ref([]);
+const openEditModal = (manager) => {
+    editingManager.value = manager;
+    editPermissions.value = [...manager.permissions];
+    showEditModal.value = true;
+};
+
+const updateManagerPermissions = () => {
+    if (editPermissions.value.length === 0) {
+        showWarning("Lỗi", "Vui lòng chọn ít nhất 1 quyền hạn.");
+        return;
+    }
+    if (editPermissions.value.length >= permissionsList.length) {
+        showWarning(
+            "Lỗi",
+            "Tài khoản phụ phải bị giới hạn ít nhất 1 chức năng.",
+        );
+        return;
+    }
+    router.put(
+        route("landlord.managers.update", editingManager.value.id),
+        {
+            permissions: editPermissions.value,
+        },
+        {
+            onSuccess: () => {
+                showSuccess("Thành công", "Đã cập nhật quyền thành công.");
+                showEditModal.value = false;
+            },
+        },
+    );
+};
 </script>
 
 <template>
@@ -208,6 +243,10 @@ onUnmounted(() => {
                                     class="text-red-500 hover:text-red-700 p-2 text-sm border-none bg-transparent cursor-pointer"
                                     title="Hủy quyền">
                                     <i class="bi bi-trash-fill text-lg"></i>
+                                </button>
+                                <button @click="openEditModal(m)" title="Chỉnh sửa quyền"
+                                    class="text-blue-500 hover:text-blue-700 p-2 text-sm border-none bg-transparent cursor-pointer">
+                                    <i class="bi bi-pencil-square text-lg"></i>
                                 </button>
                             </div>
                         </div>

@@ -4,11 +4,12 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useBackToTop, useDropdownMenu, useMobileDrawer } from '@/composables/main.js'
 import axios from 'axios'
 import AppointmentCountdown from '@/Components/AppointmentCountdown.vue';
+import { useFcm } from '@/composables/useFcm';
 
 const page = usePage()
 const auth = computed(() => page.props.auth)
 const user = computed(() => auth.value.user)
-
+const {registerFcmToken} = useFcm();
 const isVerified = computed(() => {
     if (user.value?.role === 'admin' || user.value?.role === 'landlord') {
         return true;
@@ -47,6 +48,10 @@ const selectPropertyFromPrompt = (prop) => {
 }
 
 onMounted(() => {
+    //tự động đăng ký FCM token cho khách thuê, người dùng
+    if (user.value) {
+        registerFcmToken();
+    }
     // 1. Kiểm tra hiển thị popup thông báo
     if (auth.value.notifications && auth.value.notifications.length > 0) {
         const notif = auth.value.notifications[0]
@@ -68,42 +73,42 @@ onMounted(() => {
         }, 60000);
     }
 
-    if(user.value){
+    if (user.value) {
         window.Echo.private(`App.Models.User.${user.value.id}`)
-        .notification((notification) => {
-            if(auth.value.notifications){
-                auth.value.notifications.unshift({
-                    id:notification.id,
-                    data:{
-                        title:notification.data.title,
-                        message:notification.data.message,
-                        type:notification.data.type,
-                        url:notification.data.url
+            .notification((notification) => {
+                if (auth.value.notifications) {
+                    auth.value.notifications.unshift({
+                        id: notification.id,
+                        data: {
+                            title: notification.data.title,
+                            message: notification.data.message,
+                            type: notification.data.type,
+                            url: notification.data.url
+                        },
+                        created_at: notification.created_at
+                    });
+                }
+                //ghi nhận thông báo mới nhất để hiển thị popup
+                latestNotification.value = {
+                    id: notification.id,
+                    type: notification.data.type,
+                    data: {
+                        title: notification.data.title,
+                        message: notification.data.message,
+                        url: notification.data.url
                     },
-                    created_at:notification.created_at
-                });
-            }
-            //ghi nhận thông báo mới nhất để hiển thị popup
-            latestNotification.value = {
-                id:notification.id,
-                type:notification.data.type,
-                data:{
-                    title:notification.data.title,
-                    message:notification.data.message,
-                    url:notification.data.url
-                },
-                created_at:notification.created_at
-            };
-            showWelcomePopup.value = true;
-            //âm thanh thông báo 
-            try{
-                const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav");
-                audio.volume = 0.5;
-                audio.play();
-            }catch(e){
-                console.log("Autoplay audio bloked");
-            }
-        });
+                    created_at: notification.created_at
+                };
+                showWelcomePopup.value = true;
+                //âm thanh thông báo 
+                try {
+                    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav");
+                    audio.volume = 0.5;
+                    audio.play();
+                } catch (e) {
+                    console.log("Autoplay audio bloked");
+                }
+            });
     }
 });
 
@@ -111,7 +116,7 @@ onUnmounted(() => {
     if (pingInterval) {
         clearInterval(pingInterval);
     }
-    if(user.value){
+    if (user.value) {
         window.Echo.leave(`App.Models.User.${user.value.id}`);
     }
 });
@@ -205,41 +210,42 @@ const getAvatarUrl = (avatar) => {
                     </button>
 
                     <transition name="slide-fade">
-                        <div v-if="showNotification" id="notificationBox" class="notification-box" :class="{ show: true }" @click.stop>
+                        <div v-if="showNotification" id="notificationBox" class="notification-box"
+                            :class="{ show: true }" @click.stop>
                             <div class="flex items-center justify-between px-3 py-2 border-b">
                                 <p class="title mb-0">Thông báo</p>
-                                <button v-if="auth.notifications && auth.notifications.length > 0" 
-                                        @click.stop="router.post(route('notifications.read-all'), {}, { preserveScroll: true })" 
-                                        class="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                                <button v-if="auth.notifications && auth.notifications.length > 0"
+                                    @click.stop="router.post(route('notifications.read-all'), {}, { preserveScroll: true })"
+                                    class="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
                                     Đọc tất cả
                                 </button>
                             </div>
-                        <ul v-if="auth.notifications && auth.notifications.length > 0">
-                            <li v-for="notif in auth.notifications" :key="notif.id" class="group relative"
-                                style="padding: 12px; border-bottom: 1px solid #eee;">
-                                <Link :href="notif.data.url"
-                                    style="display: flex; flex-direction: column; color: inherit; text-decoration: none; padding-right: 24px;">
-                                    <strong style="color: #0f172a; font-size: 14px; margin-bottom: 4px;">{{
-                                        notif.data.title }}</strong>
-                                    <span
-                                        style="font-size: 12px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{
-                                            notif.data.message }}</span>
-                                </Link>
-                                <button type="button"
-                                    @click.stop="router.post(route('notifications.read', notif.id), {}, { preserveScroll: true })"
-                                    class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 rounded flex items-center justify-center"
-                                    style="width: 24px; height: 24px; border: none; cursor: pointer;"
-                                    title="Đánh dấu đã đọc">
-                                    <i class="bi bi-check2"></i>
-                                </button>
-                            </li>
-                        </ul>
-                        <ul v-else
-                            style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;">
-                            <img src="/anh/thongbao.png" alt="" style="width: 80px; margin-bottom: 10px;">
-                            <span style="color: #64748b; font-size: 13px;">Hiện chưa có thông báo nào!</span>
-                        </ul>
-                    </div>
+                            <ul v-if="auth.notifications && auth.notifications.length > 0">
+                                <li v-for="notif in auth.notifications" :key="notif.id" class="group relative"
+                                    style="padding: 12px; border-bottom: 1px solid #eee;">
+                                    <Link :href="notif.data.url"
+                                        style="display: flex; flex-direction: column; color: inherit; text-decoration: none; padding-right: 24px;">
+                                        <strong style="color: #0f172a; font-size: 14px; margin-bottom: 4px;">{{
+                                            notif.data.title }}</strong>
+                                        <span
+                                            style="font-size: 12px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{
+                                                notif.data.message }}</span>
+                                    </Link>
+                                    <button type="button"
+                                        @click.stop="router.post(route('notifications.read', notif.id), {}, { preserveScroll: true })"
+                                        class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 rounded flex items-center justify-center"
+                                        style="width: 24px; height: 24px; border: none; cursor: pointer;"
+                                        title="Đánh dấu đã đọc">
+                                        <i class="bi bi-check2"></i>
+                                    </button>
+                                </li>
+                            </ul>
+                            <ul v-else
+                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;">
+                                <img src="/anh/thongbao.png" alt="" style="width: 80px; margin-bottom: 10px;">
+                                <span style="color: #64748b; font-size: 13px;">Hiện chưa có thông báo nào!</span>
+                            </ul>
+                        </div>
                     </transition>
 
                     <div id="dropdown" class="dropdown" :class="{ show: showDropdown }" @click.stop>
@@ -365,11 +371,14 @@ const getAvatarUrl = (avatar) => {
                     <li class="border-t mt-4 pt-4" v-else-if="user.role === 'landlord'">
                         <a href="#" @click="handleLandlordClick"><i class="bi bi-house-gear"></i> Trang Chủ Trọ</a>
                     </li>
-                    <li :class="['border-t mt-4 pt-4', (user.role === 'admin' || user.role === 'landlord') ? '!mt-2 !pt-2 !border-none' : '']">
-                        <Link :href="route('tranguser')" @click="closeDrawer"><i class="bi bi-person-circle"></i> Trang Cá Nhân</Link>
+                    <li
+                        :class="['border-t mt-4 pt-4', (user.role === 'admin' || user.role === 'landlord') ? '!mt-2 !pt-2 !border-none' : '']">
+                        <Link :href="route('tranguser')" @click="closeDrawer"><i class="bi bi-person-circle"></i> Trang
+                            Cá Nhân</Link>
                     </li>
                     <li class="mt-2">
-                        <Link :href="route('profile.appointments')" @click="closeDrawer"><i class="bi bi-calendar-check"></i> Lịch Hẹn Xem Phòng</Link>
+                        <Link :href="route('profile.appointments')" @click="closeDrawer"><i
+                                class="bi bi-calendar-check"></i> Lịch Hẹn Xem Phòng</Link>
                     </li>
                     <li class="mt-2">
                         <button @click="logout(); closeDrawer()"
@@ -510,8 +519,8 @@ const getAvatarUrl = (avatar) => {
                                     <Link :href="latestNotification?.data?.url" @click="closePopup" class="popup-btn">
                                         {{
                                             isRejection
-                                        ? 'Xem lý do chi tiết'
-                                        : 'Truy cập trang quản lý'
+                                                ? 'Xem lý do chi tiết'
+                                                : 'Truy cập trang quản lý'
                                         }}
                                     </Link>
                                 </div>
@@ -627,11 +636,12 @@ const getAvatarUrl = (avatar) => {
 /* Transitions */
 .slide-fade-enter-active,
 .slide-fade-leave-active {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .slide-fade-enter-from,
 .slide-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-10px) scale(0.95);
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
 }
 </style>

@@ -40,6 +40,21 @@ class ContractController extends Controller
     //Phần tạo hợp đồng mới
     public function storeDraftAndExport(StoreContractRequest $request)
     {
+        $user = auth()->user();
+        $roomId = $request->room_id;
+        if (!$roomId && $request->filled('appointment_id')) {
+            $apt = \App\Models\Appointment::find($request->appointment_id);
+            $roomId = $apt ? $apt->room_id : null;
+        }
+        $room = $roomId ? \App\Models\Room::find($roomId) : null;
+        if (!$room) {
+            return redirect()->back()->with('error', 'Không tìm thấy thông tin phòng trọ để tạo hợp đồng.');
+        }
+
+        //check xem phòng có bị đóng băng không
+        if($user->isRoomFrozen($room)){
+            return redirect()->back()->with('error','Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để làm hợp đồng cho thuê mới!');
+        }
         try {
             $file = $request->file('contract_file');
             $this->contractService->createContract($request->validated(), $file);

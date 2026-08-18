@@ -609,11 +609,7 @@ onMounted(()=>{
                                     "chấm", "phẩy".
                                 </div>
 
-                                <QuillEditor v-model:content="form.description" contentType="html" theme="snow" @blur="
-                                    form.description = formatHtmlContent(
-                                        form.description,
-                                    )
-                                    "
+                                <QuillEditor v-model:content="form.description" contentType="html" theme="snow"
                                     placeholder="Ví dụ: Phòng rộng 25m², có điều hòa, giường tủ, giờ giấc tự do, không chung chủ..." />
                             </div>
 

@@ -152,16 +152,6 @@ class PublicListingService
             'notified' => false,
         ]);
 
-        //nếu phòng đã có người ở -> tự đồng tạo yêu cầu ở ghép
-        if($post->room && $post->room->current_people > 0){
-            \App\Models\RoommateRequest::create([
-                'room_id' => $post->room_id,
-                'tenant_id' => $userId,
-                'type' => 'stranger',
-                'status' => 'pending',
-                'note' => $note ?: 'Khách đặt lịch xem phòng và muốn ở ghép',
-            ]);
-        }
         //gửi thông báo tới chủ trọ
         $landlord = $appointment->landlord;
         if ($landlord) {

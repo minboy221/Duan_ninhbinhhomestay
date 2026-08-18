@@ -10,6 +10,7 @@ use App\Models\Appointment;
 use App\Notifications\AppointmentStatusUpdated;
 use App\Services\PublicListingService;
 use Illuminate\Http\Request;
+use App\Notifications\SubscriptionNotification;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -129,6 +130,16 @@ class LandlordController extends Controller
 
     public function storeFloor(Request $request)
     {
+        $user = auth()->user();
+        //đếm tổng số tầng hiện tại của chủ trọ
+        $currentFloorCount = \App\Models\Floor::whereHas('property', function ($q) use ($user) {
+            $q->where('landlord_id', $user->id);
+        })->count();
+        //kiểm tra với giới hạn max_properties của Gói dịch vụ
+        if (!$user->canCreateResource('max_properties', $currentFloorCount)) {
+            $limit = $user->getFeatureValue('max_properties');
+            return redirect()->back()->with('error', "Gói dịch vụ của bạn cho phép tạo tối đa {$limit} Tầng/Dãy nhà. Bạn hiện đang có {$currentFloorCount} Tầng. Vui lòng nâng cấp gói để tạo thêm!");
+        }
         $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:255',
@@ -171,6 +182,19 @@ class LandlordController extends Controller
 
     public function storeRoom(Request $request)
     {
+        $user = auth()->user();
+        //đếm tổng số phòng hiện tại của chủ trọ
+        $currentRoomCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })->count();
+        //check với giới hạn max_rooms trong gói dịch vụ
+        if (!$user->canCreateResource('max_rooms', $currentRoomCount)) {
+            $limit = $user->getFeatureValue('max_rooms');
+            return redirect()->back()->with(
+                'error',
+                "Gói dịch vụ hiện tại của bạn chỉ cho phép tối đa {$limit} phòng trọ. Vui lòng nâng cấp gói VIP để tạo thêm phòng mới!"
+            );
+        }
         $request->validate([
             'floor_id' => 'required|integer|exists:floors,id',
             'room_numbers' => 'nullable|array',
@@ -213,6 +237,12 @@ class LandlordController extends Controller
 
     public function updateRoom(Request $request, int $id)
     {
+        $room = \App\Models\Room::findOrFail($id);
+        $user = auth()->user();
+        //chặn nếu phòng bị đóng băng thì không cho phép cập nhật thông tin
+        if ($user->isRoomFrozen($room)) {
+            return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để sửa thông tin!');
+        }
         $request->validate([
             'room_number' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:255',
@@ -245,6 +275,15 @@ class LandlordController extends Controller
 
     public function changeRoomStatus(Request $request, int $id)
     {
+        $room = \App\Models\Room::findOrFail($id);
+        $user = auth()->user();
+        //chặn đổi trạng thái nếu phòng bị đóng băng
+        if ($user->isRoomFrozen($room)) {
+            return redirect()->back()->with(
+                'error',
+                'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ.Vui lòng nâng cấp gói để thao tác!'
+            );
+        }
         $request->validate([
             'status' => 'required|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
             'maintenance_reason' => 'nullable|string',
@@ -367,6 +406,45 @@ class LandlordController extends Controller
         }
     }
 
+    public function confirmCancelAppointment(Request $request, int $id)
+    {
+        //yêu cầu chủ trọ nhập lý di huỷ 
+        $request->validate([
+            'cancellation_reason' => 'required|string|min:5|max:255',
+        ], [
+            'cancellation_reason.required' => 'Vui lòng nhập lý do hủy lịch hẹn!',
+            'cancellation_reason.min' => 'Lý do hủy quá ngắn, vui lòng nhập tối thiểu 5 ký tự.',
+        ]);
+
+        $reason = $request->input('cancellation_reason') ?: $request->input('reason', 'Chủ trọ đã hủy lịch hẹn');
+
+        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
+        //cập nhật trạng thái lịch hẹn
+        $appointment->update([
+            'status' => 'cancelled',
+            'feedback_result' => 'cancelled',
+            'cancellation_reason' => $reason
+        ]);
+
+        // Mở lại phòng trọ về trạng thái trống
+        if ($appointment->room) {
+            $appointment->room->update(['status' => 'available']);
+        }
+
+        // Hủy bất kỳ dự thảo hợp đồng nào liên quan (Dùng whereIn chuẩn cú pháp SQL)
+        \App\Models\Contract::where('room_id', $appointment->room_id)
+            ->where('tenant_id', $appointment->user_id)
+            ->whereIn('status', ['draft', 'awaiting_upload', 'pending', 'termination_requested'])
+            ->update(['status' => 'cancelled', 'cancellation_reason' => $reason]);
+
+        // Gửi thông báo tới khách thuê
+        if ($appointment->user) {
+            $appointment->user->notify(new \App\Notifications\AppointmentStatusUpdated($appointment));
+        }
+
+        return redirect()->back()->with('success', 'Đã xác nhận hủy lịch hẹn và gửi lý do tới khách thuê thành công!');
+    }
+
     // Phần hiển thị cấu hình giờ cho chủ trọ
     public function editAvailabilities()
     {
@@ -442,7 +520,7 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         $boardingHousesId = session('selected_boarding_house_id');
-        
+
         // Quét & cập nhật tự động trạng thái hợp đồng (expiring/expired) theo ngày hiện tại
         \App\Http\Controllers\Landlord\ContractController::scanContractStatuses($landlordId);
 
@@ -479,8 +557,11 @@ class LandlordController extends Controller
             ->get();
 
         // Lấy danh sách Nhà trọ kèm các Tầng và Phòng trọ
-        $boardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)
-            ->with(['rooms.residents.user', 'floors.rooms.residents.user'])
+        $boardingHousesQuery = \App\Models\BoardingHouse::where('user_id', $landlordId);
+        if ($boardingHousesId) {
+            $boardingHousesQuery->where('id', $boardingHousesId);
+        }
+        $boardingHouses = $boardingHousesQuery->with(['rooms.residents.user', 'floors.rooms.residents.user'])
             ->get();
         //lấy danh sách yêu cầu ở ghép đang chờ tạo hợp đồng
         $pendingRoommateRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
@@ -563,6 +644,13 @@ class LandlordController extends Controller
 
     public function storeInvoice(Request $request)
     {
+        $user = auth()->user();
+        $contract = \App\Models\Contract::findOrFail($request->contract_id);
+        $room = $contract->room;
+        //check xem phòng  có bị đóng băng không
+        if ($user->isRoomFrozen($room)) {
+            return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để lập hoá đơn!');
+        }
         $request->validate([
             'contract_id' => 'required|exists:contracts,id',
             'billing_month' => 'required|string',
@@ -1228,4 +1316,27 @@ class LandlordController extends Controller
         }
     }
 
+    //hàm kiểm tra gói và gửi thông báo nhắc gia hạn gói nếu còn dưới 3 ngày
+    protected function checkSubscriptionExpiryWarning($user)
+    {
+        $activeSub = $user->activateSubscription;
+        if (!$activeSub || !$activeSub->end_date)
+            return;
+        $daysRemaining = now()->startOfDay()->diffInDays($activeSub->end_date->startOfDay(), false);
+        //nếu còn từ 1 -> 3 ngày và chưa gửi thông báo
+        if ($daysRemaining >= 0 && $daysRemaining <= 3) {
+            $alreadyNotified = $user->unreadNotifications()
+                ->where('type', 'App\Notifications\SubscriptionNotification')
+                ->where('data->title', 'Gói dịch vụ sắp hết hạn')
+                ->exists();
+            if (!$alreadyNotified) {
+                $user->notify(new SubscriptionNotification(
+                    "⚠️ Gói Dịch Vụ Sắp Hết Hạn",
+                    "Gói \"{$activeSub->plan->name}\" của bạn sẽ hết hạn vào ngày {$activeSub->end_date->format('d/m/Y')} (Còn {$daysRemaining} ngày). Vui lòng gia hạn để không bị gián đoạn!",
+                    route('landlord.subscriptions.index'),
+                    'warning'
+                ));
+            }
+        }
+    }
 }

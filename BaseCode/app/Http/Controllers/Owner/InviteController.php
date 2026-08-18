@@ -14,6 +14,10 @@ class InviteController extends Controller
     //phần hiển thị danh sách tài khoản đang được phân quyền quản lý
     public function index()
     {
+        //check gói dịch vụ có hỗ trợ tính năng manage_managers không
+        if (!auth()->user()->hasFeature('manage_managers')) {
+            return redirect()->route('landlord.dashboard')->with('error', 'Gói dịch vụ hiện tại của bạn không hỗ trợ tính năng Phân quyền nhân viên / Quản lý phụ. Vui lòng nâng cấp gói.');
+        }
         $boardingHouse = BoardingHouse::where('user_id', auth()->id())->get();
         $houseIds = $boardingHouse->pluck('id');
         $managers = PropertyManager::with(['user', 'boardingHouse'])->whereIn('boarding_house_id', $houseIds)
@@ -26,6 +30,10 @@ class InviteController extends Controller
     //chủ trọ sinh mã QR phân quyền
     public function generateQr(Request $request, BoardingHouse $boardingHouse)
     {
+        //check gói dịch vụ có hỗ trợ tính năng manage_managers không
+        if (!auth()->user()->hasFeature('manage_managers')) {
+            return response()->json(['message' => 'Gói dịch vụ hiện tại của bạn không hỗ trợ tính năng Phân quyền Nhân viên / Quản lý phụ. Vui lòng nâng cấp gói!']);
+        }
         //check chỉ chủ trọ chính mới được tạo mã QR
         if (auth()->id() !== $boardingHouse->user_id) {
             return response()->json(['message' => 'Bạn không có quyền thực hiện thao tác này.'], 403);
@@ -84,6 +92,25 @@ class InviteController extends Controller
             ]
         );
         return redirect()->route('landlord.dashboard')->with('success', 'Bạn đã nhận quyền đồng quản lý thành công!');
+    }
+
+    //phần cập nhật quyền hạn của tài khoản phụ
+    public function update(Request $request, PropertyManager $manager)
+    {
+        //xác thực cơ sở trọ thuộc sở hữu của chủ trọ hiện tại
+        if ($manager->boardingHouse->user_id !== auth()->id()) {
+            abort(403, 'Bạn không có quyền thực hiện thực hiện hành động này!.');
+        }
+        $request->validate([
+            'permissions' => 'required|array|min:1'
+        ]);
+        if (count($request->permissions) >= 5) {
+            return redirect()->back()->with('error', 'Tài khoản phị phải giới hạn ít nhất 1 chức năng.');
+        }
+        $manager->update([
+            'permissions' => $request->permissions
+        ]);
+        return redirect()->back()->with('success', 'Cập nhật quyền quản lý thành công!');
     }
     //huỷ quyền quản lý của tài khoản phụ
     public function destroy(PropertyManager $manager)

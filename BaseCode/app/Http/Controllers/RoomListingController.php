@@ -65,6 +65,24 @@ class RoomListingController extends Controller
 
     public function store(StoreRoomPostRequest $request)
     {
+        $user = auth()->user();
+        $room = \App\Models\Room::findOrFail($request->room_id);
+        //check phòng có bị đóng băng không
+        if ($user->isRoomFrozen($room)) {
+            return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để đăng tin cho thuê!');
+        }
+        //đếm số lượng tin đăng công khai / pending bên chủ trọ
+        $currentListingsCount = \App\Models\RoomPost::where('landlord_id', $user->id)
+            ->whereIn('status', ['published', 'approved', 'pending'])
+            ->count();
+        //check hạn mức max_listings của gói hiện tại
+        if (!$user->canCreateResource('max_listings', $currentListingsCount)) {
+            $limit = $user->getFeatureValue('max_listings');
+            return redirect()->back()->with(
+                'error',
+                "Gói dịch vụ hiện tại của bạn chỉ cho phép đăng tối đa {$limit} tin công khai. Vui lòng nâng cấp gói VIP để đăng thêm tin mới!"
+            );
+        }
         //xác định trạng thái dựa trên btn ở frontend
         $status = $request->input('action') === 'draft' ? 'draft' : 'pending';
         //gọi đến services sử lý

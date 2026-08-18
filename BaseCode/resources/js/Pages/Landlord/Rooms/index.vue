@@ -181,7 +181,7 @@ const fmtMoney = (n) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
 
 const getEffectiveOccupants = (room) => {
     if (!room) return 0;
-    if (room.status === 'rented' || room.current_people > 0) {
+    if (room.status === "rented" || room.current_people > 0) {
         return Math.max(Number(room.current_people) || 0, 1);
     }
     return Number(room.current_people) || 0;
@@ -317,8 +317,7 @@ const openAddFloor = () => {
         houses.find((h) => h.id === selectedId) || houses[0] || null;
     //gán địa chỉ và toạ độ mặc định của tầng theo cơ sở trọ đó
     if (currentHouse) {
-        addressDetail.value =
-            currentHouse.address_detail || "";
+        addressDetail.value = currentHouse.address_detail || "";
         selectedWard.value = currentHouse.district || "";
         floorLatitude.value = currentHouse.latitude || null;
         floorLongitude.value = currentHouse.longitude || null;
@@ -541,11 +540,6 @@ const submitFloor = () => {
         router.post(route("landlord.floors.store"), payload, {
             onSuccess: () => {
                 showFloorModal.value = false;
-                showAlert(
-                    "Thành công",
-                    `Thêm tầng/khu "${name}" thành công!`,
-                    "success",
-                );
             },
             onError: (errors) => {
                 if (errors.name) floorError.value = errors.name;
@@ -560,7 +554,7 @@ const delFloor = (f) => {
         "expiring_soon",
         "pending_renewal",
     ];
-    const hasRestrictedRoom = f.rooms.some((r) =>
+    const hasRestrictedRoom = (f.rooms || []).some((r) =>
         restrictedStatuses.includes(r.status),
     );
 
@@ -595,6 +589,11 @@ const openDetail = (room) => {
 };
 
 const quickSt = (st) => {
+    //chặn nếu phòng bị đóng băng
+    if (selRoom.value && selRoom.value.is_frozen) {
+        showWarning("Phòng tạm khoá", "Phòng  này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói!");
+        return;
+    }
     if (
         ["pending_renewal", "deposited"].includes(selRoom.value.status) &&
         st === "rented" &&
@@ -648,10 +647,14 @@ const formFloorId = ref(null);
 const currentFloor = computed(
     () =>
         floors.value.find((fl) => fl.id === formFloorId.value) ||
-        props.allFloors.find((fl) => fl.id === formFloorId.value)
+        props.allFloors.find((fl) => fl.id === formFloorId.value),
 );
+const currentFloorName = computed(() =>
+    currentFloor.value ? currentFloor.value.name : "",
+);
+
 const currentFloorRooms = computed(() =>
-    currentFloor.value ? (currentFloor.value.rooms || []) : []
+    currentFloor.value ? currentFloor.value.rooms || [] : [],
 );
 
 const openAddRoom = () => {
@@ -695,13 +698,16 @@ const openEditRoom = () => {
     showForm.value = true;
 };
 
-const submitRoom = (fd) => {
+const submitRoom = (data) => {
+    const fd = data.formData || data;
+    const resetSubmitting = data.resetSubmitting || (() => { });
     if (isEditing.value && selRoom.value) {
         router.post(route("landlord.rooms.update", selRoom.value.id), fd, {
             onSuccess: (page) => {
                 const flash = page.props.flash;
                 if (flash && flash.error) {
                     showAlert("Lỗi", flash.error, "warning");
+                    resetSubmitting();
                 } else {
                     showForm.value = false;
                     showAlert(
@@ -713,6 +719,12 @@ const submitRoom = (fd) => {
                     );
                 }
             },
+            onError: () => {
+                resetSubmitting();
+            },
+            onFinish: () => {
+                resetSubmitting();
+            },
             forceFormData: true,
         });
     } else {
@@ -721,6 +733,7 @@ const submitRoom = (fd) => {
                 const flash = page.props.flash;
                 if (flash && flash.error) {
                     showAlert("Lỗi", flash.error, "warning");
+                    resetSubmitting();
                 } else {
                     showForm.value = false;
                     showAlert(
@@ -731,6 +744,12 @@ const submitRoom = (fd) => {
                         "success",
                     );
                 }
+            },
+            onError: () => {
+                resetSubmitting();
+            },
+            onFinish: () => {
+                resetSubmitting();
             },
             forceFormData: true,
         });
@@ -804,10 +823,7 @@ const addPerson = (room) => {
     }
     const currentCount = getEffectiveOccupants(targetRoom);
     if (currentCount >= targetRoom.capacity) {
-        showWarning(
-            "Không thể thêm",
-            "Phòng đã đủ số lượng người tối đa.",
-        );
+        showWarning("Không thể thêm", "Phòng đã đủ số lượng người tối đa.");
         return;
     }
     router.patch(
@@ -821,11 +837,14 @@ const addPerson = (room) => {
                 if (selRoom.value && selRoom.value.id === targetRoom.id) {
                     selRoom.value.current_people = newCount;
                 }
-                props.floors?.forEach(f => {
-                    const r = f.rooms?.find(rm => rm.id === targetRoom.id);
+                props.floors?.forEach((f) => {
+                    const r = f.rooms?.find((rm) => rm.id === targetRoom.id);
                     if (r) r.current_people = newCount;
                 });
-                showSuccess("Thành công", `Đã thêm 1 người vào phòng! (Hiện tại: ${newCount}/${targetRoom.capacity} người)`);
+                showSuccess(
+                    "Thành công",
+                    `Đã thêm 1 người vào phòng! (Hiện tại: ${newCount}/${targetRoom.capacity} người)`,
+                );
             },
             onError: () => {
                 showWarning("Lỗi", "Không thể thêm người vào phòng.");
@@ -836,8 +855,11 @@ const addPerson = (room) => {
 
 const removePerson = (room) => {
     const currentCount = getEffectiveOccupants(room);
-    if (currentCount <= 1 && room.status === 'rented') {
-        showWarning("Không thể bớt", "Phòng đang có hợp đồng thuê hoạt động phải duy trì tối thiểu 1 người. Nếu khách trả phòng, vui lòng thanh lý hợp đồng!");
+    if (currentCount <= 1 && room.status === "rented") {
+        showWarning(
+            "Không thể bớt",
+            "Phòng đang có hợp đồng thuê hoạt động phải duy trì tối thiểu 1 người. Nếu khách trả phòng, vui lòng thanh lý hợp đồng!",
+        );
         return;
     }
     if (currentCount <= 0) {
@@ -855,11 +877,14 @@ const removePerson = (room) => {
                 if (selRoom.value && selRoom.value.id === room.id) {
                     selRoom.value.current_people = newCount;
                 }
-                props.floors.forEach(f => {
-                    const r = f.rooms?.find(rm => rm.id === room.id);
+                props.floors.forEach((f) => {
+                    const r = f.rooms?.find((rm) => rm.id === room.id);
                     if (r) r.current_people = newCount;
                 });
-                showSuccess("Thành công", `Đã bớt 1 người khỏi phòng! (Hiện tại: ${newCount}/${room.capacity} người)`);
+                showSuccess(
+                    "Thành công",
+                    `Đã bớt 1 người khỏi phòng! (Hiện tại: ${newCount}/${room.capacity} người)`,
+                );
             },
             onError: () => {
                 showWarning("Lỗi", "Không thể bớt người khỏi phòng.");
@@ -1158,7 +1183,12 @@ const getAutoCoordinates = () => {
 
                             <!-- Trạng thái phòng -->
                             <div class="flex items-center gap-2">
-                                <span :class="[
+                                <span v-if="room.is_frozen"
+                                    class="px-2 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 w-fit bg-sky-50 text-sky-700 border-sky-200">
+                                    <span class="w-1 h-1 rounded-full bg-sky-500 animate-pulse"></span>
+                                    🧊 Đóng băng (Vượt gói)
+                                </span>
+                                <span v-else :class="[
                                     'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
                                     statusConfig[room.status]?.cls ||
                                     'bg-slate-50 text-slate-600 border-slate-200',
@@ -1172,14 +1202,18 @@ const getAutoCoordinates = () => {
                                 </span>
                                 <span :class="[
                                     'px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider',
-                                    isRoomActive(room.status)
-                                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                                        : 'bg-slate-50 text-slate-500 border border-slate-100',
+                                    room.is_frozen
+                                        ? 'bg-sky-50 text-sky-600 border border-sky-200'
+                                        : isRoomActive(room.status)
+                                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                            : 'bg-slate-50 text-slate-500 border border-slate-100',
                                 ]">
                                     {{
-                                        isRoomActive(room.status)
-                                            ? "Hoạt động"
-                                            : "Tạm ngưng"
+                                        room.is_frozen
+                                            ? "Tạm Khóa"
+                                            : isRoomActive(room.status)
+                                                ? "Hoạt động"
+                                                : "Tạm ngưng"
                                     }}
                                 </span>
                             </div>
@@ -1204,13 +1238,27 @@ const getAutoCoordinates = () => {
                             <div class="pt-2 border-t border-slate-50 flex items-center justify-between">
                                 <div class="flex items-center gap-1.5">
                                     <i class="bi bi-people-fill text-slate-400"></i>
-                                    <span class="text-xs font-bold text-slate-600">Tối đa: {{ room.capacity }} người</span>
+                                    <span class="text-xs font-bold text-slate-600">Tối đa: {{ room.capacity }}
+                                        người</span>
                                 </div>
 
                                 <span v-if="getEffectiveOccupants(room) === 0"
-                                    class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">Chưa có người ở</span>
-                                <span v-else-if="getEffectiveOccupants(room) < room.capacity" class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">Đã có {{ getEffectiveOccupants(room) }}/{{ room.capacity }} người ở</span>
-                                <span v-else class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100">Đã đầy ({{ room.capacity }}/{{ room.capacity }})</span>
+                                    class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">Chưa
+                                    có người ở</span>
+                                <span v-else-if="
+                                    getEffectiveOccupants(room) <
+                                    room.capacity
+                                "
+                                    class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">Đã
+                                    có {{ getEffectiveOccupants(room) }}/{{
+                                        room.capacity
+                                    }}
+                                    người ở</span>
+                                <span v-else
+                                    class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100">Đã
+                                    đầy ({{ room.capacity }}/{{
+                                        room.capacity
+                                    }})</span>
                             </div>
                         </div>
                     </div>
@@ -1243,6 +1291,11 @@ const getAutoCoordinates = () => {
 
                             <!-- Trạng thái phòng gọn nhẹ -->
                             <div class="flex flex-wrap gap-1">
+                                <span v-if="room.is_frozen"
+                                    class="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 w-fit bg-sky-50 text-sky-700 border-sky-200">
+                                    <span class="w-1 h-1 rounded-full bg-sky-500 animate-pulse"></span>
+                                    🧊 Đóng Băng
+                                </span>
                                 <span :class="[
                                     'px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 w-fit',
                                     statusConfig[room.status]?.cls ||
@@ -1270,8 +1323,13 @@ const getAutoCoordinates = () => {
                                 <i class="bi bi-people-fill text-slate-400 mr-0.5"></i>
                                 Tối đa: {{ room.capacity }}
                             </span>
-                            <span v-if="getEffectiveOccupants(room) === 0" class="text-emerald-500 font-bold">Trống</span>
-                            <span v-else-if="getEffectiveOccupants(room) < room.capacity" class="text-blue-500 font-bold">Đã có {{ getEffectiveOccupants(room) }}/{{ room.capacity }}</span>
+                            <span v-if="getEffectiveOccupants(room) === 0"
+                                class="text-emerald-500 font-bold">Trống</span>
+                            <span v-else-if="
+                                getEffectiveOccupants(room) < room.capacity
+                            " class="text-blue-500 font-bold">Đã có {{ getEffectiveOccupants(room) }}/{{
+                                room.capacity
+                            }}</span>
                             <span v-else class="text-rose-500 font-bold">Đầy</span>
                         </div>
                     </div>
@@ -1295,7 +1353,15 @@ const getAutoCoordinates = () => {
                             </div>
                             <span class="text-xs text-slate-400 font-semibold">
                                 <i class="bi bi-people-fill mr-0.5"></i>
-                                {{ getEffectiveOccupants(room) }}/{{ room.capacity }} người
+                                {{ getEffectiveOccupants(room) }}/{{
+                                    room.capacity
+                                }}
+                                người
+                            </span>
+                            <span v-if="room.is_frozen"
+                                class="px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 w-fit bg-sky-50 text-sky-700 border-sky-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+                                🧊 Đóng Băng (Vượt Gói)
                             </span>
                         </div>
 
@@ -1603,9 +1669,10 @@ const getAutoCoordinates = () => {
                                         'rented',
                                         'expiring_soon',
                                         'pending_renewal',
-                                    ].includes(selRoom.status) && getEffectiveOccupants(selRoom) < selRoom.capacity
-                                "
-                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer hover:shadow-sm transition-all"
+                                    ].includes(selRoom.status) &&
+                                    getEffectiveOccupants(selRoom) <
+                                    selRoom.capacity
+                                " class="px-3 py-2 rounded-xl text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer hover:shadow-sm transition-all"
                                     @click="addPerson(selRoom)">
                                     <i class="bi bi-person-plus-fill mr-1"></i>
                                     Thêm người
@@ -1616,9 +1683,9 @@ const getAutoCoordinates = () => {
                                         'rented',
                                         'expiring_soon',
                                         'pending_renewal',
-                                    ].includes(selRoom.status) && getEffectiveOccupants(selRoom) > 1
-                                "
-                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer hover:shadow-sm transition-all"
+                                    ].includes(selRoom.status) &&
+                                    getEffectiveOccupants(selRoom) > 1
+                                " class="px-3 py-2 rounded-xl text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer hover:shadow-sm transition-all"
                                     @click="removePerson(selRoom)">
                                     <i class="bi bi-person-dash-fill mr-1"></i>
                                     Bớt người
@@ -1654,9 +1721,17 @@ const getAutoCoordinates = () => {
 
                             <!-- Nút Sửa thông tin -->
                             <button
-                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                :disabled="selRoom.has_approved_post" @click="openEditRoom">
-                                Sửa thông tin
+                                class="px-5 py-2.5 font-bold text-xs rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                :class="selRoom.is_frozen
+                                    ? 'bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed'
+                                    : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/10'"
+                                :disabled="selRoom.has_approved_post || selRoom.is_frozen"
+                                :title="selRoom.is_frozen ? 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ' : ''"
+                                @click="openEditRoom">
+                                <span v-if="selRoom.is_frozen" class="flex items-center gap-1">
+                                    <i class="bi bi-lock-fill"></i> Đã Đóng Băng
+                                </span>
+                                <span v-else>Sửa thông tin</span>
                             </button>
                         </div>
                     </div>

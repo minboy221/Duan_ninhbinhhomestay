@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Room extends Model
 {
     use HasFactory;
-
     protected $fillable = [
         'boarding_house_id',
         'floor_id',
@@ -29,7 +28,15 @@ class Room extends Model
 
     protected $appends = [
         'current_people',
+        'is_frozen',
     ];
+
+    // hàn tự động tính toán trạng thái đóng băng của phòng
+    public function getIsFrozenAttribute(): bool{
+        $user = auth()->user();
+        if(!$user) return false;
+        return $user->isRoomFrozen($this);
+    }
 
     public function contracts()
     {
