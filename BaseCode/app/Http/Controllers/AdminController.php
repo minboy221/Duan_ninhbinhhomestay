@@ -91,6 +91,7 @@ class AdminController extends Controller
 
                 return [
                     'id' => $user->id,
+                    'avatar' => $user->avatar,
                     'name' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone ?? 'Chưa cập nhật',
