@@ -62,9 +62,18 @@ class BoardingHouse extends Model
         return $this->hasManyThrough(Review::class, Room::class, 'boarding_house_id', 'room_id');
     }
 
+    public function realReviews()
+    {
+        return $this->hasManyThrough(Review::class, Room::class, 'boarding_house_id', 'room_id')
+            ->where('reviews.tenant_id', '!=', $this->user_id)
+            ->whereHas('tenant', function($q) {
+                $q->where('role', '!=', 'admin');
+            });
+    }
+
     public function getAverageRatingAttribute()
     {
-        return $this->reviews()->count() > 0 ? round($this->reviews()->avg('rating'), 1) : 0;
+        return $this->realReviews()->count() > 0 ? round($this->realReviews()->avg('rating'), 1) : 0;
     }
 
     public function propertyManager(){

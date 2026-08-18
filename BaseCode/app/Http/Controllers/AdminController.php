@@ -91,6 +91,7 @@ class AdminController extends Controller
 
                 return [
                     'id' => $user->id,
+                    'avatar' => $user->avatar,
                     'name' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone ?? 'Chưa cập nhật',
@@ -146,6 +147,16 @@ class AdminController extends Controller
         //Eager load đầy đủ thông tin phòng, tầng, khu nhà trọ và thông tin của chủ trọ
         $post = RoomPost::with(['room.floor', 'room.boardingHouse', 'landlord', 'room.services'])
             ->findOrFail($id);
+
+        if ($post->room && $post->room->services) {
+            $post->room->services->map(function ($service) {
+                if ($service->pivot && !is_null($service->pivot->price)) {
+                    $service->price = $service->pivot->price;
+                }
+                return $service;
+            });
+        }
+
         //trả dữ liệu ra đúng file Show.vue
         return Inertia::render('Admin/Approval/Show', [
             'post' => $post

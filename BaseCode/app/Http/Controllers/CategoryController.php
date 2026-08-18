@@ -168,8 +168,10 @@ class CategoryController extends Controller
     public function storeAmenity(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:amenities,name',
             'icon' => 'nullable|string|max:100',
+        ], [
+            'name.unique' => 'Tiện ích này đã tồn tại trong hệ thống!',
         ]);
 
         $this->categoryService->createAmenity($request->only(['name', 'icon']));
@@ -183,8 +185,10 @@ class CategoryController extends Controller
     public function updateAmenity(Request $request, int $id)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:amenities,name,' . $id,
             'icon' => 'nullable|string|max:100',
+        ], [
+            'name.unique' => 'Tên tiện ích đã được sử dụng!',
         ]);
 
         $result = $this->categoryService->updateAmenity($id, $request->only(['name', 'icon']));
@@ -201,13 +205,15 @@ class CategoryController extends Controller
      */
     public function deleteAmenity(int $id)
     {
-        $result = $this->categoryService->deleteAmenity($id);
-
-        if (!$result) {
-            return redirect()->back()->with('error', 'Không tìm thấy tiện ích!');
+        try {
+            $result = $this->categoryService->deleteAmenity($id);
+            if (!$result) {
+                return redirect()->back()->with('error', 'Không tìm thấy tiện ích!');
+            }
+            return redirect()->back()->with('success', 'Xóa tiện ích thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        return redirect()->back()->with('success', 'Xóa tiện ích thành công!');
     }
 
     /**
@@ -215,12 +221,14 @@ class CategoryController extends Controller
      */
     public function toggleAmenity(int $id)
     {
-        $result = $this->categoryService->toggleAmenity($id);
-
-        if (!$result) {
-            return redirect()->back()->with('error', 'Không tìm thấy tiện ích!');
+        try {
+            $result = $this->categoryService->toggleAmenity($id);
+            if (!$result) {
+                return redirect()->back()->with('error', 'Không tìm thấy tiện ích!');
+            }
+            return redirect()->back()->with('success', 'Cập nhật trạng thái thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        return redirect()->back()->with('success', 'Cập nhật trạng thái thành công!');
     }
 }

@@ -561,31 +561,38 @@ const paginatedAppointments = computed(() => {
                                 </div>
                             </div>
 
-                            <div class="mobile-apt-info-item">
-                                <i class="bi bi-person-fill text-emerald-500"></i>
-                                <div>
-                                    <span class="info-label">Chủ trọ</span>
-                                    <span class="info-value">
-                                        {{ apt.room?.boardingHouse?.landlord?.name ||
-                                            apt.room?.boarding_house?.landlord?.name }}
-                                    </span>
-                                </div>
+                            <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result"
+                                style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+                                <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"
+                                    title="Ưng thuê"
+                                    style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                                    <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px;"></i> Ưng
+                                </button>
+                                <button @click="openConfirmInterest(apt, false)"
+                                    class="btn-action btn-not-interest" title="Không ưng"
+                                    style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                                    <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i> Không
+                                    ưng
+                                </button>
                             </div>
-
-                            <div v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone"
-                                class="mobile-apt-info-item">
-                                <i class="bi bi-telephone-fill text-indigo-500"></i>
-                                <div>
-                                    <span class="info-label">Số điện thoại</span>
-                                    <span class="info-value">
-                                        <a :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
-                                            class="mobile-call-link"
-                                            style="color: #2563eb; font-weight: bold; text-decoration: underline;">
-                                            {{ apt.room?.boardingHouse?.landlord?.phone ||
-                                                apt.room?.boarding_house?.landlord?.phone }}
-                                        </a>
-                                    </span>
-                                </div>
+                            <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;" class="space-y-1">
+                                <span v-if="['interested', 'like'].includes(apt.feedback_result)"
+                                    style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold; display: inline-block;">
+                                    <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
+                                </span>
+                                <span v-else-if="apt.feedback_result === 'cancel_requested'"
+                                    style="background-color: #fffbeb; color: #d97706; border: 1px solid #fde68a; padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: bold; display: inline-block;">
+                                    <i class="bi bi-clock-history"></i> Đã gửi yêu cầu hủy HĐ (Chờ duyệt)
+                                </span>
+                                <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
+                                    style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
+                                    <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
+                                </span>
+                                <a v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone" 
+                                   :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
+                                   class="mobile-call-btn">
+                                    <i class="bi bi-telephone-fill"></i> Gọi {{ apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone }}
+                                </a>
                             </div>
                         </div>
 

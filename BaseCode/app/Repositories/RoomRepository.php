@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Collection;
 
 class RoomRepository{
     /**
-     * Lấy tất cả phòng theo property_id
+     * Lấy tất cả phòng theo boarding_house_id / property_id
      */
     public function getByPropertyId(int $propertyId): Collection
     {
@@ -17,7 +17,7 @@ class RoomRepository{
     }
 
     /**
-     * Lấy tất cả phòng thuộc các property của 1 landlord
+     * Lấy tất cả phòng thuộc các property/boarding house của 1 landlord
      */
     public function getByLandlordId(int $landlordId): Collection
     {

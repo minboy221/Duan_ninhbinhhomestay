@@ -6,15 +6,19 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use App\Models\Invoice;
 
-class NewInvoiceNotification extends Notification
+class FirstMonthProratedInvoiceNotification extends Notification
 {
     use Queueable;
 
     protected Invoice $invoice;
+    protected int $daysOccupied;
+    protected string $explanation;
 
-    public function __construct(Invoice $invoice)
+    public function __construct(Invoice $invoice, int $daysOccupied, string $explanation = '')
     {
         $this->invoice = $invoice;
+        $this->daysOccupied = $daysOccupied;
+        $this->explanation = $explanation;
     }
 
     public function via(object $notifiable): array
@@ -31,20 +35,22 @@ class NewInvoiceNotification extends Notification
         $room = $this->invoice->contract->room ?? null;
         $peopleCount = max(1, (int) ($room->current_people ?? 1));
 
-        $message = "Hóa đơn tháng {$billingMonth} của phòng bạn đã được tạo với tổng số tiền là {$amountStr}.";
+        $message = "Chào mừng bạn! Hóa đơn tháng {$billingMonth} của phòng bạn được tính theo số ngày ở thực tế ({$this->daysOccupied} ngày). Tổng thanh toán: {$amountStr}.";
         if ($peopleCount > 1) {
             $perPersonStr = number_format(round($totalAmount / $peopleCount), 0, ',', '.') . ' đ';
             $message .= " (Phòng {$peopleCount} người - Dự kiến trung bình: {$perPersonStr}/người).";
         }
-        if ($this->invoice->due_date) {
-            $message .= " Hạn thanh toán: " . $this->invoice->due_date->format('d/m/Y');
+        if ($this->explanation) {
+            $message .= " {$this->explanation}";
         }
 
         return [
-            'title' => 'Bạn có hóa đơn mới',
+            'title' => '📢 Hóa đơn tháng đầu tiên (Tính số ngày lẻ)',
             'message' => $message,
             'url' => route('lichsuthanhtoan'),
             'invoice_id' => $this->invoice->id,
+            'is_first_month' => true,
+            'days_occupied' => $this->daysOccupied,
         ];
     }
 }

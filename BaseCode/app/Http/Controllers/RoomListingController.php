@@ -121,8 +121,15 @@ class RoomListingController extends Controller
     {
         $room = Room::with('services')->findOrFail($id);
 
+        $services = $room->services->map(function ($service) {
+            if ($service->pivot && !is_null($service->pivot->price)) {
+                $service->price = $service->pivot->price;
+            }
+            return $service;
+        });
+
         return response()->json([
-            'services' => $room->services,
+            'services' => $services,
             'room_number' => $room->room_number,
             'price' => $room->price,
         ]);

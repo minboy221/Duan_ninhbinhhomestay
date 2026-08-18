@@ -24,6 +24,8 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Owner\InviteController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\AdminPostController;
+use App\Http\Controllers\ClientRoomController;
+use App\Http\Controllers\ContactController;
 use Illuminate\Routing\Controller;
 use Illuminate\Routing\Controllers\Middleware;
 //phần mua gói
@@ -47,6 +49,8 @@ use Symfony\Component\Routing\Router;
 | contains the "web" middleware group. Now create something great!
 |
 */
+
+use App\Http\Controllers\Client\HomeController;
 
 // Route phần clien
 Route::get('/', function (CategoryService $categoryService) {
@@ -83,6 +87,7 @@ Route::get('/tintuc/suggest', [PostController::class, 'suggest'])->name('tintuc.
 Route::get('/lienhe', function () {
     return Inertia::render('Client/lienhe'); // Trỏ đến file Pages/Client/About.vue
 })->name('lienhe');
+Route::post('/contact', [ContactController::class, 'store'])->name('client.contact.store');
 
 // Route cho Trang chi tiết trọ
 Route::get('/chitiettro/{slug?}', [PublicListingController::class, 'show'])->name('chitiettro');
@@ -128,6 +133,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/rooms/{room}/favorite', [ProfileController::class, 'toggleFavorite'])->name('rooms.favorite');
 
     // Route Đánh giá sau khi xem phòng
+    Route::post('/rooms/{room}/direct-review', [PublicListingController::class, 'submitDirectReview'])->name('rooms.direct-review');
     Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
     Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
     Route::post('/appointments/{appointment}/cancel-interest', [ProfileController::class, 'cancelInterest'])->name('appointments.cancel_interest');
@@ -219,6 +225,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/posts/{id}/edit', [AdminPostController::class, 'edit'])->name('admin.posts.edit');
     Route::post('/posts/{id}', [AdminPostController::class, 'update'])->name('admin.posts.update');
     Route::delete('/posts/{id}', [AdminPostController::class, 'destroy'])->name('admin.posts.destroy');
+
+    // Route quản lý liên hệ của Admin
+    Route::get('/contacts', [ContactController::class, 'index'])->name('admin.contacts.index');
+    Route::patch('/contacts/{id}/status', [ContactController::class, 'updateStatus'])->name('admin.contacts.status');
+    Route::delete('/contacts/{id}', [ContactController::class, 'delete'])->name('admin.contacts.delete');
+    Route::post('/contacts/{id}/reply', [ContactController::class, 'reply'])->name('admin.contacts.reply');
+
+    // Các route trên đã định nghĩa đầy đủ
     //phần cấu hình ngân hàng của admin
     Route::post('/subscription-plans/bank-settings', [SubscriptionPlanController::class, 'updateBankSettings'])->name('admin.subscription-plans.bank-settings');
     //Phần quản lý mua gói

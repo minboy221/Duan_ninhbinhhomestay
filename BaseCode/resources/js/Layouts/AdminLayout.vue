@@ -5,6 +5,7 @@ import { computed, ref, watchEffect, onUnmounted, onMounted, watch } from "vue";
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 const sidebarOpen = ref(true);
+const mobileMenuOpen = ref(false);
 const notifOpen = ref(false);
 //phần hiển thị thông báo
 const showToast = ref(false);
@@ -32,6 +33,12 @@ watch(
     },
     { deep: true, immediate: true }
 );
+
+watchEffect(() => {
+    if (page.url) {
+        mobileMenuOpen.value = false;
+    }
+});
 
 const logout = () => router.post(route("logout"));
 
@@ -107,6 +114,7 @@ const navGroups = [
                 ],
             },
             { label: "Đánh Giá", path: "/admin/reviews", icon: "bi-star-fill" },
+            { label: "Liên Hệ", path: "/admin/contacts", icon: "bi-envelope-fill" },
         ],
     },
     {
@@ -291,8 +299,11 @@ const getMenuBadge = (item) => {
     </transition>
 
     <div class="admin-shell">
+        <!-- Mobile Overlay -->
+        <div v-if="mobileMenuOpen" class="mobile-overlay" @click="mobileMenuOpen = false"></div>
+
         <!-- Sidebar -->
-        <aside :class="sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'" class="admin-sidebar">
+        <aside :class="[sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed', mobileMenuOpen ? 'mobile-show' : '']" class="admin-sidebar">
             <!-- Brand -->
             <div class="sidebar-brand">
                 <div class="brand-icon">
@@ -451,7 +462,10 @@ const getMenuBadge = (item) => {
         <div class="admin-main">
             <!-- Header -->
             <header class="admin-header">
-                <div class="header-left">
+                <div class="header-left flex items-center">
+                    <button class="mobile-toggle-btn" @click="mobileMenuOpen = !mobileMenuOpen" title="Danh mục Menu">
+                        <i class="bi bi-list"></i>
+                    </button>
                     <slot name="header-title">
                         <h1 class="header-title">Dashboard</h1>
                     </slot>
@@ -878,5 +892,93 @@ const getMenuBadge = (item) => {
     flex: 1;
     overflow-y: auto;
     padding: 24px;
+}
+
+/* ── Responsive CSS ── */
+.mobile-toggle-btn {
+    display: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    align-items: center;
+    justify-content: center;
+    color: #334155;
+    font-size: 20px;
+    cursor: pointer;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.mobile-overlay {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-toggle-btn {
+        display: flex;
+    }
+
+    .mobile-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(2px);
+        z-index: 40;
+    }
+
+    .admin-shell {
+        flex-direction: column;
+    }
+
+    .admin-sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 50;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .admin-sidebar.mobile-show {
+        transform: translateX(0);
+        width: 260px !important;
+    }
+
+    .admin-sidebar.mobile-show .brand-text,
+    .admin-sidebar.mobile-show .nav-label,
+    .admin-sidebar.mobile-show .nav-group-label {
+        display: block !important;
+    }
+
+    .admin-sidebar.mobile-show .nav-item {
+        justify-content: flex-start !important;
+        padding: 9px 12px !important;
+    }
+
+    .admin-header {
+        padding: 10px 14px;
+    }
+
+    .header-title {
+        font-size: 15px;
+    }
+
+    .admin-info {
+        display: none;
+    }
+
+    .header-admin {
+        padding-left: 0;
+        border-left: none;
+    }
+
+    .admin-content {
+        padding: 12px;
+    }
 }
 </style>

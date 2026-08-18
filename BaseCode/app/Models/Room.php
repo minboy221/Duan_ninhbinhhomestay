@@ -11,6 +11,7 @@ class Room extends Model
     use HasFactory;
     protected $fillable = [
         'boarding_house_id',
+        'property_id',
         'floor_id',
         'room_number',
         'address',
@@ -79,7 +80,12 @@ class Room extends Model
     ];
 
 
-    // quan hệ phòng thuộc về một nhà trọ
+    // quan hệ phòng thuộc về một boarding house / property
+    public function property()
+    {
+        return $this->belongsTo(BoardingHouse::class, 'boarding_house_id');
+    }
+
     public function boardingHouse()
     {
         return $this->belongsTo(BoardingHouse::class, 'boarding_house_id');
@@ -94,7 +100,7 @@ class Room extends Model
     //quan hệ một phòng có nhiều dịch vụ
     public function services()
     {
-        return $this->belongsToMany(Service::class);
+        return $this->belongsToMany(Service::class)->withPivot('price');
     }
 
     //quan hệ một phòng có nhiều bài đăng tiếp thị

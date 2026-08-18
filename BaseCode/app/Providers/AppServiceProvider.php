@@ -35,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Repositories\Interfaces\ReviewRepositoryInterface::class,
             \App\Repositories\ReviewRepository::class
         );
+        
+        $this->app->bind(
+            \App\Repositories\Interfaces\TenantRepositoryInterface::class,
+            \App\Repositories\TenantRepository::class
+        );
     }
 
     /**

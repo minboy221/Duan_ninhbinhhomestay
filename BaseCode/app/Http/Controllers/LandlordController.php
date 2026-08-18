@@ -54,6 +54,7 @@ class LandlordController extends Controller
             'bank_name' => 'nullable|string|max:100',
             'bank_account_no' => 'nullable|string|max:50',
             'bank_account_name' => 'nullable|string|max:100',
+            'invoice_billing_day' => 'nullable|integer|between:1,31',
         ]);
 
         $user = Auth::user();
@@ -67,6 +68,11 @@ class LandlordController extends Controller
         }
 
         $user->update($data);
+
+        if ($request->has('invoice_billing_day') && $request->invoice_billing_day) {
+            \App\Models\BoardingHouse::where('user_id', $user->id)
+                ->update(['invoice_billing_day' => (int) $request->invoice_billing_day]);
+        }
 
         return redirect()->back()->with('success', 'Cập nhật thông tin thành công!');
     }
@@ -511,9 +517,16 @@ class LandlordController extends Controller
         return redirect()->back()->with('success', 'cập nhật khung giờ cho cơ sở thành công');
     }
 
-    public function tenants()
+    public function tenants(\App\Services\TenantService $tenantService)
     {
-        return Inertia::render('Landlord/Tenants/index');
+        $landlordId = Auth::id();
+        $boardingHouseId = session('selected_boarding_house_id');
+
+        $tenants = $tenantService->getFormattedTenants($landlordId, $boardingHouseId);
+
+        return Inertia::render('Landlord/Tenants/index', [
+            'tenants' => $tenants
+        ]);
     }
 
     public function contracts()
@@ -723,6 +736,19 @@ class LandlordController extends Controller
         foreach ($request->details as $d) {
             $itemName = $d['item_name'];
             $price = (float) $d['price'];
+
+            // Nếu có service_id -> Khóa giá chuẩn theo DB/room_service
+            if (!empty($d['service_id'])) {
+                $srv = \App\Models\Service::find($d['service_id']);
+                if ($srv) {
+                    $pivotPrice = \DB::table('room_service')
+                        ->where('room_id', $contract->room_id)
+                        ->where('service_id', $srv->id)
+                        ->value('price');
+                    $price = (!is_null($pivotPrice) && $pivotPrice !== '') ? (float) $pivotPrice : (float) $srv->price;
+                }
+            }
+
             $quantity = (float) $d['quantity'];
             $oldIndex = isset($d['old_index']) ? (int) $d['old_index'] : null;
             $newIndex = isset($d['new_index']) ? (int) $d['new_index'] : null;
@@ -815,10 +841,36 @@ class LandlordController extends Controller
             \App\Models\InvoiceDetail::create($pd);
         }
 
-        // Gửi thông báo cho khách thuê
-        $tenant = $contract->tenant;
-        if ($tenant) {
-            $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+        // Gửi thông báo cho tất cả người ở trong phòng (Chủ hợp đồng + Cư dân ở ghép active)
+        $recipients = collect();
+        if ($contract->tenant) {
+            $recipients->push($contract->tenant);
+        }
+        $roomResidents = \App\Models\RoomResident::where('room_id', $contract->room_id)
+            ->where('status', 'active')
+            ->with('user')
+            ->get();
+        foreach ($roomResidents as $res) {
+            if ($res->user && $res->user->id !== $contract->tenant_id) {
+                $recipients->push($res->user);
+            }
+        }
+
+        if ($recipients->isNotEmpty()) {
+            $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
+            foreach ($recipients as $recipient) {
+                if ($isFirstInvoice) {
+                    $proratedService = new \App\Services\ProratedBillingService();
+                    $proratedInfo = $proratedService->calculateProratedRent($contract, $request->billing_month);
+                    if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                        $recipient->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                    } else {
+                        $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                    }
+                } else {
+                    $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                }
+            }
         }
         //ghi log
         $isAbnormal = false;
@@ -930,6 +982,8 @@ class LandlordController extends Controller
                     if ($lastElec->meter_image_path)
                         $elecOldImgPath = $lastElec->meter_image_path;
                 }
+            } else if ($contract->entry_elec_index !== null) {
+                $elecOld = (int) $contract->entry_elec_index;
             }
 
             $waterOld = 0;
@@ -940,6 +994,8 @@ class LandlordController extends Controller
                     if ($lastWater->meter_image_path)
                         $waterOldImgPath = $lastWater->meter_image_path;
                 }
+            } else if ($contract->entry_water_index !== null) {
+                $waterOld = (int) $contract->entry_water_index;
             }
 
             if ((int) $r['elec_new'] < $elecOld) {
@@ -1041,8 +1097,36 @@ class LandlordController extends Controller
                 \App\Models\InvoiceDetail::create($pd);
             }
 
+            // Gửi thông báo cho tất cả người ở trong phòng (Chủ hợp đồng + Cư dân ở ghép active)
+            $recipients = collect();
             if ($contract->tenant) {
-                $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                $recipients->push($contract->tenant);
+            }
+            $roomResidents = \App\Models\RoomResident::where('room_id', $contract->room_id)
+                ->where('status', 'active')
+                ->with('user')
+                ->get();
+            foreach ($roomResidents as $res) {
+                if ($res->user && $res->user->id !== $contract->tenant_id) {
+                    $recipients->push($res->user);
+                }
+            }
+
+            if ($recipients->isNotEmpty()) {
+                $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
+                foreach ($recipients as $recipient) {
+                    if ($isFirstInvoice) {
+                        $proratedService = new \App\Services\ProratedBillingService();
+                        $proratedInfo = $proratedService->calculateProratedRent($contract, $billingMonth);
+                        if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                            $recipient->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                        } else {
+                            $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                        }
+                    } else {
+                        $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                    }
+                }
             }
         }
 
@@ -1107,97 +1191,133 @@ class LandlordController extends Controller
     public function services()
     {
         $boardingHouseId = session('selected_boarding_house_id');
-        $services = $this->serviceManagementService->getServices(Auth::id(), $boardingHouseId);
+        $services = $this->serviceManagementService->getConfiguredServices(Auth::id(), $boardingHouseId);
+        $availableAmenities = $this->serviceManagementService->getAvailableAmenities(Auth::id(), $boardingHouseId);
+
         return Inertia::render('Landlord/Services/index', [
-            'services' => $services
+            'services' => $services,
+            'availableAmenities' => $availableAmenities,
         ]);
     }
 
     public function storeService(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0',
+            'amenity_id' => 'required|integer|exists:amenities,id',
+            'price' => 'required|numeric|min:1000',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'icon' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+        ], [
+            'price.min' => 'Đơn giá dịch vụ phải tối thiểu từ 1.000đ trở lên!',
+            'price.required' => 'Vui lòng nhập đơn giá cho dịch vụ!',
+            'price.numeric' => 'Đơn giá phải là chữ số hợp lệ!',
         ]);
+
+        $boardingHouseId = session('selected_boarding_house_id');
+        $propertyId = $this->serviceManagementService->getOrCreatePropertyId(Auth::id());
+        $existsQuery = \App\Models\Service::where('property_id', $propertyId)
+            ->where('amenity_id', $request->amenity_id);
+        if ($boardingHouseId) {
+            $existsQuery->where('boarding_house_id', $boardingHouseId);
+        }
+        if ($existsQuery->exists()) {
+            return redirect()->back()->with('error', 'Tiện ích này đã được kích hoạt!');
+        }
+
         $data = $request->all();
-        $data['boarding_house_id'] = session('selected_boarding_house_id');
+        if ($boardingHouseId) {
+            $data['boarding_house_id'] = $boardingHouseId;
+        }
+
         $result = $this->serviceManagementService->createService(Auth::id(), $data);
         if (!$result)
-            return redirect()->back()->with('error', 'Không thể thêm dịch vụ!');
-        return redirect()->back()->with('success', 'Thêm dịch vụ thành công!');
+            return redirect()->back()->with('error', 'Không thể kích hoạt tiện ích!');
+        return redirect()->back()->with('success', 'Kích hoạt tiện ích thành công!');
     }
 
     public function updateService(Request $request, int $id)
     {
-        // lấy thông tin dịch vụ cũ để so sánh
+        // 1. Lấy thông tin dịch vụ cũ để so sánh giá
         $oldService = \App\Models\Service::find($id);
         if (!$oldService) {
-            return redirect()->back->with('error', 'Không tìm thấy dịch vụ!');
+            return redirect()->back()->with('error', 'Không tìm thấy dịch vụ!');
         }
         $oldPrice = (float) $oldService->price;
+
         $request->validate([
-            'name' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0',
+            'price' => 'required|numeric|min:1000',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'icon' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+        ], [
+            'price.min' => 'Đơn giá dịch vụ phải tối thiểu từ 1.000đ trở lên!',
+            'price.required' => 'Vui lòng nhập đơn giá cho dịch vụ!',
+            'price.numeric' => 'Đơn giá phải là chữ số hợp lệ!',
         ]);
+
+        // 2. Thực hiện cập nhật đơn giá dịch vụ
         $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
         if (!$result) {
-            return redirect()->back()->with('error', 'Không thể cập nhật dịch vụ!');
+            return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
         }
-        //Logic kiểm tra giá tăng bất thường
-        $newPrice = (float) 
-            $request->price;
+
+        // 3. Kiểm tra nếu giá tăng bất thường hoặc vượt ngưỡng Admin cấu hình
+        $newPrice = (float) $request->price;
+        $serviceName = $request->name ?? $oldService->name ?? '';
         $isAbnormal = false;
         $reason = "";
 
-        //cảnh báo nếu giá tăng đột biến hơn 50% so với giá cũ
+        // Cảnh báo nếu giá tăng đột biến từ 50% trở lên so với giá cũ
         if ($oldPrice > 0 && ($newPrice - $oldPrice) / $oldPrice >= 0.5) {
             $isAbnormal = true;
             $reason = "Tăng giá đột ngột hơn 50% (Từ " . number_format($oldPrice) . "đ lên " . number_format($newPrice) . "đ)";
         }
 
-        //ngưỡng giá thay đổi bất thường
-        $maxElecPrice = (float) (\App\Models\Setting::where('key', 'waring_electricity_price')->value('value') ?? 8000);
+        // Đọc ngưỡng giá Điện & Nước do Admin thiết lập (Key chuẩn: warning_electricity_price & warning_water_price)
+        $maxElecPrice = (float) (\App\Models\Setting::where('key', 'warning_electricity_price')->value('value') ?? 8000);
         $maxWaterPrice = (float) (\App\Models\Setting::where('key', 'warning_water_price')->value('value') ?? 40000);
-        if (str_contains($request->name, 'Điện') && $newPrice > $maxElecPrice) {
+
+        if (str_contains(mb_strtolower($serviceName), 'điện') && $newPrice > $maxElecPrice) {
             $isAbnormal = true;
-            $reason = "Giá điện bất thường cao: " . number_format($newPrice) . "đ/kWh
-            (Ngưỡng Admin thiết lập: " . number_format($maxElecPrice) . "đ)";
+            $reason = "Giá điện vượt ngưỡng cấu hình: " . number_format($newPrice) . "đ/kWh (Ngưỡng Admin quy định: " . number_format($maxElecPrice) . "đ)";
         }
-        if (str_contains($request->name, 'Nước') && $newPrice > $maxWaterPrice) {
+
+        if (str_contains(mb_strtolower($serviceName), 'nước') && $newPrice > $maxWaterPrice) {
             $isAbnormal = true;
-            $reason = "Giá nước bất thường cao: " . number_format($newPrice) . "đ/m3
-            (Ngưỡng Admin thiết lập: " . number_format($maxWaterPrice) . "đ)";
+            $reason = "Giá nước vượt ngưỡng cấu hình: " . number_format($newPrice) . "đ/m³ (Ngưỡng Admin quy định: " . number_format($maxWaterPrice) . "đ)";
         }
-        //ghi log
+
+        // 4. Tự động ghi Audit Log bên Admin
         $action = $isAbnormal ? 'abnormal_service_price' : 'update_service';
-        $logMessage = "Chủ trọ" . Auth::user()->name . " thay đổi giá dịch vụ ' {$request->name} '";
+        $logMessage = "Chủ trọ " . Auth::user()->name . " thay đổi giá dịch vụ '{$serviceName}'";
         if ($isAbnormal) {
             $logMessage .= " [CẢNH BÁO BẤT THƯỜNG]: {$reason}";
         } else {
-            $logMessage .= " từ " . number_format($oldPrice) . " đ thành " . number_format($newPrice) . "đ";
+            $logMessage .= " từ " . number_format($oldPrice) . "đ thành " . number_format($newPrice) . "đ";
         }
+
+        // Lưu vào bảng audit_logs (Đánh dấu sensitive = true khi bất thường)
         \App\Services\AuditLogger::log(
             $action,
             $logMessage,
             $isAbnormal
         );
+
         return redirect()->back()->with('success', 'Cập nhật dịch vụ thành công!');
     }
 
+
     public function deleteService(int $id)
     {
-        $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
-        if (!$result)
-            return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
-        return redirect()->back()->with('success', 'Xóa dịch vụ thành công!');
+        try {
+            $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
+            if (!$result)
+                return redirect()->back()->with('error', 'Không thể xóa dịch vụ!');
+            return redirect()->back()->with('success', 'Xóa dịch vụ thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function changeServiceStatus(Request $request, int $id)
