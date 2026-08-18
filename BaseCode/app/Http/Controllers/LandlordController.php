@@ -648,6 +648,19 @@ class LandlordController extends Controller
         foreach ($request->details as $d) {
             $itemName = $d['item_name'];
             $price = (float) $d['price'];
+
+            // Nếu có service_id -> Khóa giá chuẩn theo DB/room_service
+            if (!empty($d['service_id'])) {
+                $srv = \App\Models\Service::find($d['service_id']);
+                if ($srv) {
+                    $pivotPrice = \DB::table('room_service')
+                        ->where('room_id', $contract->room_id)
+                        ->where('service_id', $srv->id)
+                        ->value('price');
+                    $price = (!is_null($pivotPrice) && $pivotPrice !== '') ? (float) $pivotPrice : (float) $srv->price;
+                }
+            }
+
             $quantity = (float) $d['quantity'];
             $oldIndex = isset($d['old_index']) ? (int) $d['old_index'] : null;
             $newIndex = isset($d['new_index']) ? (int) $d['new_index'] : null;
@@ -740,20 +753,35 @@ class LandlordController extends Controller
             \App\Models\InvoiceDetail::create($pd);
         }
 
-        // Gửi thông báo cho khách thuê
-        $tenant = $contract->tenant;
-        if ($tenant) {
+        // Gửi thông báo cho tất cả người ở trong phòng (Chủ hợp đồng + Cư dân ở ghép active)
+        $recipients = collect();
+        if ($contract->tenant) {
+            $recipients->push($contract->tenant);
+        }
+        $roomResidents = \App\Models\RoomResident::where('room_id', $contract->room_id)
+            ->where('status', 'active')
+            ->with('user')
+            ->get();
+        foreach ($roomResidents as $res) {
+            if ($res->user && $res->user->id !== $contract->tenant_id) {
+                $recipients->push($res->user);
+            }
+        }
+
+        if ($recipients->isNotEmpty()) {
             $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
-            if ($isFirstInvoice) {
-                $proratedService = new \App\Services\ProratedBillingService();
-                $proratedInfo = $proratedService->calculateProratedRent($contract, $request->billing_month);
-                if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
-                    $tenant->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+            foreach ($recipients as $recipient) {
+                if ($isFirstInvoice) {
+                    $proratedService = new \App\Services\ProratedBillingService();
+                    $proratedInfo = $proratedService->calculateProratedRent($contract, $request->billing_month);
+                    if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                        $recipient->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                    } else {
+                        $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                    }
                 } else {
-                    $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                    $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
                 }
-            } else {
-                $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
             }
         }
         //ghi log
@@ -981,18 +1009,35 @@ class LandlordController extends Controller
                 \App\Models\InvoiceDetail::create($pd);
             }
 
+            // Gửi thông báo cho tất cả người ở trong phòng (Chủ hợp đồng + Cư dân ở ghép active)
+            $recipients = collect();
             if ($contract->tenant) {
+                $recipients->push($contract->tenant);
+            }
+            $roomResidents = \App\Models\RoomResident::where('room_id', $contract->room_id)
+                ->where('status', 'active')
+                ->with('user')
+                ->get();
+            foreach ($roomResidents as $res) {
+                if ($res->user && $res->user->id !== $contract->tenant_id) {
+                    $recipients->push($res->user);
+                }
+            }
+
+            if ($recipients->isNotEmpty()) {
                 $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
-                if ($isFirstInvoice) {
-                    $proratedService = new \App\Services\ProratedBillingService();
-                    $proratedInfo = $proratedService->calculateProratedRent($contract, $billingMonth);
-                    if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
-                        $contract->tenant->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                foreach ($recipients as $recipient) {
+                    if ($isFirstInvoice) {
+                        $proratedService = new \App\Services\ProratedBillingService();
+                        $proratedInfo = $proratedService->calculateProratedRent($contract, $billingMonth);
+                        if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                            $recipient->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                        } else {
+                            $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                        }
                     } else {
-                        $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                        $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
                     }
-                } else {
-                    $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
                 }
             }
         }
@@ -1058,31 +1103,46 @@ class LandlordController extends Controller
     public function services()
     {
         $boardingHouseId = session('selected_boarding_house_id');
-        $services = $this->serviceManagementService->getServices(Auth::id(), $boardingHouseId);
+        $services = $this->serviceManagementService->getConfiguredServices(Auth::id(), $boardingHouseId);
+        $availableAmenities = $this->serviceManagementService->getAvailableAmenities(Auth::id(), $boardingHouseId);
+
         return Inertia::render('Landlord/Services/index', [
-            'services' => $services
+            'services'           => $services,
+            'availableAmenities' => $availableAmenities,
         ]);
     }
 
     public function storeService(Request $request)
     {
         $request->validate([
-            'amenity_id' => 'required|integer|exists:amenities,id',
-            'price' => 'required|numeric|min:0',
-            'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'color' => 'nullable|string|max:255',
+            'amenity_id'  => 'required|integer|exists:amenities,id',
+            'price'       => 'required|numeric|min:1000',
+            'type'        => 'required|string|in:per_kwh,per_m3,fixed,per_person',
+            'color'       => 'nullable|string|max:255',
             'description' => 'nullable|string',
+        ], [
+            'price.min'      => 'Đơn giá dịch vụ phải tối thiểu từ 1.000đ trở lên!',
+            'price.required' => 'Vui lòng nhập đơn giá cho dịch vụ!',
+            'price.numeric'  => 'Đơn giá phải là chữ số hợp lệ!',
         ]);
 
+        $boardingHouseId = session('selected_boarding_house_id');
         $propertyId = $this->serviceManagementService->getOrCreatePropertyId(Auth::id());
-        $exists = \App\Models\Service::where('property_id', $propertyId)
-            ->where('amenity_id', $request->amenity_id)
-            ->exists();
-        if ($exists) {
+        $existsQuery = \App\Models\Service::where('property_id', $propertyId)
+            ->where('amenity_id', $request->amenity_id);
+        if ($boardingHouseId) {
+            $existsQuery->where('boarding_house_id', $boardingHouseId);
+        }
+        if ($existsQuery->exists()) {
             return redirect()->back()->with('error', 'Tiện ích này đã được kích hoạt!');
         }
 
-        $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
+        $data = $request->all();
+        if ($boardingHouseId) {
+            $data['boarding_house_id'] = $boardingHouseId;
+        }
+
+        $result = $this->serviceManagementService->createService(Auth::id(), $data);
         if (!$result)
             return redirect()->back()->with('error', 'Không thể kích hoạt tiện ích!');
         return redirect()->back()->with('success', 'Kích hoạt tiện ích thành công!');
@@ -1097,10 +1157,14 @@ class LandlordController extends Controller
         }
         $oldPrice = (float) $oldService->price;
         $request->validate([
-            'price' => 'required|numeric|min:0',
-            'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
-            'color' => 'nullable|string|max:255',
+            'price'       => 'required|numeric|min:1000',
+            'type'        => 'required|string|in:per_kwh,per_m3,fixed,per_person',
+            'color'       => 'nullable|string|max:255',
             'description' => 'nullable|string',
+        ], [
+            'price.min'      => 'Đơn giá dịch vụ phải tối thiểu từ 1.000đ trở lên!',
+            'price.required' => 'Vui lòng nhập đơn giá cho dịch vụ!',
+            'price.numeric'  => 'Đơn giá phải là chữ số hợp lệ!',
         ]);
 
         try {

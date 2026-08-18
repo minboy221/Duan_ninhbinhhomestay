@@ -29,11 +29,24 @@ class FirstMonthProratedInvoiceNotification extends Notification
     public function toArray(object $notifiable): array
     {
         $billingMonth = $this->invoice->billing_month;
-        $amountStr = number_format($this->invoice->total_amount, 0, ',', '.') . ' đ';
+        $totalAmount = (float) $this->invoice->total_amount;
+        $amountStr = number_format($totalAmount, 0, ',', '.') . ' đ';
+
+        $room = $this->invoice->contract->room ?? null;
+        $peopleCount = max(1, (int) ($room->current_people ?? 1));
+
+        $message = "Chào mừng bạn! Hóa đơn tháng {$billingMonth} của phòng bạn được tính theo số ngày ở thực tế ({$this->daysOccupied} ngày). Tổng thanh toán: {$amountStr}.";
+        if ($peopleCount > 1) {
+            $perPersonStr = number_format(round($totalAmount / $peopleCount), 0, ',', '.') . ' đ';
+            $message .= " (Phòng {$peopleCount} người - Dự kiến trung bình: {$perPersonStr}/người).";
+        }
+        if ($this->explanation) {
+            $message .= " {$this->explanation}";
+        }
 
         return [
             'title' => '📢 Hóa đơn tháng đầu tiên (Tính số ngày lẻ)',
-            'message' => "Chào mừng bạn! Hóa đơn tháng {$billingMonth} của bạn được tính theo số ngày ở thực tế ({$this->daysOccupied} ngày). Tổng thanh toán: {$amountStr}. {$this->explanation}",
+            'message' => $message,
             'url' => route('lichsuthanhtoan'),
             'invoice_id' => $this->invoice->id,
             'is_first_month' => true,

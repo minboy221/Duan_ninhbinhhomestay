@@ -104,44 +104,62 @@ class PaymentWebhookController extends Controller
     }
 
     /**
-     * Tìm hóa đơn theo mã HĐ hoặc theo Mẫu 1 (P101... 06-2026)
+     * Tìm hóa đơn theo mã HĐ hoặc theo Mẫu 1 (P101... TT thang 202609 / 2026-09)
      */
     private function findInvoiceFromContent($content)
     {
-        // 1. Tìm theo Mã hóa đơn trực tiếp (HD...)
-        if (preg_match('/HD[-\w\d]+/', $content, $matches)) {
-            $code = $matches[0];
-            $inv = Invoice::where('invoice_code', $code)->orWhere('invoice_code', '#' . $code)->first();
-            if ($inv) return $inv;
-        }
+        Log::info("Parsing webhook content: " . $content);
 
-        // 2. Tìm theo Mẫu 1: P[Số phòng] ... TT thang [Tháng]
-        // Ví dụ: P101 Tran Thi Nguoi Thue TT thang 06-2026
-        if (preg_match('/P(\w+)\s+.*?\s*TT\s+thang\s+([\d]{2}[-\/][\d]{4})/i', $content, $matches)) {
-            $roomNum = $matches[1];
-            $rawMonth = str_replace('-', '/', $matches[2]);
+        // 1. Chuẩn hóa chuỗi content (Bỏ dấu, ký tự đặc biệt, chuyển in hoa)
+        $cleanContent = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $content));
 
-            $parts = explode('/', $rawMonth);
-            $billingMonth = count($parts) === 2 ? $parts[1] . '-' . sprintf('%02d', $parts[0]) : $rawMonth;
+        // 2. Tìm tất cả hóa đơn chưa thanh toán
+        $unpaidInvoices = Invoice::where('status', 'unpaid')->with(['contract.room', 'contract.tenant'])->get();
 
-            $inv = Invoice::whereHas('contract.room', function ($q) use ($roomNum) {
-                $q->where('room_number', 'LIKE', '%' . $roomNum . '%');
-            })
-            ->where(function ($q) use ($rawMonth, $billingMonth) {
-                $q->where('billing_month', $rawMonth)->orWhere('billing_month', $billingMonth);
-            })
-            ->where('status', 'unpaid')
-            ->first();
-
-            if ($inv) return $inv;
-        }
-
-        // 3. Fallback: Tìm bất kỳ hóa đơn nào chưa thanh toán mà invoice_code xuất hiện trong content
-        $unpaidInvoices = Invoice::where('status', 'unpaid')->get();
+        // 2a. Thử so sánh mã hóa đơn trực tiếp (Ví dụ HD202608464 hay 202608464)
         foreach ($unpaidInvoices as $inv) {
-            $cleanCode = str_replace(['#', '-'], '', $inv->invoice_code);
-            $cleanContent = str_replace(['#', '-'], '', $content);
-            if (stripos($cleanContent, $cleanCode) !== false) {
+            $cleanCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $inv->invoice_code));
+            if (!empty($cleanCode) && str_contains($cleanContent, $cleanCode)) {
+                return $inv;
+            }
+
+            // Lấy riêng chuỗi số của mã hóa đơn (VD: HD-202608-464 -> 202608464)
+            $codeNumbersOnly = preg_replace('/[^0-9]/', '', $inv->invoice_code);
+            if (!empty($codeNumbersOnly) && strlen($codeNumbersOnly) >= 4 && str_contains($cleanContent, $codeNumbersOnly)) {
+                return $inv;
+            }
+        }
+
+        // 3. Phân tích nội dung chuyển khoản theo cấu trúc: P[Số phòng] ... TT thang [Tháng]
+        preg_match('/P(\w+)/i', $content, $roomMatches);
+        $roomNum = $roomMatches[1] ?? null;
+
+        $billingMonthFound = null;
+        if (preg_match('/([\d]{4})[-\/]?([\d]{2})/', $content, $m)) {
+            // Định dạng YYYY-MM hoặc YYYYMM (ví dụ 202609 -> 2026-09)
+            $billingMonthFound = $m[1] . '-' . sprintf('%02d', $m[2]);
+        } elseif (preg_match('/([\d]{2})[-\/]([\d]{4})/', $content, $m)) {
+            // Định dạng MM-YYYY hoặc MM/YYYY (ví dụ 09/2026 -> 2026-09)
+            $billingMonthFound = $m[2] . '-' . sprintf('%02d', $m[1]);
+        }
+
+        foreach ($unpaidInvoices as $inv) {
+            $invMonth = str_replace('/', '-', $inv->billing_month);
+            $invRoomName = $inv->contract->room->name ?? '';
+            $cleanRoomName = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $invRoomName));
+
+            if ($billingMonthFound && ($invMonth === $billingMonthFound || str_contains($invMonth, $billingMonthFound))) {
+                if ($roomNum && (str_contains($cleanRoomName, strtoupper($roomNum)) || str_contains($cleanContent, $cleanRoomName))) {
+                    return $inv;
+                }
+            }
+        }
+
+        // 4. Tìm theo Tên khách thuê trong chuỗi chuyển khoản
+        foreach ($unpaidInvoices as $inv) {
+            $tenantName = $inv->contract->tenant->name ?? '';
+            $cleanTenantName = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $tenantName));
+            if (!empty($cleanTenantName) && strlen($cleanTenantName) > 4 && str_contains($cleanContent, $cleanTenantName)) {
                 return $inv;
             }
         }

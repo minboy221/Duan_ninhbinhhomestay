@@ -1016,8 +1016,8 @@ const goToCreateForContract = (contractId) => {
                                 <div class="w-full px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 border border-slate-100">{{ elecDiff }}</div>
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                <input type="number" v-model.number="invoiceForm.elecPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-amber-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ) (Khóa)</label>
+                                <input type="number" v-model.number="invoiceForm.elecPrice" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
                             <div class="space-y-1 col-span-2 sm:col-span-1">
                                 <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -1058,15 +1058,6 @@ const goToCreateForContract = (contractId) => {
                                 </label>
                                 <input type="number" v-model.number="invoiceForm.waterOld" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
-                            <div class="flex flex-col items-end gap-1 text-xs text-slate-500 font-bold">
-                                <div class="flex items-center gap-1.5">
-                                    <span>Thành tiền:</span>
-                                    <input type="number" v-model.number="invoiceForm.rent" class="w-28 px-2 py-1 text-right border border-slate-200 focus:border-emerald-500 rounded-lg outline-none font-bold text-slate-800 bg-white" />
-                                </div>
-                                <div class="text-[10px] text-emerald-600 font-bold" v-if="invoiceForm.rent">
-                                    Bằng số: {{ formatMoney(invoiceForm.rent) }}
-                                </div>
-                            </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                                     Số mới kỳ này
@@ -1081,8 +1072,8 @@ const goToCreateForContract = (contractId) => {
                                 <div class="w-full px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 border border-slate-100">{{ waterDiff }}</div>
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                <input type="number" v-model.number="invoiceForm.waterPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ) (Khóa)</label>
+                                <input type="number" v-model.number="invoiceForm.waterPrice" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
                             <div class="space-y-1 col-span-2 sm:col-span-1">
                                 <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -1121,8 +1112,8 @@ const goToCreateForContract = (contractId) => {
                                 <input type="number" v-model.number="invoiceForm.internetQty" class="w-full px-3 py-1.5 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                <input type="number" v-model.number="invoiceForm.internetPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ) (Khóa)</label>
+                                <input type="number" v-model.number="invoiceForm.internetPrice" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                             </div>
                             <div class="space-y-1 col-span-2 sm:col-span-1">
                                 <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -1140,8 +1131,8 @@ const goToCreateForContract = (contractId) => {
                             </div>
                             <div class="grid grid-cols-2 gap-3 items-end">
                                 <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="text" v-model="displayTrashPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ) (Khóa)</label>
+                                    <input type="text" v-model="displayTrashPrice" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -1157,8 +1148,8 @@ const goToCreateForContract = (contractId) => {
                             </div>
                             <div class="grid grid-cols-2 gap-3 items-end">
                                 <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="number" v-model.number="invoiceForm.parkingPrice" class="w-full px-3 py-1.5 border border-slate-200 focus:border-purple-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ) (Khóa)</label>
+                                    <input type="number" v-model.number="invoiceForm.parkingPrice" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
@@ -1179,8 +1170,8 @@ const goToCreateForContract = (contractId) => {
                             </div>
                             <div class="grid grid-cols-2 gap-3 items-end">
                                 <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ)</label>
-                                    <input type="number" v-model.number="customServicesPrice[srv.id]" class="w-full px-3 py-1.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-slate-50/40" />
+                                    <label class="text-[10px] font-bold text-slate-400">Đơn giá (đ) (Khóa)</label>
+                                    <input type="number" v-model.number="customServicesPrice[srv.id]" readonly class="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-slate-400">Thành tiền</label>
