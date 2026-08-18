@@ -648,6 +648,19 @@ class LandlordController extends Controller
         foreach ($request->details as $d) {
             $itemName = $d['item_name'];
             $price = (float) $d['price'];
+
+            // Nếu có service_id -> Khóa giá chuẩn theo DB/room_service
+            if (!empty($d['service_id'])) {
+                $srv = \App\Models\Service::find($d['service_id']);
+                if ($srv) {
+                    $pivotPrice = \DB::table('room_service')
+                        ->where('room_id', $contract->room_id)
+                        ->where('service_id', $srv->id)
+                        ->value('price');
+                    $price = (!is_null($pivotPrice) && $pivotPrice !== '') ? (float) $pivotPrice : (float) $srv->price;
+                }
+            }
+
             $quantity = (float) $d['quantity'];
             $oldIndex = isset($d['old_index']) ? (int) $d['old_index'] : null;
             $newIndex = isset($d['new_index']) ? (int) $d['new_index'] : null;
@@ -740,20 +753,35 @@ class LandlordController extends Controller
             \App\Models\InvoiceDetail::create($pd);
         }
 
-        // Gửi thông báo cho khách thuê
-        $tenant = $contract->tenant;
-        if ($tenant) {
+        // Gửi thông báo cho tất cả người ở trong phòng (Chủ hợp đồng + Cư dân ở ghép active)
+        $recipients = collect();
+        if ($contract->tenant) {
+            $recipients->push($contract->tenant);
+        }
+        $roomResidents = \App\Models\RoomResident::where('room_id', $contract->room_id)
+            ->where('status', 'active')
+            ->with('user')
+            ->get();
+        foreach ($roomResidents as $res) {
+            if ($res->user && $res->user->id !== $contract->tenant_id) {
+                $recipients->push($res->user);
+            }
+        }
+
+        if ($recipients->isNotEmpty()) {
             $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
-            if ($isFirstInvoice) {
-                $proratedService = new \App\Services\ProratedBillingService();
-                $proratedInfo = $proratedService->calculateProratedRent($contract, $request->billing_month);
-                if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
-                    $tenant->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+            foreach ($recipients as $recipient) {
+                if ($isFirstInvoice) {
+                    $proratedService = new \App\Services\ProratedBillingService();
+                    $proratedInfo = $proratedService->calculateProratedRent($contract, $request->billing_month);
+                    if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                        $recipient->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                    } else {
+                        $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                    }
                 } else {
-                    $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                    $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
                 }
-            } else {
-                $tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
             }
         }
         //ghi log
@@ -981,18 +1009,35 @@ class LandlordController extends Controller
                 \App\Models\InvoiceDetail::create($pd);
             }
 
+            // Gửi thông báo cho tất cả người ở trong phòng (Chủ hợp đồng + Cư dân ở ghép active)
+            $recipients = collect();
             if ($contract->tenant) {
+                $recipients->push($contract->tenant);
+            }
+            $roomResidents = \App\Models\RoomResident::where('room_id', $contract->room_id)
+                ->where('status', 'active')
+                ->with('user')
+                ->get();
+            foreach ($roomResidents as $res) {
+                if ($res->user && $res->user->id !== $contract->tenant_id) {
+                    $recipients->push($res->user);
+                }
+            }
+
+            if ($recipients->isNotEmpty()) {
                 $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
-                if ($isFirstInvoice) {
-                    $proratedService = new \App\Services\ProratedBillingService();
-                    $proratedInfo = $proratedService->calculateProratedRent($contract, $billingMonth);
-                    if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
-                        $contract->tenant->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                foreach ($recipients as $recipient) {
+                    if ($isFirstInvoice) {
+                        $proratedService = new \App\Services\ProratedBillingService();
+                        $proratedInfo = $proratedService->calculateProratedRent($contract, $billingMonth);
+                        if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
+                            $recipient->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
+                        } else {
+                            $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                        }
                     } else {
-                        $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
+                        $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
                     }
-                } else {
-                    $contract->tenant->notify(new \App\Notifications\NewInvoiceNotification($invoice));
                 }
             }
         }

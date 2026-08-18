@@ -99,8 +99,17 @@ class ProfileController extends Controller
     //trang thanh toán
     public function lichsuthanhtoan(Request $request): Response
     {
-        $invoices = \App\Models\Invoice::whereHas('contract', function ($q) use ($request) {
-            $q->where('tenant_id', $request->user()->id);
+        $user = $request->user();
+        $residentRoomIds = \App\Models\RoomResident::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->pluck('room_id')
+            ->toArray();
+
+        $invoices = \App\Models\Invoice::whereHas('contract', function ($q) use ($user, $residentRoomIds) {
+            $q->where('tenant_id', $user->id);
+            if (!empty($residentRoomIds)) {
+                $q->orWhereIn('room_id', $residentRoomIds);
+            }
         })
             ->with(['details.service', 'contract.room.boardingHouse.user'])
             ->orderBy('created_at', 'desc')
@@ -109,7 +118,7 @@ class ProfileController extends Controller
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
 
         return Inertia::render('Profile/listthanhtoan', [
-            'user' => $request->user(),
+            'user' => $user,
             'invoices' => $invoices,
             'reasons' => $reasons,
         ]);
@@ -390,9 +399,18 @@ class ProfileController extends Controller
             'payment_method' => 'required|string|in:qr,cash'
         ]);
 
+        $user = $request->user();
+        $residentRoomIds = \App\Models\RoomResident::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->pluck('room_id')
+            ->toArray();
+
         $invoice = \App\Models\Invoice::where('id', $id)
-            ->whereHas('contract', function ($q) use ($request) {
-                $q->where('tenant_id', $request->user()->id);
+            ->whereHas('contract', function ($q) use ($user, $residentRoomIds) {
+                $q->where('tenant_id', $user->id);
+                if (!empty($residentRoomIds)) {
+                    $q->orWhereIn('room_id', $residentRoomIds);
+                }
             })
             ->with(['contract.room.boardingHouse.user'])
             ->firstOrFail();
@@ -405,7 +423,7 @@ class ProfileController extends Controller
             $landlord->notify(new \App\Notifications\TenantPaidInvoiceNotification($invoice, $methodLabel));
         }
 
-        return Redirect::back()->with('success', 'Đã gửi thông báo đã chuyển khoản thành công tới Chủ trọ!');
+        return Redirect::back()->with('success', 'Đã gửi báo cáo thanh toán tới Chủ trọ! Hóa đơn sẽ CHỈ tự động đổi sang "Đã thanh toán" khi Ngân hàng xác nhận tiền đã về tài khoản hoặc Chủ trọ duyệt.');
     }
 
     /**

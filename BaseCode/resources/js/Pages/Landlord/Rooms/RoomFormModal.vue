@@ -166,11 +166,11 @@ const validate = () => {
             }
         }
 
-        const isDuplicate = props.floors.some((f) =>
-            f.rooms.some((r) => {
-                if (props.isEdit && props.room && r.id === props.room.id)
+        const isDuplicate = (props.floors || []).some((f) =>
+            (f?.rooms || []).some((r) => {
+                if (props.isEdit && props.room && r?.id === props.room?.id)
                     return false;
-                return r.name.trim().toLowerCase() === name.toLowerCase();
+                return r?.name ? r.name.trim().toLowerCase() === name.toLowerCase() : false;
             }),
         );
         if (isDuplicate) {

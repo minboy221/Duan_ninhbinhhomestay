@@ -158,20 +158,10 @@ class PublicListingController extends Controller
             return redirect()->back()->with('error', 'tài khoản chủ trọ không được phép đặt lịch xem phòng');
         }
 
-        if ($post->room && $post->room->services) {
-            $post->room->services->map(function ($service) {
-                if ($service->pivot && !is_null($service->pivot->price)) {
-                    $service->price = $service->pivot->price;
-                }
-                return $service;
-            });
-        }
+        $post = RoomPost::with('room')->findOrFail($id);
 
-        // Tạm tắt tự động cập nhật timestamps
-        $post->timestamps = false;
-        // Tăng lượt xem (không bắt buộc nhưng tốt cho SEO/thống kê)
-        $post->increment('view_count');
-
+        $todayStr = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
+        $maxDate = Carbon::now('Asia/Ho_Chi_Minh')->addDays(7)->format('Y-m-d');
 
         $request->validate([
             'date' => [
@@ -200,7 +190,6 @@ class PublicListingController extends Controller
             'time.required' => 'Vui lòng chọn giờ hẹn xem phòng.',
         ]);
 
-        $post = RoomPost::with('room')->findOrFail($id);
         $roomId = $post->room_id;
         //Thêm dàng buộc cho user nếu đang có hợp đồng active tại cơ sở khác, chặn không cho đặt lịch xem phòng
         $hasActiveContract = \App\Models\Contract::where('tenant_id',Auth::id())

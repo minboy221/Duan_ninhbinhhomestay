@@ -12,7 +12,6 @@ const props = defineProps({
     allFloors: { type: Array, default: () => [] },
     statusCounts: { type: Object, default: () => ({}) },
     services: { type: Array, default: () => [] },
-    allFloors: { type: Array, default: () => [] },
 });
 const floors = computed(() => props.floors);
 
@@ -1665,7 +1664,7 @@ const getAutoCoordinates = () => {
 
             <!-- Add/Edit Room Modal Form -->
             <RoomFormModal :show="showForm" :isEdit="isEditing" :hideFloorSelect="hideFloorSelect" :room="selRoom"
-                :floors="allFloors" v-model:floorId="formFloorId" :floorName="currentFloorName"
+                :floors="floors || props.floors || []" v-model:floorId="formFloorId" :floorName="currentFloorName"
                 :statusConfig="statusConfig" :existingRooms="currentFloorRooms" :services="services"
                 @close="showForm = false" @submitted="submitRoom" />
 
