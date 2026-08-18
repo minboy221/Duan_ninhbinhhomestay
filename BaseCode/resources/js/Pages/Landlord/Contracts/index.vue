@@ -1802,6 +1802,7 @@ const filteredAppointments = computed(() => {
                                     dân ở ghép
                                 </button>
                             </div>
+                        </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500">Tiền thuê (đ/tháng)</label>
@@ -2712,6 +2713,7 @@ const filteredAppointments = computed(() => {
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     </LandlordLayout>
 </template>

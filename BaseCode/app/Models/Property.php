@@ -30,7 +30,7 @@ class Property extends Model
 
     public function rooms()
     {
-        return $this->hasMany(Room::class, 'property_id');
+        return $this->hasMany(Room::class, 'boarding_house_id');
     }
 
     public function floors()

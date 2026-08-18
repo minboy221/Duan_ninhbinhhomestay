@@ -17,10 +17,15 @@ class ContactController extends Controller
 
     public function store(Request $request)
     {
+        // Honeypot check for spam bots
+        if (!empty($request->input('website_hp'))) {
+            return redirect()->back()->with('ticket_code', 'LH-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(4)));
+        }
+
         $request->validate([
-            'name'    => 'nullable|string|max:255',
-            'email'   => [
-                'nullable',
+            'name'     => 'required|string|max:255',
+            'email'    => [
+                'required',
                 'email',
                 'max:255',
                 function ($attribute, $value, $fail) {
@@ -32,41 +37,55 @@ class ContactController extends Controller
                     }
                 }
             ],
-            'phone'   => 'nullable|string|max:20',
-            'subject' => 'nullable|string|max:255',
-            'message' => 'nullable|string',
+            'phone'    => 'nullable|string|max:20',
+            'category' => 'nullable|string|in:general,consultation,technical,partnership',
+            'subject'  => 'required|string|max:255',
+            'message'  => 'required|string|min:5',
+        ], [
+            'name.required'    => 'Vui lòng nhập họ và tên của bạn.',
+            'email.required'   => 'Vui lòng nhập địa chỉ email.',
+            'email.email'      => 'Địa chỉ email không đúng định dạng.',
+            'subject.required' => 'Vui lòng nhập chủ đề liên hệ.',
+            'message.required' => 'Vui lòng nhập nội dung liên hệ.',
+            'message.min'      => 'Nội dung liên hệ phải có ít nhất 5 ký tự.',
         ]);
 
-        // Rate limit by IP: max 5 requests per 24 hours (86400 seconds)
-        $ip = $request->ip();
-        $rateLimitKey = 'contact_spam:' . $ip;
-        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
-            return redirect()->back()->withErrors(['email' => 'Địa chỉ IP của bạn đã gửi liên hệ quá 5 lần trong 24 giờ. Vui lòng thử lại sau!']);
+        // Cooldown check: max 1 submission per 60 seconds per IP / Email
+        $ipKey = 'contact_cd_ip:' . $request->ip();
+        $emailKey = 'contact_cd_email:' . strtolower($request->email);
+
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($ipKey, 1) ||
+            \Illuminate\Support\Facades\RateLimiter::tooManyAttempts($emailKey, 1)) {
+            $secondsIp = \Illuminate\Support\Facades\RateLimiter::availableIn($ipKey);
+            $secondsEmail = \Illuminate\Support\Facades\RateLimiter::availableIn($emailKey);
+            $wait = max($secondsIp, $secondsEmail);
+            return redirect()->back()->withErrors([
+                'email' => "Vui lòng đợi {$wait} giây trước khi gửi liên hệ tiếp theo!"
+            ]);
         }
 
-        // Anti-spam check by email: max 5 times per 24 hours
-        if ($request->email) {
-            $emailSpamCount = \DB::table('contacts')
-                ->where('email', $request->email)
-                ->where('created_at', '>=', now()->subDay())
-                ->count();
-            if ($emailSpamCount >= 5) {
-                return redirect()->back()->withErrors(['email' => 'Email này đã gửi liên hệ quá 5 lần trong 24 giờ. Vui lòng thử lại sau!']);
-            }
-        }
+        // Record attempt for 60 seconds
+        \Illuminate\Support\Facades\RateLimiter::hit($ipKey, 60);
+        \Illuminate\Support\Facades\RateLimiter::hit($emailKey, 60);
 
-        // Hit the rate limiter
-        \Illuminate\Support\Facades\RateLimiter::hit($rateLimitKey, 86400);
+        $ticketCode = 'LH-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(4));
 
-        $this->contactRepo->create($request->only([
-            'name',
-            'email',
-            'phone',
-            'subject',
-            'message'
-        ]));
+        $this->contactRepo->create([
+            'user_id'     => auth()->id(),
+            'ticket_code' => $ticketCode,
+            'name'        => $request->name,
+            'email'       => $request->email,
+            'phone'       => $request->phone,
+            'category'    => $request->category ?? 'general',
+            'subject'     => $request->subject,
+            'message'     => $request->message,
+            'status'      => 'pending',
+        ]);
 
-        return redirect()->back()->with('success', 'Gửi liên hệ thành công! Chúng tôi sẽ phản hồi sớm nhất.');
+        return redirect()->back()->with([
+            'success'     => 'Gửi liên hệ thành công! Chúng tôi sẽ phản hồi sớm nhất.',
+            'ticket_code' => $ticketCode,
+        ]);
     }
 
     /**

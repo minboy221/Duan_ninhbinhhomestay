@@ -1,22 +1,46 @@
 <script setup>
 import MainLayout from '@/Layouts/MainLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
+const page = usePage();
+
 const form = useForm({
-    name: '',
-    email: '',
+    name: page.props.auth?.user?.name || '',
+    email: page.props.auth?.user?.email || '',
+    phone: page.props.auth?.user?.phone || '',
+    category: 'general',
     subject: '',
     message: '',
+    website_hp: '', // Honeypot field for spam prevention
 });
 
 const isSubmitted = ref(false);
+const ticketCode = ref('');
+const cooldownSeconds = ref(0);
+let timer = null;
+
+const startCooldown = () => {
+    cooldownSeconds.value = 60;
+    if (timer) clearInterval(timer);
+    timer = setInterval(() => {
+        if (cooldownSeconds.value > 0) {
+            cooldownSeconds.value--;
+        } else {
+            clearInterval(timer);
+        }
+    }, 1000);
+};
 
 const submit = () => {
+    if (cooldownSeconds.value > 0) return;
     form.post(route('client.contact.store'), {
-        onSuccess: () => {
-            form.reset();
+        preserveScroll: true,
+        onSuccess: (page) => {
+            ticketCode.value = page.props.flash?.ticket_code || '';
+            form.reset('subject', 'message', 'website_hp');
             isSubmitted.value = true;
+            startCooldown();
         }
     });
 };
@@ -38,7 +62,7 @@ const submit = () => {
             <!-- phần hiển thị map -->
             <div class="map">
                 <iframe
-                    :src="$page.props.settings?.contact_map || 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2611.291724627434!2d105.93314109429076!3d20.603915192384463!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135cf62d752dc67%3A0xd79f03899b4e83d8!2zVHLGsOG7nW5nIENhbyDEkeG6s25nIEZQVCBQb2x5dGVjaG5pYyBjxqEgc-G7nyBIw6AgTmFt!5e1!3m2!1svi!2s!4v1774600950495!5m2!1svi!2s'"
+                    :src="$page.props.settings?.contact_map || 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2611.291724627434!2d105.93314109429076!3d20.603915192384463!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135cf62d752dc67%3A0xd79f03899b4e83d8!2zVHLGsOG7nW5nIENhbyDEkeG6s25nIEZQVCBQb2x5dGVjaG5pYyBjxqEgc-G7nyBIw6AgNam!5e1!3m2!1svi!2s!4v1774600950495!5m2!1svi!2s'"
                     width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"
                     referrerpolicy="no-referrer-when-downgrade"></iframe>
             </div>
@@ -79,28 +103,49 @@ const submit = () => {
                     </div>
                     <div class="form_contac">
                         <form @submit.prevent="submit">
+                            <!-- Honeypot input to trap spam bots -->
+                            <div style="display: none !important;">
+                                <input type="text" v-model="form.website_hp" tabindex="-1" autocomplete="off">
+                            </div>
+
                             <div class="user_contac">
                                 <div class="w-full">
                                     <input type="text" v-model="form.name" placeholder="Họ Tên">
-                                    <div v-if="form.errors.name" class="text-rose-500 text-[10px] mt-1">{{ form.errors.name }}</div>
+                                    <div v-if="form.errors.name" class="text-rose-500 text-[10px] mt-1 font-semibold">{{ form.errors.name }}</div>
                                 </div>
                                 <div class="w-full">
                                     <input type="email" v-model="form.email" placeholder="Email">
-                                    <div v-if="form.errors.email" class="text-rose-500 text-[10px] mt-1">{{ form.errors.email }}</div>
+                                    <div v-if="form.errors.email" class="text-rose-500 text-[10px] mt-1 font-semibold">{{ form.errors.email }}</div>
                                 </div>
                             </div>
-                            <div class="w-full">
+                            <div class="user_contac" style="margin-top: 15px;">
+                                <div class="w-full">
+                                    <input type="text" v-model="form.phone" placeholder="Số Điện Thoại">
+                                    <div v-if="form.errors.phone" class="text-rose-500 text-[10px] mt-1 font-semibold">{{ form.errors.phone }}</div>
+                                </div>
+                                <div class="w-full">
+                                    <select v-model="form.category" style="width: 100%; height: 50px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0 15px; background: #fff; font-size: 14px; color: #334155; outline: none; transition: border-color 0.2s;">
+                                        <option value="general">Góp ý / Yêu cầu chung</option>
+                                        <option value="consultation">Tư vấn & Đặt phòng trọ</option>
+                                        <option value="technical">Báo lỗi & Hỗ trợ kỹ thuật</option>
+                                        <option value="partnership">Hợp tác / Cho thuê nhà trọ</option>
+                                    </select>
+                                    <div v-if="form.errors.category" class="text-rose-500 text-[10px] mt-1 font-semibold">{{ form.errors.category }}</div>
+                                </div>
+                            </div>
+                            <div class="w-full" style="margin-top: 15px;">
                                 <input type="text" v-model="form.subject" placeholder="Chủ Đề">
-                                <div v-if="form.errors.subject" class="text-rose-500 text-[10px] mt-1">{{ form.errors.subject }}</div>
+                                <div v-if="form.errors.subject" class="text-rose-500 text-[10px] mt-1 font-semibold">{{ form.errors.subject }}</div>
                             </div>
-                            <div class="w-full">
+                            <div class="w-full" style="margin-top: 15px;">
                                 <textarea cols="40" rows="10" maxlength="2000" v-model="form.message" placeholder="Nội Dung"></textarea>
-                                <div v-if="form.errors.message" class="text-rose-500 text-[10px] mt-1">{{ form.errors.message }}</div>
+                                <div v-if="form.errors.message" class="text-rose-500 text-[10px] mt-1 font-semibold">{{ form.errors.message }}</div>
                             </div>
-                            <div class="btn_submit">
-                                <button type="submit" :disabled="form.processing" class="w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 button-gradient" style="border: none; cursor: pointer;">
-                                    <span v-if="form.processing" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                    Gửi Liên Hệ
+                            <div class="btn_submit" style="margin-top: 10px;">
+                                <button type="submit" :disabled="form.processing || cooldownSeconds > 0" class="w-full text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 button-gradient" :class="{'opacity-60 cursor-not-allowed': cooldownSeconds > 0}" style="height: 52px; border: none; font-size: 15px; letter-spacing: 0.5px;">
+                                    <span v-if="form.processing" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                    <span v-if="cooldownSeconds > 0">Gửi lại sau ({{ cooldownSeconds }}s)</span>
+                                    <span v-else>Gửi Liên Hệ</span>
                                 </button>
                             </div>
                         </form>
@@ -121,6 +166,12 @@ const submit = () => {
                             <i class="bi bi-envelope-check-fill" style="font-size: 28px;"></i>
                         </div>
                         <h3 style="font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 10px; font-family: 'Segoe UI', sans-serif;">Gửi liên hệ thành công!</h3>
+                        
+                        <div v-if="ticketCode" style="margin-bottom: 15px; background: #f0f9ff; border: 1px dashed #0284c7; border-radius: 10px; padding: 8px 12px; display: inline-block;">
+                            <span style="font-size: 13px; color: #0369a1; font-weight: 600;">Mã tra cứu của bạn: </span>
+                            <span style="font-size: 14px; color: #0284c7; font-weight: 700; font-family: monospace;">{{ ticketCode }}</span>
+                        </div>
+
                         <p style="font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 25px; font-family: 'Segoe UI', sans-serif;">
                             Cảm ơn bạn đã liên hệ với Ninh Bình HomeStay. Yêu cầu của bạn đã được gửi thành công đến chúng tôi. Chúng tôi sẽ phản hồi bạn sớm nhất có thể.
                         </p>
