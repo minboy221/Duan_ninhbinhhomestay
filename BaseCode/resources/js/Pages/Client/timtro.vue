@@ -267,78 +267,17 @@ const getRoomImageUrl = (images) => {
             </div>
         </div>
 
-        <!-- AI SEARCH SECTION (KHUNG KÍNH BO TRÒN Ở GIỮA) -->
-        <div class="ai-hero-wrapper">
-            <div class="outer-glass-frame">
-                <div class="inner-search-card">
-                    <!-- Heading -->
-                    <div class="text-center mb-6">
-                        <h2 class="text-xl sm:text-2xl font-bold text-slate-800 tracking-normal flex items-center justify-center gap-2.5">
-                            <i class="bi bi-stars text-blue-600 text-2xl"></i>
-                            Tìm phòng trọ thông minh bằng AI
-                        </h2>
-                    </div>
-
-                    <!-- Input Bar -->
-                    <div class="ai-search-bar">
-                        <div class="ai-search-input-wrapper">
-                            <i class="bi bi-search ai-search-icon"></i>
-                            <input
-                                v-model="aiPrompt"
-                                @keyup.enter="handleAiSearch()"
-                                type="text"
-                                placeholder="Nhập yêu cầu: Tìm phòng tầng 1 quanh Hoa Lư, dưới 2.5 triệu, có gác xép, thú cưng..."
-                                class="ai-search-input"
-                            />
-                            <button
-                                v-if="aiPrompt"
-                                @click="aiPrompt = ''"
-                                type="button"
-                                class="ai-search-clear-btn"
-                                title="Xóa nội dung"
-                            >
-                                <i class="bi bi-x-circle-fill"></i>
-                            </button>
-                        </div>
-                        <button
-                            @click="handleAiSearch()"
-                            :disabled="isAiSearching"
-                            class="ai-search-submit-btn"
-                        >
-                            <i v-if="isAiSearching" class="bi bi-arrow-repeat animate-spin text-base"></i>
-                            <i v-else class="bi bi-stars text-base text-cyan-200"></i>
-                            <span>{{ isAiSearching ? 'Đang phân tích...' : 'AI Tìm Kiếm' }}</span>
-                        </button>
-                    </div>
-
-                    <!-- Prompt Suggestion Chips -->
-                    <div class="ai-suggestions-wrapper">
-                        <span class="text-slate-400 font-medium flex items-center gap-1 mr-1 text-xs">
-                            <i class="bi bi-lightbulb text-amber-500"></i> Gợi ý:
-                        </span>
-                        <button
-                            v-for="(chip, idx) in promptSuggestions"
-                            :key="idx"
-                            @click="handleAiSearch(chip.text)"
-                            type="button"
-                            class="ai-suggestion-chip"
-                        >
-                            {{ chip.label }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- AI INSIGHT SUMMARY BANNER (NẾU CÓ TIÊU CHÍ LỌC) -->
-            <div v-if="ai_parsed && ai_parsed.success" class="ai-insight-card">
+        <!-- AI INSIGHT SUMMARY BANNER (HIỂN THỊ KHI TRUY CẬP TỪ CHATBOX AI) -->
+        <div v-if="ai_parsed && ai_parsed.success" class="ai-active-filter-container">
+            <div class="ai-insight-card">
                 <div class="ai-insight-header">
                     <div class="ai-insight-info">
                         <div class="ai-insight-avatar">
-                            <i class="bi bi-robot"></i>
+                            <img src="/anh/popup_character.png" alt="AI Avatar" class="w-full h-full object-cover rounded-full" />
                         </div>
                         <div class="ai-insight-text-col">
                             <div class="ai-insight-title-row">
-                                <h4 class="ai-insight-title">Kết quả phân tích từ AI:</h4>
+                                <h4 class="ai-insight-title">Đang lọc theo gợi ý Trợ lý AI:</h4>
                                 <span v-if="ai_parsed.engine === 'gemini'" class="ai-insight-engine-badge ai-insight-engine-gemini">Gemini Flash AI</span>
                                 <span v-else class="ai-insight-engine-badge ai-insight-engine-smart">Smart Matcher</span>
                             </div>

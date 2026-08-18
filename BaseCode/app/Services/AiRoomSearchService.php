@@ -60,23 +60,24 @@ class AiRoomSearchService
             $amenitiesJson = json_encode($amenities, JSON_UNESCAPED_UNICODE);
 
             $systemInstruction = <<<INSTRUCTION
-Bạn là trợ lý AI thông minh chuyên phân tích yêu cầu tìm kiếm phòng trọ tại Ninh Bình.
-Nhiệm vụ của bạn: Đọc câu tìm kiếm tự nhiên của khách thuê và bóc tách thành các tham số lọc chuẩn JSON.
+Bạn là trợ lý AI chuyên gia phân tích yêu cầu tìm kiếm phòng trọ tại Ninh Bình và các khu vực lân cận.
+Nhiệm vụ của bạn: Đọc thật kỹ từng chữ trong câu tìm kiếm tự nhiên của khách thuê, bóc tách chính xác các tham số lọc chuẩn JSON.
 
 DỮ LIỆU THỰC TẾ TRONG HỆ THỐNG:
-- Danh sách Khu vực (Areas): {$areasJson}
+- Danh sách Khu vực hành chính (Areas): {$areasJson}
 - Danh sách Loại phòng (Categories): {$categoriesJson}
 - Danh sách Tiện ích (Amenities): {$amenitiesJson}
 
-QUY TẮC BÓC TÁCH:
-1. "price_min", "price_max": Số tiền VND (ví dụ "2.5 triệu" -> 2500000, "dưới 2tr" -> price_max: 2000000, "từ 1 đến 2 triệu" -> price_min: 1000000, price_max: 2000000). Nếu không nói thì để null.
-2. "area_min", "area_max": Diện tích m2 (ví dụ "trên 30m2" -> area_min: 30). Nếu không nói thì để null.
-3. "floor_number": Số tầng nguyên (ví dụ "tầng 1" -> 1, "tầng trệt" -> 1, "tầng 2" -> 2). Nếu không nói thì để null.
-4. "area_id" & "area_name": Chọn đúng ID và Name trong danh sách Khu vực nếu người dùng nhắc tới hoặc gần giống.
-5. "category_id" & "category_name": Chọn đúng ID và Name trong danh sách Loại phòng nếu phù hợp.
-6. "amenity_ids" & "amenity_names": Mảng các ID và Tên tiện ích tìm thấy trong danh sách Tiện ích (ví dụ gác xép, thú cưng, wifi, điều hòa...).
-7. "keyword": Từ khóa bổ sung nếu có (ví dụ tên đường, địa danh cụ thể).
-8. "explanation": Một câu tóm tắt ngắn gọn, lịch sự bằng tiếng Việt giải thích những gì AI đã lọc (VD: "Đã tìm phòng tầng 1 tại Hoa Lư, giá dưới 2.5 triệu có gác xép và cho nuôi thú cưng.").
+QUY TẮC BÓC TÁCH CHÍNH XÁC:
+1. "area_id" & "area_name": Đọc kỹ từng từ trong câu của người dùng, tìm xem có nhắc đến Tỉnh, Huyện, Phường, Xã, Khu công nghiệp hoặc Thị trấn nào trong danh sách Areas không (kể cả người dùng gõ tắt, viết hoa/thường, không dấu). Khớp đúng ID và Name tương ứng.
+2. "keyword": Bóc tách tên đường phố, địa danh du lịch, trường học, bệnh viện hoặc khu vực cụ thể khác nếu người dùng có nhắc tới (ví dụ: "đường Lê Hồng Phong", "Lê Thái Tổ", "đại học Hoa Lư", "Tam Chúc", "chợ Rồng"...). TUYỆT ĐỐI KHÔNG để các từ chung chung như "phòng", "phường", "xã", "giá rẻ", "tìm", "thuê" làm keyword.
+3. "price_min", "price_max": Số tiền VND chính xác (ví dụ "2.5 triệu" -> 2500000, "dưới 2tr" -> price_max: 2000000, "từ 1 đến 2 triệu" -> price_min: 1000000, price_max: 2000000). Nếu không nói thì để null.
+4. "is_budget_friendly": true nếu người dùng tìm phòng "giá rẻ", "sinh viên", "giá sinh viên", "tiết kiệm", "bình dân", "giá thấp", "rẻ nhất"... ngược lại để false.
+5. "area_min", "area_max": Diện tích m2 (ví dụ "trên 30m2" -> area_min: 30). Nếu không nói thì để null.
+6. "floor_number": Số tầng nguyên (ví dụ "tầng 1" -> 1, "tầng trệt" -> 1, "tầng 2" -> 2). Nếu không nói thì để null.
+7. "category_id" & "category_name": Chọn đúng ID và Name trong danh sách Loại phòng nếu có.
+8. "amenity_ids" & "amenity_names": Mảng các ID và Tên tiện ích tìm thấy trong danh sách Tiện ích (ví dụ gác xép, thú cưng, wifi, điều hòa, nóng lạnh, máy giặt...).
+9. "explanation": Một câu tóm tắt ngắn gọn, thân thiện bằng tiếng Việt giải thích những gì AI đã lọc (VD: "Đã tìm phòng tầng 1 tại Xã Bình Mỹ, ưu tiên giá rẻ nhất có gác xép.").
 
 Trả về DUY NHẤT 1 JSON object theo định dạng:
 {
@@ -85,6 +86,7 @@ Trả về DUY NHẤT 1 JSON object theo định dạng:
   "area_name": null,
   "price_min": null,
   "price_max": null,
+  "is_budget_friendly": false,
   "area_min": null,
   "area_max": null,
   "floor_number": null,
@@ -258,6 +260,13 @@ INSTRUCTION;
             }
         }
 
+        // 1E. Nhận diện Nhu cầu Giá rẻ / Sinh viên / Bình dân / Tiết kiệm
+        if (preg_match('/(?:giá rẻ|gia re|giá sinh viên|gia sinh vien|sinh viên|sinh vien|tiết kiệm|tiet kiem|bình dân|binh dan|giá thấp|gia thap|giá rẻ nhất|gia re nhat|rẻ nhất|re nhat|rẻ|re|rẻ rẻ|ở ghép|o ghep|phòng ghép|phong ghep)/ui', $lowerPrompt, $m)) {
+            $result['is_budget_friendly'] = true;
+            $explanationParts[] = 'Ưu tiên giá rẻ nhất';
+            $extractedSegments[] = $m[0];
+        }
+
         // 2. Phân tích Số tầng (Floor)
         if (preg_match('/(?:tầng|tang|lầu|lau)\s*([0-9]+|trệt|tret|gác|gac)/ui', $lowerPrompt, $m)) {
             $floorVal = mb_strtolower($m[1], 'UTF-8');
@@ -309,6 +318,13 @@ INSTRUCTION;
                 $explanationParts[] = 'Khu vực ' . $areaName;
                 $extractedSegments[] = $cleanAreaName;
                 $extractedSegments[] = $areaName;
+                $extractedSegments[] = 'Phường ' . $cleanAreaName;
+                $extractedSegments[] = 'Xã ' . $cleanAreaName;
+                $extractedSegments[] = 'Thị trấn ' . $cleanAreaName;
+                $extractedSegments[] = 'Huyện ' . $cleanAreaName;
+                $extractedSegments[] = 'Thành phố ' . $cleanAreaName;
+                $extractedSegments[] = 'phuong ' . $cleanAreaName;
+                $extractedSegments[] = 'xa ' . $cleanAreaName;
                 break;
             }
         }
@@ -358,6 +374,14 @@ INSTRUCTION;
             if (stripos($normalizedPrompt, $amNorm) !== false || stripos($lowerPrompt, mb_strtolower($amName, 'UTF-8')) !== false) {
                 $isMatched = true;
                 $extractedSegments[] = $amName;
+                // Add aliases if present
+                foreach ($amenityAliases as $key => $aliases) {
+                    if (stripos($amNorm, $this->removeVietnameseTones($key)) !== false) {
+                        foreach ($aliases as $alias) {
+                            $extractedSegments[] = $alias;
+                        }
+                    }
+                }
             } else {
                 foreach ($amenityAliases as $key => $aliases) {
                     if (stripos($amNorm, $this->removeVietnameseTones($key)) !== false) {
@@ -366,13 +390,17 @@ INSTRUCTION;
                             if (mb_strlen($normAlias, 'UTF-8') <= 3) {
                                 if (preg_match('/(?:\b|\s|^)' . preg_quote($normAlias, '/') . '(?:\b|\s|$)/iu', $normalizedPrompt)) {
                                     $isMatched = true;
-                                    $extractedSegments[] = $alias;
+                                    foreach ($aliases as $al) {
+                                        $extractedSegments[] = $al;
+                                    }
                                     break 2;
                                 }
                             } else {
                                 if (stripos($normalizedPrompt, $normAlias) !== false) {
                                     $isMatched = true;
-                                    $extractedSegments[] = $alias;
+                                    foreach ($aliases as $al) {
+                                        $extractedSegments[] = $al;
+                                    }
                                     break 2;
                                 }
                             }
@@ -415,14 +443,19 @@ INSTRUCTION;
 
         // Danh sách từ dừng phổ biến trong câu tìm kiếm phòng trọ
         $stopWords = [
-            'phòng trọ', 'phong tro', 'phòng', 'phong', 'nhà trọ', 'nha tro', 'nhà', 'nha',
+            'phường', 'phuong', 'xã', 'xa', 'thị trấn', 'thi tran', 'thành phố', 'thanh pho',
+            'tỉnh', 'tinh', 'huyện', 'huyen', 'quận', 'quan', 'đường', 'duong', 'phố', 'pho',
+            'khu vực', 'khu vuc', 'tại', 'tai', 'ở', 'o', 'quanh', 'gần', 'gan',
+            'phòng trọ', 'phong tro', 'phòng', 'phong', 'nhà trọ', 'nha tro', 'nhà', 'nha', 'trọ', 'tro',
             'tìm kiếm', 'tim kiem', 'tìm phòng', 'tim phong', 'tìm', 'tim', 'cần tìm', 'can tim', 'cần', 'can',
             'cho thuê', 'cho thue', 'thuê phòng', 'thue phong', 'thuê trọ', 'thue tro', 'thuê', 'thue',
-            'ở ghép', 'o ghep', 'ở', 'o', 'tại', 'tai', 'quanh khu', 'quanh', 'khu vực', 'khu vuc', 'gần', 'gan',
-            'giá rẻ', 'gia re', 'giá', 'gia', 'rẻ', 're', 'đẹp', 'dep', 'xinh',
+            'ở ghép', 'o ghep', 'phòng ghép', 'phong ghep',
+            'giá rẻ', 'gia re', 'giá sinh viên', 'gia sinh vien', 'sinh viên', 'sinh vien',
+            'giá', 'gia', 'rẻ', 're', 'rẻ nhất', 're nhat', 'tiết kiệm', 'tiet kiem', 'bình dân', 'binh dan',
+            'giá thấp', 'gia thap', 'tốt nhất', 'tot nhat', 'đẹp', 'dep', 'xinh',
             'khoảng', 'khoang', 'tầm', 'tam', 'mức', 'muc', 'dưới', 'duoi', 'trên', 'tren', 'từ', 'tu', 'đến', 'den',
             'có', 'co', 'và', 'va', 'với', 'voi', 'được', 'duoc', 'cho', 'nào', 'nao', 'là', 'la',
-            'tháng', 'thang', 'người', 'nguoi', 'sinh viên', 'sinh vien', 'diện tích', 'dien tich',
+            'tháng', 'thang', 'người', 'nguoi', 'diện tích', 'dien tich',
             'tầng', 'tang', 'lầu', 'lau', 'm2', 'm²', 'triệu', 'trieu', 'tr', 'k', 'củ', 'cu', 'đồng', 'dong', 'đ', 'vnd'
         ];
 
@@ -435,6 +468,12 @@ INSTRUCTION;
         // Làm sạch dấu câu và khoảng trắng thừa
         $cleanPrompt = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $cleanPrompt));
         $cleanPrompt = trim(preg_replace('/\s+/', ' ', $cleanPrompt));
+
+        // Kiểm tra xem từ khóa có phải chỉ là từ hành chính / rác không
+        $adminOnlyWords = ['phuong', 'phường', 'xa', 'xã', 'thi tran', 'thị trấn', 'thanh pho', 'thành phố', 'tinh', 'tỉnh', 'huyen', 'huyện', 'quan', 'quận', 'duong', 'đường', 'pho', 'phố', 'gia re', 'giá rẻ', 'sinh vien', 'sinh viên', 're', 'rẻ', 'tai', 'tại', 'o', 'ở'];
+        if (in_array(mb_strtolower($cleanPrompt, 'UTF-8'), $adminOnlyWords) || in_array($this->removeVietnameseTones(mb_strtolower($cleanPrompt, 'UTF-8')), $adminOnlyWords)) {
+            $cleanPrompt = '';
+        }
 
         if (mb_strlen($cleanPrompt, 'UTF-8') >= 2) {
             $result['keyword'] = $cleanPrompt;
@@ -468,6 +507,7 @@ INSTRUCTION;
             'area_name' => !empty($data['area_name']) ? (string)$data['area_name'] : null,
             'price_min' => !empty($data['price_min']) ? (int)$data['price_min'] : null,
             'price_max' => !empty($data['price_max']) ? (int)$data['price_max'] : null,
+            'is_budget_friendly' => !empty($data['is_budget_friendly']),
             'area_min' => !empty($data['area_min']) ? (float)$data['area_min'] : null,
             'area_max' => !empty($data['area_max']) ? (float)$data['area_max'] : null,
             'floor_number' => !empty($data['floor_number']) ? (int)$data['floor_number'] : null,
@@ -493,6 +533,7 @@ INSTRUCTION;
             'area_name' => null,
             'price_min' => null,
             'price_max' => null,
+            'is_budget_friendly' => false,
             'area_min' => null,
             'area_max' => null,
             'floor_number' => null,

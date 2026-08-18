@@ -75,8 +75,8 @@ class RoomListingController extends Controller
         if($user->isRoomFrozen($roomOrderIndex)){
             return redirect()->back()->with('error','Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ.Vui lòng nâng cấp gói để đăng tin cho thuê!');
         }
-        $currentListings = \App\Models\Post::where('user_id', auth()->id())->count();
-        if(!auth()->user()->canCreateResource('max_listings',$currentListings)){
+        $currentListings = RoomPost::where('landlord_id', $user->id)->count();
+        if(!$user->canCreateResource('max_listings',$currentListings)){
             return redirect()->back()->with('error','Bạn đã đạt giới hạn số lượng bài đăng của gói hiện tại!');
         }
         //xác định trạng thái dựa trên btn ở frontend

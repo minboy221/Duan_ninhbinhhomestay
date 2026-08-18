@@ -74,6 +74,10 @@ Route::get('/about', function () {
 // Route cho Trang Tìm trọ
 Route::get('/timtro', [PublicListingController::class, 'index'])->name('timtro');
 Route::post('/api/ai/parse-room-search', [PublicListingController::class, 'parseAiSearch'])->name('api.ai.parse-room-search');
+Route::post('/api/ai/chat-assistant', [PublicListingController::class, 'chatAiAssistant'])->name('api.ai.chat-assistant');
+Route::get('/api/ai/chat-history', [PublicListingController::class, 'getChatHistory'])->name('api.ai.chat-history');
+Route::post('/api/ai/clear-chat-history', [PublicListingController::class, 'clearChatHistory'])->name('api.ai.clear-chat-history');
+Route::post('/api/ai/sync-guest-history', [PublicListingController::class, 'syncGuestHistory'])->name('api.ai.sync-guest-history');
 
 // Route cho Trang Tin tức
 Route::get('/tintuc', [PostController::class, 'index'])->name('tintuc');

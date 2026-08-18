@@ -49,6 +49,47 @@ class PublicListingController extends Controller
         return response()->json($result);
     }
 
+    // API Trợ lý AI Chatbot gợi ý phòng trọ toàn trang
+    public function chatAiAssistant(Request $request)
+    {
+        $prompt = (string) $request->input('prompt', '');
+        $userId = auth()->id();
+        $result = $this->listingService->searchRoomsForChatAssistant($prompt, $userId);
+        return response()->json($result);
+    }
+
+    // Lấy lịch sử chat trong 7 ngày của tài khoản
+    public function getChatHistory(Request $request)
+    {
+        $userId = auth()->id();
+        if (!$userId) {
+            return response()->json([]);
+        }
+        $histories = $this->listingService->getChatHistory($userId);
+        return response()->json($histories);
+    }
+
+    // Xóa sạch lịch sử chat của tài khoản
+    public function clearChatHistory(Request $request)
+    {
+        $userId = auth()->id();
+        if ($userId) {
+            $this->listingService->clearChatHistory($userId);
+        }
+        return response()->json(['success' => true]);
+    }
+
+    // Đồng bộ lịch sử từ localStorage của khách vãng lai khi vừa đăng nhập
+    public function syncGuestHistory(Request $request)
+    {
+        $userId = auth()->id();
+        $messages = (array) $request->input('messages', []);
+        if ($userId && !empty($messages)) {
+            $this->listingService->syncGuestChatHistory($userId, $messages);
+        }
+        return response()->json(['success' => true]);
+    }
+
     // Hiển thị chi tiết 1 tin đăng phòng trọ
     public function show($slug = null)
     {

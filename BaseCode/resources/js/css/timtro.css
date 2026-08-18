@@ -61,15 +61,14 @@
 }
 
 /* =============================================
-   KHUNG TÌM KIẾM AI BO TRÒN Ở GIỮA
+   KHUNG TIÊU CHÍ LỌC AI (KHI ĐƯỢC CHUYỂN TỪ CHATBOT)
    ============================================= */
-.ai-hero-wrapper {
-    max-width: 1200px;
-    margin: -95px auto 35px auto;
+.ai-active-filter-container {
+    max-width: 1300px;
+    margin: 24px auto 0 auto;
+    padding: 0 24px;
     position: relative;
     z-index: 30;
-    padding: 0 24px;
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
 .outer-glass-frame {
