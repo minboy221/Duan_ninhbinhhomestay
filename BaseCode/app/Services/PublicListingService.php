@@ -361,21 +361,45 @@ class PublicListingService
     }
 
     /**
-     * Chuẩn hóa đường dẫn ảnh phòng trọ
+     * Chuẩn hóa và kiểm tra đường dẫn ảnh phòng trọ, tự động fallback nếu ảnh không tồn tại
      */
     public function formatImageUrl($image): string
     {
-        if (empty($image)) return '/anh/banner_tro.png';
+        $defaultFallback = '/anh/phong1.jpg';
+        if (empty($image)) return $defaultFallback;
+        
         $firstImg = is_array($image) ? ($image[0] ?? '') : $image;
-        if (empty($firstImg) || !is_string($firstImg)) return '/anh/banner_tro.png';
+        if (empty($firstImg) || !is_string($firstImg)) return $defaultFallback;
+        
         $trimmed = trim($firstImg);
         if (str_starts_with($trimmed, 'http://') || str_starts_with($trimmed, 'https://') || str_starts_with($trimmed, 'data:')) {
             return $trimmed;
         }
-        if (str_starts_with($trimmed, '/storage/')) return $trimmed;
-        if (str_starts_with($trimmed, 'storage/')) return '/' . $trimmed;
-        if (str_starts_with($trimmed, '/')) return $trimmed;
-        return '/storage/' . $trimmed;
+
+        // Loại bỏ tiền tố private/ hoặc /storage/ để lấy tên file gốc
+        $clean = preg_replace('/^(\/?storage\/|\/?private\/)+/i', '', $trimmed);
+        
+        // 1. Kiểm tra trong storage/app/public/
+        if (file_exists(storage_path('app/public/' . $clean))) {
+            return '/storage/' . $clean;
+        }
+
+        // 2. Kiểm tra trong public/storage/
+        if (file_exists(public_path('storage/' . $clean))) {
+            return '/storage/' . $clean;
+        }
+
+        // 3. Kiểm tra trong public/
+        if (file_exists(public_path($clean))) {
+            return '/' . $clean;
+        }
+
+        // 4. Nếu là file tồn tại trực tiếp trong public/anh/
+        if (file_exists(public_path('anh/' . $clean))) {
+            return '/anh/' . $clean;
+        }
+
+        return $defaultFallback;
     }
 
     /**
@@ -937,5 +961,190 @@ class PublicListingService
         }
 
         return true;
+    }
+
+    /**
+     * Gợi ý 3 phòng trọ tương tự và sát nhất từ Trợ lý AI khi người dùng Không ưng sau khi xem phòng
+     */
+    public function getAiAlternativeRecommendationsForAppointment(\App\Models\Appointment $appointment, ?string $reason = null): array
+    {
+        $appointment->loadMissing(['room.boardingHouse.landlord', 'room.floor', 'room.services']);
+        $currentRoom = $appointment->room;
+        if (!$currentRoom) {
+            return [
+                'success' => false,
+                'message' => 'Không tìm thấy thông tin phòng đã xem.',
+                'rooms' => [],
+            ];
+        }
+
+        $currentPost = RoomPost::where('room_id', $currentRoom->id)->first();
+        $currentPrice = (float) ($currentRoom->price ?? 0);
+        $currentArea = (float) ($currentRoom->area ?? 0);
+        $currentHouse = $currentRoom->boardingHouse;
+        $currentDistrict = $currentHouse?->district ?? '';
+        $currentWard = $currentHouse?->address_detail ?? '';
+        $reasonLower = mb_strtolower(trim($reason ?: ($appointment->feedback_reason ?? '')));
+
+        // 1. Lọc tất cả các bài đăng đã duyệt, phòng còn chỗ, loại trừ phòng hiện tại
+        $candidatePosts = RoomPost::with(['room.boardingHouse.landlord', 'room.floor', 'room.services', 'landlord'])
+            ->where('status', 'approved')
+            ->where('room_id', '!=', $currentRoom->id)
+            ->whereHas('room', function ($rq) {
+                $rq->whereNotIn('status', ['maintenance', 'suspended', 'under_construction']);
+            })
+            ->get()
+            ->filter(function ($post) {
+                $room = $post->room;
+                if (!$room) return false;
+                $cap = max(1, (int) ($room->capacity ?? 1));
+                $cur = (int) ($room->current_people ?? 0);
+                return $cur < $cap;
+            });
+
+        // 2. Chấm điểm độ tương đồng & tối ưu theo lý do không ưng (Similarity & Reason Scoring)
+        $isPriceConcern = (stripos($reasonLower, 'giá') !== false || stripos($reasonLower, 'đắt') !== false || stripos($reasonLower, 'cao') !== false || stripos($reasonLower, 'tiền') !== false);
+        $isAreaConcern = (stripos($reasonLower, 'diện tích') !== false || stripos($reasonLower, 'nhỏ') !== false || stripos($reasonLower, 'chật') !== false || stripos($reasonLower, 'hẹp') !== false);
+        $isLocationConcern = (stripos($reasonLower, 'xa') !== false || stripos($reasonLower, 'vị trí') !== false || stripos($reasonLower, 'đường') !== false || stripos($reasonLower, 'khu vực') !== false);
+        $isAmenityConcern = (stripos($reasonLower, 'tiện nghi') !== false || stripos($reasonLower, 'ảnh') !== false || stripos($reasonLower, 'cũ') !== false || stripos($reasonLower, 'thiếu') !== false);
+
+        $scoredCandidates = $candidatePosts->map(function ($post) use (
+            $currentPrice,
+            $currentArea,
+            $currentDistrict,
+            $currentWard,
+            $isPriceConcern,
+            $isAreaConcern,
+            $isLocationConcern,
+            $isAmenityConcern
+        ) {
+            $room = $post->room;
+            $house = $room?->boardingHouse;
+            $score = 0.0;
+
+            $candPrice = (float) ($room?->price ?? 0);
+            $candArea = (float) ($room?->area ?? 0);
+            $candDistrict = $house?->district ?? '';
+            $candWard = $house?->address_detail ?? '';
+
+            // A. Điểm vị trí khu vực
+            if (!empty($currentDistrict) && stripos($candDistrict, $currentDistrict) !== false) {
+                $score += 35;
+                if (!empty($currentWard) && stripos($candWard, $currentWard) !== false) {
+                    $score += 15;
+                }
+            }
+
+            // C. Điểm mức giá (Price)
+            if ($currentPrice > 0 && $candPrice > 0) {
+                if ($isPriceConcern) {
+                    // Nếu chê đắt: Ưu tiên phòng có giá thấp hơn
+                    if ($candPrice < $currentPrice) {
+                        $diffRatio = ($currentPrice - $candPrice) / $currentPrice;
+                        $score += 50 + (1 - min(1, abs($diffRatio - 0.2))) * 20;
+                    } else {
+                        $score -= 30; // Trừ điểm phòng đắt hơn
+                    }
+                } else {
+                    // Độ sát giá (|candPrice - currentPrice|)
+                    $priceDiffRatio = abs($candPrice - $currentPrice) / $currentPrice;
+                    $score += max(0, (1 - $priceDiffRatio)) * 35;
+                }
+            }
+
+            // D. Điểm diện tích (Area)
+            if ($currentArea > 0 && $candArea > 0) {
+                if ($isAreaConcern) {
+                    // Nếu chê nhỏ: Ưu tiên phòng rộng hơn
+                    if ($candArea > $currentArea) {
+                        $score += 45;
+                    }
+                } else {
+                    $areaDiffRatio = abs($candArea - $currentArea) / $currentArea;
+                    $score += max(0, (1 - $areaDiffRatio)) * 20;
+                }
+            }
+
+            // E. Điểm tiện nghi (Amenities)
+            $serviceCount = $room?->services ? $room->services->count() : 0;
+            if ($isAmenityConcern) {
+                $score += $serviceCount * 8;
+            } else {
+                $score += $serviceCount * 3;
+            }
+
+            // F. Ưu tiên phòng còn trống hoàn toàn
+            if ((int) ($room?->current_people ?? 0) === 0) {
+                $score += 10;
+            }
+
+            return [
+                'post' => $post,
+                'score' => $score,
+            ];
+        });
+
+        // Sắp xếp theo điểm cao nhất và lấy top 3
+        $top3 = $scoredCandidates->sortByDesc('score')->take(3)->pluck('post');
+
+        // 3. Format dữ liệu phòng trả về
+        $formattedRooms = $top3->map(function ($post) {
+            $room = $post->room;
+            $house = $room?->boardingHouse;
+            $currentPeople = (int) ($room?->current_people ?? 0);
+            $capacity = max(1, (int) ($room?->capacity ?? 1));
+            $hasResidents = ($currentPeople > 0);
+
+            $status = $room?->status ?? 'available';
+            $statusLabel = $hasResidents ? "Đã có {$currentPeople} người ở" : 'Còn phòng';
+
+            $services = $room?->services ? $room->services->pluck('name')->take(3)->toArray() : [];
+
+            return [
+                'id' => $post->id,
+                'room_id' => $room?->id,
+                'title' => $post->title,
+                'room_number' => $room?->room_number ?? 'Phòng',
+                'slug' => $post->slug_with_hash,
+                'url' => route('chitiettro', $post->slug_with_hash, false),
+                'price' => (float) ($room?->price ?? 0),
+                'price_formatted' => number_format($room?->price ?? 0, 0, ',', '.') . ' đ/tháng',
+                'area' => $room?->area ?? null,
+                'capacity' => $capacity,
+                'current_people' => $currentPeople,
+                'has_residents' => $hasResidents,
+                'status' => $status,
+                'status_label' => $statusLabel,
+                'floor' => $room?->floor?->name ?? null,
+                'address' => $house?->address_detail ?: ($house?->district ?: 'Ninh Bình'),
+                'district' => $house?->district ?? '',
+                'image' => $this->formatImageUrl($post->image),
+                'landlord_name' => $post->landlord?->name ?? 'Chủ trọ',
+                'services' => $services,
+                'badge' => 'Gợi ý phù hợp nhất',
+            ];
+        })->values()->toArray();
+
+        // 4. Tạo câu thông điệp AI giải thích thông minh
+        $roomName = $currentRoom->room_number ? "Phòng " . $currentRoom->room_number : ($currentPost->title ?? "phòng vừa xem");
+        $houseName = $currentHouse?->name ? " tại " . $currentHouse->name : "";
+        $priceText = $currentPrice > 0 ? number_format($currentPrice, 0, ',', '.') . " đ" : "";
+        
+        $reasonText = !empty($reason) ? trim($reason) : ($appointment->feedback_reason ?: "chưa ưng ý");
+        
+        $aiMessage = "Dựa trên lý do bạn chưa ưng ý (\"{$reasonText}\") với {$roomName}{$houseName}, Trợ lý AI đã chọn lọc 3 phòng trọ có vị trí, mức giá và tiện ích tương tự sát nhất để bạn tham khảo ngay:";
+
+        return [
+            'success' => true,
+            'viewed_room' => [
+                'room_number' => $currentRoom->room_number ?? 'Phòng đã xem',
+                'house_name' => $currentHouse?->name ?? 'Nhà trọ',
+                'address' => $currentHouse?->address_detail ?: ($currentHouse?->district ?: 'Ninh Bình'),
+                'price_formatted' => $priceText ? $priceText . '/tháng' : null,
+                'reason' => $reasonText,
+            ],
+            'ai_message' => $aiMessage,
+            'rooms' => $formattedRooms,
+        ];
     }
 }

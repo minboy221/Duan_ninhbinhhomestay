@@ -340,14 +340,45 @@ class ProfileController extends Controller
             $user->update(['cccd_number' => $request->cccd]);
         }
 
-        if ($request->result === 'interested') {
-            $landlord = $appointment->room->boardingHouse->user ?? null;
-            if ($landlord) {
-                $landlord->notify(new \App\Notifications\TenantInterestedNotification($appointment));
-            }
+        $aiData = null;
+        if ($request->result === 'not_interested') {
+            $publicListingService = app(\App\Services\PublicListingService::class);
+            $aiData = $publicListingService->getAiAlternativeRecommendationsForAppointment($appointment, $request->reason);
         }
 
-        return Redirect::back()->with('success', 'Đã ghi nhận lựa chọn của bạn!');
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã ghi nhận lựa chọn của bạn!',
+                'status' => $status,
+                'ai_recommendations' => $aiData
+            ]);
+        }
+
+        return Redirect::back()->with([
+            'success' => 'Đã ghi nhận lựa chọn của bạn!',
+            'ai_recommendations' => $aiData
+        ]);
+    }
+
+    /**
+     * Lấy 3 phòng trọ tương tự từ Trợ lý AI cho lịch hẹn đã xem
+     */
+    public function getAiRecommendations(\App\Models\Appointment $appointment): \Illuminate\Http\JsonResponse
+    {
+        $user = auth()->user();
+        if ($appointment->user_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền truy cập thông tin này.',
+                'rooms' => []
+            ], 403);
+        }
+
+        $publicListingService = app(\App\Services\PublicListingService::class);
+        $result = $publicListingService->getAiAlternativeRecommendationsForAppointment($appointment, $appointment->feedback_reason);
+
+        return response()->json($result);
     }
 
     /**

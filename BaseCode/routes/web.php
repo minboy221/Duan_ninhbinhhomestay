@@ -140,6 +140,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/rooms/{room}/direct-review', [PublicListingController::class, 'submitDirectReview'])->name('rooms.direct-review');
     Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
     Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
+    Route::get('/appointments/{appointment}/ai-alternatives', [ProfileController::class, 'getAiRecommendations'])->name('appointments.ai-alternatives');
     Route::post('/appointments/{appointment}/cancel-interest', [ProfileController::class, 'cancelInterest'])->name('appointments.cancel_interest');
 
     // Route Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
