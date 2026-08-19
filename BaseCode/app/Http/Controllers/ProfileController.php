@@ -111,7 +111,7 @@ class ProfileController extends Controller
                 $q->orWhereIn('room_id', $residentRoomIds);
             }
         })
-            ->with(['details.service', 'contract.room.boardingHouse.user'])
+            ->with(['details.service', 'contract.tenant', 'contract.room.boardingHouse.user', 'contract.room.residents.user'])
             ->orderBy('created_at', 'desc')
             ->get();
 
