@@ -79,17 +79,14 @@ function open(l) {
                         <td class="idx">{{ i + 1 }}</td>
                         <td>
                             <div class="user-cell">
-                                <div class="ava" :style="`background:hsl(${l.id * 80}deg,60%,55%)`">
-                                    <img v-if="l.avatar" :src="l.avatar.startsWith('http')
-                                        ? l.avatar
-                                        : '/storage/' + l.avatar
-                                        " class="w-full h-full object-cover rounded-lg" style="
-                                            width: 100%;
-                                            height: 100%;
-                                            border-radius: 6px;
-                                        " />
+                                <div class="ava" :style="l.avatar ? 'overflow: hidden; background: #f1f5f9; padding: 0;' : `background:hsl(${l.id * 80}deg,60%,55%)`">
+                                    <img v-if="l.avatar"
+                                        :src="l.avatar.startsWith('/') || l.avatar.startsWith('http') ? l.avatar : `/storage/${l.avatar}`" 
+                                        :alt="l.name"
+                                        style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;"
+                                    />
                                     <span v-else>{{
-                                        l.name[0]?.toUpperCase()
+                                        l.name ? l.name[0].toUpperCase() : 'U'
                                     }}</span>
                                 </div>
                                 <div>

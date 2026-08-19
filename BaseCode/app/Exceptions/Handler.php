@@ -45,4 +45,19 @@ class Handler extends ExceptionHandler
             //
         });
     }
+
+    public function render($request, Throwable $e)
+    {
+        $response = parent::render($request, $e);
+
+        if ($request->header('X-Inertia')) {
+            if ($response->status() === 404) {
+                return \Inertia\Inertia::render('Errors/404')
+                    ->toResponse($request)
+                    ->setStatusCode($response->status());
+            }
+        }
+
+        return $response;
+    }
 }

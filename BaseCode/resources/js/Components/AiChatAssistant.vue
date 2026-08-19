@@ -415,9 +415,21 @@ onMounted(() => {
                                             class="card-thumb-img"
                                             @error="$event.target.src = '/anh/banner_tro.png'"
                                         />
-                                        <span class="card-status-badge" :class="getStatusBadgeClass(room.status)">
-                                            {{ room.status_label }}
+                                        <!-- Badge trạng thái: Đã có X người ở HOẶC Còn phòng -->
+                                        <span 
+                                            v-if="room.current_people > 0" 
+                                            class="card-status-badge card-status-residents"
+                                        >
+                                            <i class="bi bi-person-check-fill mr-0.5"></i> Đã có {{ room.current_people }} người ở
                                         </span>
+                                        <span 
+                                            v-else 
+                                            class="card-status-badge" 
+                                            :class="getStatusBadgeClass(room.status)"
+                                        >
+                                            {{ room.status_label || 'Còn phòng' }}
+                                        </span>
+
                                         <span v-if="rIdx === 0" class="card-match-badge">
                                             <i class="bi bi-patch-check-fill"></i> {{ room.badge_label || (msg.total_matches > 0 ? 'Phù hợp nhất' : 'Giá sát nhất') }}
                                         </span>
@@ -426,7 +438,12 @@ onMounted(() => {
                                         <h4 class="card-room-title" :title="room.title">{{ room.title }}</h4>
                                         <div class="card-price-row">
                                             <span class="card-price">{{ room.price_formatted }}</span>
-                                            <span v-if="room.area" class="card-area">{{ room.area }} m²</span>
+                                            <div class="flex items-center gap-1">
+                                                <span v-if="room.floor" class="card-floor-tag">
+                                                    <i class="bi bi-layers-fill"></i> {{ room.floor }}
+                                                </span>
+                                                <span v-if="room.area" class="card-area">{{ room.area }} m²</span>
+                                            </div>
                                         </div>
                                         <p class="card-address" :title="room.address">
                                             <i class="bi bi-geo-alt-fill text-blue-500"></i>
@@ -990,6 +1007,24 @@ onMounted(() => {
     border-radius: 12px;
     border: 1px solid;
     backdrop-filter: blur(4px);
+}
+
+.card-status-residents {
+    background: #dbeafe !important;
+    color: #1d4ed8 !important;
+    border-color: #93c5fd !important;
+}
+
+.card-floor-tag {
+    font-size: 11px;
+    font-weight: 600;
+    background: #ede9fe;
+    color: #6d28d9;
+    padding: 2px 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
 }
 
 .card-match-badge {

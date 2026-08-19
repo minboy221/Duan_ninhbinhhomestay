@@ -56,4 +56,14 @@ class RoomPostRepository implements RoomPostRepositoryInterface
         $post->timestamps = false;
         $post->increment('view_count');
     }
+
+    public function getFeaturedPosts(int $limit = 6)
+    {
+        return RoomPost::with(['room.boardingHouse.user', 'landlord'])
+            ->where('status', 'approved')
+            ->orderBy('view_count', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->take($limit)
+            ->get();
+    }
 }

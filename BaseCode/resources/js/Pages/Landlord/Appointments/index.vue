@@ -2,6 +2,7 @@
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { ref, computed, watch } from "vue";
 import { router, useForm } from "@inertiajs/vue3";
+import { showSuccess, showError, showPrompt } from "@/Utils/swal";
 const props = defineProps({
     dbAppointments: { type: Array, default: () => [] },
 });
@@ -108,12 +109,29 @@ const approveApt = (apt) => {
     );
 };
 
-const confirmCancelApt = (apt) => {
-    if (confirm("Xác nhận duyệt Yêu cầu Hủy lịch hẹn này và giải phóng phòng trọ về Trống?")) {
+const confirmCancelApt = async (apt) => {
+    const reason = await showPrompt(
+        "Xác nhận duyệt Yêu cầu Hủy",
+        "Duyệt yêu cầu hủy lịch hẹn và giải phóng phòng trọ về Trống. Nhập lý do hủy:",
+        "Ví dụ: Xác nhận đồng ý hủy lịch theo yêu cầu của khách..."
+    );
+
+    if (reason) {
         router.post(
             route("landlord.appointments.confirm_cancel", apt.id),
-            {},
-            { preserveScroll: true }
+            { cancellation_reason: reason },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    showSuccess(
+                        "Thành công",
+                        "Đã xác nhận hủy lịch hẹn và gửi lý do tới khách!",
+                    );
+                },
+                onError: (errs) => {
+                    showError("Lỗi", Object.values(errs).join("\n"));
+                },
+            },
         );
     }
 };
@@ -155,6 +173,13 @@ const submitRejection = () => {
             onSuccess: () => {
                 isRejectModalOpen.value = false;
                 rejectForm.reset();
+                showSuccess(
+                    "Thành công",
+                    "Đã từ chối lịch hẹn và gửi lý do cho khách thành công!",
+                );
+            },
+            onError: (errs) => {
+                showError("Lỗi", Object.values(errs).join("\n"));
             },
         },
     );

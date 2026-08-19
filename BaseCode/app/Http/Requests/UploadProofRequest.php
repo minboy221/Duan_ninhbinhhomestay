@@ -22,7 +22,7 @@ class UploadProofRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'proof_image' => ['required|image|mimes:jpeg,png,jpg,webp|max:5120'],
+            'proof_image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
         ];
     }
     public function messages(): array

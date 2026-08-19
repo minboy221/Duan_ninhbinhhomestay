@@ -291,6 +291,10 @@ const removeVietnameseTones = (str) => {
 const transferMemo = computed(() => {
     if (!activeInvoice.value) return "";
 
+    const cleanInvCode = (activeInvoice.value.invoice_code || "")
+        .replace("#", "")
+        .replace(/[^a-zA-Z0-9]/g, "");
+
     const rawRoom = activeInvoice.value.contract?.room?.room_number || "";
     const roomStr = rawRoom
         ? rawRoom.toUpperCase().startsWith("P")
@@ -307,7 +311,7 @@ const transferMemo = computed(() => {
         "-",
     );
 
-    let memo = `${roomStr} ${nameStr} TT thang ${monthStr}`;
+    let memo = `${cleanInvCode} ${roomStr} ${nameStr} TT thang ${monthStr}`;
     if (memo.length > 50) {
         memo = memo.substring(0, 50);
     }

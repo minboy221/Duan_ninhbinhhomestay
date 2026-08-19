@@ -28,6 +28,11 @@ class SubscriptionSeeder extends Seeder
                 'description' => 'Hiển thị huy hiệu VIP nổi bật trên các bài đăng tìm phòng',
             ],
             [
+                'name' => 'Số tin đăng tối đa',
+                'feature_code' => 'max_listings',
+                'description' => 'Số lượng bài đăng tin tìm khách công khai',
+            ],
+            [
                 'name' => 'Đẩy tin bài đăng',
                 'feature_code' => 'priority_listing',
                 'description' => 'Số lượt đẩy bài tin đăng lên đầu trang tìm kiếm mỗi tháng',

@@ -8,13 +8,22 @@ import axios from "axios";
 const props = defineProps({
     user: Object,
     contract: Object,
-    isPrimaryTenant:Boolean,
+    isPrimaryTenant: Boolean,
 });
 
 const showPdfModal = ref(false);
 const showEntryModal = ref(false);
 const showTerminateModal = ref(false);
 
+// Bộ lọc danh sách người ở ghép (Loại trừ Chủ hợp đồng chính)
+const filteredRoommates = computed(() => {
+    const list = props.contract?.room?.residents;
+    if (!Array.isArray(list)) return [];
+    const primaryTenantId = props.contract?.tenant_id;
+    return list.filter(
+        (res) => String(res.user_id) !== String(primaryTenantId)
+    );
+});
 
 const entryForm = useForm({
     entry_elec_index: props.contract?.entry_elec_index || "",
@@ -381,12 +390,12 @@ const handleViewPdf = () => {
                                     Điện:
                                     <strong style="color: #059669">{{
                                         contract.entry_elec_index
-                                    }}
+                                        }}
                                         kWh</strong>
                                     | Nước:
                                     <strong style="color: #2563eb">{{
                                         contract.entry_water_index
-                                    }}
+                                        }}
                                         m³</strong>
                                     <span style="
                                             font-size: 11px;
@@ -490,15 +499,15 @@ const handleViewPdf = () => {
                         </div>
                     </div>
                     <!-- KHỐI HIỂN THỊ DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG -->
-                    <div v-if="contract && contract.room && contract.room.residents && contract.room.residents.length > 0"
+                    <div v-if="filteredRoommates && filteredRoommates.length > 0"
                         style="margin: 20px 0; padding: 16px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px;">
                         <h3
                             style="font-size: 14px; font-weight: 800; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                             <i class="bi bi-people-fill" style="color: #10b981; font-size: 16px;"></i>
-                            DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG ({{ contract.room.residents.length }} người)
+                            DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG ({{ filteredRoommates?.length || 0 }} người)
                         </h3>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div v-for="res in contract.room.residents" :key="res.id"
+                            <div v-for="res in filteredRoommates" :key="res.id"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px;">
                                 <div>
                                     <strong style="font-size: 13px; color: #0f172a;">{{ res.user?.name || 'Thành viên'
@@ -521,32 +530,22 @@ const handleViewPdf = () => {
                         )
                     " class="roommate-actions-container">
                         <!-- Nút Tìm người ở ghép: Chỉ hiện khi là Chủ hợp đồng, phòng > 1 người và chưa đầy -->
-                        <button 
+                        <button
                             v-if="props.isPrimaryTenant && (contract.room?.capacity > 1) && ((contract.room?.current_people || 1) < contract.room?.capacity)"
-                            type="button" 
-                            @click="submitStrangerRequest" 
-                            class="btn-roommate-stranger"
-                        >
+                            type="button" @click="submitStrangerRequest" class="btn-roommate-stranger">
                             <i class="bi bi-people-fill"></i> Tìm người ở ghép
                         </button>
 
                         <!-- Nút Giới thiệu bạn bè: Chỉ hiện khi là Chủ hợp đồng, phòng > 1 người và chưa đầy -->
-                        <button 
+                        <button
                             v-if="props.isPrimaryTenant && (contract.room?.capacity > 1) && ((contract.room?.current_people || 1) < contract.room?.capacity)"
-                            type="button" 
-                            @click="showAcquaintanceModal = true" 
-                            class="btn-roommate-acquaintance"
-                        >
+                            type="button" @click="showAcquaintanceModal = true" class="btn-roommate-acquaintance">
                             <i class="bi bi-person-plus-fill"></i> Giới thiệu người vào ở
                         </button>
 
                         <!-- Nút Chấm dứt HĐ: Chỉ hiện dành cho Chủ hợp đồng -->
-                        <button 
-                            v-if="props.isPrimaryTenant"
-                            type="button" 
-                            @click="showTerminateModal = true" 
-                            class="btn-terminate"
-                        >
+                        <button v-if="props.isPrimaryTenant" type="button" @click="showTerminateModal = true"
+                            class="btn-terminate">
                             <i class="bi bi-x-circle-fill"></i>
                             {{ terminateButtonText }}
                         </button>
@@ -563,12 +562,9 @@ const handleViewPdf = () => {
                     <h2>HỢP ĐỒNG THUÊ TRỌ</h2>
                     <div style="display: flex; gap: 10px; align-items: center">
                         <!-- Nút Yêu cầu gia hạn HĐ: CHỈ HIỆN DÀNH CHO CHỦ HỢP ĐỒNG -->
-                        <button 
-                            v-if="props.isPrimaryTenant && !hasRequestedExtension" 
-                            @click="showExtendRequestModal = true" 
-                            class="btn-hopdong"
-                            style="background: #10b981; color: #fff; cursor: pointer;"
-                        >
+                        <button v-if="props.isPrimaryTenant && !hasRequestedExtension"
+                            @click="showExtendRequestModal = true" class="btn-hopdong"
+                            style="background: #10b981; color: #fff; cursor: pointer;">
                             <i class="bi bi-arrow-repeat"></i> Yêu cầu gia hạn HĐ
                         </button>
                         <span v-else-if="props.isPrimaryTenant && hasRequestedExtension" style="

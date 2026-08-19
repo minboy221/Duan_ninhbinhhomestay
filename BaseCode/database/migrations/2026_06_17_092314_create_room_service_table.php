@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('room_id')->constrained()->onDelete('cascade');
             $table->foreignId('service_id')->constrained()->onDelete('cascade');
+            $table->decimal('price', 10, 2)->nullable()->comment('Giá dịch vụ riêng cho phòng khi có hợp đồng hoạt động');
             $table->timestamps();
         });
     }

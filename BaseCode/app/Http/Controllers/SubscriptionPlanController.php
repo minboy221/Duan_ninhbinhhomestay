@@ -15,12 +15,31 @@ class SubscriptionPlanController extends Controller
     public function index()
     {
         $plans = SubscriptionPlan::with('features')->orderBy('sort_order', 'asc')->get();
-        $features = Feature::all();
+        $orderCodes = [
+            'max_rooms',
+            'max_properties',
+            'vip_badge',
+            'priority_listing',
+            'export_reports',
+            'max_boarding_houses',
+            'max_listings',
+            'manage_invoices',
+            'manage_contracts',
+            'manage_roommates',
+            'manage_reports',
+            'manage_managers',
+            'avatar_frame',
+        ];
+        $features = Feature::all()->sortBy(function ($item) use ($orderCodes) {
+            $index = array_search($item->feature_code, $orderCodes);
+            return $index !== false ? $index : 999;
+        })->values();
 
         //đọc cấu hình ngân hàng admin
         $settings = \App\Models\Setting::pluck('value', 'key');
         $adminBank = [
             'bank_name' => $settings['admin_bank_name'] ?? '',
+            'bank_code' => $settings['admin_bank_code'] ?? '',
             'account_no' => $settings['admin_account_no'] ?? '',
             'account_name' => $settings['admin_account_name'] ?? '',
         ];
@@ -68,7 +87,7 @@ class SubscriptionPlanController extends Controller
 
         return redirect()->back()->with('success', 'Đã cập nhật thông tin ngân hàng thành công!');
     }
-    //phần chỉnh sửa gói đăng ký
+    //phần tạo mới gói đăng ký
     public function store(SubscriptionPlanRequest $request)
     {
         $validated = $request->validated();
@@ -85,7 +104,8 @@ class SubscriptionPlanController extends Controller
             $syncData = [];
             foreach ($validated['features'] as $featureId => $value) {
                 if ($value !== null && $value !== '') {
-                    $syncData[$featureId] = ['feature_value' => $value];
+                    $strVal = ($value === false || $value === 'false') ? 'false' : (($value === true || $value === 'true') ? 'true' : (string) $value);
+                    $syncData[$featureId] = ['feature_value' => $strVal];
                 }
             }
             $plan->features()->sync($syncData);
@@ -111,7 +131,8 @@ class SubscriptionPlanController extends Controller
             $syncData = [];
             foreach ($validated['features'] as $featureId => $value) {
                 if ($value !== null && $value !== '') {
-                    $syncData[$featureId] = ['feature_value' => $value];
+                    $strVal = ($value === false || $value === 'false') ? 'false' : (($value === true || $value === 'true') ? 'true' : (string) $value);
+                    $syncData[$featureId] = ['feature_value' => $strVal];
                 }
             }
             $plan->features()->sync($syncData);
@@ -127,11 +148,11 @@ class SubscriptionPlanController extends Controller
         $activeSubCount = \App\Models\LandlordSubscription::where('plan_id',$plan->id)
         ->whereIn('status',['active','pending'])
         ->count();
-        //nếu có chủ trọ đang dùng -> chặn xoá và váo lỗi chi tiết
+        //nếu có chủ trọ đang dùng -> chặn xoá và báo lỗi chi tiết
         if($activeSubCount > 0){
             return redirect()->back()->with('error',"Không thể xoá gói \"{$plan->name}\" vì đang có {$activeSubCount} chủ trọ đang sử dụng hoặc chờ duyệt. Bạn chỉ có thể Tắt Kích Hoạt gói này để ẩn khỏi người dùng mới!");
         }
         $plan->delete();
-        return redirect()->back()->with('succes', 'Xoá gói dịch vụ thành công!');
+        return redirect()->back()->with('success', 'Xoá gói dịch vụ thành công!');
     }
 }

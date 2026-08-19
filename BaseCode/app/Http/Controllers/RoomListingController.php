@@ -67,17 +67,21 @@ class RoomListingController extends Controller
     {
         $user = auth()->user();
         $room = \App\Models\Room::findOrFail($request->room_id);
-        //tính thứ tự phòng của chủ trọ trong db
-        $roomOrderIndex = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user){
-            $q->where('user_id',$user->id);
-        })->where('id', '<=', $room->id)->count();
-        //nếu phòng này bị đóng băng, chặn không cho đăng tin
-        if($user->isRoomFrozen($roomOrderIndex)){
-            return redirect()->back()->with('error','Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ.Vui lòng nâng cấp gói để đăng tin cho thuê!');
+        // Check phòng có bị đóng băng không
+        if ($user->isRoomFrozen($room)) {
+            return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để đăng tin cho thuê!');
         }
-        $currentListings = RoomPost::where('landlord_id', $user->id)->count();
-        if(!$user->canCreateResource('max_listings',$currentListings)){
-            return redirect()->back()->with('error','Bạn đã đạt giới hạn số lượng bài đăng của gói hiện tại!');
+        // Đếm số lượng tin đăng công khai / pending bên chủ trọ
+        $currentListingsCount = \App\Models\RoomPost::where('landlord_id', $user->id)
+            ->whereIn('status', ['published', 'approved', 'pending'])
+            ->count();
+        // Check hạn mức max_listings của gói hiện tại
+        if (!$user->canCreateResource('max_listings', $currentListingsCount)) {
+            $limit = $user->getFeatureValue('max_listings');
+            return redirect()->back()->with(
+                'error',
+                "Gói dịch vụ hiện tại của bạn chỉ cho phép đăng tối đa {$limit} tin công khai. Vui lòng nâng cấp gói VIP để đăng thêm tin mới!"
+            );
         }
         //xác định trạng thái dựa trên btn ở frontend
         $status = $request->input('action') === 'draft' ? 'draft' : 'pending';
@@ -117,8 +121,15 @@ class RoomListingController extends Controller
     {
         $room = Room::with('services')->findOrFail($id);
 
+        $services = $room->services->map(function ($service) {
+            if ($service->pivot && !is_null($service->pivot->price)) {
+                $service->price = $service->pivot->price;
+            }
+            return $service;
+        });
+
         return response()->json([
-            'services' => $room->services,
+            'services' => $services,
             'room_number' => $room->room_number,
             'price' => $room->price,
         ]);

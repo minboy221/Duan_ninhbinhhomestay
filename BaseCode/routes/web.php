@@ -24,12 +24,14 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Owner\InviteController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\AdminPostController;
+use App\Http\Controllers\ClientRoomController;
+use App\Http\Controllers\ContactController;
 use Illuminate\Routing\Controller;
 use Illuminate\Routing\Controllers\Middleware;
 //phần mua gói
 use App\Http\Controllers\SubscriptionPlanController;
+use App\Http\Controllers\Landlord\SubscriptionController;
 use App\Http\Controllers\LandlordSubscriptionController as AdminLandlordSubscriptionController;
-use App\Http\Controllers\Landlord\SubscriptionController as LandlordSubscriptionController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Response;
 use Inertia\Inertia;
@@ -46,6 +48,8 @@ use Symfony\Component\Routing\Router;
 | contains the "web" middleware group. Now create something great!
 |
 */
+
+use App\Http\Controllers\Client\HomeController;
 
 // Route phần clien
 Route::get('/', function (CategoryService $categoryService) {
@@ -87,6 +91,7 @@ Route::get('/tintuc/suggest', [PostController::class, 'suggest'])->name('tintuc.
 Route::get('/lienhe', function () {
     return Inertia::render('Client/lienhe'); // Trỏ đến file Pages/Client/About.vue
 })->name('lienhe');
+Route::post('/contact', [ContactController::class, 'store'])->name('client.contact.store');
 
 // Route cho Trang chi tiết trọ
 Route::get('/chitiettro/{slug?}', [PublicListingController::class, 'show'])->name('chitiettro');
@@ -132,6 +137,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/rooms/{room}/favorite', [ProfileController::class, 'toggleFavorite'])->name('rooms.favorite');
 
     // Route Đánh giá sau khi xem phòng
+    Route::post('/rooms/{room}/direct-review', [PublicListingController::class, 'submitDirectReview'])->name('rooms.direct-review');
     Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
     Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
     Route::post('/appointments/{appointment}/cancel-interest', [ProfileController::class, 'cancelInterest'])->name('appointments.cancel_interest');
@@ -223,6 +229,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/posts/{id}/edit', [AdminPostController::class, 'edit'])->name('admin.posts.edit');
     Route::post('/posts/{id}', [AdminPostController::class, 'update'])->name('admin.posts.update');
     Route::delete('/posts/{id}', [AdminPostController::class, 'destroy'])->name('admin.posts.destroy');
+    // Route quản lý liên hệ của Admin
+    Route::get('/contacts', [ContactController::class, 'index'])->name('admin.contacts.index');
+    Route::patch('/contacts/{id}/status', [ContactController::class, 'updateStatus'])->name('admin.contacts.status');
+    Route::delete('/contacts/{id}', [ContactController::class, 'delete'])->name('admin.contacts.delete');
+    Route::post('/contacts/{id}/reply', [ContactController::class, 'reply'])->name('admin.contacts.reply');
     //phần cấu hình ngân hàng của admin
     Route::post('/subscription-plans/bank-settings', [SubscriptionPlanController::class, 'updateBankSettings'])->name('admin.subscription-plans.bank-settings');
     //Phần quản lý mua gói
@@ -300,6 +311,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     // Đăng ký hợp đồng & Quản lý hợp đồng
     Route::get('/search-tenant', [\App\Http\Controllers\Landlord\ContractController::class, 'searchTenant'])->name('landlord.tenants.search');
+    Route::post('/contracts', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store');
     Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
     Route::post('/contracts/scan', [\App\Http\Controllers\Landlord\ContractController::class, 'scanContracts'])->name('landlord.contracts.scan');
     Route::post('/contracts/{contract}/expire', [\App\Http\Controllers\Landlord\ContractController::class, 'markAsExpired'])->name('landlord.contracts.expire');
@@ -373,10 +385,12 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     });
 
     //quản lý và đăng ký gói dịch vụ cho chủ trọ
-    Route::get('/subscriptions', [\App\Http\Controllers\Landlord\SubscriptionController::class, 'index'])->name('landlord.subscriptions.index');
-    Route::post('/subscriptions/purchase', [\App\Http\Controllers\Landlord\SubscriptionController::class, 'purchase'])->name('landlord.subscriptions.purchase');
-    Route::post('/subscriptions/{id}/proof', [\App\Http\Controllers\Landlord\SubscriptionController::class, 'uploadProof'])->name('landlord.subscriptions.upload-proof');
-    Route::get('/subscriptions/{id}/status', [\App\Http\Controllers\Landlord\SubscriptionController::class, 'checkStatus'])->name('landlord.subscriptions.status');
+    Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('landlord.subscriptions.index');
+    Route::post('/subscriptions/purchase', [SubscriptionController::class, 'purchase'])->name('landlord.subscriptions.purchase');
+    Route::post('/subscriptions/{id}/proof', [SubscriptionController::class, 'uploadProof'])->name('landlord.subscriptions.upload-proof');
+    Route::get('/subscriptions/{id}/status', [SubscriptionController::class, 'checkStatus'])->name('landlord.subscriptions.status');
+    //phần lịch sử mua gói dịch vụ của chủ trọ
+    Route::get('/subscriptions/history', [SubscriptionController::class, 'history'])->name('landlord.subscriptions.history');
 });
 // Route cho phần xác minh đăng ký chủ trọ và thông báo
 Route::middleware(['auth'])->group(function () {

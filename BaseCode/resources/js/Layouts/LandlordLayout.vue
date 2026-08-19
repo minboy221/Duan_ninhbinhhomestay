@@ -4,6 +4,7 @@ import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { messaging, VAPID_KEY } from '@/firebase';
 import { getToken } from "firebase/messaging";
 import { useFcm } from "@/composables/useFcm";
+import { showError, showSuccess } from "@/Utils/swal";
 import axios from "axios";
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
@@ -14,6 +15,7 @@ const notifOpen = ref(false);
 const { registerFcmToken } = useFcm();
 const flashMessage = ref("");
 const showFlash = ref(false);
+
 
 watch(
     () => page.props.flash?.success,
@@ -26,7 +28,17 @@ watch(
             }, 3000);
         }
     },
-    { immediate: true },
+    { immediate: true }
+);
+
+watch(
+    () => page.props.flash?.error,
+    (newVal) => {
+        if (newVal) {
+            showError(newVal);
+        }
+    },
+    { immediate: true }
 );
 
 const logout = () => router.post(route("logout"));
@@ -843,9 +855,9 @@ const requestAndSaveFcmToken = async () => {
                                 <i class="bi bi-patch-check-fill"></i>
                             </span>
                         </div>
+
                         <div class="hidden lg:flex flex-col">
-                            <span class="text-xs font-bold text-slate-900 leading-none">{{ user?.name || "Chủ trọ"
-                            }}</span>
+                            <span class="text-xs font-bold text-slate-900 leading-none">{{ user?.name || "Chủ trọ" }}</span>
                             <span class="text-[9px] font-extrabold text-emerald-600 mt-1 uppercase tracking-wide">Chủ
                                 Trọ</span>
                         </div>
@@ -912,9 +924,7 @@ const requestAndSaveFcmToken = async () => {
                                                     ? 'text-emerald-500'
                                                     : 'text-slate-400',
                                             ]"></i>
-                                            <span class="text-sm font-bold">{{
-                                                item.label
-                                            }}</span>
+                                            <span class="text-sm font-bold">{{ item.label }}</span>
                                             <span v-if="
                                                 item.label === 'Khiếu Nại' &&
                                                 page.props.auth
@@ -984,9 +994,7 @@ const requestAndSaveFcmToken = async () => {
                                                             ? 'text-emerald-500'
                                                             : 'text-slate-400',
                                                     ]"></i>
-                                                    <span class="text-xs font-bold">{{
-                                                        child.label
-                                                    }}</span>
+                                                    <span class="text-xs font-bold">{{ child.label }}</span>
 
                                                     <!-- Badge số lượng cho mobile Lịch Đặt Hẹn -->
                                                     <span v-if="
@@ -1039,7 +1047,7 @@ const requestAndSaveFcmToken = async () => {
                 <i :class="['bi', tab.icon, 'text-xl']"></i>
                 <span class="text-[9px] font-bold uppercase tracking-wider">{{
                     tab.label
-                }}</span>
+                    }}</span>
             </button>
             <Link v-else :href="tab.path" class="flex flex-col items-center gap-1 p-2" :class="isActive(tab.path)
                 ? 'text-emerald-500'
@@ -1048,7 +1056,7 @@ const requestAndSaveFcmToken = async () => {
                 <i :class="['bi', tab.icon, 'text-xl']"></i>
                 <span class="text-[9px] font-bold uppercase tracking-wider">{{
                     tab.label
-                }}</span>
+                    }}</span>
             </Link>
         </template>
     </nav>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
+import { router, useForm, Link } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 
 const props = defineProps({
@@ -179,6 +179,34 @@ const formatDate = (dateSrt) => {
                         </tr>
                     </tbody>
                 </table>
+                <!-- Component Phân Trang (Pagination) -->
+                <div v-if="subscriptions.links && subscriptions.links.length > 3"
+                    class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+                    
+                    <!-- Số lượng bản ghi -->
+                    <div class="text-xs text-slate-500">
+                        Hiển thị từ <span class="font-bold text-slate-800">{{ subscriptions.from || 0 }}</span> 
+                        đến <span class="font-bold text-slate-800">{{ subscriptions.to || 0 }}</span> 
+                        trong tổng số <span class="font-bold text-slate-800">{{ subscriptions.total || 0 }}</span> đơn mua gói
+                    </div>
+
+                    <!-- Nút chuyển trang -->
+                    <div class="flex items-center gap-1 flex-wrap">
+                        <template v-for="(link, key) in subscriptions.links" :key="key">
+                            <div v-if="link.url === null" 
+                                class="px-3 py-1.5 text-xs text-slate-300 rounded-xl border border-slate-200 cursor-not-allowed select-none"
+                                v-html="link.label" />
+
+                            <Link v-else 
+                                :href="link.url"
+                                class="px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer"
+                                :class="link.active 
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200' 
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-indigo-600'"
+                                v-html="link.label" />
+                        </template>
+                    </div>
+                </div>
             </div>
 
             <!-- Modal Phóng to Ảnh Bill -->

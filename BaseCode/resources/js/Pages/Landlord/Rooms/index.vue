@@ -12,7 +12,6 @@ const props = defineProps({
     allFloors: { type: Array, default: () => [] },
     statusCounts: { type: Object, default: () => ({}) },
     services: { type: Array, default: () => [] },
-    allFloors: { type: Array, default: () => [] },
 });
 const floors = computed(() => props.floors);
 
@@ -539,6 +538,7 @@ const submitFloor = () => {
     } else {
         router.post(route("landlord.floors.store"), payload, {
             onSuccess: (page) => {
+                showFloorModal.value = false;
                 const flash = page.props.flash;
                 if (flash && flash.error) {
                     showAlert("Không thể thêm tầng", flash.error, "warning");
@@ -598,6 +598,11 @@ const openDetail = (room) => {
 };
 
 const quickSt = (st) => {
+    //chặn nếu phòng bị đóng băng
+    if (selRoom.value && selRoom.value.is_frozen) {
+        showWarning("Phòng tạm khoá", "Phòng  này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói!");
+        return;
+    }
     if (
         ["pending_renewal", "deposited"].includes(selRoom.value.status) &&
         st === "rented" &&
@@ -704,7 +709,7 @@ const openEditRoom = () => {
 
 const submitRoom = (data) => {
     const fd = data.formData || data;
-    const resetSubmitting = data.resetSubmitting || (() => {});
+    const resetSubmitting = data.resetSubmitting || (() => { });
     if (isEditing.value && selRoom.value) {
         router.post(route("landlord.rooms.update", selRoom.value.id), fd, {
             onSuccess: (page) => {
@@ -1250,34 +1255,37 @@ const getAutoCoordinates = () => {
 
                             <!-- Trạng thái phòng -->
                             <div class="flex items-center gap-2">
-                                <span
-                                    :class="[
-                                        'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
-                                        statusConfig[room.status]?.cls ||
-                                            'bg-slate-50 text-slate-600 border-slate-200',
-                                    ]"
-                                >
-                                    <span
-                                        class="w-1.5 h-1.5 rounded-full"
-                                        :class="statusConfig[room.status]?.dot"
-                                    ></span>
+                                <span v-if="room.is_frozen"
+                                    class="px-2 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 w-fit bg-sky-50 text-sky-700 border-sky-200">
+                                    <span class="w-1 h-1 rounded-full bg-sky-500 animate-pulse"></span>
+                                    🧊 Đóng băng (Vượt gói)
+                                </span>
+                                <span v-else :class="[
+                                    'px-2.5 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1.5 w-fit',
+                                    statusConfig[room.status]?.cls ||
+                                    'bg-slate-50 text-slate-600 border-slate-200',
+                                ]">
+                                    <span class="w-1.5 h-1.5 rounded-full"
+                                        :class="statusConfig[room.status]?.dot"></span>
                                     {{
                                         statusConfig[room.status]?.label ||
                                         "Không rõ"
                                     }}
                                 </span>
-                                <span
-                                    :class="[
-                                        'px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider',
-                                        isRoomActive(room.status)
+                                <span :class="[
+                                    'px-2.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider',
+                                    room.is_frozen
+                                        ? 'bg-sky-50 text-sky-600 border border-sky-200'
+                                        : isRoomActive(room.status)
                                             ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                                             : 'bg-slate-50 text-slate-500 border border-slate-100',
-                                    ]"
-                                >
+                                ]">
                                     {{
-                                        isRoomActive(room.status)
-                                            ? "Hoạt động"
-                                            : "Tạm ngưng"
+                                        room.is_frozen
+                                            ? "Tạm Khóa"
+                                            : isRoomActive(room.status)
+                                                ? "Hoạt động"
+                                                : "Tạm ngưng"
                                     }}
                                 </span>
                             </div>
@@ -1313,38 +1321,28 @@ const getAutoCoordinates = () => {
                                 class="pt-2 border-t border-slate-50 flex items-center justify-between"
                             >
                                 <div class="flex items-center gap-1.5">
-                                    <i
-                                        class="bi bi-people-fill text-slate-400"
-                                    ></i>
-                                    <span
-                                        class="text-xs font-bold text-slate-600"
-                                        >Tối đa: {{ room.capacity }} người</span
-                                    >
+                                    <i class="bi bi-people-fill text-slate-400"></i>
+                                    <span class="text-xs font-bold text-slate-600">Tối đa: {{ room.capacity }}
+                                        người</span>
                                 </div>
 
-                                <span
-                                    v-if="getEffectiveOccupants(room) === 0"
-                                    class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100"
-                                    >Chưa có người ở</span
-                                >
-                                <span
-                                    v-else-if="
-                                        getEffectiveOccupants(room) <
-                                        room.capacity
-                                    "
-                                    class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100"
-                                    >Đã có {{ getEffectiveOccupants(room) }}/{{
+                                <span v-if="getEffectiveOccupants(room) === 0"
+                                    class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">Chưa
+                                    có người ở</span>
+                                <span v-else-if="
+                                    getEffectiveOccupants(room) <
+                                    room.capacity
+                                "
+                                    class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">Đã
+                                    có {{ getEffectiveOccupants(room) }}/{{
                                         room.capacity
                                     }}
-                                    người ở</span
-                                >
-                                <span
-                                    v-else
-                                    class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100"
-                                    >Đã đầy ({{ room.capacity }}/{{
+                                    người ở</span>
+                                <span v-else
+                                    class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100">Đã
+                                    đầy ({{ room.capacity }}/{{
                                         room.capacity
-                                    }})</span
-                                >
+                                    }})</span>
                             </div>
                         </div>
                     </div>
@@ -1387,17 +1385,17 @@ const getAutoCoordinates = () => {
 
                             <!-- Trạng thái phòng gọn nhẹ -->
                             <div class="flex flex-wrap gap-1">
-                                <span
-                                    :class="[
-                                        'px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 w-fit',
-                                        statusConfig[room.status]?.cls ||
-                                            'bg-slate-50 text-slate-600 border-slate-200',
-                                    ]"
-                                >
-                                    <span
-                                        class="w-1 h-1 rounded-full"
-                                        :class="statusConfig[room.status]?.dot"
-                                    ></span>
+                                <span v-if="room.is_frozen"
+                                    class="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 w-fit bg-sky-50 text-sky-700 border-sky-200">
+                                    <span class="w-1 h-1 rounded-full bg-sky-500 animate-pulse"></span>
+                                    🧊 Đóng Băng
+                                </span>
+                                <span v-else :class="[
+                                    'px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 w-fit',
+                                    statusConfig[room.status]?.cls ||
+                                    'bg-slate-50 text-slate-600 border-slate-200',
+                                ]">
+                                    <span class="w-1 h-1 rounded-full" :class="statusConfig[room.status]?.dot"></span>
                                     {{
                                         statusConfig[room.status]?.label ||
                                         "Không rõ"
@@ -1426,23 +1424,14 @@ const getAutoCoordinates = () => {
                                 ></i>
                                 Tối đa: {{ room.capacity }}
                             </span>
-                            <span
-                                v-if="getEffectiveOccupants(room) === 0"
-                                class="text-emerald-500 font-bold"
-                                >Trống</span
-                            >
-                            <span
-                                v-else-if="
-                                    getEffectiveOccupants(room) < room.capacity
-                                "
-                                class="text-blue-500 font-bold"
-                                >Đã có {{ getEffectiveOccupants(room) }}/{{
-                                    room.capacity
-                                }}</span
-                            >
-                            <span v-else class="text-rose-500 font-bold"
-                                >Đầy</span
-                            >
+                            <span v-if="getEffectiveOccupants(room) === 0"
+                                class="text-emerald-500 font-bold">Trống</span>
+                            <span v-else-if="
+                                getEffectiveOccupants(room) < room.capacity
+                            " class="text-blue-500 font-bold">Đã có {{ getEffectiveOccupants(room) }}/{{
+                                room.capacity
+                            }}</span>
+                            <span v-else class="text-rose-500 font-bold">Đầy</span>
                         </div>
                     </div>
                 </div>
@@ -1479,6 +1468,11 @@ const getAutoCoordinates = () => {
                                     room.capacity
                                 }}
                                 người
+                            </span>
+                            <span v-if="room.is_frozen"
+                                class="px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 w-fit bg-sky-50 text-sky-700 border-sky-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+                                🧊 Đóng Băng (Vượt Gói)
                             </span>
                         </div>
 
@@ -1947,36 +1941,30 @@ const getAutoCoordinates = () => {
                                     <i class="bi bi-bell-fill mr-1"></i> Gửi
                                     nhắc nhở
                                 </button>
-                                <button
-                                    v-if="
-                                        [
-                                            'deposited',
-                                            'rented',
-                                            'expiring_soon',
-                                            'pending_renewal',
-                                        ].includes(selRoom.status) &&
-                                        getEffectiveOccupants(selRoom) <
-                                            selRoom.capacity
-                                    "
-                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer hover:shadow-sm transition-all"
-                                    @click="addPerson(selRoom)"
-                                >
+                                <button v-if="
+                                    [
+                                        'deposited',
+                                        'rented',
+                                        'expiring_soon',
+                                        'pending_renewal',
+                                    ].includes(selRoom.status) &&
+                                    getEffectiveOccupants(selRoom) <
+                                    selRoom.capacity
+                                " class="px-3 py-2 rounded-xl text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer hover:shadow-sm transition-all"
+                                    @click="addPerson(selRoom)">
                                     <i class="bi bi-person-plus-fill mr-1"></i>
                                     Thêm người
                                 </button>
-                                <button
-                                    v-if="
-                                        [
-                                            'deposited',
-                                            'rented',
-                                            'expiring_soon',
-                                            'pending_renewal',
-                                        ].includes(selRoom.status) &&
-                                        getEffectiveOccupants(selRoom) > 1
-                                    "
-                                    class="px-3 py-2 rounded-xl text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer hover:shadow-sm transition-all"
-                                    @click="removePerson(selRoom)"
-                                >
+                                <button v-if="
+                                    [
+                                        'deposited',
+                                        'rented',
+                                        'expiring_soon',
+                                        'pending_renewal',
+                                    ].includes(selRoom.status) &&
+                                    getEffectiveOccupants(selRoom) > 1
+                                " class="px-3 py-2 rounded-xl text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer hover:shadow-sm transition-all"
+                                    @click="removePerson(selRoom)">
                                     <i class="bi bi-person-dash-fill mr-1"></i>
                                     Bớt người
                                 </button>
@@ -2021,11 +2009,17 @@ const getAutoCoordinates = () => {
 
                             <!-- Nút Sửa thông tin -->
                             <button
-                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                :disabled="selRoom.has_approved_post"
-                                @click="openEditRoom"
-                            >
-                                Sửa thông tin
+                                class="px-5 py-2.5 font-bold text-xs rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                :class="selRoom.is_frozen
+                                    ? 'bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed'
+                                    : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/10'"
+                                :disabled="selRoom.has_approved_post || selRoom.is_frozen"
+                                :title="selRoom.is_frozen ? 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ' : ''"
+                                @click="openEditRoom">
+                                <span v-if="selRoom.is_frozen" class="flex items-center gap-1">
+                                    <i class="bi bi-lock-fill"></i> Đã Đóng Băng
+                                </span>
+                                <span v-else>Sửa thông tin</span>
                             </button>
                         </div>
                     </div>
@@ -2033,20 +2027,10 @@ const getAutoCoordinates = () => {
             </div>
 
             <!-- Add/Edit Room Modal Form -->
-            <RoomFormModal
-                :show="showForm"
-                :isEdit="isEditing"
-                :hideFloorSelect="hideFloorSelect"
-                :room="selRoom"
-                :floors="allFloors"
-                v-model:floorId="formFloorId"
-                :floorName="currentFloorName"
-                :statusConfig="statusConfig"
-                :existingRooms="currentFloorRooms"
-                :services="services"
-                @close="showForm = false"
-                @submitted="submitRoom"
-            />
+            <RoomFormModal :show="showForm" :isEdit="isEditing" :hideFloorSelect="hideFloorSelect" :room="selRoom"
+                :floors="floors || props.floors || allFloors || []" v-model:floorId="formFloorId" :floorName="currentFloorName"
+                :statusConfig="statusConfig" :existingRooms="currentFloorRooms" :services="services"
+                @close="showForm = false" @submitted="submitRoom" />
 
             <!-- Custom Confirm Modal -->
             <div

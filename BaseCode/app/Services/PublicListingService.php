@@ -42,7 +42,9 @@ class PublicListingService
             $this->roomPostRepository->incrementViewCount($postId);
         }
 
-        $reviews = $this->reviewRepository->getReviewsByRoomId($post->room_id)->map(function ($r) {
+        $reviews = $this->reviewRepository->getReviewsByRoomId($post->room_id)->map(function ($r) use ($post) {
+            $isOwner = $post->room->boardingHouse && $r->tenant_id === $post->room->boardingHouse->user_id;
+            $isAdmin = $r->tenant && $r->tenant->role === 'admin';
             return [
                 'id' => $r->id,
                 'rating' => $r->rating,
@@ -50,12 +52,15 @@ class PublicListingService
                 'created_at' => $r->created_at->diffForHumans(),
                 'tenant_name' => $r->tenant->name ?? 'Người dùng ẩn danh',
                 'tenant_avatar' => $r->tenant->avatar ?? null,
+                'is_admin' => $isAdmin,
+                'is_owner' => $isOwner,
+                'is_notice' => $isAdmin || $isOwner,
             ];
-        });
+        })->sortByDesc('is_notice')->values();
 
         $boardingHouse = $post->room->boardingHouse;
         $boardingHouseRating = $boardingHouse ? $boardingHouse->average_rating : 0;
-        $boardingHouseReviewCount = $boardingHouse ? $boardingHouse->reviews()->count() : 0;
+        $boardingHouseReviewCount = $boardingHouse ? $boardingHouse->realReviews()->count() : 0;
 
         return [
             'post' => $post,
@@ -63,6 +68,52 @@ class PublicListingService
             'reviews' => $reviews,
             'boardingHouseRating' => $boardingHouseRating,
             'boardingHouseReviewCount' => $boardingHouseReviewCount,
+        ];
+    }
+
+    public function getFeaturedRooms(int $limit = 6)
+    {
+        return $this->roomPostRepository->getFeaturedPosts($limit)->map(function ($post) {
+            $room = $post->room;
+            return [
+                'id' => $post->id,
+                'title' => $post->title,
+                'slug' => $post->slug,
+                'image' => is_array($post->image) && count($post->image) > 0 ? $post->image[0] : null,
+                'price' => $room ? $room->price : null,
+                'area' => $room ? $room->area : null,
+                'address' => $room && $room->boardingHouse ? $room->boardingHouse->address_detail : null,
+                'isHot' => $post->view_count > 50, // Example logic
+                'landlord_name' => $post->landlord ? $post->landlord->name : null,
+                'landlord_avatar' => $post->landlord ? $post->landlord->avatar : null,
+            ];
+        });
+    }
+
+    public function getTopReviews(int $limit = 6)
+    {
+        return $this->reviewRepository->getTopReviews($limit)->map(function ($r) {
+            return [
+                'id' => $r->id,
+                'rating' => $r->rating,
+                'comment' => $r->comment,
+                'created_at' => $r->created_at->diffForHumans(),
+                'tenant_name' => $r->tenant->name ?? 'Khách hàng',
+                'tenant_avatar' => $r->tenant->avatar ?? null,
+            ];
+        });
+    }
+
+    public function getSystemStats()
+    {
+        $totalUsers = \App\Models\User::count();
+        $totalLandlords = \App\Models\User::where('role', 'landlord')->count();
+        $averageRating = \App\Models\Review::avg('rating') ?? 5.0;
+
+        return [
+            'totalUsers' => $totalUsers,
+            'totalLandlords' => $totalLandlords,
+            'averageRating' => round($averageRating, 1)
         ];
     }
 
@@ -95,7 +146,14 @@ class PublicListingService
             });
         }
 
-        // 2. Lọc theo khu vực (Area)
+        // 2. Lọc theo loại phòng (Danh mục)
+        if ($request->filled('category_id')) {
+            $query->whereHas('room', function ($q) use ($request) {
+                $q->where('category_id', $request->input('category_id'));
+            });
+        }
+
+        // 3. Lọc theo khu vực (Area)
         $areaId = $request->input('area_id') ?: ($aiParsed['area_id'] ?? null);
         if ($areaId) {
             $area = Area::find($areaId);
@@ -244,16 +302,6 @@ class PublicListingService
             'notified' => false,
         ]);
 
-        //nếu phòng đã có người ở -> tự đồng tạo yêu cầu ở ghép
-        if($post->room && $post->room->current_people > 0){
-            \App\Models\RoommateRequest::create([
-                'room_id' => $post->room_id,
-                'tenant_id' => $userId,
-                'type' => 'stranger',
-                'status' => 'pending',
-                'note' => $note ?: 'Khách đặt lịch xem phòng và muốn ở ghép',
-            ]);
-        }
         //gửi thông báo tới chủ trọ
         $landlord = $appointment->landlord;
         if ($landlord) {
@@ -365,9 +413,70 @@ class PublicListingService
         // 1. Phân tích ngữ nghĩa prompt
         $aiParsed = $this->aiSearchService->parseSearchPrompt($prompt);
 
-        // 2. Xây dựng truy vấn lọc chính xác theo các tiêu chí AI bóc tách
-        $query = RoomPost::with(['room.boardingHouse', 'room.floor', 'room.services', 'landlord'])
-            ->where('status', 'approved');
+        // 2. Nếu câu hỏi không liên quan đến tìm phòng / thuê trọ -> Từ chối trả lời ngay
+        if (isset($aiParsed['is_related_to_room_search']) && $aiParsed['is_related_to_room_search'] === false) {
+            $refusalMessage = $aiParsed['refusal_message'] ?? 'Tôi không thể trả lời câu hỏi này. Trợ lý AI chỉ hỗ trợ tìm kiếm và tư vấn thông tin phòng trọ, không hỗ trợ thao tác ảnh hưởng đến website hoặc trả lời các câu hỏi không liên quan đến gợi ý và tìm kiếm phòng.';
+            $suggestions = [
+                '🏢 Tìm phòng tầng 1 quanh khu Hoa Lư',
+                '❄️ Phòng có điều hòa, nóng lạnh dưới 3 triệu',
+                '🌿 Studio gác xép cho nuôi thú cưng',
+                '👥 Phòng ghép sinh viên giá rẻ',
+            ];
+
+            if ($userId) {
+                AiChatHistory::create([
+                    'user_id' => $userId,
+                    'sender' => 'user',
+                    'message' => $prompt,
+                ]);
+                AiChatHistory::create([
+                    'user_id' => $userId,
+                    'sender' => 'ai',
+                    'message' => $refusalMessage,
+                    'rooms_data' => [],
+                    'ai_parsed' => $aiParsed,
+                    'suggestions' => $suggestions,
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'message' => $refusalMessage,
+                'ai_parsed' => $aiParsed,
+                'rooms' => [],
+                'total_matches' => 0,
+                'suggestions' => $suggestions,
+                'original_prompt' => $prompt,
+            ];
+        }
+
+        // Hàm kiểm tra phòng hợp lệ (chỉ hiển thị phòng có tin đăng, không bảo trì/tạm ngưng, và chưa full người)
+        $isEligiblePost = function ($post) {
+            if (!$post || !$post->room) return false;
+            $room = $post->room;
+            
+            // Loại bỏ phòng đang bảo trì, tạm ngưng hoặc đang xây
+            if (in_array($room->status, ['maintenance', 'suspended', 'under_construction'])) {
+                return false;
+            }
+            
+            $capacity = max(1, (int) ($room->capacity ?? 1));
+            $currentPeople = (int) ($room->current_people ?? 0);
+            
+            // Nếu phòng đã cho thuê và full người (hoặc bất kỳ phòng nào đã đủ số người tối đa) -> KHÔNG HIỆN
+            if ($currentPeople >= $capacity) {
+                return false;
+            }
+            
+            return true;
+        };
+
+        // 3. Xây dựng truy vấn lọc chính xác theo các tiêu chí AI bóc tách (chỉ lấy tin đăng approved và có phòng hợp lệ)
+        $query = RoomPost::with(['room.boardingHouse', 'room.floor', 'room.services', 'room.contracts', 'landlord'])
+            ->where('status', 'approved')
+            ->whereHas('room', function ($rq) {
+                $rq->whereNotIn('status', ['maintenance', 'suspended', 'under_construction']);
+            });
 
         $areaId = $aiParsed['area_id'] ?? null;
         $areaName = $aiParsed['area_name'] ?? null;
@@ -501,8 +610,8 @@ class PublicListingService
             });
         }
 
-        // 3. Thực thi truy vấn kết quả khớp chuẩn
-        $matchingPosts = $query->get();
+        // 4. Thực thi truy vấn kết quả khớp chuẩn
+        $matchingPosts = $query->get()->filter($isEligiblePost);
         $totalMatches = $matchingPosts->count();
         $isBudgetFriendly = !empty($aiParsed['is_budget_friendly']);
 
@@ -536,11 +645,11 @@ class PublicListingService
                     }
                 }
 
-                // Ưu tiên 2: Còn phòng (available)
-                $aAvailable = ($a->room && $a->room->status === 'available') ? 1 : 0;
-                $bAvailable = ($b->room && $b->room->status === 'available') ? 1 : 0;
-                if ($aAvailable !== $bAvailable) {
-                    return $bAvailable <=> $aAvailable;
+                // Ưu tiên 2: Còn phòng trống hoàn toàn (current_people == 0)
+                $aEmpty = ($a->room && (int) $a->room->current_people === 0) ? 1 : 0;
+                $bEmpty = ($b->room && (int) $b->room->current_people === 0) ? 1 : 0;
+                if ($aEmpty !== $bEmpty) {
+                    return $bEmpty <=> $aEmpty;
                 }
 
                 // Ưu tiên 3: Giá thấp hơn
@@ -555,10 +664,14 @@ class PublicListingService
             });
             $top2Posts = $sortedPosts->take(2);
         } else {
-            // Không tìm thấy phòng khớp hoàn toàn -> Lấy tất cả bài đăng đã duyệt để tìm phòng tối ưu nhất
-            $allApprovedPosts = RoomPost::with(['room.boardingHouse', 'room.floor', 'room.services', 'landlord'])
+            // Không tìm thấy phòng khớp hoàn toàn -> Lấy các bài đăng đã duyệt, phòng chưa full để gợi ý
+            $allApprovedPosts = RoomPost::with(['room.boardingHouse', 'room.floor', 'room.services', 'room.contracts', 'landlord'])
                 ->where('status', 'approved')
-                ->get();
+                ->whereHas('room', function ($rq) {
+                    $rq->whereNotIn('status', ['maintenance', 'suspended', 'under_construction']);
+                })
+                ->get()
+                ->filter($isEligiblePost);
 
             if ($isBudgetFriendly) {
                 // SẮP XẾP THEO GIÁ RẺ NHẤT TOÀN HỆ THỐNG
@@ -568,10 +681,10 @@ class PublicListingService
                     if ($priceA !== $priceB) {
                         return $priceA <=> $priceB;
                     }
-                    $aAvailable = ($a->room && $a->room->status === 'available') ? 1 : 0;
-                    $bAvailable = ($b->room && $b->room->status === 'available') ? 1 : 0;
-                    if ($aAvailable !== $bAvailable) {
-                        return $bAvailable <=> $aAvailable;
+                    $aEmpty = ($a->room && (int) $a->room->current_people === 0) ? 1 : 0;
+                    $bEmpty = ($b->room && (int) $b->room->current_people === 0) ? 1 : 0;
+                    if ($aEmpty !== $bEmpty) {
+                        return $bEmpty <=> $aEmpty;
                     }
                     $aTime = $a->updated_at ? $a->updated_at->timestamp : 0;
                     $bTime = $b->updated_at ? $b->updated_at->timestamp : 0;
@@ -579,8 +692,18 @@ class PublicListingService
                 });
                 $top2Posts = $sortedPosts->take(2);
             } elseif ($targetPrice !== null) {
+                // Nếu có mức giá trần hoặc khoảng giá: Ưu tiên gợi ý các phòng NẰM TRONG NGÂN SÁCH trước
+                $withinBudgetPosts = $allApprovedPosts->filter(function ($p) use ($priceMin, $priceMax) {
+                    $pPrice = (float) ($p->room?->price ?? PHP_INT_MAX);
+                    if ($priceMax !== null && $pPrice > $priceMax) return false;
+                    if ($priceMin !== null && $pPrice < $priceMin) return false;
+                    return true;
+                });
+
+                $postsPool = ($withinBudgetPosts->count() > 0) ? $withinBudgetPosts : $allApprovedPosts;
+
                 // SẮP XẾP THEO KHOẢNG CÁCH GIÁ SÁT NHẤT (|room.price - targetPrice| nhỏ nhất)
-                $sortedByProximity = $allApprovedPosts->sort(function ($a, $b) use ($targetPrice) {
+                $sortedByProximity = $postsPool->sort(function ($a, $b) use ($targetPrice) {
                     $priceA = (float) ($a->room?->price ?? PHP_INT_MAX);
                     $priceB = (float) ($b->room?->price ?? PHP_INT_MAX);
                     $diffA = abs($priceA - $targetPrice);
@@ -590,10 +713,10 @@ class PublicListingService
                         return $diffA <=> $diffB;
                     }
 
-                    $aAvailable = ($a->room && $a->room->status === 'available') ? 1 : 0;
-                    $bAvailable = ($b->room && $b->room->status === 'available') ? 1 : 0;
-                    if ($aAvailable !== $bAvailable) {
-                        return $bAvailable <=> $aAvailable;
+                    $aEmpty = ($a->room && (int) $a->room->current_people === 0) ? 1 : 0;
+                    $bEmpty = ($b->room && (int) $b->room->current_people === 0) ? 1 : 0;
+                    if ($aEmpty !== $bEmpty) {
+                        return $bEmpty <=> $aEmpty;
                     }
 
                     $aTime = $a->updated_at ? $a->updated_at->timestamp : 0;
@@ -602,12 +725,12 @@ class PublicListingService
                 });
                 $top2Posts = $sortedByProximity->take(2);
             } else {
-                // Nếu không có điều kiện giá: Ưu tiên còn phòng -> Giá rẻ hơn -> Mới nhất
+                // Nếu không có điều kiện giá: Ưu tiên phòng trống -> Giá rẻ hơn -> Mới nhất
                 $sortedPosts = $allApprovedPosts->sort(function ($a, $b) {
-                    $aAvailable = ($a->room && $a->room->status === 'available') ? 1 : 0;
-                    $bAvailable = ($b->room && $b->room->status === 'available') ? 1 : 0;
-                    if ($aAvailable !== $bAvailable) {
-                        return $bAvailable <=> $aAvailable;
+                    $aEmpty = ($a->room && (int) $a->room->current_people === 0) ? 1 : 0;
+                    $bEmpty = ($b->room && (int) $b->room->current_people === 0) ? 1 : 0;
+                    if ($aEmpty !== $bEmpty) {
+                        return $bEmpty <=> $aEmpty;
                     }
                     $priceA = (float) ($a->room?->price ?? PHP_INT_MAX);
                     $priceB = (float) ($b->room?->price ?? PHP_INT_MAX);
@@ -625,6 +748,25 @@ class PublicListingService
         $mapRoomData = function ($post) use ($totalMatches, $isBudgetFriendly) {
             $room = $post->room;
             $house = $room?->boardingHouse;
+            $capacity = max(1, (int) ($room?->capacity ?? 1));
+            $currentPeople = (int) ($room?->current_people ?? 0);
+            $hasResidents = ($currentPeople > 0);
+
+            // Xác định nhãn trạng thái phòng
+            $status = $room?->status ?? 'available';
+            if ($hasResidents) {
+                $statusLabel = "Đã có {$currentPeople} người ở";
+            } else {
+                $statusLabel = match($status) {
+                    'available' => 'Còn phòng',
+                    'rented' => 'Đã thuê',
+                    'deposited' => 'Đã cọc',
+                    'expiring_soon' => 'Sắp hết hạn',
+                    'pending_renewal' => 'Chờ gia hạn',
+                    default => 'Còn phòng'
+                };
+            }
+
             return [
                 'id' => $post->id,
                 'title' => $post->title,
@@ -633,20 +775,14 @@ class PublicListingService
                 'price' => $room?->price ?? 0,
                 'price_formatted' => number_format($room?->price ?? 0, 0, ',', '.') . ' đ/tháng',
                 'area' => $room?->area ?? null,
+                'capacity' => $capacity,
+                'current_people' => $currentPeople,
+                'has_residents' => $hasResidents,
+                'residents_label' => $hasResidents ? "Đã có {$currentPeople} người ở" : null,
                 'address' => $house?->address_detail ?: ($house?->district ?: 'Ninh Bình'),
                 'image' => $this->formatImageUrl($post->image),
-                'status' => $room?->status ?? 'available',
-                'status_label' => match($room?->status ?? 'available') {
-                    'available' => 'Còn phòng',
-                    'rented' => 'Đã thuê',
-                    'maintenance' => 'Bảo trì',
-                    'deposited' => 'Đã cọc',
-                    'expiring_soon' => 'Sắp hết hạn',
-                    'pending_renewal' => 'Chờ gia hạn',
-                    'suspended' => 'Tạm ngưng',
-                    'under_construction' => 'Đang xây',
-                    default => 'Còn phòng'
-                },
+                'status' => $status,
+                'status_label' => $statusLabel,
                 'floor' => $room?->floor?->name ?? null,
                 'rating' => $house?->average_rating ?? null,
                 'landlord_name' => $post->landlord?->name ?? 'Chủ trọ',

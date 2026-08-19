@@ -218,6 +218,43 @@ class ProfileService
         if ($exists) {
             throw new \Exception('Bạn đang có một yêu cầu giới thiệu người quen chờ chủ trọ duyệt.');
         }
+        //tìm tài khoản trong hệ thống nếu có
+        $userB = \App\Models\User::where('email', $data['new_resident_email'])
+            ->orWhere('phone', $data['new_resident_phone'])
+            ->first();
+        if ($userB) {
+            //check B đã đứng tên chủ hợp đồng ở phòng khác chưa
+            $isOwnerElsewhere = \App\Models\Contract::where('tenant_id', $userB->id)
+                ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'expiring'])
+                ->exists();
+            if ($isOwnerElsewhere) {
+                throw new \Exception('Thành viên này hiện đang là chủ hợp đồng thuê trọ tại một phòng khác!');
+            }
+            //check B đã là thành viên ở ghép phòng khác chưa
+            $isOwnerElsewhere = \App\Models\RoomResident::where('user_id', $userB->id)
+                ->where('status', 'active')
+                ->where('room_id', '!=', $contract->room_id)
+                ->exists();
+            if ($isOwnerElsewhere) {
+                throw new \Exception('Thành viên này hiện đang ở ghép tại một phòng trọ khác!');
+            }
+        }
+        // Kiểm tra xem thành viên này đã ở ghép trong phòng chưa
+        $alreadyResident = RoomResident::where('room_id', $contract->room_id)
+            ->whereHas('user', function ($q) use ($data) {
+                $q->where('email', $data['new_resident_email'])
+                    ->orWhere('phone', $data['new_resident_phone']);
+                if (!empty($data['new_resident_cccd'])) {
+                    $q->orWhere('cccd_number', $data['new_resident_cccd']);
+                }
+            })
+            ->where('status', 'active')
+            ->exists();
+
+        if ($alreadyResident) {
+            throw new \Exception('Thành viên này hiện đã đang có tên trong danh sách ở ghép của phòng!');
+        }
+
         RoommateRequest::create([
             'room_id' => $contract->room_id,
             'tenant_id' => $user->id,
@@ -236,6 +273,15 @@ class ProfileService
             ->orWhere('phone', $data['new_resident_phone'])
             ->first();
         if ($existsUserB) {
+            $roomNum = $contract->room->room_number ?? '';
+            $houseName = $contract->room->boardingHouse->name ?? 'Nhà trọ';
+            $existsUserB->notify(new \App\Notifications\AdminNotification(
+                'Lời mời ở ghép mới',
+                "Bạn {$user->name} đã gửi thông tin giới thiệu bạn vào ở ghép tại phòng {$roomNum}
+            ({$houseName}). Vui lòng chờ chủ trọ phê duyệt.",
+                'info',
+                route('quanlynoio')
+            ));
             $userDataToUpdate = [];
             if (empty($existsUserB->phone) && !empty($data['new_resident_phone'])) {
                 $userDataToUpdate['phone'] = $data['new_resident_phone'];

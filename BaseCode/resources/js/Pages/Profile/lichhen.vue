@@ -636,6 +636,13 @@ const paginatedAppointments = computed(() => {
                                     Đã chốt: Ưng thuê
                                 </span>
 
+                                <span v-else-if="apt.feedback_result === 'cancel_requested'"
+                                    class="feedback-badge"
+                                    style="background-color: #fffbeb; color: #d97706; border: 1px solid #fde68a; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">
+                                    <i class="bi bi-clock-history"></i>
+                                    Đã gửi yêu cầu hủy HĐ (Chờ duyệt)
+                                </span>
+
                                 <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
                                     class="feedback-badge dislike">
                                     <i class="bi bi-x-circle-fill"></i>

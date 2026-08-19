@@ -1,9 +1,9 @@
 <?php
 
 namespace Database\Seeders;
+
 use App\Models\Feature;
 use App\Models\SubscriptionPlan;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class SubscriptionPlanSeeder extends Seeder
@@ -15,7 +15,8 @@ class SubscriptionPlanSeeder extends Seeder
     {
         $this->call(FeatureSeeder::class);
         $features = Feature::all()->keyBy('feature_code');
-        //Gói 1: Dùng thử 60 ngày (Full vip)
+
+        // Gói 1: Dùng thử 60 ngày (Full VIP)
         $trialPlan = SubscriptionPlan::updateOrCreate(
             ['name' => 'Gói Dùng Thử 60 Ngày (Full VIP)'],
             [
@@ -28,10 +29,14 @@ class SubscriptionPlanSeeder extends Seeder
             ]
         );
         $trialPlan->features()->sync([
-            $features['max_boarding_houses']->id => ['feature_value' => '-1'],
             $features['max_rooms']->id => ['feature_value' => '-1'],
+            $features['max_properties']->id => ['feature_value' => '-1'],
+            $features['vip_badge']->id => ['feature_value' => 'true'],
+            $features['priority_listing']->id => ['feature_value' => '-1'],
+            $features['export_reports']->id => ['feature_value' => 'true'],
+            $features['max_boarding_houses']->id => ['feature_value' => '-1'],
             $features['max_listings']->id => ['feature_value' => '-1'],
-            $features['manage_invoices']->id => ['feature_value' => '-1'],
+            $features['manage_invoices']->id => ['feature_value' => 'true'],
             $features['manage_contracts']->id => ['feature_value' => 'true'],
             $features['manage_roommates']->id => ['feature_value' => 'true'],
             $features['manage_reports']->id => ['feature_value' => 'true'],
@@ -39,7 +44,7 @@ class SubscriptionPlanSeeder extends Seeder
             $features['avatar_frame']->id => ['feature_value' => 'gold'],
         ]);
 
-        //Gói 2: gói cơ bản (sau khi hết dùng thử)
+        // Gói 2: Gói cơ bản (Miễn Phí sau khi hết dùng thử)
         $basicPlan = SubscriptionPlan::updateOrCreate(
             ['name' => 'Gói Cơ Bản (Miễn Phí)'],
             [
@@ -52,8 +57,12 @@ class SubscriptionPlanSeeder extends Seeder
             ]
         );
         $basicPlan->features()->sync([
-            $features['max_boarding_houses']->id => ['feature_value' => '1'],
             $features['max_rooms']->id => ['feature_value' => '8'],
+            $features['max_properties']->id => ['feature_value' => '1'],
+            $features['vip_badge']->id => ['feature_value' => 'false'],
+            $features['priority_listing']->id => ['feature_value' => '0'],
+            $features['export_reports']->id => ['feature_value' => 'false'],
+            $features['max_boarding_houses']->id => ['feature_value' => '1'],
             $features['max_listings']->id => ['feature_value' => '5'],
             $features['manage_invoices']->id => ['feature_value' => 'true'],
             $features['manage_contracts']->id => ['feature_value' => 'true'],
@@ -63,7 +72,7 @@ class SubscriptionPlanSeeder extends Seeder
             $features['avatar_frame']->id => ['feature_value' => 'none'],
         ]);
 
-        //Gói 3: Gói chuyên nghiệp
+        // Gói 3: Gói Chuyên Nghiệp
         $proPlan = SubscriptionPlan::updateOrCreate(
             ['name' => 'Gói Chuyên Nghiệp'],
             [
@@ -71,13 +80,17 @@ class SubscriptionPlanSeeder extends Seeder
                 'duration_days' => 30,
                 'badge' => 'PHỔ BIẾN',
                 'sort_order' => 3,
-                'description' => 'Dành cho chủ trọ có 1-3 cơ sở (tối đa 35 phòng).',
+                'description' => 'Dành cho chủ trọ có 1-3 cơ sở (tối đa 30 phòng).',
                 'is_active' => true,
-            ],
+            ]
         );
         $proPlan->features()->sync([
-            $features['max_boarding_houses']->id => ['feature_value' => '3'],
             $features['max_rooms']->id => ['feature_value' => '30'],
+            $features['max_properties']->id => ['feature_value' => '3'],
+            $features['vip_badge']->id => ['feature_value' => 'true'],
+            $features['priority_listing']->id => ['feature_value' => '10'],
+            $features['export_reports']->id => ['feature_value' => 'true'],
+            $features['max_boarding_houses']->id => ['feature_value' => '3'],
             $features['max_listings']->id => ['feature_value' => '12'],
             $features['manage_invoices']->id => ['feature_value' => 'true'],
             $features['manage_contracts']->id => ['feature_value' => 'true'],
@@ -87,7 +100,7 @@ class SubscriptionPlanSeeder extends Seeder
             $features['avatar_frame']->id => ['feature_value' => 'gold'],
         ]);
 
-        //Gói 4: Gói cao cấp vip
+        // Gói 4: Gói Cao Cấp VIP
         $vipPlan = SubscriptionPlan::updateOrCreate(
             ['name' => 'Gói Cao Cấp VIP'],
             [
@@ -95,14 +108,17 @@ class SubscriptionPlanSeeder extends Seeder
                 'duration_days' => 30,
                 'badge' => 'VIP PREMIUM',
                 'sort_order' => 4,
-                'description' => 'Không giới hạn cơ sở & phòng, phan quyền nhân viên quản lý.',
+                'description' => 'Không giới hạn cơ sở & phòng, phân quyền nhân viên quản lý.',
                 'is_active' => true,
             ]
         );
         $vipPlan->features()->sync([
-
-            $features['max_boarding_houses']->id => ['feature_value' => '-1'],
             $features['max_rooms']->id => ['feature_value' => '-1'],
+            $features['max_properties']->id => ['feature_value' => '-1'],
+            $features['vip_badge']->id => ['feature_value' => 'true'],
+            $features['priority_listing']->id => ['feature_value' => '-1'],
+            $features['export_reports']->id => ['feature_value' => 'true'],
+            $features['max_boarding_houses']->id => ['feature_value' => '-1'],
             $features['max_listings']->id => ['feature_value' => '-1'],
             $features['manage_invoices']->id => ['feature_value' => 'true'],
             $features['manage_contracts']->id => ['feature_value' => 'true'],

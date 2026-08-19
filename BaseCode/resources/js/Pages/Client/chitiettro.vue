@@ -22,6 +22,33 @@ const showReportModal = ref(false);
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 
+const canReview = computed(() => {
+    if (!user.value) return false;
+    if (user.value.role === 'admin') return true;
+    if (user.value.id === props.room.boardingHouse?.user_id) return true;
+    return props.hasReportPermission;
+});
+
+const isNoticeSender = computed(() => {
+    if (!user.value) return false;
+    return user.value.role === 'admin' || user.value.id === props.room.boardingHouse?.user_id;
+});
+
+const reviewForm = useForm({
+    rating: 5,
+    comment: ''
+});
+
+const submitDirectReview = () => {
+    reviewForm.post(route('rooms.direct-review', props.room.room_id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            reviewForm.reset();
+            showSuccess('Cảm ơn bạn đã gửi đánh giá!');
+        }
+    });
+};
+
 //State lưu trữ danh sách các giờ đã có người chọn của phòng trong ngày đang chọn
 const disabledSlots = ref([]);
 const availablSlots = ref([]);
@@ -795,6 +822,95 @@ onUnmounted(() => {
                 />
             </section>
         </div>
+
+        <!-- Phần Bình Luận / Đánh giá -->
+        <section class="reviews-section" style="max-width: 1200px; margin: 40px auto; padding: 0 20px;">
+            <div style="background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+                    <i class="bi bi-chat-right-quote-fill" style="color: #7c3aed;"></i> Đánh giá từ người thuê
+                </h3>
+                
+                <!-- Danh sách bình luận -->
+                <div v-if="room.reviews && room.reviews.length > 0" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px;">
+                    <div v-for="rev in room.reviews" :key="rev.id" 
+                         :style="rev.is_notice ? 'padding: 16px; background: #fef2f2; border-radius: 8px; border: 1px solid #fee2e2; border-left: 4px solid #ef4444;' : 'padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;'">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #64748b;">
+                                    <img v-if="rev.tenant_avatar" :src="rev.tenant_avatar.startsWith('http') || rev.tenant_avatar.startsWith('/') ? rev.tenant_avatar : `/storage/${rev.tenant_avatar}`" style="width:100%; height:100%; object-fit:cover;" />
+                                    <span v-else>{{ rev.tenant_name ? rev.tenant_name[0].toUpperCase() : 'U' }}</span>
+                                </div>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                                        <p style="margin: 0; font-weight: 600;" :style="rev.is_notice ? 'color: #b91c1c;' : 'color: #0f172a;'">
+                                            {{ rev.tenant_name || 'Khách hàng' }}
+                                        </p>
+                                        <span v-if="rev.is_notice" style="background: rgba(239,68,68,0.15); color: #ef4444; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
+                                            <i class="bi bi-megaphone-fill"></i> Tin quan trọng
+                                        </span>
+                                        <span v-if="rev.is_admin" style="background: #ef4444; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 12px; font-weight: 700;">
+                                            <i class="bi bi-star-fill"></i> Boss
+                                        </span>
+                                        <span v-else-if="rev.is_owner" style="background: #ef4444; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 12px; font-weight: 700;">
+                                            <i class="bi bi-house-fill"></i> Chủ trọ
+                                        </span>
+                                    </div>
+                                    <p style="margin: 0; font-size: 12px;" :style="rev.is_notice ? 'color: #94a3b8;' : 'color: #64748b;'">
+                                        {{ rev.created_at }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div v-if="!rev.is_notice" style="color: #fbbf24; font-size: 14px;">
+                                <i v-for="s in 5" :key="s" :class="s <= rev.rating ? 'bi bi-star-fill' : 'bi bi-star'" style="margin-left: 2px;"></i>
+                            </div>
+                        </div>
+                        <p style="margin: 0; font-size: 14px; line-height: 1.5;" :style="rev.is_notice ? 'color: #1e293b; font-weight: 500;' : 'color: #334155;'">
+                            {{ rev.comment }}
+                        </p>
+                    </div>
+                </div>
+                <div v-else style="text-align: center; padding: 30px; color: #94a3b8; background: #f8fafc; border-radius: 8px; margin-bottom: 30px;">
+                    <i class="bi bi-chat-square-dots" style="font-size: 32px; display: block; margin-bottom: 10px;"></i>
+                    Chưa có đánh giá nào cho phòng này.
+                </div>
+
+                <!-- Form gửi bình luận (chỉ hiện nếu được phép) -->
+                <div v-if="canReview" style="border-top: 1px solid #e2e8f0; padding-top: 24px;">
+                    <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">
+                        {{ isNoticeSender ? 'Ghim thông báo mới' : 'Gửi đánh giá của bạn' }}
+                    </h4>
+                    <form @submit.prevent="submitDirectReview">
+                        <div v-if="!isNoticeSender" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 14px; color: #475569; margin-bottom: 8px;">Đánh giá (Sao)</label>
+                            <div style="display: flex; gap: 8px; font-size: 24px; cursor: pointer; color: #cbd5e1;">
+                                <i v-for="s in 5" :key="s" 
+                                   :class="s <= reviewForm.rating ? 'bi bi-star-fill text-yellow-400' : 'bi bi-star'"
+                                   @click="reviewForm.rating = s"
+                                   style="transition: color 0.2s;"
+                                ></i>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 14px; color: #475569; margin-bottom: 8px;">
+                                {{ isNoticeSender ? 'Nội dung thông báo' : 'Bình luận' }}
+                            </label>
+                            <textarea v-model="reviewForm.comment" rows="3" 
+                                      :placeholder="isNoticeSender ? 'Nhập nội dung thông báo (sẽ được ghim lên đầu)...' : 'Chia sẻ trải nghiệm của bạn khi ở phòng này...'" 
+                                      style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 14px; resize: vertical;"></textarea>
+                            <span v-if="reviewForm.errors.comment" style="color: #ef4444; font-size: 12px; margin-top: 4px; display: block;">{{ reviewForm.errors.comment }}</span>
+                        </div>
+                        <button type="submit" :disabled="reviewForm.processing" 
+                                :style="isNoticeSender 
+                                    ? 'background: #ef4444; color: #fff; padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 8px;' 
+                                    : 'background: #7c3aed; color: #fff; padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 8px;'">
+                            <span v-if="reviewForm.processing" class="spinner-border spinner-border-sm"></span>
+                            <i v-else :class="isNoticeSender ? 'bi bi-megaphone-fill' : 'bi bi-send-fill'"></i>
+                            {{ isNoticeSender ? 'Đăng thông báo' : 'Gửi đánh giá' }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
 
         <!-- phần phòng tương tự -->
         <section class="tindang_tro">

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
-import { router, useForm } from "@inertiajs/vue3";
+import { router, useForm, Link } from "@inertiajs/vue3";
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 
 const props = defineProps({
@@ -45,7 +45,7 @@ const buyPlan = (plan) => {
 };
 
 const getVietQRUrl = (sub) => {
-    const bank = props.adminBank.bank_name;
+    const bank = props.adminBank.bank_code || props.adminBank.bank_name;
     const acc = props.adminBank.account_no;
     const name = encodeURIComponent(props.adminBank.account_name);
     const amount = sub.price_at_purchase;
@@ -83,9 +83,9 @@ const uploadProof = () => {
     }
     if (!props.pendingSubscription) return;
 
-    const allowedTypes = ['image/jpeg','image/png','image/jpg','image/webp'];
-    if(!allowedTypes.includes(proofFile.value.type)){
-        triggerToast("Tệp tải lên không phải là ảnh hợp lệ (Chỉ chấp nhận JPG,PNG,WEBP)!","error");
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(proofFile.value.type)) {
+        triggerToast("Tệp tải lên không phải là ảnh hợp lệ (Chỉ chấp nhận JPG,PNG,WEBP)!", "error");
         return;
     }
     // Kiểm tra dung lượng ảnh (tối đa 5MB)
@@ -170,6 +170,18 @@ const formatDate = (dateStr) => {
 <template>
     <LandlordLayout title="Gói dịch vụ Chủ trọ">
         <div class="p-6 max-w-7xl mx-auto space-y-8">
+            <!-- Header Bar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-black text-slate-900">Quản Lý Gói Dịch Vụ</h1>
+                    <p class="text-xs text-slate-500 mt-1">Nâng cấp gói dịch vụ để mở rộng quy mô kinh doanh phòng trọ
+                        của bạn.</p>
+                </div>
+                <Link :href="route('landlord.subscriptions.history')"
+                    class="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-slate-200 shadow-sm w-fit">
+                    <i class="bi bi-clock-history text-indigo-600 text-sm"></i> Xem Lịch Sử Mua Gói
+                </Link>
+            </div>
             <!-- Banner Gói hiện tại -->
             <div
                 class="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
@@ -183,16 +195,16 @@ const formatDate = (dateStr) => {
                             Gói Dịch Vụ Của Bạn
                         </span>
                         <h1 class="text-3xl font-extrabold mt-3">
-                            {{
-                                activeSubscription?.plan?.name ||
-                                "Chưa đăng ký gói nào"
-                            }}
+                            {{ activeSubscription?.plan?.name || "Gói Cơ Bản (Miễn Phí)" }}
                         </h1>
                         <p class="text-indigo-100 text-sm mt-1 max-w-xl">
-                            {{
-                                activeSubscription?.plan?.description ||
-                                "Nâng cấp gói dịch vụ để tận hưởng các đặc quyền quản lý và quảng bá tin đăng tốt nhất."
-                            }}
+                            <template v-if="activeSubscription">
+                                Gói dịch vụ của bạn đang có hiệu lực. Bạn có thể nâng cấp gói cao hơn bất kỳ lúc nào.
+                            </template>
+                            <template v-else>
+                                Gói cũ của bạn đã hết hạn. Bạn đang sử dụng <strong>Gói Cơ Bản (Miễn phí)</strong> của
+                                hệ thống. Vui lòng nâng cấp gói VIP để mở khóa thêm tài nguyên!
+                            </template>
                         </p>
                     </div>
 
@@ -201,8 +213,8 @@ const formatDate = (dateStr) => {
                         <span class="text-xs text-indigo-200 block">Thời gian còn lại</span>
                         <span class="text-4xl font-extrabold text-white my-1 block">{{ daysRemaining }}</span>
                         <span class="text-xs text-indigo-200">
-                            ngày (Hết hạn: {{ activeSubscription.end_date ? formatDate(activeSubscription.end_date) :
-                                'Vĩnh viễn' }})
+                            {{ daysRemaining === 0 ? "(Ngày cuối cùng - Hết hạn: " : "ngày (Hết hạn: " }}
+                            {{ activeSubscription.end_date ? formatDate(activeSubscription.end_date) : 'Vĩnh viễn' }}
                         </span>
                     </div>
                 </div>
@@ -411,9 +423,7 @@ const formatDate = (dateStr) => {
 
                                 <div
                                     class="flex items-center gap-1 font-extrabold text-rose-600 bg-white px-2 py-0.5 rounded border border-rose-200">
-                                    <span>{{
-                                        pendingSubscription.payment_code
-                                        }}</span>
+                                    <span>{{ pendingSubscription.payment_code }}</span>
 
                                     <button @click="
                                         copyText(
