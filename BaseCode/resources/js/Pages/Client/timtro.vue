@@ -383,7 +383,7 @@ const getAvatarUrl = (avatar) => {
         </div>
 
         <!-- Phân trang nằm chính giữa toàn bộ trang -->
-        <div class="phantrang" v-if="listings.links && listings.links.length > 3" style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 10px auto 50px auto; position: relative; z-index: 10;">
+        <div class="phantrang" v-if="listings.links && listings.links.length > 3" style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 25px auto 80px auto; position: relative; z-index: 10;">
             <div class="baophantrang" style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
                 <template v-for="(link, index) in listings.links" :key="index">
                     <div class="so_trang" :class="{ 'active': link.active, 'disabled': !link.url }">
