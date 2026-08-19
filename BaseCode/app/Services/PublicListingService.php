@@ -127,8 +127,9 @@ class PublicListingService
 
         // Lọc theo loại phòng (Danh mục)
         if ($request->filled('category_id')) {
-            $query->whereHas('room', function ($q) use ($request) {
-                $q->where('category_id', $request->input('category_id'));
+            $categoryIds = is_array($request->input('category_id')) ? $request->input('category_id') : [$request->input('category_id')];
+            $query->whereHas('room', function ($q) use ($categoryIds) {
+                $q->whereIn('category_id', $categoryIds);
             });
         }
 
@@ -186,7 +187,7 @@ class PublicListingService
             });
         }
 
-        return $query->latest()->paginate(10)->withQueryString();
+        return $query->latest()->paginate(5)->withQueryString();
     }
 
     /**

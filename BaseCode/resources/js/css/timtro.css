@@ -481,33 +481,6 @@ input[type="radio"]:checked::after {
     transform: scale(0.90);
 }
 
-/* phần phân trang */
-.phantrang {
-    margin-top: -45px;
-    align-items: center;
-    flex: 1;
-}
-
-.baophantrang {
-    transform: translate(15%, -190%);
-    display: flex;
-    gap: 20px;
-}
-
-.so_trang {
-    background-color: #45abe6;
-    padding: 10px 20px;
-    text-align: center;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-.so_trang a {
-    text-decoration: none;
-    color: #fff;
-    font-weight: 600;
-}
-
 /* Map section */
 .map_section {
     margin-top: 16px;
@@ -567,43 +540,78 @@ input[type="radio"]:checked::after {
 .phantrang {
     display: flex;
     justify-content: center;
-    margin-top: 30px;
+    align-items: center;
+    margin-top: 35px;
+    margin-bottom: 25px;
+    width: 100%;
 }
 
 .baophantrang {
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .so_trang {
-    border-radius: 6px;
+    border-radius: 10px;
     overflow: hidden;
+    background: #ffffff;
     border: 1px solid #e2e8f0;
-    transition: all 0.2s;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .so_trang a,
 .so_trang span {
-    display: block;
-    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 14px;
     color: #475569;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 600;
     text-decoration: none;
+    cursor: pointer;
 }
 
-.so_trang:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
+.so_trang:hover:not(.active):not(.disabled) {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(59, 130, 246, 0.15);
+}
+
+.so_trang:hover:not(.active):not(.disabled) a {
+    color: #2563eb;
 }
 
 .so_trang.active {
-    background: #38bdf8;
-    border-color: #38bdf8;
+    background: linear-gradient(135deg, #2563eb, #38bdf8);
+    border-color: #2563eb;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    transform: scale(1.04);
 }
 
 .so_trang.active a,
 .so_trang.active span {
-    color: white;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.so_trang.disabled {
+    background: #f8fafc;
+    border-color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.so_trang.disabled span {
+    color: #94a3b8;
+    cursor: not-allowed;
 }
 
 /* Responsive Collapsible Filter */
