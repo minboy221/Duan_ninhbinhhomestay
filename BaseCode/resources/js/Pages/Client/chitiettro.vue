@@ -801,13 +801,6 @@ onUnmounted(() => {
                         </div>
                     </div>
                 </div>
-
-                <!-- CARD BẢNG XẾP HẠNG UY TÍN CHỦ TRỌ (VÙNG KHOANH ĐỎ) -->
-                <LandlordRankCard
-                    :landlord="room.boardingHouse?.user"
-                    :reviews-count="room.reviews?.length || 128"
-                    :avg-rating="4.9"
-                />
             </section>
         </div>
 

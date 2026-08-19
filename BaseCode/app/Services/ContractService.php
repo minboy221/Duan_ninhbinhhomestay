@@ -31,6 +31,73 @@ class ContractService
                 $tenant = User::findOrFail($data['tenant_id']);
                 $room = Room::findOrFail($data['room_id']);
             }
+
+            // Trường hợp Thuê hộ (Người ở thực tế khác với người xem phòng)
+            if (!empty($data['is_for_other']) && !empty($data['actual_tenant_phone']) && !empty($data['actual_tenant_cccd'])) {
+                $actualPhone = trim($data['actual_tenant_phone']);
+                $actualCccd = trim($data['actual_tenant_cccd']);
+                $actualName = trim($data['actual_tenant_name'] ?? 'Cư dân thuê trọ');
+                $actualEmail = !empty($data['actual_tenant_email']) ? trim($data['actual_tenant_email']) : null;
+
+                // Tìm xem người con/người ở thực tế đã có tài khoản trên hệ thống chưa
+                $actualTenant = User::where('phone', $actualPhone)
+                    ->orWhere('cccd_number', $actualCccd)
+                    ->when($actualEmail, function ($q) use ($actualEmail) {
+                        $q->orWhere('email', $actualEmail);
+                    })
+                    ->first();
+
+                $plainPassword = '12345678';
+
+                // Nếu chưa có tài khoản -> Tự động khởi tạo tài khoản mới
+                if (!$actualTenant) {
+                    $actualTenant = User::create([
+                        'name' => $actualName,
+                        'phone' => $actualPhone,
+                        'email' => $actualEmail,
+                        'cccd_number' => $actualCccd,
+                        'role' => 'tenant',
+                        'password' => \Illuminate\Support\Facades\Hash::make($plainPassword),
+                    ]);
+
+                    // Gửi Email thông tin đăng nhập nếu có địa chỉ Email
+                    if (!empty($actualTenant->email)) {
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($actualTenant->email)
+                                ->send(new \App\Mail\NewTenantAccountMail(
+                                    tenantName: $actualName,
+                                    phone: $actualPhone,
+                                    email: $actualTenant->email,
+                                    password: $plainPassword,
+                                    roomName: $room->room_number ?? '',
+                                    boardingHouseName: $room->boardingHouse->name ?? ''
+                                ));
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error('Lỗi gửi email tài khoản thuê hộ: ' . $e->getMessage());
+                        }
+                    }
+                } else {
+                    // Nếu tài khoản đã tồn tại nhưng chưa có CCCD hoặc Email -> Cập nhật bổ sung
+                    $updateData = [];
+                    if (empty($actualTenant->cccd_number)) {
+                        $updateData['cccd_number'] = $actualCccd;
+                    }
+                    if (empty($actualTenant->email) && $actualEmail) {
+                        $updateData['email'] = $actualEmail;
+                    }
+                    if (!empty($updateData)) {
+                        $actualTenant->update($updateData);
+                    }
+                }
+                // Chuyển đối tượng ký Hợp đồng sang cho Cư dân ở thực tế!
+                $tenant = $actualTenant;
+            }
+
+            // Bổ sung: Nếu chủ trọ gửi kèm số CCCD nhập từ Form cho luồng bình thường
+            if (empty($data['is_for_other']) && !empty($data['tenant_cccd']) && strlen(trim($data['tenant_cccd'])) === 12 && is_numeric(trim($data['tenant_cccd']))) {
+                $tenant->update(['cccd_number' => trim($data['tenant_cccd'])]);
+                $tenant->refresh();
+            }
             if (!$tenant) {
                 throw new \Exception('Không tìm thấy thông tin khách thuê.');
             }
@@ -89,11 +156,11 @@ class ContractService
                     $pdf = Pdf::loadHTML($html);
                     //lưu file PDF
                     $fileName = 'contracts/documents/' . uniqid() . '.pdf';
-                    Storage::disk('public')->put($fileName, $pdf->output());
+                    Storage::disk('r2_private')->put($fileName, $pdf->output());
                     $filePath = $fileName;
                 } else {
                     //nếu là tệp pdf thì sẽ lưu trực tiếp
-                    $filePath = $file->store('contracts/documents', 'public');
+                    $filePath = $file->store('contracts/documents', 'r2_private');
                 }
             }
             if (!$filePath) {
@@ -146,10 +213,14 @@ class ContractService
             ]);
 
             RoomPost::where('room_id', $room->id)->update(['status' => 'hidden']);
-            //cập nhật lịch hẹn khớp thành công (nếu ký từ lịch hẹn)
-            if ($appointment) {
-                $appointment->update(['status' => 'success_matched']);
-            }
+            
+            // Cập nhật trạng thái lịch hẹn:
+            // - Nếu là Cư dân ở ghép lên làm Chủ hợp đồng -> became_main_tenant (Đã đứng tên Hợp đồng)
+            // - Nếu là Thuê mới -> success_matched (Đã ký Hợp đồng & Đóng cọc)
+            $newApptStatus = $isAlreadyResident ? 'became_main_tenant' : 'success_matched';
+            \App\Models\Appointment::where('room_id', $room->id)
+                ->where('user_id', $tenant->id)
+                ->update(['status' => $newApptStatus]);
             //phát event cập nhật trạng thái phòng
             event(new \App\Events\RoomStatusUpdated($room->id, 'rented'));
             //gửi thông báo tới khách thuê
@@ -208,6 +279,11 @@ class ContractService
                     route('quanlynoio')
                 ));
             }
+            // Chuyển trạng thái lịch hẹn của người dùng này sang terminated (Hợp đồng đã thanh lý)
+            \App\Models\Appointment::where('room_id', $contract->room_id)
+                ->where('user_id', $contract->tenant_id)
+                ->update(['status' => 'terminated']);
+
             // chuyển trạng thái user của người thanh lý sang inactive
             RoomResident::where('room_id', $contract->room_id)
                 ->where('user_id', $contract->tenant_id)

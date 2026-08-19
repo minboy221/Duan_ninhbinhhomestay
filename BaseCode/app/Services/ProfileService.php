@@ -22,30 +22,28 @@ class ProfileService
      */
     public function getProfileData(User $user): array
     {
-        $isRenting = $this->userRepository->isUserRenting($user->id);
+        $hasContract = \Illuminate\Support\Facades\DB::table('contracts')
+            ->where('tenant_id', $user->id)
+            ->whereIn('status', ['signed', 'active'])
+            ->exists();
 
-        // Kiểm tra xem người dùng có bị giới hạn 15 ngày đổi thông tin không
-        $canUpdateProfile = true;
-        $daysUntilNextUpdate = 0;
+        $isResident = \Illuminate\Support\Facades\DB::table('room_residents')
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
 
-        if ($user->last_profile_update_at) {
-            $lastUpdate = \Carbon\Carbon::parse($user->last_profile_update_at);
-            $now = \Carbon\Carbon::now();
-            $diffInSeconds = $now->diffInSeconds($lastUpdate);
-            $fifteenDaysInSeconds = 15 * 24 * 60 * 60; // 15 ngày tính bằng giây
-
-            if ($diffInSeconds < $fifteenDaysInSeconds) {
-                $canUpdateProfile = false;
-                $secondsRemaining = $fifteenDaysInSeconds - $diffInSeconds;
-                $daysUntilNextUpdate = (int) ceil($secondsRemaining / (24 * 60 * 60)); // Làm tròn lên số ngày còn lại
-            }
+        $rentalStatus = 'Chưa thuê trọ';
+        if ($hasContract) {
+            $rentalStatus = 'Đang thuê trọ';
+        } else if ($isResident) {
+            $rentalStatus = 'Đang ở ghép';
         }
 
         return [
-            'rentalStatus' => $isRenting ? 'Đang thuê' : 'Chưa thuê trọ',
+            'rentalStatus' => $rentalStatus,
             'accountStatus' => $user->status === 'active' ? 'Đang hoạt động' : 'Bị khóa',
-            'canUpdateProfile' => $canUpdateProfile,
-            'daysUntilNextUpdate' => $daysUntilNextUpdate,
+            'canUpdateProfile' => true,
+            'daysUntilNextUpdate' => 0,
         ];
     }
 
@@ -54,26 +52,14 @@ class ProfileService
      */
     public function updateProfile(User $user, array $data): ?User
     {
-        // Chỉ cho phép lưu số điện thoại nếu dữ liệu hiện tại của user đang trống
+        // 1. Số điện thoại: Chỉ cho phép nhập 1 lần duy nhất khi đang trống
         if (!empty($user->phone)) {
             unset($data['phone']);
         }
 
-        // Kiểm tra xem đã đủ 15 ngày kể từ lần cập nhật gần nhất chưa
-        if ($user->last_profile_update_at) {
-            $lastUpdate = \Carbon\Carbon::parse($user->last_profile_update_at);
-            $now = \Carbon\Carbon::now();
-            $diffInSeconds = $now->diffInSeconds($lastUpdate);
-            $fifteenDaysInSeconds = 15 * 24 * 60 * 60;
-
-            if ($diffInSeconds < $fifteenDaysInSeconds) {
-                $secondsRemaining = $fifteenDaysInSeconds - $diffInSeconds;
-                $daysRemaining = (int) ceil($secondsRemaining / (24 * 60 * 60));
-
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'profile' => "Bạn chỉ có thể cập nhật thông tin cá nhân 1 lần mỗi 15 ngày. Lần cập nhật tiếp theo khả dụng sau {$daysRemaining} ngày."
-                ]);
-            }
+        // 2. Số CCCD: Chỉ cho phép nhập 1 lần duy nhất khi đang trống
+        if (!empty($user->cccd_number) && strlen(trim($user->cccd_number)) === 12) {
+            unset($data['cccd_number']);
         }
 
         // Lưu thông tin cũ để so sánh
@@ -127,11 +113,11 @@ class ProfileService
     {
         // Xóa ảnh cũ nếu có
         if ($user->avatar) {
-            Storage::disk('public')->delete($user->avatar);
+            Storage::disk('r2_public')->delete($user->avatar);
         }
 
         // Lưu ảnh mới
-        $path = $avatarFile->store('avatars', 'public');
+        $path = $avatarFile->store('avatars', 'r2_public');
 
         // Cập nhật database
         $this->userRepository->updateUser($user->id, ['avatar' => $path]);

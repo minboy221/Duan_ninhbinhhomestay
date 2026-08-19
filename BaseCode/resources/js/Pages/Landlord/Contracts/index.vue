@@ -55,20 +55,20 @@ watch(contracts, () => {
     contractPage.value = 1;
 });
 
-// --- PHÂN TRANG CHO YÊU CẦU Ở GHÉP ---
+// --- PHÂN TRANG CHO YÊU CẦU Ở GHÉP (Gồm cả Người quen B + Người lạ B ấn ƯNG) ---
 const roommatePage = ref(1);
 const roommatePageSize = 5;
 const roommateTotalPages = computed(
     () =>
-        Math.ceil(
-            (props.pendingRoommateRequests?.length || 0) / roommatePageSize,
-        ) || 1,
+        Math.ceil((props.pendingRoommateRequests?.length || 0) / roommatePageSize) || 1,
 );
+
 const paginatedRoommateRequests = computed(() => {
     const list = props.pendingRoommateRequests || [];
     const start = (roommatePage.value - 1) * roommatePageSize;
     return list.slice(start, start + roommatePageSize);
 });
+
 watch(
     () => props.pendingRoommateRequests,
     () => {
@@ -237,10 +237,8 @@ const residentStep = ref(1);
 const selectedRoommateReq = ref(null);
 
 const isRoommateCccdValid = computed(() => {
-    const cccd =
-        selectedRoommateReq.value?.new_resident_cccd ||
-        selectedRoommateReq.value?.tenant?.cccd_number;
-    return cccd && String(cccd).trim().length === 12;
+    const cccd = selectedRoommateReq.value?.new_resident_cccd;
+    return cccd && String(cccd).trim().length === 12 && /^\d+$/.test(String(cccd).trim());
 });
 
 const openAddResidentModal = () => {
@@ -258,7 +256,7 @@ const openAddResidentFromRequest = (req) => {
     residentStep.value = 1;
     residentForm.value = {
         room_id: req.room_id,
-        phone: req.new_resident_phone || req.tenant?.phone || "",
+        phone: req.new_resident_phone || "",
         start_date: new Date().toISOString().split("T")[0],
     };
     showPendingRoommateModal.value = false;
@@ -486,7 +484,12 @@ const getInitialAddForm = (appointmentId = "") => {
         entry_elec_index: "",
         entry_water_index: "",
         contract_file: null,
-        tenant_id: "", // Thêm trường này để lưu ID cư dân ở ghép
+        tenant_id: "",
+        is_for_other: false,
+        actual_tenant_name: "",
+        actual_tenant_phone: "",
+        actual_tenant_email: "",
+        actual_tenant_cccd: "",
     };
 };
 
@@ -859,8 +862,17 @@ const tenantCccd = computed(() => {
 });
 
 const isCccdValid = computed(() => {
-    const cccd = String(tenantCccd.value).trim();
-    return cccd.length === 12 && /^\d+$/.test(cccd);
+    if (addForm.value.is_for_other) {
+        const cccd = String(addForm.value.actual_tenant_cccd || "").trim();
+        const phone = String(addForm.value.actual_tenant_phone || "").trim();
+        const name = String(addForm.value.actual_tenant_name || "").trim();
+        return name.length > 0 && phone.length >= 9 && cccd.length === 12 && /^\d+$/.test(cccd);
+    }
+    const cccd = String(tenantCccd.value || "").trim();
+    const inputCccd = String(addForm.value.tenant_cccd_input || "").trim();
+    return (cccd.length === 12 && /^\d+$/.test(cccd)) ||
+        (inputCccd.length === 12 && /^\d+$/.test(inputCccd));
+
 });
 
 const isStep1Valid = computed(() => {
@@ -1040,6 +1052,18 @@ const submitAddContract = () => {
     }
 
     const payload = new FormData();
+    if (addForm.value.is_for_other) {
+        payload.append("is_for_other", 1);
+        payload.append("actual_tenant_name", addForm.value.actual_tenant_name);
+        payload.append("actual_tenant_phone", addForm.value.actual_tenant_phone);
+        if (addForm.value.actual_tenant_email) {
+            payload.append("actual_tenant_email", addForm.value.actual_tenant_email);
+        }
+        payload.append("actual_tenant_cccd", addForm.value.actual_tenant_cccd);
+    } else if (addForm.value.tenant_cccd_input) {
+        payload.append("tenant_cccd", addForm.value.tenant_cccd_input);
+    }
+
     if (creationMode.value === "appointment") {
         payload.append("appointment_id", addForm.value.appointment_id);
         if (addForm.value.room_id) {
@@ -1457,7 +1481,7 @@ const getDepositBadgeConfig = (c) => {
                         </p>
                         <h3 class="text-xl sm:text-2xl font-extrabold text-slate-800">
                             {{
-                                contracts.filter((c) => c.status === "expired")
+                                contracts.filter((c) => c.status === "expired" || c.status === "termination_requested")
                                     .length
                             }}
                         </h3>
@@ -1631,13 +1655,13 @@ const getDepositBadgeConfig = (c) => {
                             <span class="text-slate-400 font-bold uppercase text-[9px]">Người thuê:</span>
                             <span class="text-slate-700 font-bold">{{
                                 c.tenant
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-400 font-bold uppercase text-[9px]">SĐT:</span>
                             <span class="text-slate-700 font-bold">{{
                                 c.phone
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-400 font-bold uppercase text-[9px]">Thời hạn:</span>
@@ -1856,13 +1880,13 @@ const getDepositBadgeConfig = (c) => {
                                     Ngày hiệu lực:
                                     <span class="text-slate-700 font-bold">{{
                                         formatDate(selectedContract.start)
-                                        }}</span>
+                                    }}</span>
                                 </div>
                                 <div>
                                     Ngày kết thúc:
                                     <span class="text-slate-700 font-bold">{{
                                         formatDate(selectedContract.end)
-                                        }}</span>
+                                    }}</span>
                                 </div>
                             </div>
 
@@ -2184,35 +2208,86 @@ const getDepositBadgeConfig = (c) => {
                                                 }}
                                             </p>
                                         </div>
-                                        <div class="col-span-2 pt-2 border-t border-slate-100">
+                                        <div class="col-span-2 pt-2 border-t border-slate-100"
+                                            v-if="!addForm.is_for_other">
                                             <span class="text-[10px] text-slate-400 font-bold">Số CCCD:</span>
-                                            <div v-if="isCccdValid"
+                                            <div v-if="tenantCccd && String(tenantCccd).trim().length === 12"
                                                 class="flex items-center gap-1.5 text-emerald-600 font-bold mt-0.5">
                                                 <i class="bi bi-patch-check-fill text-emerald-500 text-sm"></i>
-                                                <span>Hợp lệ ({{
-                                                    tenantCccd
-                                                }})</span>
+                                                <span>Hợp lệ ({{ tenantCccd }})</span>
                                             </div>
-                                            <div v-else class="flex flex-col gap-1.5 mt-1">
-                                                <div class="flex items-center gap-1.5 text-rose-600 font-bold">
-                                                    <i
-                                                        class="bi bi-exclamation-triangle-fill text-rose-500 text-base"></i>
-                                                    <span>{{
-                                                        tenantCccd
-                                                            ? `Không hợp lệ (${tenantCccd})`
-                                                            : "Chưa cập nhật"
-                                                    }}</span>
-                                                </div>
-                                                <p
-                                                    class="text-[11px] leading-relaxed text-slate-500 bg-rose-50/50 p-2.5 rounded-xl border border-rose-100 font-medium">
-                                                    ⚠️ Khách thuê bắt buộc phải
-                                                    có CCCD đúng 12 chữ số. Hãy
-                                                    nhắc khách thuê mở app của
-                                                    họ lên, vào trang
-                                                    <strong>Cá nhân</strong> để
-                                                    điền số CCCD chính xác ngay
-                                                    lúc này!
+                                            <div v-else class="space-y-2 mt-1">
+                                                <input v-model="addForm.tenant_cccd_input" type="text" maxlength="12"
+                                                    placeholder="Nhập 12 số CCCD của khách thuê tại đây..."
+                                                    class="w-full px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all"
+                                                    :class="addForm.tenant_cccd_input && addForm.tenant_cccd_input.length === 12 && /^\d+$/.test(addForm.tenant_cccd_input)
+                                                        ? 'border-emerald-500 bg-emerald-50/30 text-emerald-900'
+                                                        : 'border-amber-300 bg-amber-50/20 text-slate-800 focus:border-amber-500'" />
+                                                <p v-if="!addForm.tenant_cccd_input || addForm.tenant_cccd_input.length !== 12"
+                                                    class="text-[11px] text-amber-700 font-medium flex items-center gap-1">
+                                                    <i class="bi bi-info-circle-fill text-amber-500"></i>
+                                                    <span>Khách chưa có CCCD trong Profile. Nhập 12 số CCCD để tiếp
+                                                        tục.</span>
                                                 </p>
+                                                <p v-else
+                                                    class="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+                                                    <i class="bi bi-check-circle-fill text-emerald-500"></i>
+                                                    <span>Số CCCD hợp lệ! Sẽ tự động cập nhật vào tài khoản
+                                                        khách.</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- CÔNG TẮC CHỌN THUÊ HỘ CHO NGƯỜI THÂN (CON/HỌ HÀNG) -->
+                                    <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-3 mt-3">
+                                        <label
+                                            class="flex items-center gap-2 text-xs font-bold text-amber-900 cursor-pointer">
+                                            <input type="checkbox" v-model="addForm.is_for_other"
+                                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer" />
+                                            <span>Thuê hộ cho người khác (Con/Người thân ở thực tế)</span>
+                                        </label>
+
+                                        <!-- HỘP ĐIỀN THÔNG TIN NGƯỜI Ở THỰC TẾ (CON) -->
+                                        <div v-if="addForm.is_for_other"
+                                            class="space-y-3 pt-2 border-t border-amber-200/60">
+                                            <p class="text-[11px] text-amber-700 font-semibold leading-relaxed">
+                                                Hợp đồng sẽ được gắn cho Cư dân ở thực tế. Nếu chưa có tài khoản, hệ
+                                                thống sẽ tự động tạo tài khoản mới cho người này.
+                                            </p>
+
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div class="space-y-1">
+                                                    <label class="text-[11px] font-bold text-slate-600">Họ & Tên người ở
+                                                        thực tế (Con) <span class="text-rose-500">*</span></label>
+                                                    <input v-model="addForm.actual_tenant_name" type="text"
+                                                        placeholder="Ví dụ: Nguyễn Văn B"
+                                                        class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 bg-white" />
+                                                </div>
+
+                                                <div class="space-y-1">
+                                                    <label class="text-[11px] font-bold text-slate-600">Số điện thoại
+                                                        người ở <span class="text-rose-500">*</span></label>
+                                                    <input v-model="addForm.actual_tenant_phone" type="text"
+                                                        placeholder="09xxxxxxxx"
+                                                        class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 bg-white" />
+                                                </div>
+
+                                                <div class="space-y-1">
+                                                    <label class="text-[11px] font-bold text-slate-600">Email nhận Tài
+                                                        khoản & Mật khẩu</label>
+                                                    <input v-model="addForm.actual_tenant_email" type="email"
+                                                        placeholder="nguyenvanb@gmail.com"
+                                                        class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 bg-white" />
+                                                </div>
+
+                                                <div class="space-y-1">
+                                                    <label class="text-[11px] font-bold text-slate-600">Số CCCD (12 số)
+                                                        người ở <span class="text-rose-500">*</span></label>
+                                                    <input v-model="addForm.actual_tenant_cccd" type="text"
+                                                        maxlength="12" placeholder="Nhập đúng 12 số CCCD..."
+                                                        class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 bg-white" />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -2476,7 +2551,7 @@ const getDepositBadgeConfig = (c) => {
                                             {{ apt.room?.room_number }}</span>
                                         <span class="text-xs font-bold text-slate-800">{{
                                             apt.user?.name || "Khách thuê"
-                                        }}</span>
+                                            }}</span>
                                         <span :class="apt.user?.cccd_number &&
                                             String(apt.user.cccd_number)
                                                 .length === 12
@@ -2561,33 +2636,22 @@ const getDepositBadgeConfig = (c) => {
                 <div v-if="residentStep === 1" class="space-y-4">
                     <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
                         <div class="flex justify-between">
-                            <span class="text-slate-400 font-bold">Họ & Tên:</span>
-                            <span class="text-slate-800 font-extrabold">{{
-                                selectedRoommateReq?.new_resident_name ||
-                                selectedRoommateReq?.tenant?.name ||
-                                "Chưa cập nhật"
-                                }}</span>
+                            <span class="text-slate-400 font-bold">Họ & Tên người ở mới:</span>
+                            <span class="text-slate-800 font-extrabold">
+                                {{ selectedRoommateReq?.new_resident_name || "Thành viên ở ghép" }}
+                            </span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-400 font-bold">Số điện thoại:</span>
-                            <span class="text-slate-800 font-extrabold">{{
-                                residentForm.phone ||
-                                selectedRoommateReq?.new_resident_phone ||
-                                selectedRoommateReq?.tenant?.phone ||
-                                "Chưa cập nhật"
-                                }}</span>
+                            <span class="text-slate-800 font-extrabold">
+                                {{ selectedRoommateReq?.new_resident_phone || residentForm.phone || "Chưa có SĐT" }}
+                            </span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-slate-400 font-bold">Số CCCD (12 số):</span>
-                            <span :class="isRoommateCccdValid
-                                ? 'text-emerald-600 font-black'
-                                : 'text-rose-600 font-black'
-                                ">
-                                {{
-                                    selectedRoommateReq?.new_resident_cccd ||
-                                    selectedRoommateReq?.tenant?.cccd_number ||
-                                    "Chưa đủ 12 số"
-                                }}
+                            <span
+                                :class="isRoommateCccdValid ? 'text-emerald-600 font-black' : 'text-rose-600 font-black'">
+                                {{ selectedRoommateReq?.new_resident_cccd || "Chưa có CCCD 12 số" }}
                             </span>
                         </div>
                     </div>
@@ -2778,22 +2842,23 @@ const getDepositBadgeConfig = (c) => {
                         class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-slate-100/60 transition-all">
                         <div>
                             <div class="font-extrabold text-slate-800 text-sm">
-                                Phòng
-                                {{ req.room ? req.room.room_number : "?" }} -
-                                Người gửi:
-                                {{ req.tenant ? req.tenant.name : "Ẩn danh" }}
+                                Phòng {{ req.room ? req.room.room_number : "?" }}
+                                <span v-if="req.type === 'stranger_applicant'" class="text-blue-700"> - Khách đăng ký: {{ req.new_resident_name }}</span>
+                                <span v-else> - Người gửi: {{ req.tenant ? req.tenant.name : "Ẩn danh" }}</span>
                             </div>
-                            <div class="text-[11px] text-amber-600 font-bold mt-0.5">
+                            <div class="text-[11px] font-bold mt-0.5"
+                                :class="req.type === 'stranger_applicant' ? 'text-blue-600' : 'text-amber-600'">
                                 Loại yêu cầu:
                                 {{
-                                    req.type === "stranger"
-                                        ? "Tìm người lạ ở ghép"
-                                        : "Giới thiệu người quen: " +
-                                        req.new_resident_name
+                                    req.type === "stranger_applicant"
+                                        ? "Khách lạ xem phòng & ấn ƯNG ở ghép"
+                                        : req.type === "stranger"
+                                            ? "Tìm người lạ ở ghép"
+                                            : "Giới thiệu người quen: " + (req.new_resident_name || "")
                                 }}
                             </div>
                             <div class="text-[10px] text-slate-400 font-bold mt-1 uppercase flex items-center gap-1">
-                                <i class="bi bi-clock"></i> Gửi ngày:
+                                <i class="bi bi-clock"></i> Thời gian:
                                 {{ formatDate(req.created_at) }}
                             </div>
                         </div>

@@ -22,10 +22,15 @@ class HomeController extends Controller
 
     public function index()
     {
+        // Nếu là Chủ trọ -> Chuyển trực tiếp sang trang Quản lý
+        if (auth()->check() && auth()->user()->role === 'landlord') {
+            return redirect()->route('landlord.dashboard');
+        }
+
         $categoryData = $this->categoryService->getActiveData();
         
-        $featuredRooms = $this->publicListingService->getFeaturedRooms();
-        $topReviews = $this->publicListingService->getTopReviews();
+        $featuredRooms = $this->publicListingService->getFeaturedRooms(8);
+        $topReviews = $this->publicListingService->getTopReviews(6);
         $systemStats = $this->publicListingService->getSystemStats();
 
         return Inertia::render('Client/Index', [
