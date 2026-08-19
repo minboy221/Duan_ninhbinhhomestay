@@ -225,6 +225,14 @@ const openContractForAppointment = (apt) => {
     openAddContract(apt.id);
 };
 
+const openPendingRequestsModal = () => {
+    showAddModal.value = false;
+    showModal.value = false;
+    showLiquidationModal.value = false;
+    showExtendModal.value = false;
+    showPendingRequestsModal.value = true;
+};
+
 const residentStep = ref(1);
 const selectedRoommateReq = ref(null);
 
@@ -1354,8 +1362,8 @@ const getDepositBadgeConfig = (c) => {
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <button @click="showPendingRequestsModal = true"
-                        class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-amber-500/10 flex items-center gap-1.5 cursor-pointer">
+                    <button @click="openPendingRequestsModal"
+                        class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-amber-500/10 flex items-center gap-1.5 cursor-pointer outline-none focus:outline-none ring-0">
                         <i class="bi bi-clock-history"></i>
                         <span>Hợp đồng chờ (Khách ưng)</span>
                         <span v-if="props.appointments?.length > 0"
@@ -1364,16 +1372,13 @@ const getDepositBadgeConfig = (c) => {
                         </span>
                     </button>
                     <button @click="openAddContract('')"
-                        class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5">
+                        class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5 cursor-pointer outline-none focus:outline-none ring-0">
                         <i class="bi bi-file-earmark-plus"></i> Ký hợp đồng mới
                     </button>
-                    <button @click="showPendingRoommateModal = true"
-                        class="relative px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-2xl shadow-sm transition-all flex items-center gap-2 cursor-pointer">
+                    <button @click="showPendingRoommateModal = true; showAddModal = false;"
+                        class="relative px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-500/10 transition-all flex items-center gap-2 cursor-pointer outline-none focus:outline-none ring-0">
                         <i class="bi bi-person-plus-fill"></i>
-                        <span>Yêu cầu ở ghép ({{
-                            props.pendingRoommateRequests?.length || 0
-                            }})</span>
-                        <!-- Chấm đỏ thông báo khi có yêu cầu ở ghép đang chờ -->
+                        <span>Yêu cầu ở ghép ({{ props.pendingRoommateRequests?.length || 0 }})</span>
                         <span v-if="props.pendingRoommateRequests?.length > 0"
                             class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
                             <span
@@ -1626,13 +1631,13 @@ const getDepositBadgeConfig = (c) => {
                             <span class="text-slate-400 font-bold uppercase text-[9px]">Người thuê:</span>
                             <span class="text-slate-700 font-bold">{{
                                 c.tenant
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-400 font-bold uppercase text-[9px]">SĐT:</span>
                             <span class="text-slate-700 font-bold">{{
                                 c.phone
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-400 font-bold uppercase text-[9px]">Thời hạn:</span>
@@ -1851,13 +1856,13 @@ const getDepositBadgeConfig = (c) => {
                                     Ngày hiệu lực:
                                     <span class="text-slate-700 font-bold">{{
                                         formatDate(selectedContract.start)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                                 <div>
                                     Ngày kết thúc:
                                     <span class="text-slate-700 font-bold">{{
                                         formatDate(selectedContract.end)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </div>
 
@@ -1976,22 +1981,6 @@ const getDepositBadgeConfig = (c) => {
                                 </button>
                             </div>
                         </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Tiền thuê (đ/tháng)</label>
-                                    <input v-model.number="addForm.rent" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                                    <div class="text-[10px] text-emerald-600 font-bold mt-0.5" v-if="addForm.rent">
-                                        Bằng số: {{ new Intl.NumberFormat('vi-VN').format(addForm.rent) }}đ
-                                    </div>
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-bold text-slate-500">Tiền cọc (đ)</label>
-                                    <input v-model.number="addForm.deposit" type="number" class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-medium outline-none transition-all"/>
-                                    <div class="text-[10px] text-emerald-600 font-bold mt-0.5" v-if="addForm.deposit">
-                                        Bằng số: {{ new Intl.NumberFormat('vi-VN').format(addForm.deposit) }}đ
-                                    </div>
-                        </div>
-
                         <div
                             class="px-6 py-3 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center text-xs font-bold text-slate-400">
                             <button @click="goToStep(1)"
@@ -2202,7 +2191,7 @@ const getDepositBadgeConfig = (c) => {
                                                 <i class="bi bi-patch-check-fill text-emerald-500 text-sm"></i>
                                                 <span>Hợp lệ ({{
                                                     tenantCccd
-                                                    }})</span>
+                                                }})</span>
                                             </div>
                                             <div v-else class="flex flex-col gap-1.5 mt-1">
                                                 <div class="flex items-center gap-1.5 text-rose-600 font-bold">
@@ -2374,51 +2363,31 @@ const getDepositBadgeConfig = (c) => {
                                 </div>
                             </div>
 
-                            <div
-                                class="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3"
-                            >
+                            <div class="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3">
                                 <h4
-                                    class="text-xs font-bold text-emerald-800 uppercase tracking-wider pb-2 border-b border-emerald-200 flex items-center gap-1.5"
-                                >
-                                    <i
-                                        class="bi bi-speedometer2 text-emerald-600 text-base"
-                                    ></i>
+                                    class="text-xs font-bold text-emerald-800 uppercase tracking-wider pb-2 border-b border-emerald-200 flex items-center gap-1.5">
+                                    <i class="bi bi-speedometer2 text-emerald-600 text-base"></i>
                                     Chỉ số điện & nước bàn giao ban đầu (Mốc nhận phòng)
                                 </h4>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div class="space-y-1">
-                                        <label
-                                            class="text-xs font-bold text-slate-600"
-                                            >Chỉ số điện bàn giao (kWh)</label
-                                        >
-                                        <input
-                                            v-model.number="
-                                                addForm.entry_elec_index
-                                            "
-                                            type="number"
-                                            min="0"
-                                            placeholder="Ví dụ: 150"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none"
-                                        />
+                                        <label class="text-xs font-bold text-slate-600">Chỉ số điện bàn giao
+                                            (kWh)</label>
+                                        <input v-model.number="addForm.entry_elec_index
+                                            " type="number" min="0" placeholder="Ví dụ: 150"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none" />
                                     </div>
                                     <div class="space-y-1">
-                                        <label
-                                            class="text-xs font-bold text-slate-600"
-                                            >Chỉ số nước bàn giao (m³)</label
-                                        >
-                                        <input
-                                            v-model.number="
-                                                addForm.entry_water_index
-                                            "
-                                            type="number"
-                                            min="0"
-                                            placeholder="Ví dụ: 40"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none"
-                                        />
+                                        <label class="text-xs font-bold text-slate-600">Chỉ số nước bàn giao
+                                            (m³)</label>
+                                        <input v-model.number="addForm.entry_water_index
+                                            " type="number" min="0" placeholder="Ví dụ: 40"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none" />
                                     </div>
                                 </div>
                                 <p class="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
-                                    <span>💡 Số điện/nước này sẽ tự động làm mốc "Chỉ số Cũ" cho đợt tính hóa đơn đầu tiên của hợp đồng.</span>
+                                    <span>💡 Số điện/nước này sẽ tự động làm mốc "Chỉ số Cũ" cho đợt tính hóa đơn đầu
+                                        tiên của hợp đồng.</span>
                                 </p>
                             </div>
                         </div>
@@ -2507,7 +2476,7 @@ const getDepositBadgeConfig = (c) => {
                                             {{ apt.room?.room_number }}</span>
                                         <span class="text-xs font-bold text-slate-800">{{
                                             apt.user?.name || "Khách thuê"
-                                            }}</span>
+                                        }}</span>
                                         <span :class="apt.user?.cccd_number &&
                                             String(apt.user.cccd_number)
                                                 .length === 12
@@ -2597,7 +2566,7 @@ const getDepositBadgeConfig = (c) => {
                                 selectedRoommateReq?.new_resident_name ||
                                 selectedRoommateReq?.tenant?.name ||
                                 "Chưa cập nhật"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-400 font-bold">Số điện thoại:</span>
@@ -2606,7 +2575,7 @@ const getDepositBadgeConfig = (c) => {
                                 selectedRoommateReq?.new_resident_phone ||
                                 selectedRoommateReq?.tenant?.phone ||
                                 "Chưa cập nhật"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-slate-400 font-bold">Số CCCD (12 số):</span>

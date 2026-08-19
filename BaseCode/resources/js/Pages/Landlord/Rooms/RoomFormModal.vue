@@ -171,15 +171,9 @@ const validate = () => {
             }
         }
 
-<<<<<<< HEAD
-        const isDuplicate = props.floors.some((f) =>
-            (f.rooms || []).some((r) => {
-                if (props.isEdit && props.room && r.id === props.room.id)
-=======
         const isDuplicate = (props.floors || []).some((f) =>
             (f?.rooms || []).some((r) => {
                 if (props.isEdit && props.room && r?.id === props.room?.id)
->>>>>>> 9143fa929145fd24a6badb23ccbbd0850562acec
                     return false;
                 return r?.name ? r.name.trim().toLowerCase() === name.toLowerCase() : false;
             }),
