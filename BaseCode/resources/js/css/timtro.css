@@ -55,7 +55,7 @@
 /* phần layout */
 .layout {
     max-width: 1200px;
-    margin: -200px auto 50px auto;
+    margin: -200px auto 20px auto;
     display: flex;
     gap: 36px;
     align-items: flex-start;

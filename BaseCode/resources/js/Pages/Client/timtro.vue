@@ -379,19 +379,19 @@ const getAvatarUrl = (avatar) => {
 
                     </div>
                 </div>
-
-                <!-- Phân trang -->
-                <div class="phantrang" v-if="listings.links && listings.links.length > 3">
-                    <div class="baophantrang">
-                        <template v-for="(link, index) in listings.links" :key="index">
-                            <div class="so_trang" :class="{ 'active': link.active, 'disabled': !link.url }">
-                                <Link v-if="link.url" :href="link.url" v-html="formatPaginationLabel(link.label)" preserve-scroll></Link>
-                                <span v-else v-html="formatPaginationLabel(link.label)"></span>
-                            </div>
-                        </template>
-                    </div>
-                </div>
             </section>
+        </div>
+
+        <!-- Phân trang nằm chính giữa toàn bộ trang -->
+        <div class="phantrang" v-if="listings.links && listings.links.length > 3" style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 10px auto 50px auto; position: relative; z-index: 10;">
+            <div class="baophantrang" style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
+                <template v-for="(link, index) in listings.links" :key="index">
+                    <div class="so_trang" :class="{ 'active': link.active, 'disabled': !link.url }">
+                        <Link v-if="link.url" :href="link.url" v-html="formatPaginationLabel(link.label)" preserve-scroll></Link>
+                        <span v-else v-html="formatPaginationLabel(link.label)"></span>
+                    </div>
+                </template>
+            </div>
         </div>
     </MainLayout>
 </template>
