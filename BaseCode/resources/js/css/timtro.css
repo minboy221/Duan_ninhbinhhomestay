@@ -55,23 +55,25 @@
 /* phần layout */
 .layout {
     max-width: 1200px;
-    margin: 50px auto;
+    margin: -200px auto 50px auto;
     display: flex;
-    gap: 90px;
+    gap: 36px;
     align-items: flex-start;
+    position: relative;
+    z-index: 10;
 }
 
 /* phần bộ lọc */
 .filter {
-    margin-top: -233px;
-    width: 300px;
+    margin-top: 0;
+    width: 320px;
     flex-shrink: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 /* khung */
 .baofilter {
-    width: 350px;
+    width: 100%;
     padding: 20px;
     border-radius: 20px;
     background: rgba(199, 195, 195, 0.15);
@@ -335,28 +337,29 @@ input[type="radio"]:checked::after {
 /* phần hiển thị trọ */
 .room {
     flex: 1;
+    min-width: 0;
 }
 
 .baoroom {
-    width: 810px;
+    width: 100%;
 }
 
 .item_room {
-    transform: translate(0%, -73%);
-    margin-bottom: 20px;
+    transform: none;
+    margin-bottom: 24px;
     display: flex;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.25),
-        inset 0 0 10px rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
     position: relative;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.item_room:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
 /* ảnh */
