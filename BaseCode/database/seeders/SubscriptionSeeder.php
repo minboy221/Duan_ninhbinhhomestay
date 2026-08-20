@@ -30,7 +30,7 @@ class SubscriptionSeeder extends Seeder
             [
                 'name' => 'Số tin đăng tối đa',
                 'feature_code' => 'max_listings',
-                'description' => 'Số lượng bài đăng tin tìm khách công khai'
+                'description' => 'Số lượng bài đăng tin tìm khách công khai',
             ],
             [
                 'name' => 'Đẩy tin bài đăng',

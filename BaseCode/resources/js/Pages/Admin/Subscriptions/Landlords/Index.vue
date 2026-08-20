@@ -179,7 +179,6 @@ const formatDate = (dateSrt) => {
                         </tr>
                     </tbody>
                 </table>
-
                 <!-- Component Phân Trang (Pagination) -->
                 <div v-if="subscriptions.links && subscriptions.links.length > 3"
                     class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">

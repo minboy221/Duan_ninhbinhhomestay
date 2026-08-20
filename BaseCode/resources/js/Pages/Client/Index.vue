@@ -178,6 +178,7 @@ const scrollReview = (direction) => {
         </div>
         <!-- phần tìm kiếm -->
         <div class="boloc">
+            <!-- Standard Dropdowns Bar -->
             <div class="search">
                 <div class="location relative" ref="areaDropdownRef">
                     <label for="">Khu Vực:</label>

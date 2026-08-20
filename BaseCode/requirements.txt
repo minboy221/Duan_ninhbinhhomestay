@@ -1,0 +1,2 @@
+# OCR hệ thống chuyển sang xử lý Client-side trên trình duyệt người dùng bằng JavaScript (Tesseract.js).
+# Không cần các thư viện Python nặng (PaddleOCR, PyTorch, VietOCR).

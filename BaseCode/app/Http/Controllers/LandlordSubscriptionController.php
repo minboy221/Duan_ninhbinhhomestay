@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 
 class LandlordSubscriptionController extends Controller
 {
-    //phần hiên thị danh sách
+    // Phần hiển thị danh sách
     public function index(Request $request)
     {
         $status = $request->input('status', 'all');
@@ -34,16 +34,16 @@ class LandlordSubscriptionController extends Controller
         ]);
     }
 
-    //phần chấp thuận dịch vụ
+    // Phần chấp thuận dịch vụ
     public function approve(Request $request, $id)
     {
         $subscriptions = LandlordSubscription::findOrFail($id);
         if ($subscriptions->status === 'active') {
-            return redirect()->back()->with('error', 'Đơn mua gói này đã được kịch hoạt trước đó.');
+            return redirect()->back()->with('error', 'Đơn mua gói này đã được kích hoạt trước đó.');
         }
         $subscriptionsService = app(SubscriptionService::class);
         $subscriptionsService->activateSubscription($subscriptions, auth()->user());
-        //gửi thông báo cho chủ trọ
+        // Gửi thông báo cho chủ trọ
         $endDate = $subscriptions->end_date ? $subscriptions->end_date->format('d/m/Y') : 'Vĩnh Viễn';
         $subscriptions->user->notify(new SubscriptionNotification(
             'Gói dịch vụ đã được kích hoạt!',
@@ -51,12 +51,12 @@ class LandlordSubscriptionController extends Controller
             route('landlord.subscriptions.index'),
             'success'
         ));
-        //ghi log
+        // Ghi log
         AuditLogger::log('Duyệt đơn mua gói dịch vụ', "Admin vừa duyệt và kích hoạt gói \"{$subscriptions->plan->name}\" cho chủ trọ \"{$subscriptions->user->name}\" (Mã GD: {$subscriptions->payment_code})", true);
-        return redirect()->back()->with('success', 'Đã duyệt và kích hoạt gói thanh công cho chủ trọ!');
+        return redirect()->back()->with('success', 'Đã duyệt và kích hoạt gói thành công cho chủ trọ!');
     }
 
-    //phần huỷ gói dịch vụ
+    // Phần huỷ gói dịch vụ
     public function reject(LandlordSubscriptionRejectRequest $request, $id)
     {
         $subscription = LandlordSubscription::findOrFail($id);
@@ -64,13 +64,15 @@ class LandlordSubscriptionController extends Controller
         $subscription->update([
             'status' => 'rejected',
             'admin_note' => $reason,
+            'approved_by' => auth()->id(),
+            'approved_at' => now(),
         ]);
-        //ghi log
-        AuditLogger::log('Từ chối đơn mua gói dịch vụ,', "Admin vừa từ chối đơn mua gói \"{$subscription->plan->name}\" của chủ trọ \"{$subscription->user->name}\". Lý do: {$reason} (Mã GD: {$subscription->payment_code})", true);
-        //gửi thông báo từ chỗi cho chủ trọ
+        // Ghi log
+        AuditLogger::log('Từ chối đơn mua gói dịch vụ', "Admin vừa từ chối đơn mua gói \"{$subscription->plan->name}\" của chủ trọ \"{$subscription->user->name}\". Lý do: {$reason} (Mã GD: {$subscription->payment_code})", true);
+        // Gửi thông báo từ chối cho chủ trọ
         $subscription->user->notify(new SubscriptionNotification(
-            "Đơn mua gói bi từ chối",
-            "Đơn mua gói \" {$subscription->plan->name}\" bị từ chối. Lý do: {$reason}.",
+            "Đơn mua gói bị từ chối",
+            "Đơn mua gói \"{$subscription->plan->name}\" bị từ chối. Lý do: {$reason}.",
             route('landlord.subscriptions.history'),
             'error'
         ));
