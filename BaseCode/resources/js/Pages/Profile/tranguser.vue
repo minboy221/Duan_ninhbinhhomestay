@@ -15,6 +15,11 @@ const daysUntilNextUpdate = computed(
     () => pageProps.value.daysUntilNextUpdate || 0,
 );
 
+// Kiểm tra xem CCCD đã được cập nhật chưa (Khóa nếu đã có 12 số)
+const hasCccd = computed(() => {
+    return !!(user.value?.cccd_number && String(user.value.cccd_number).trim().length === 12);
+});
+
 const form = useForm({
     name: user.value.name || "",
     phone: user.value.phone || "",
@@ -148,7 +153,7 @@ const submit = () => {
                             }}</span>
                         </div>
                     </div>
-                    <div class="item_user2">
+                    <div class="item_user2" :class="{ 'is-renting': $page.props.rentalStatus !== 'Chưa thuê trọ' }">
                         <div class="infor_tongquan">
                             <p>Trạng thái thuê trọ</p>
                             <span>{{ $page.props.rentalStatus }}</span>
@@ -169,24 +174,6 @@ const submit = () => {
                         {{ form.errors.profile }}
                     </div>
 
-                    <!-- Banner cảnh báo giới hạn thay đổi thông tin 15 ngày -->
-                    <div v-if="!canUpdateProfile" class="alert-info-15days">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="alert-icon" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <div class="alert-content">
-                            <span class="alert-title">Giới hạn cập nhật thông tin cá nhân</span>
-                            <p class="alert-desc">
-                                Bạn chỉ có thể cập nhật thông tin cá nhân 1 lần
-                                mỗi 15 ngày. Lần cập nhật tiếp theo khả dụng sau
-                                <strong class="text-yellow-600 font-bold">{{ daysUntilNextUpdate }} ngày</strong>
-                                nữa.
-                            </p>
-                        </div>
-                    </div>
-
                     <div v-if="$page.props.flash && $page.props.flash.success" class="text-green-600 mb-4 font-medium">
                         {{ $page.props.flash.success }}
                     </div>
@@ -194,8 +181,7 @@ const submit = () => {
                         <div class="row">
                             <div class="form-group">
                                 <label>Họ và Tên:</label>
-                                <input type="text" v-model="form.name" placeholder="Họ và Tên"
-                                    :disabled="!canUpdateProfile" />
+                                <input type="text" v-model="form.name" placeholder="Họ và Tên" />
                                 <span v-if="form.errors.name" class="text-red-500 text-sm">{{ form.errors.name }}</span>
                             </div>
 
@@ -204,7 +190,7 @@ const submit = () => {
                                     {{
                                         user.phone
                                             ? "(Không thể thay đổi)"
-                                            : "(Chỉ được nhập 1 lần)"
+                                            : "(Chỉ được nhập 1 lần duy nhất)"
                                     }}:</label>
                                 <input type="text" v-model="form.phone" placeholder="Số điện thoại"
                                     :disabled="!!user.phone" />
@@ -215,8 +201,7 @@ const submit = () => {
                         <div class="row">
                             <div class="form-group" style="margin-bottom: 20px">
                                 <label>Tỉnh / Thành phố:</label>
-                                <select v-model="selectedProvinceCode" @change="onProvinceChange"
-                                    :disabled="!canUpdateProfile">
+                                <select v-model="selectedProvinceCode" @change="onProvinceChange">
                                     <option value="">
                                         -- Chọn Tỉnh / Thành phố --
                                     </option>
@@ -228,9 +213,7 @@ const submit = () => {
 
                             <div class="form-group" style="margin-bottom: 20px">
                                 <label>Phường / Xã / Thị trấn:</label>
-                                <select v-model="selectedWardCode" @change="updateAddressField" :disabled="!canUpdateProfile ||
-                                    !selectedProvinceCode
-                                    ">
+                                <select v-model="selectedWardCode" @change="updateAddressField" :disabled="!selectedProvinceCode">
                                     <option value="">
                                         -- Chọn Phường / Xã / Thị trấn --
                                     </option>
@@ -244,7 +227,7 @@ const submit = () => {
                         <div class="form-group" style="margin-bottom: 20px">
                             <label>Thôn / Xóm / Số nhà / Đường:</label>
                             <input type="text" v-model="addressDetail" @input="updateAddressField"
-                                placeholder="Nhập thôn, xóm, số nhà, tên đường..." :disabled="!canUpdateProfile" />
+                                placeholder="Nhập thôn, xóm, số nhà, tên đường..." />
                             <span v-if="form.errors.address" class="text-red-500 text-sm">{{ form.errors.address
                                 }}</span>
                         </div>
@@ -252,28 +235,32 @@ const submit = () => {
                         <!-- Trường nhập số CCCD 12 số của Khách thuê -->
                         <div class="form-group" style="margin-bottom: 20px">
                             <label>Số Căn cước công dân (CCCD - 12 chữ số)
+                                {{
+                                    hasCccd
+                                        ? "(Không thể thay đổi)"
+                                        : "(Chỉ được nhập 1 lần duy nhất)"
+                                }}
                                 <span class="text-red-500">*</span>:</label>
                             <input type="text" v-model="form.cccd_number" maxlength="12" placeholder="Nhập 12 số CCCD"
-                                :disabled="!canUpdateProfile" />
+                                :disabled="hasCccd" />
                             <span v-if="form.errors.cccd_number" class="text-red-500 text-sm">{{ form.errors.cccd_number
                                 }}</span>
                         </div>
                         <div class="row">
                             <div class="form-group" style="margin-bottom: 20px">
                                 <label>Nghề Nghiệp Hiện Tại:</label>
-                                <input type="text" v-model="form.job" placeholder="Nghề nghiệp"
-                                    :disabled="!canUpdateProfile" />
+                                <input type="text" v-model="form.job" placeholder="Nghề nghiệp" />
                                 <span v-if="form.errors.job" class="text-red-500 text-sm">{{ form.errors.job }}</span>
                             </div>
                             <div class="form-group" style="margin-bottom: 20px">
                                 <label>Ngày sinh:</label>
-                                <input type="date" v-model="form.dob" :disabled="!canUpdateProfile" />
+                                <input type="date" v-model="form.dob" />
                                 <span v-if="form.errors.dob" class="text-red-500 text-sm">{{ form.errors.dob }}</span>
                             </div>
                         </div>
                         <div class="form-group">
                             <label>Giới tính:</label>
-                            <select v-model="form.gender" :disabled="!canUpdateProfile">
+                            <select v-model="form.gender">
                                 <option value="">-- Chọn Giới Tính --</option>
                                 <option value="male">Nam</option>
                                 <option value="female">Nữ</option>
@@ -281,7 +268,7 @@ const submit = () => {
                             <span v-if="form.errors.gender" class="text-red-500 text-sm">{{ form.errors.gender
                             }}</span>
                         </div>
-                        <button class="btn_save" type="submit" :disabled="form.processing || !canUpdateProfile">
+                        <button class="btn_save" type="submit" :disabled="form.processing">
                             Lưu thay đổi
                         </button>
                     </form>
@@ -293,6 +280,10 @@ const submit = () => {
 <style scoped>
 @import "../../css/user.css";
 @import "../../css/responsive/responsivetranguser.css";
+
+.item_user2.is-renting {
+    background-color: #10b981 !important;
+}
 
 .alert-info-15days {
     display: flex;

@@ -31,7 +31,7 @@ class ReportService
         $imagePaths = [];
         if (isset($data['evidence_images'])) {
             foreach ($data['evidence_images'] as $image) {
-                $imagePaths[] = $image->store('reports/evidence', 'public');
+                $imagePaths[] = $image->store('reports/evidence', 'r2_private');
             }
         }
         $settingDays = \App\Models\Setting::where('key', 'report_negotiation_days')

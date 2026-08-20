@@ -68,7 +68,7 @@ class AdminPostController extends Controller
 
         $imagePath = null;
         if ($request->hasFile('image_file')) {
-            $imagePath = '/storage/' . $request->file('image_file')->store('posts', 'public');
+            $imagePath = $request->file('image_file')->store('posts', 'r2_public');
         } elseif ($request->filled('image_url')) {
             $imagePath = $request->input('image_url');
         } else {

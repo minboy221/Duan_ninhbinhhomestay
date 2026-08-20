@@ -52,24 +52,8 @@ use Symfony\Component\Routing\Router;
 
 use App\Http\Controllers\Client\HomeController;
 
-// Route phần clien
-Route::get('/', function (CategoryService $categoryService) {
-    //nếu là tài khoản đã đăng nhập và có vai trò là chủ trọ -> chuyển trực tiếp sang trang quản lý
-    if (auth()->check() && auth()->user()->role === 'landlord') {
-        return redirect()->route('landlord.dashboard');
-    }
-    $categoryData = $categoryService->getActiveData();
-    return Inertia::render('Client/Index', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('signup'),
-        'canVerfyEmail' => Route::has('canverfyemail'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-        'categories' => $categoryData['types'],
-        'areas' => $categoryData['areas'],
-        'amenities' => $categoryData['amenities'],
-    ]);
-})->name('home');
+// Route phần client (Trang chủ)
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 // Route cho Trang Giới thiệu
 Route::get('/about', function () {
@@ -203,11 +187,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
     Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
-    Route::get('/roles', [AdminController::class, 'roles'])->name('admin.roles');
     Route::get('/auditlog', [AdminController::class, 'auditlog'])->name('admin.auditlog');
     Route::get('/website', [AdminController::class, 'website'])->name('admin.website');
     Route::post('/website', [AdminController::class, 'updateWebsite'])->name('admin.website.update');
-    Route::get('/ads', [AdminController::class, 'ads'])->name('admin.ads');
     Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     //Phần route để xác minh thông tin chủ trọ
     Route::get('/verifications', [AdminVerificationController::class, 'index'])->name('admin.verifications.index');
