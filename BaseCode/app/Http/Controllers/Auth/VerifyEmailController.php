@@ -57,6 +57,10 @@ class VerifyEmailController extends Controller
             event(new Verified($user));
         }
 
-        return redirect()->intended(RouteServiceProvider::HOME.'?verified=1')->with('success', 'Email của bạn đã được xác minh thành công!');
+        if ($user->role === 'landlord') {
+            return redirect()->route('landlord.dashboard')->with('success', 'Email của bạn đã được xác minh thành công!');
+        }
+
+        return redirect()->intended(RouteServiceProvider::HOME . '?verified=1')->with('success', 'Email của bạn đã được xác minh thành công!');
     }
 }

@@ -45,13 +45,10 @@ class BoardingHouseController extends Controller
 
     public function store(StoreBoardingHouseRequest $request)
     {
-        $user = auth()->user();
-        //đếm số lượng cơ sở trọ hiện có của chủ trọ
         $currentCount = \App\Models\BoardingHouse::where('user_id', $user->id)->count();
-        //check với hạn mức cơ sở của gói
-        if(!$user->canCreateResource('max_boarding_houses', $currentCount)){
+        if (!$user->canCreateResource('max_boarding_houses', $currentCount)) {
             $limit = $user->getFeatureValue('max_boarding_houses');
-            return redirect()->back()->with('error',"Gói dịch vụ hiện tại của bạn chỉ cho phép tối đa {$limit} cơ sở trọ. Vui lòng nâng cấp gói để mở rộng thêm!");
+            return redirect()->back()->with('error', "Gói dịch vụ của bạn cho phép tạo tối đa {$limit} Cơ sở/Dãy trọ. Bạn hiện đang có {$currentCount} Cơ sở. Vui lòng nâng cấp gói để tạo thêm!");
         }
         $this->boardingHouseService->createBoardingHouse(
             $request->only(['name', 'district', 'address_detail', 'directions_guide', 'latitude', 'longitude']),

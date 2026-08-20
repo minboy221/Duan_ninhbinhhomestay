@@ -202,8 +202,23 @@ watch(selectedContractId, (newContractId) => {
     if (contract) {
         invoiceForm.rent = contract.room?.price || 0
         
-        // Find last invoice for old indexes and photo inheritance
-        const lastInv = props.invoices.find(i => i.contract_id === newContractId)
+        // Find last invoice for old indexes, photo inheritance and next month suggestion
+        const contractInvoices = (props.invoices || [])
+            .filter(i => i.contract_id === newContractId)
+            .sort((a, b) => (b.billing_month || '').localeCompare(a.billing_month || ''))
+        const lastInv = contractInvoices[0]
+
+        // Gợi ý kỳ thanh toán tiếp theo nếu kỳ trước đã lập hóa đơn
+        if (lastInv && lastInv.billing_month) {
+            const parts = lastInv.billing_month.split('-').map(Number)
+            if (parts.length === 2) {
+                const nextDate = new Date(parts[0], parts[1], 1)
+                const nextMonthStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`
+                if (nextMonthStr <= maxAllowedMonth.value) {
+                    month.value = nextMonthStr
+                }
+            }
+        }
         
         // Electricity
         if (hasElecService.value) {
@@ -524,6 +539,13 @@ const saveInvoice = async () => {
         return
     }
 
+    // Tránh trùng hóa đơn trong cùng kỳ thanh toán
+    const alreadyExists = (props.invoices || []).some(i => i.contract_id === selectedContractId.value && i.billing_month === month.value)
+    if (alreadyExists) {
+        showError('Đã tồn tại', `Hóa đơn cho hợp đồng này trong kỳ Tháng ${month.value} đã tồn tại! Vui lòng chọn kỳ tháng tiếp theo hoặc kiểm tra lại danh sách.`)
+        return
+    }
+
     const confirmed = await showConfirm(
         'Xác nhận tạo hóa đơn',
         'Lưu ý: Hóa đơn sau khi đã tạo sẽ KHÔNG THỂ CHỈNH SỬA. Bạn đã kiểm tra kỹ các thông tin (chỉ số điện, nước, các khoản phí) chưa?',
@@ -543,9 +565,17 @@ const saveInvoice = async () => {
     })
 
     form.post(route('landlord.invoices.store'), {
-        onSuccess: () => {
+        onSuccess: (page) => {
+            if (page?.props?.flash?.error) {
+                showError('Lỗi', page.props.flash.error)
+                return
+            }
             showSuccess('Thành công', 'Lưu hóa đơn thành công!')
             currentView.value = 'list'
+        },
+        onError: (errors) => {
+            const firstErr = Object.values(errors)[0]
+            showError('Lỗi', firstErr || 'Không thể tạo hóa đơn, vui lòng kiểm tra lại!')
         }
     })
 }
@@ -553,8 +583,16 @@ const saveInvoice = async () => {
 const updateInvoiceStatus = (inv, status) => {
     const statusForm = useForm({ status: status })
     statusForm.patch(route('landlord.invoices.status', inv.id), {
-        onSuccess: () => {
+        onSuccess: (page) => {
+            if (page?.props?.flash?.error) {
+                showError('Lỗi', page.props.flash.error)
+                return
+            }
             showSuccess('Thành công', 'Cập nhật trạng thái thành công!')
+        },
+        onError: (errors) => {
+            const firstErr = Object.values(errors)[0]
+            showError('Lỗi', firstErr || 'Cập nhật trạng thái thất bại!')
         }
     })
 }
@@ -844,9 +882,6 @@ const goToCreateForContract = (contractId) => {
                                         <button v-else @click="restoreInvoice(inv)" class="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer">
                                             <i class="bi bi-arrow-counterclockwise"></i> Khôi phục
                                         </button>
-                                        <button v-if="inv.status !== 'paid'" @click="deleteInvoice(inv)" class="w-7 h-7 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-500 rounded-lg flex items-center justify-center cursor-pointer" title="Xóa hóa đơn">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -904,9 +939,6 @@ const goToCreateForContract = (contractId) => {
                         </button>
                         <button v-else @click="restoreInvoice(inv)" class="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 rounded-xl text-xs font-bold flex items-center gap-1">
                             Khôi phục
-                        </button>
-                        <button v-if="inv.status !== 'paid'" @click="deleteInvoice(inv)" class="w-8 h-8 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-500 rounded-xl flex items-center justify-center" title="Xóa">
-                            <i class="bi bi-trash"></i>
                         </button>
                     </div>
                 </div>

@@ -1612,3 +1612,507 @@
         font-size: 12px;
     }
 }
+
+/* ==========================================================================
+   AI ALTERNATIVE ROOM RECOMMENDATIONS MODAL & BADGES
+   ========================================================================== */
+
+.btn-ai-suggest-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 5px 10px;
+    background: linear-gradient(135deg, #eff6ff 0%, #ede9fe 100%);
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.08);
+}
+
+.btn-ai-suggest-badge:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #ffffff;
+    border-color: transparent;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+}
+
+.mobile-btn-ai-suggest {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%);
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mobile-btn-ai-suggest:active {
+    transform: scale(0.98);
+}
+
+/* Modal Overlay & Box */
+.ai-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 16px;
+}
+
+.ai-modal-box {
+    background: #ffffff;
+    border-radius: 24px;
+    width: 100%;
+    max-width: 920px;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.35);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    animation: aiModalZoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+}
+
+@keyframes aiModalZoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.93) translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Modal Header */
+.ai-modal-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #6366f1 100%);
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #ffffff;
+    position: relative;
+}
+
+.ai-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.ai-header-avatar-box {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ai-sparkle-dot {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 10px;
+    height: 10px;
+    background: #22c55e;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #22c55e;
+}
+
+.ai-header-title-box h3 {
+    font-size: 17px;
+    font-weight: 800;
+    margin: 0;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-header-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ai-header-title-box p {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 2px 0 0 0;
+}
+
+.ai-modal-close-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ai-modal-close-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: rotate(90deg);
+}
+
+/* Modal Body */
+.ai-modal-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    background: #f8fafc;
+}
+
+/* Viewed Room Summary Banner */
+.ai-viewed-summary-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 14px 18px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.ai-viewed-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ai-viewed-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ai-viewed-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.ai-viewed-sub {
+    font-size: 12px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-reason-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff1f2;
+    color: #e11d48;
+    border: 1px solid #fecdd3;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* AI Message Box */
+.ai-message-box {
+    background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: #1e3a8a;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ai-message-box i {
+    color: #3b82f6;
+    font-size: 16px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+/* Grid of Recommended Rooms */
+.ai-recommendations-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+/* Room Card */
+.ai-room-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-room-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.12);
+    border-color: #93c5fd;
+}
+
+.ai-room-image-box {
+    position: relative;
+    width: 100%;
+    height: 135px;
+    overflow: hidden;
+    background: #e2e8f0;
+}
+
+.ai-room-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.ai-room-card:hover .ai-room-img {
+    transform: scale(1.05);
+}
+
+.ai-room-occupancy-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(4px);
+}
+
+.ai-room-occupancy-badge.empty {
+    background: rgba(16, 185, 129, 0.9);
+    color: #ffffff;
+}
+
+.ai-room-occupancy-badge.has-people {
+    background: rgba(37, 99, 235, 0.9);
+    color: #ffffff;
+}
+
+.ai-room-content {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 6px;
+}
+
+.ai-room-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 34px;
+}
+
+.ai-room-price {
+    font-size: 15px;
+    font-weight: 800;
+    color: #dc2626;
+}
+
+.ai-room-meta-tags {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.ai-meta-tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.ai-room-address {
+    font-size: 11px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.ai-room-actions {
+    margin-top: auto;
+    padding-top: 8px;
+}
+
+.btn-ai-view-room {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-ai-view-room:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+    color: #ffffff;
+}
+
+/* Modal Footer */
+.ai-modal-footer {
+    padding: 14px 24px;
+    background: #ffffff;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.btn-ai-footer-explore {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #f8fafc;
+    color: #2563eb;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-ai-footer-explore:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.btn-ai-footer-close {
+    padding: 8px 18px;
+    background: #0f172a;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-ai-footer-close:hover {
+    background: #1e293b;
+}
+
+/* Loading State */
+.ai-loading-state {
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+    color: #475569;
+}
+
+.ai-spinner {
+    width: 38px;
+    height: 38px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: aiSpin 0.8s linear infinite;
+}
+
+@keyframes aiSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ai-recommendations-grid {
+        grid-template-columns: 1fr;
+    }
+    .ai-modal-box {
+        max-height: 95vh;
+    }
+}

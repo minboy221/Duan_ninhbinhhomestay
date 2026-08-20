@@ -133,6 +133,7 @@ const stopPolling = () => {
 const openDetail = (inv) => {
     activeInvoice.value = inv;
     selectedPaymentMethod.value = "qr"; // default method
+    paymentSplitMode.value = "full"; // default to full room amount
     showDetailModal.value = true;
     autoSuccessMsg.value = "";
     if (inv.status !== "paid") {
@@ -284,45 +285,81 @@ const removeVietnameseTones = (str) => {
     str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
     str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
     str = str.replace(/Đ/g, "D");
-    return str.replace(/[^a-zA-Z0-9\s]/g, "").trim();
+    return str.replace(/[^a-zA-Z0-9\s\-_]/g, "").trim();
 };
 
-// Cấu trúc Nội dung chuyển khoản: P101 [Tên khách] TT thang [Tháng]
+// Cấu trúc Nội dung chuyển khoản: [Số phòng] - [Tên chủ phòng] - [Kỳ thanh toán]
 const transferMemo = computed(() => {
     if (!activeInvoice.value) return "";
 
-    const cleanInvCode = (activeInvoice.value.invoice_code || "")
-        .replace("#", "")
-        .replace(/[^a-zA-Z0-9]/g, "");
-
-    const rawRoom = activeInvoice.value.contract?.room?.room_number || "";
+    const rawRoom =
+        activeInvoice.value.contract?.room?.room_number ||
+        activeInvoice.value.contract?.room?.name ||
+        "";
     const roomStr = rawRoom
         ? rawRoom.toUpperCase().startsWith("P")
             ? rawRoom.replace(/[^a-zA-Z0-9]/g, "")
             : "P" + rawRoom.replace(/[^a-zA-Z0-9]/g, "")
         : "PHONG";
 
-    const rawName =
-        activeInvoice.value.contract?.tenant?.name || props.user?.name || "";
-    const nameStr = removeVietnameseTones(rawName);
+    const rawTenantName =
+        activeInvoice.value.contract?.tenant?.name ||
+        props.user?.name ||
+        "KHACH THUE";
+    const tenantNameStr = removeVietnameseTones(rawTenantName).toUpperCase();
 
-    const monthStr = (activeInvoice.value.billing_month || "").replace(
-        "/",
-        "-",
-    );
+    const rawMonth = activeInvoice.value.billing_month || "";
+    let monthStr = rawMonth;
+    if (rawMonth.includes("-")) {
+        const parts = rawMonth.split("-");
+        if (parts.length === 2 && parts[0].length === 4) {
+            monthStr = `${parts[1]}-${parts[0]}`;
+        }
+    } else if (rawMonth.includes("/")) {
+        monthStr = rawMonth.replace("/", "-");
+    }
 
-    let memo = `${cleanInvCode} ${roomStr} ${nameStr} TT thang ${monthStr}`;
+    let memo = `${roomStr} - ${tenantNameStr} - Thang ${monthStr}`;
     if (memo.length > 50) {
         memo = memo.substring(0, 50);
     }
     return memo;
 });
 
+// Tính toán chia tiền phòng ở ghép
+const roomOccupantsCount = computed(() => {
+    if (!activeInvoice.value) return 1;
+    const countFromContract = Number(activeInvoice.value.contract?.number_of_tenants || 0);
+    const countFromRoom = Number(activeInvoice.value.contract?.room?.current_occupants || 0);
+    const countFromResidents = Array.isArray(activeInvoice.value.contract?.room?.residents) ? activeInvoice.value.contract.room.residents.length : 0;
+    return Math.max(countFromContract, countFromRoom, countFromResidents, 1);
+});
+
+const isRoomSharing = computed(() => {
+    return roomOccupantsCount.value > 1;
+});
+
+const perPersonAmount = computed(() => {
+    if (!activeInvoice.value || !isRoomSharing.value) return 0;
+    return Math.round(activeInvoice.value.total_amount / roomOccupantsCount.value);
+});
+
+// Chế độ thanh toán: 'full' (Toàn bộ hóa đơn) hoặc 'split' (Phần tiền chia đều của tôi)
+const paymentSplitMode = ref("full");
+
+const currentPaymentAmount = computed(() => {
+    if (!activeInvoice.value) return 0;
+    if (paymentSplitMode.value === "split" && isRoomSharing.value) {
+        return perPersonAmount.value;
+    }
+    return Math.round(activeInvoice.value.total_amount);
+});
+
 // Dynamic VietQR code generation
 const qrUrl = computed(() => {
     if (!activeInvoice.value) return "";
     const { bankName, bankAcc, bankAccName } = landlordBankInfo.value;
-    const amount = Math.round(activeInvoice.value.total_amount);
+    const amount = currentPaymentAmount.value;
     const memo = transferMemo.value;
 
     return `https://img.vietqr.io/image/${bankName}-${bankAcc}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(bankAccName)}`;
@@ -430,6 +467,9 @@ const submitReport = () => {
                             <td data-label="Tổng số tiền">
                                 <div class="price">
                                     {{ formatMoney(inv.total_amount) }}
+                                </div>
+                                <div v-if="(inv.contract?.number_of_tenants || inv.contract?.room?.current_occupants || (inv.contract?.room?.residents && inv.contract.room.residents.length) || 1) > 1" class="text-[11px] text-indigo-600 font-bold mt-0.5">
+                                    <i class="bi bi-people-fill"></i> Chia {{ formatMoney(Math.round(inv.total_amount / Math.max(inv.contract?.number_of_tenants || 0, inv.contract?.room?.current_occupants || 0, (inv.contract?.room?.residents?.length || 0), 1))) }}/người
                                 </div>
                             </td>
                             <td data-label="Trạng thái">
@@ -598,9 +638,25 @@ const submitReport = () => {
                         <span v-if="d.old_index !== null">({{ d.new_index }} - {{ d.old_index }})</span>:</strong>
                     <span>{{ formatMoney(d.subtotal) }}</span>
                 </p>
-                <p>
-                    <strong>Tổng:</strong>
-                    {{ formatMoney(activeInvoice.total_amount) }}
+                <p style="border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 4px">
+                    <strong>Tổng tiền phòng:</strong>
+                    <span style="color: #059669; font-weight: 800; font-size: 15px">{{ formatMoney(activeInvoice.total_amount) }}</span>
+                </p>
+            </div>
+
+            <!-- THÔNG TIN PHÒNG Ở GHÉP & CHIA TIỀN -->
+            <div v-if="isRoomSharing" style="margin: 12px 0; padding: 12px; background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-size: 12px; font-weight: 700; color: #166534; display: flex; align-items: center; gap: 6px;">
+                        <i class="bi bi-people-fill" style="color: #15803d; font-size: 14px;"></i>
+                        Phòng ở ghép ({{ roomOccupantsCount }} người):
+                    </span>
+                    <span style="font-size: 14px; font-weight: 800; color: #15803d;">
+                        {{ formatMoney(perPersonAmount) }} <span style="font-size: 11px; font-weight: normal; color: #166534;">/ người</span>
+                    </span>
+                </div>
+                <p style="font-size: 11px; color: #166534; margin: 0; line-height: 1.4;">
+                    Tổng tiền phòng <strong>{{ formatMoney(activeInvoice.total_amount) }}</strong> được chia đều cho <strong>{{ roomOccupantsCount }}</strong> thành viên trong phòng.
                 </p>
             </div>
 
@@ -643,7 +699,7 @@ const submitReport = () => {
             <div class="thanhtoan" v-else>
                 <h4>Phương thức thanh toán</h4>
 
-                <div class="payment-options">
+                <div class="payment-options" style="margin-bottom: 20px;">
                     <div class="payment-item" :class="{ active: selectedPaymentMethod === 'qr' }"
                         @click="selectPaymentMethod('qr')">
                         <i class="bi bi-qr-code-scan"></i>
@@ -675,77 +731,98 @@ const submitReport = () => {
                     display:
                         selectedPaymentMethod === 'qr' ? 'block' : 'none',
                 }">
+                    <!-- Lựa chọn mức thanh toán cho phòng ở ghép -->
+                    <div v-if="isRoomSharing" style="margin-bottom: 16px; padding: 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 12px;">
+                        <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 8px; text-align: left; display: flex; align-items: center; gap: 6px;">
+                            <i class="bi bi-people-fill" style="color: #4f46e5;"></i>
+                            <span>Chọn mức thanh toán cho mã QR:</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <button 
+                                type="button" 
+                                @click="paymentSplitMode = 'full'"
+                                style="padding: 10px; border-radius: 10px; border: 2px solid; cursor: pointer; text-align: center; transition: all 0.2s;"
+                                :style="paymentSplitMode === 'full' ? 'border-color: #10b981; background-color: #fff; color: #065f46; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);' : 'border-color: transparent; background-color: rgba(255,255,255,0.6); color: #64748b;'"
+                            >
+                                <div style="font-size: 11px; font-weight: 600;">
+                                    <i class="bi bi-building"></i> Toàn bộ phòng
+                                </div>
+                                <div style="font-size: 13px; font-weight: 800; color: #059669; margin-top: 2px;">{{ formatMoney(activeInvoice.total_amount) }}</div>
+                            </button>
+                            <button 
+                                type="button" 
+                                @click="paymentSplitMode = 'split'"
+                                style="padding: 10px; border-radius: 10px; border: 2px solid; cursor: pointer; text-align: center; transition: all 0.2s;"
+                                :style="paymentSplitMode === 'split' ? 'border-color: #4f46e5; background-color: #fff; color: #3730a3; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);' : 'border-color: transparent; background-color: rgba(255,255,255,0.6); color: #64748b;'"
+                            >
+                                <div style="font-size: 11px; font-weight: 600;">
+                                    <i class="bi bi-person-fill"></i> Phần của tôi (1/{{ roomOccupantsCount }})
+                                </div>
+                                <div style="font-size: 13px; font-weight: 800; color: #4f46e5; margin-top: 2px;">{{ formatMoney(perPersonAmount) }}</div>
+                            </button>
+                        </div>
+                    </div>
+
                     <p class="text-xs font-bold text-slate-600">
                         Quét mã VietQR (Tự động điền Số tiền & Nội dung)
                     </p>
 
-                    <div class="relative inline-block bg-white p-2.5 rounded-xl shadow-md border border-slate-100">
-                        <img :src="qrUrl" alt="VietQR Code" class="w-56 h-56 mx-auto object-contain" />
+                    <div class="relative inline-block bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100">
+                        <img :src="qrUrl" alt="VietQR Code" class="w-52 sm:w-56 h-auto mx-auto object-contain" />
                     </div>
 
-                    <!-- Bank Account Info -->
-                    <div
-                        class="mt-3 text-left bg-white p-3 rounded-xl border border-slate-200 space-y-2 text-xs font-medium text-slate-700">
-                        <div class="flex justify-between items-center pb-1 border-b border-slate-100">
-                            <span class="text-slate-400">Ngân hàng:</span>
-                            <span class="font-bold text-slate-900">{{
-                                landlordBankInfo.bankName
-                                }}</span>
+                    <!-- Bảng thông tin tài khoản thụ hưởng & thanh toán (Được thụt lề rộng rãi) -->
+                    <div style="margin-top: 14px; text-align: left; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 8px;">
+                        
+                        <!-- Ngân hàng -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
+                            <span style="font-size: 12px; font-weight: 600; color: #64748b;">Ngân hàng:</span>
+                            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">{{ landlordBankInfo.bankName }}</span>
                         </div>
-                        <div class="flex justify-between items-center pb-1 border-b border-slate-100">
-                            <span class="text-slate-400">Chủ tài khoản:</span>
-                            <span class="font-bold text-slate-900 uppercase">{{
-                                landlordBankInfo.bankAccName
-                                }}</span>
+
+                        <!-- Chủ tài khoản -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
+                            <span style="font-size: 12px; font-weight: 600; color: #64748b;">Chủ tài khoản:</span>
+                            <span style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">{{ landlordBankInfo.bankAccName }}</span>
                         </div>
-                        <div class="flex justify-between items-center pb-1 border-b border-slate-100">
-                            <span class="text-slate-400">Số tài khoản:</span>
-                            <div class="flex items-center gap-1.5">
-                                <span class="font-bold font-mono text-blue-600 text-sm">{{ landlordBankInfo.bankAcc
-                                    }}</span>
-                                <button @click="
-                                    copyToClipboard(
-                                        landlordBankInfo.bankAcc,
-                                        'Số tài khoản',
-                                    )
-                                    "
-                                    class="px-2 py-0.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-[10px] font-bold">
+
+                        <!-- Số tài khoản -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
+                            <span style="font-size: 12px; font-weight: 600; color: #64748b;">Số tài khoản:</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-family: monospace; font-size: 14px; font-weight: 900; color: #2563eb; letter-spacing: 0.8px;">{{ landlordBankInfo.bankAcc }}</span>
+                                <button type="button" @click="copyToClipboard(landlordBankInfo.bankAcc, 'Số tài khoản')"
+                                    style="padding: 4px 10px; background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;">
                                     <i class="bi bi-copy"></i> Chép
                                 </button>
                             </div>
                         </div>
-                        <div class="flex justify-between items-center pb-1 border-b border-slate-100">
-                            <span class="text-slate-400">Số tiền:</span>
-                            <div class="flex items-center gap-1.5">
-                                <span class="font-extrabold text-emerald-600 text-sm">{{
-                                    formatMoney(activeInvoice.total_amount)
-                                }}</span>
-                                <button @click="
-                                    copyToClipboard(
-                                        Math.round(
-                                            activeInvoice.total_amount,
-                                        ),
-                                        'Số tiền',
-                                    )
-                                    "
-                                    class="px-2 py-0.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded text-[10px] font-bold">
+
+                        <!-- Số tiền -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 10px;">
+                            <span style="font-size: 12px; font-weight: 700; color: #065f46;">Số tiền:</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 15px; font-weight: 900; color: #059669;">
+                                    {{ formatMoney(currentPaymentAmount) }}
+                                </span>
+                                <button type="button" @click="copyToClipboard(currentPaymentAmount, 'Số tiền')"
+                                    style="padding: 4px 10px; background: #059669; color: #ffffff; border: none; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s;">
                                     <i class="bi bi-copy"></i> Chép
                                 </button>
                             </div>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-slate-400">Nội dung CK:</span>
-                            <div class="flex items-center gap-1.5">
-                                <span
-                                    class="font-bold text-slate-800 bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200 text-xs">{{
-                                    transferMemo }}</span>
-                                <button @click="
-                                    copyToClipboard(
-                                        transferMemo,
-                                        'Nội dung chuyển khoản',
-                                    )
-                                    "
-                                    class="px-2 py-0.5 bg-amber-100 text-amber-800 hover:bg-amber-200 rounded text-[10px] font-bold">
+
+                        <!-- Nội dung chuyển khoản -->
+                        <div style="margin-top: 2px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;">
+                            <div style="font-size: 11px; font-weight: 700; color: #92400e; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+                                <i class="bi bi-chat-left-text-fill" style="color: #f59e0b;"></i> Nội dung chuyển khoản:
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; background: #ffffff; border: 1px dashed #fcd34d; border-radius: 8px;">
+                                <span style="font-family: monospace; font-size: 12px; font-weight: 800; color: #1e293b; letter-spacing: 0.5px; user-select: all; word-break: break-all;">
+                                    {{ transferMemo }}
+                                </span>
+                                <button type="button" @click="copyToClipboard(transferMemo, 'Nội dung chuyển khoản')"
+                                    style="flex-shrink: 0; padding: 5px 12px; background: #f59e0b; color: #ffffff; border: none; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s;">
                                     <i class="bi bi-copy"></i> Chép
                                 </button>
                             </div>
@@ -753,9 +830,9 @@ const submitReport = () => {
                     </div>
 
                     <!-- Nút Thử nghiệm Ngân hàng báo tiền về (Demo Webhook) -->
-                    <div class="pt-2 border-t border-slate-200">
+                    <div class="pt-3 border-t border-slate-200/80">
                         <button type="button" @click="triggerSimulatedPayment" :disabled="isSimulating"
-                            class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2">
+                            class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2">
                             <i class="bi bi-robot text-emerald-400 text-sm"></i>
                             <span>{{
                                 isSimulating

@@ -126,7 +126,7 @@ class ProfileController extends Controller
                 $q->orWhereIn('room_id', $residentRoomIds);
             }
         })
-            ->with(['details.service', 'contract.room.boardingHouse.user'])
+            ->with(['details.service', 'contract.tenant', 'contract.room.boardingHouse.user', 'contract.room.residents.user'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -405,14 +405,45 @@ class ProfileController extends Controller
             $user->update(['cccd_number' => $request->cccd]);
         }
 
-        if ($request->result === 'interested') {
-            $landlord = $appointment->room->boardingHouse->user ?? null;
-            if ($landlord) {
-                $landlord->notify(new \App\Notifications\TenantInterestedNotification($appointment));
-            }
+        $aiData = null;
+        if ($request->result === 'not_interested') {
+            $publicListingService = app(\App\Services\PublicListingService::class);
+            $aiData = $publicListingService->getAiAlternativeRecommendationsForAppointment($appointment, $request->reason);
         }
 
-        return Redirect::back()->with('success', 'Đã ghi nhận lựa chọn của bạn!');
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã ghi nhận lựa chọn của bạn!',
+                'status' => $status,
+                'ai_recommendations' => $aiData
+            ]);
+        }
+
+        return Redirect::back()->with([
+            'success' => 'Đã ghi nhận lựa chọn của bạn!',
+            'ai_recommendations' => $aiData
+        ]);
+    }
+
+    /**
+     * Lấy 3 phòng trọ tương tự từ Trợ lý AI cho lịch hẹn đã xem
+     */
+    public function getAiRecommendations(\App\Models\Appointment $appointment): \Illuminate\Http\JsonResponse
+    {
+        $user = auth()->user();
+        if ($appointment->user_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền truy cập thông tin này.',
+                'rooms' => []
+            ], 403);
+        }
+
+        $publicListingService = app(\App\Services\PublicListingService::class);
+        $result = $publicListingService->getAiAlternativeRecommendationsForAppointment($appointment, $appointment->feedback_reason);
+
+        return response()->json($result);
     }
 
     /**
@@ -536,8 +567,6 @@ class ProfileController extends Controller
         }
 
         return Redirect::back()->with('success', 'Đã gửi yêu cầu chấm dứt hợp đồng thành công. Vui lòng chờ chủ trọ xác nhận thanh lý.');
-        /* Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
-         */
     }
 
     // Phần gia hạn hợp đồng từ client
@@ -556,7 +585,7 @@ class ProfileController extends Controller
             'note' => 'nullable|string|max:1000',
         ], [
             'desired_months.required' => 'Vui lòng chọn số tháng muốn gia hạn.',
-            'desired_month.min' => 'Số tháng gia hạn tối thiểu là 1 tháng.',
+            'desired_months.min' => 'Số tháng gia hạn tối thiểu là 1 tháng.',
         ]);
         $months = (int) $request->input('desired_months');
         $note = trim($request->input('note', ''));
@@ -585,6 +614,9 @@ class ProfileController extends Controller
         return redirect()->route('quanlynoio')->with('success', "Đã gửi yêu cầu gia hạn hợp đồng ({$months} tháng) thành công tới chủ trọ!");
     }
 
+    /**
+     * Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
+     */
     public function submitEntryReadings(Request $request, $contractId)
     {
         $request->validate([

@@ -147,7 +147,6 @@ class LandlordController extends Controller
     public function storeFloor(Request $request)
     {
         $user = auth()->user();
-        //đếm tổng số tầng hiện tại của chủ trọ
         $currentFloorCount = \App\Models\Floor::whereHas('property', function ($q) use ($user) {
             $q->where('landlord_id', $user->id);
         })->count();
@@ -430,7 +429,7 @@ class LandlordController extends Controller
 
     public function confirmCancelAppointment(Request $request, int $id)
     {
-        //yêu cầu chủ trọ nhập lý di huỷ 
+        // Yêu cầu chủ trọ nhập lý do huỷ 
         $request->validate([
             'cancellation_reason' => 'required|string|min:5|max:255',
         ], [
@@ -441,7 +440,7 @@ class LandlordController extends Controller
         $reason = $request->input('cancellation_reason') ?: $request->input('reason', 'Chủ trọ đã hủy lịch hẹn');
 
         $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
-        //cập nhật trạng thái lịch hẹn
+        // Cập nhật trạng thái lịch hẹn
         $appointment->update([
             'status' => 'cancelled',
             'feedback_result' => 'cancelled',

@@ -44,6 +44,13 @@ return [
             'throw' => false,
         ],
 
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -55,6 +62,7 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
         ],
+<<<<<<< HEAD
 
         'r2' => [
             'driver' => 's3',
@@ -99,6 +107,8 @@ return [
             'use_path_style_endpoint' => true,
             'throw' => false,
         ],
+=======
+>>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
     ],
 
     /*

@@ -1,7 +1,6 @@
 <script setup>
 import { defineProps, defineEmits, ref, onMounted, onUnmounted } from "vue";
 import heic2any from "heic2any";
-import exifr from "exifr";
 import { HA_NAM_COMMUNES } from "@/constants/locations.js";
 
 const props = defineProps({
@@ -54,6 +53,7 @@ const convertHeicToJpeg = async (file) => {
     }
 };
 
+<<<<<<< HEAD
 // Hàm trích xuất tọa độ GPS từ Ảnh hoặc Video bằng exifr (có fallback Geolocation trình duyệt)
 const extractGPSMetadata = async (file) => {
     try {
@@ -85,6 +85,10 @@ const extractGPSMetadata = async (file) => {
 };
 
 // Xử lý tải ảnh/video cho hồ sơ pháp lý (contract_images) và không gian (room_images)
+=======
+// Xử lý tải ảnh/file cho hồ sơ pháp lý (contract_images) và không gian (room_images)
+// Không lấy GPS ở frontend nữa: GPS sẽ được trích xuất từ ảnh ở backend/admin để đảm bảo dữ liệu chuẩn nhất.
+>>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
 const handleMultipleFiles = async (e, field) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -102,11 +106,14 @@ const handleMultipleFiles = async (e, field) => {
             file = await convertHeicToJpeg(file);
         }
 
+<<<<<<< HEAD
         // Nếu tải ảnh/video phòng và chưa có tọa độ GPS, trích xuất GPS từ file này
         if (field === "room_images" && !props.form.latitude) {
             await extractGPSMetadata(file);
         }
 
+=======
+>>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
         props.form[field].push(file);
 
         // Tạo preview
@@ -402,8 +409,7 @@ const nextStep = () => {
                         </div>
                     </div>
 
-                    <p class="text-xs text-on-surface-variant italic mt-4">* Hình ảnh chất lượng cao giúp tăng tỉ lệ đặt
-                        phòng lên 40%.</p>
+                    <p class="text-xs text-on-surface-variant italic mt-3">* Tọa độ sẽ được trích xuất từ dữ liệu GPS nằm trong ảnh đã tải lên để hiển thị chính xác trong admin.</p>
                 </section>
             </div>
         </div>

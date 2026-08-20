@@ -32,7 +32,6 @@ use Illuminate\Routing\Controllers\Middleware;
 use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\Landlord\SubscriptionController;
 use App\Http\Controllers\LandlordSubscriptionController as AdminLandlordSubscriptionController;
-use App\Http\Controllers\Landlord\SubscriptionController as LandlordSubscriptionController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Response;
 use Inertia\Inertia;
@@ -62,6 +61,11 @@ Route::get('/about', function () {
 
 // Route cho Trang Tìm trọ
 Route::get('/timtro', [PublicListingController::class, 'index'])->name('timtro');
+Route::post('/api/ai/parse-room-search', [PublicListingController::class, 'parseAiSearch'])->name('api.ai.parse-room-search');
+Route::post('/api/ai/chat-assistant', [PublicListingController::class, 'chatAiAssistant'])->name('api.ai.chat-assistant');
+Route::get('/api/ai/chat-history', [PublicListingController::class, 'getChatHistory'])->name('api.ai.chat-history');
+Route::post('/api/ai/clear-chat-history', [PublicListingController::class, 'clearChatHistory'])->name('api.ai.clear-chat-history');
+Route::post('/api/ai/sync-guest-history', [PublicListingController::class, 'syncGuestHistory'])->name('api.ai.sync-guest-history');
 
 // Route cho Trang Tin tức
 Route::get('/tintuc', [PostController::class, 'index'])->name('tintuc');
@@ -120,6 +124,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/rooms/{room}/direct-review', [PublicListingController::class, 'submitDirectReview'])->name('rooms.direct-review');
     Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
     Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
+    Route::get('/appointments/{appointment}/ai-alternatives', [ProfileController::class, 'getAiRecommendations'])->name('appointments.ai-alternatives');
     Route::post('/appointments/{appointment}/cancel-interest', [ProfileController::class, 'cancelInterest'])->name('appointments.cancel_interest');
 
     // Route Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
@@ -208,14 +213,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/posts/{id}/edit', [AdminPostController::class, 'edit'])->name('admin.posts.edit');
     Route::post('/posts/{id}', [AdminPostController::class, 'update'])->name('admin.posts.update');
     Route::delete('/posts/{id}', [AdminPostController::class, 'destroy'])->name('admin.posts.destroy');
-
     // Route quản lý liên hệ của Admin
     Route::get('/contacts', [ContactController::class, 'index'])->name('admin.contacts.index');
     Route::patch('/contacts/{id}/status', [ContactController::class, 'updateStatus'])->name('admin.contacts.status');
     Route::delete('/contacts/{id}', [ContactController::class, 'delete'])->name('admin.contacts.delete');
     Route::post('/contacts/{id}/reply', [ContactController::class, 'reply'])->name('admin.contacts.reply');
-
-    // Các route trên đã định nghĩa đầy đủ
     //phần cấu hình ngân hàng của admin
     Route::post('/subscription-plans/bank-settings', [SubscriptionPlanController::class, 'updateBankSettings'])->name('admin.subscription-plans.bank-settings');
     //Phần quản lý mua gói
@@ -372,7 +374,6 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::post('/subscriptions/purchase', [SubscriptionController::class, 'purchase'])->name('landlord.subscriptions.purchase');
     Route::post('/subscriptions/{id}/proof', [SubscriptionController::class, 'uploadProof'])->name('landlord.subscriptions.upload-proof');
     Route::get('/subscriptions/{id}/status', [SubscriptionController::class, 'checkStatus'])->name('landlord.subscriptions.status');
-
     //phần lịch sử mua gói dịch vụ của chủ trọ
     Route::get('/subscriptions/history', [SubscriptionController::class, 'history'])->name('landlord.subscriptions.history');
 });

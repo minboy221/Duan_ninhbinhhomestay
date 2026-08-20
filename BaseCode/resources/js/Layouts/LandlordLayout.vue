@@ -846,9 +846,9 @@ const requestAndSaveFcmToken = async () => {
                                 <i class="bi bi-patch-check-fill"></i>
                             </span>
                         </div>
+
                         <div class="hidden lg:flex flex-col">
-                            <span class="text-xs font-bold text-slate-900 leading-none">{{ user?.name || "Chủ trọ"
-                                }}</span>
+                            <span class="text-xs font-bold text-slate-900 leading-none">{{ user?.name || "Chủ trọ" }}</span>
                             <span class="text-[9px] font-extrabold text-emerald-600 mt-1 uppercase tracking-wide">Chủ
                                 Trọ</span>
                         </div>
@@ -915,9 +915,7 @@ const requestAndSaveFcmToken = async () => {
                                                     ? 'text-emerald-500'
                                                     : 'text-slate-400',
                                             ]"></i>
-                                            <span class="text-sm font-bold">{{
-                                                item.label
-                                                }}</span>
+                                            <span class="text-sm font-bold">{{ item.label }}</span>
                                             <span v-if="
                                                 item.label === 'Khiếu Nại' &&
                                                 page.props.auth
@@ -987,9 +985,7 @@ const requestAndSaveFcmToken = async () => {
                                                             ? 'text-emerald-500'
                                                             : 'text-slate-400',
                                                     ]"></i>
-                                                    <span class="text-xs font-bold">{{
-                                                        child.label
-                                                        }}</span>
+                                                    <span class="text-xs font-bold">{{ child.label }}</span>
 
                                                     <!-- Badge số lượng cho mobile Lịch Đặt Hẹn -->
                                                     <span v-if="
