@@ -41,7 +41,7 @@ class RegisteredUserController extends Controller
     {
         $this->authService->registerAccount($request->only('name', 'email', 'password'));
 
-        return redirect(route('landlord.dashboard'))
+        return redirect(route('verification.notice'))
         ->with('is_new_registration', true);
     }
 }

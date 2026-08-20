@@ -62,6 +62,15 @@ class RoomListingService
                 session(['selected_boarding_house_id' => $boardingHouseId]);
             }
         }
+
+        // Tự động quét và chuyển sang trạng thái 'hidden' (Đóng tin) cho bài đăng của các phòng đã đủ người
+        RoomPost::where('landlord_id', $landlordId)
+            ->where('status', 'approved')
+            ->whereHas('room', function ($q) {
+                $q->whereColumn('current_people', '>=', 'capacity');
+            })
+            ->update(['status' => 'hidden']);
+
         return RoomPost::where('landlord_id', $landlordId)
             ->whereHas('room',function($q) use ($boardingHouseId){
                 $q->where('boarding_house_id',$boardingHouseId);
@@ -78,7 +87,7 @@ class RoomListingService
         // Phần sử lý upload danh sách hình ảnh bài đăng
         $uploadedImages = [];
         foreach ($files as $file) {
-            $path = $file->store('room_posts_images', 'public');
+            $path = $file->store('room_posts_images', 'r2_public');
             $uploadedImages[] = '/storage/' . $path;
         }
         return $uploadedImages;

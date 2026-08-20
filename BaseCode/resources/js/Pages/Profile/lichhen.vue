@@ -53,9 +53,24 @@ const statusMap = {
         dot: "bg-rose-500",
     },
     success_matched: {
-        label: "Đã thuê trọ",
-        cls: "bg-teal-50 text-teal-600 border-teal-100",
+        label: "Đã ký HĐ & Đóng cọc",
+        cls: "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold",
+        dot: "bg-emerald-500",
+    },
+    joined_roommate: {
+        label: "Đã tham gia ở ghép",
+        cls: "bg-purple-50 text-purple-700 border-purple-200 font-bold",
+        dot: "bg-purple-500",
+    },
+    became_main_tenant: {
+        label: "Đã đứng tên Hợp đồng",
+        cls: "bg-teal-50 text-teal-700 border-teal-200 font-bold",
         dot: "bg-teal-500",
+    },
+    terminated: {
+        label: "Hợp đồng đã thanh lý",
+        cls: "bg-slate-100 text-slate-600 border-slate-200 font-bold",
+        dot: "bg-slate-500",
     },
     false_matched: {
         label: "Không thuê",
@@ -75,6 +90,13 @@ const getStatusData = (aptOrStatus) => {
             key = 'cancelled';
         } else {
             key = aptOrStatus.status;
+        }
+        if (key === 'waiting_contract' && (aptOrStatus.room?.current_people > 0 || aptOrStatus.room?.room_posts?.some(p => p.type === 'stranger'))) {
+            return {
+                label: "Chờ duyệt ở ghép",
+                cls: "bg-purple-50 text-purple-600 border-purple-200 font-bold",
+                dot: "bg-purple-500",
+            };
         }
     }
     return (
@@ -416,8 +438,9 @@ const paginatedAppointments = computed(() => {
                                                 <span class="badge-interested">
                                                     <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
                                                 </span>
-                                                <!-- Nút Đổi ý -->
-                                                <button @click="openCancelModal(apt)" class="btn-cancel-interest">
+                                                <!-- Nút Đổi ý (Chỉ hiển thị khi CHƯA chốt Hợp đồng/Thanh toán/Vào ở ghép/Thanh lý) -->
+                                                <button v-if="!['success_matched', 'joined_roommate', 'became_main_tenant', 'terminated'].includes(apt.status)"
+                                                    @click="openCancelModal(apt)" class="btn-cancel-interest">
                                                     Đổi ý / Hủy đăng ký
                                                 </button>
                                             </div>
@@ -568,14 +591,15 @@ const paginatedAppointments = computed(() => {
                                     style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
                                     <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px;"></i> Ưng
                                 </button>
-                                <button @click="openConfirmInterest(apt, false)"
-                                    class="btn-action btn-not-interest" title="Không ưng"
+                                <button @click="openConfirmInterest(apt, false)" class="btn-action btn-not-interest"
+                                    title="Không ưng"
                                     style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; width: auto; padding: 0 10px; font-size: 12px; font-weight: bold; cursor: pointer;">
                                     <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px;"></i> Không
                                     ưng
                                 </button>
                             </div>
-                            <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;" class="space-y-1">
+                            <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;"
+                                class="space-y-1">
                                 <span v-if="['interested', 'like'].includes(apt.feedback_result)"
                                     style="background-color: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold; display: inline-block;">
                                     <i class="bi bi-check-circle-fill"></i> Đã chốt: Ưng
@@ -588,10 +612,12 @@ const paginatedAppointments = computed(() => {
                                     style="background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: bold;">
                                     <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
                                 </span>
-                                <a v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone" 
-                                   :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
-                                   class="mobile-call-btn">
-                                    <i class="bi bi-telephone-fill"></i> Gọi {{ apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone }}
+                                <a v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone"
+                                    :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
+                                    class="mobile-call-btn">
+                                    <i class="bi bi-telephone-fill"></i> Gọi {{ apt.room?.boardingHouse?.landlord?.phone
+                                        ||
+                                    apt.room?.boarding_house?.landlord?.phone }}
                                 </a>
                             </div>
                         </div>

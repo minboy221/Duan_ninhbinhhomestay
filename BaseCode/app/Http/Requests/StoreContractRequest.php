@@ -32,6 +32,11 @@ class StoreContractRequest extends FormRequest
             'number_of_tenants' => 'nullable|integer|min:1',
             'entry_elec_index' => 'nullable|integer|min:0',
             'entry_water_index' => 'nullable|integer|min:0',
+            'is_for_other' => 'nullable|boolean',
+            'actual_tenant_name' => 'required_if:is_for_other,1,true|nullable|string|max:255',
+            'actual_tenant_phone' => 'required_if:is_for_other,1,true|nullable|string|max:20',
+            'actual_tenant_email' => 'nullable|email|max:255',
+            'actual_tenant_cccd' => 'required_if:is_for_other,1,true|nullable|string|digits:12',
         ];
     }
 
