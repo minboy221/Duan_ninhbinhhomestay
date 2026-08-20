@@ -61,10 +61,20 @@ class LandlordController extends Controller
         $data = $request->only('name', 'phone', 'email', 'bank_name', 'bank_account_no', 'bank_account_name');
 
         if ($request->hasFile('avatar')) {
-            if ($user->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->avatar)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+            try {
+                if ($user->avatar) {
+                    $oldPath = str_replace('/storage/', '', $user->avatar);
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+                }
+                $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
+                $path = $request->file('avatar')->store('avatars', $disk);
+                $data['avatar'] = (str_starts_with($path, 'http') || str_starts_with($path, '/storage/')) 
+                    ? $path 
+                    : '/storage/' . ltrim($path, '/');
+            } catch (\Throwable $e) {
+                $path = $request->file('avatar')->store('avatars', 'public');
+                $data['avatar'] = '/storage/' . ltrim($path, '/');
             }
-            $data['avatar'] = $request->file('avatar')->store('avatars', 'r2_public');
         }
 
         $user->update($data);
@@ -188,56 +198,62 @@ class LandlordController extends Controller
 
     public function storeRoom(Request $request)
     {
-        $user = auth()->user();
-        //đếm tổng số phòng hiện tại của chủ trọ
-        $currentRoomCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user) {
-            $q->where('user_id', $user->id);
-        })->count();
-        //check với giới hạn max_rooms trong gói dịch vụ
-        if (!$user->canCreateResource('max_rooms', $currentRoomCount)) {
-            $limit = $user->getFeatureValue('max_rooms');
-            return redirect()->back()->with(
-                'error',
-                "Gói dịch vụ hiện tại của bạn chỉ cho phép tối đa {$limit} phòng trọ. Vui lòng nâng cấp gói VIP để tạo thêm phòng mới!"
-            );
-        }
-        $request->validate([
-            'floor_id' => 'required|integer|exists:floors,id',
-            'room_numbers' => 'nullable|array',
-            'room_number' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:255',
-            'price' => 'required|numeric|min:0',
-            'area' => 'required|numeric|min:0',
-            'capacity' => 'nullable|integer|min:1',
-            'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
-            'amenities' => 'nullable|string',
-            'images' => 'nullable|array|max:10',
-            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-        ]);
-
-        $imageFiles = $request->file('images', []);
-        $boardingHouseId = session('selected_boarding_house_id');
-
-        if ($request->has('room_numbers') && is_array($request->room_numbers)) {
-            $count = 0;
-            foreach ($request->room_numbers as $rn) {
-                $data = $request->except(['room_numbers', 'room_number']);
-                $data['room_number'] = $rn;
-                $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles, $boardingHouseId);
-                if ($room) {
-                    $count++;
-                }
+        try {
+            $user = auth()->user();
+            //đếm tổng số phòng hiện tại của chủ trọ
+            $currentRoomCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->count();
+            //check với giới hạn max_rooms trong gói dịch vụ
+            if (!$user->canCreateResource('max_rooms', $currentRoomCount)) {
+                $limit = $user->getFeatureValue('max_rooms');
+                return redirect()->back()->with(
+                    'error',
+                    "Gói dịch vụ hiện tại của bạn chỉ cho phép tối đa {$limit} phòng trọ. Vui lòng nâng cấp gói VIP để tạo thêm phòng mới!"
+                );
             }
-            if ($count === 0)
-                return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Vui lòng kiểm tra lại.');
-            return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
-        } else {
-            $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles, $boardingHouseId);
-            if (!$result)
-                return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
-            return redirect()->back()->with('success', 'Thêm phòng thành công!');
+            $request->validate([
+                'floor_id' => 'required|integer|exists:floors,id',
+                'room_numbers' => 'nullable|array',
+                'room_number' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                'price' => 'required|numeric|min:0',
+                'area' => 'required|numeric|min:0',
+                'capacity' => 'nullable|integer|min:1',
+                'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+                'amenities' => 'nullable|string',
+                'images' => 'nullable|array|max:10',
+                'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
+            ]);
+
+            $imageFiles = $request->file('images', []);
+            $boardingHouseId = session('selected_boarding_house_id');
+
+            if ($request->has('room_numbers') && is_array($request->room_numbers)) {
+                $count = 0;
+                foreach ($request->room_numbers as $rn) {
+                    $data = $request->except(['room_numbers', 'room_number']);
+                    $data['room_number'] = $rn;
+                    $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles, $boardingHouseId);
+                    if ($room) {
+                        $count++;
+                    }
+                }
+                if ($count === 0)
+                    return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Số phòng có thể đã tồn tại.');
+                return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
+            } else {
+                $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles, $boardingHouseId);
+                if (!$result)
+                    return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
+                return redirect()->back()->with('success', 'Thêm phòng thành công!');
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Lỗi khi tạo phòng: ' . $e->getMessage());
         }
     }
 
