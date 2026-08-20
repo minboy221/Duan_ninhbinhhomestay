@@ -459,13 +459,30 @@ class RoomService
             'start_date' => $startDate,
             'status' => 'active',
         ]);
-        //tăng số lượng người ở hiện tại của phòng
+        // tăng số lượng người ở hiện tại của phòng
         $room->increment('current_people');
+        $room->refresh();
 
-        //tự động chuyển các yêu cầu ở ghép đang chờ (pending) của phòng này sang 'approved' để ẩn khỏi danh sách
+        // 1. Chuyển trạng thái lịch hẹn của người dùng này sang 'joined_roommate' (Đã tham gia ở ghép)
+        \App\Models\Appointment::where('room_id', $roomId)
+            ->where('user_id', $user->id)
+            ->update(['status' => 'joined_roommate']);
+
+        // 2. Nếu số lượng người đã ĐẠT HOẶC VƯỢT quá sức chứa (current_people >= capacity) -> TỰ ĐỘNG ẨN TIN ĐĂNG
+        if ($room->current_people >= $room->capacity) {
+            // Đổi trạng thái tin đăng sang 'hidden' để ẩn bài đăng (Đóng tin đăng)
+            \App\Models\RoomPost::where('room_id', $roomId)->update(['status' => 'hidden']);
+
+            // Đóng tất cả các lịch hẹn còn đang chờ khác của phòng này
+            \App\Models\Appointment::where('room_id', $roomId)
+                ->whereIn('status', ['approved', 'viewed', 'waiting_contract', 'pending'])
+                ->update(['status' => 'completed']);
+        }
+
+        // 3. Tự động chuyển các yêu cầu ở ghép đang chờ (pending) của phòng này sang 'approved'
         \App\Models\RoommateRequest::where('room_id', $roomId)
-        ->where('status','pending')
-        ->update(['status' => 'approved']);
+            ->where('status', 'pending')
+            ->update(['status' => 'approved']);
     }
 
     // Xoá thành viên ở ghép khỏi phòng
@@ -584,7 +601,7 @@ class RoomService
     {
         $paths = [];
         foreach ($files as $file) {
-            $paths[] = $file->store('rooms', 'public');
+            $paths[] = $file->store('rooms', 'r2_public');
         }
         return $paths;
     }
@@ -593,7 +610,7 @@ class RoomService
     {
         if (!empty($room->images)) {
             foreach ($room->images as $img) {
-                Storage::disk('public')->delete($img);
+                Storage::disk('r2_public')->delete($img);
             }
         }
     }

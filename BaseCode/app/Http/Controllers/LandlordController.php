@@ -64,7 +64,7 @@ class LandlordController extends Controller
             if ($user->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->avatar)) {
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
             }
-            $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
+            $data['avatar'] = $request->file('avatar')->store('avatars', 'r2_public');
         }
 
         $user->update($data);
@@ -557,16 +557,64 @@ class LandlordController extends Controller
             ->pluck('room_id')
             ->toArray();
 
-        // Chỉ lấy những lịch hẹn mà:
-        // 1. Trạng thái là approved, viewed hoặc waiting_contract
-        // 2. Khách đã phản hồi "ƯNG" (feedback_result = 'interested' hoặc 'like')
-        // 3. Phòng chưa có hợp đồng hiệu lực
+        // 1. Lịch hẹn thuê phòng mới (nguyên căn chưa có hợp đồng) -> Đưa vào "Hợp đồng chờ"
         $appointments = \App\Models\Appointment::with(['user', 'room'])
             ->where('landlord_id', $landlordId)
-            ->whereIn('status', ['approved', 'viewed', 'waiting_contract', 'success_matched'])
+            ->whereIn('status', ['approved', 'viewed', 'waiting_contract'])
             ->whereIn('feedback_result', ['interested', 'like'])
             ->whereNotIn('room_id', $existingContractRoomIds)
             ->get();
+
+        // 2. Lịch hẹn Người lạ đăng ký ở ghép -> Chỉ lấy lịch hẹn ĐANG CHỜ (Chưa chốt/Chưa thanh toán/Chưa vào ở)
+        $roommateAppointments = \App\Models\Appointment::with(['user', 'room'])
+            ->where('landlord_id', $landlordId)
+            ->whereIn('status', ['approved', 'viewed', 'waiting_contract'])
+            ->whereIn('feedback_result', ['interested', 'like'])
+            ->whereIn('room_id', $existingContractRoomIds)
+            ->whereHas('room', function ($q) {
+                $q->whereColumn('current_people', '<', 'capacity');
+            })
+            ->get()
+            ->reject(function ($apt) {
+                // Loại bỏ nếu người này ĐÃ LÀ cư dân ở ghép active hoặc Chủ hợp đồng active của phòng này
+                $isAlreadyResident = \App\Models\RoomResident::where('room_id', $apt->room_id)
+                    ->where('user_id', $apt->user_id)
+                    ->where('status', 'active')
+                    ->exists();
+
+                $isAlreadyTenant = \App\Models\Contract::where('room_id', $apt->room_id)
+                    ->where('tenant_id', $apt->user_id)
+                    ->whereIn('status', ['signed', 'active'])
+                    ->exists();
+
+                return $isAlreadyResident || $isAlreadyTenant;
+            })
+            ->map(function ($apt) {
+                return [
+                    'id' => 'apt_' . $apt->id,
+                    'appointment_id' => $apt->id,
+                    'room_id' => $apt->room_id,
+                    'type' => 'stranger_applicant',
+                    'new_resident_name' => $apt->user?->name ?: 'Người lạ đăng ký ở ghép',
+                    'new_resident_phone' => $apt->user?->phone ?: '',
+                    'new_resident_cccd' => $apt->user?->cccd_number ?: '',
+                    'created_at' => $apt->created_at,
+                    'room' => $apt->room,
+                    'tenant' => $apt->user,
+                ];
+            });
+
+        // 3. Lấy danh sách yêu cầu ở ghép (loại giới thiệu người quen) đang chờ
+        $acquaintanceRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+            ->where('status', 'pending')
+            ->where('type', 'acquaintance')
+            ->with(['room', 'tenant'])
+            ->get();
+
+        // Hợp nhất cả 2 nguồn người ở ghép (Người quen B + Người lạ B ấn ƯNG) đưa vào pendingRoommateRequests
+        $pendingRoommateRequests = $acquaintanceRequests->concat($roommateAppointments);
 
         // Lấy danh sách Nhà trọ kèm các Tầng và Phòng trọ
         $boardingHousesQuery = \App\Models\BoardingHouse::where('user_id', $landlordId);
@@ -575,13 +623,7 @@ class LandlordController extends Controller
         }
         $boardingHouses = $boardingHousesQuery->with(['rooms.residents.user', 'floors.rooms.residents.user'])
             ->get();
-        //lấy danh sách yêu cầu ở ghép đang chờ tạo hợp đồng
-        $pendingRoommateRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
-            $q->where('user_id', $landlordId);
-        })
-            ->where('status', 'pending')
-            ->with(['room', 'tenant'])
-            ->get();
+
         return Inertia::render('Landlord/Contracts/index', [
             'dbContracts' => $contracts,
             'appointments' => $appointments,
@@ -713,10 +755,10 @@ class LandlordController extends Controller
         $elecImgPath = null;
         $elecOldImgPath = null;
         if ($request->hasFile('elec_meter_image')) {
-            $elecImgPath = '/storage/' . $request->file('elec_meter_image')->store('meter_readings', 'public');
+            $elecImgPath = '/storage/' . $request->file('elec_meter_image')->store('meter_readings', 'r2_public');
         }
         if ($request->hasFile('elec_old_meter_image')) {
-            $elecOldImgPath = '/storage/' . $request->file('elec_old_meter_image')->store('meter_readings', 'public');
+            $elecOldImgPath = '/storage/' . $request->file('elec_old_meter_image')->store('meter_readings', 'r2_public');
         }
 
         $waterImgPath = null;
@@ -946,14 +988,14 @@ class LandlordController extends Controller
             $elecOldImgPath = null;
             $elecFileKey = "readings.{$index}.elec_image";
             if ($request->hasFile($elecFileKey)) {
-                $elecImgPath = '/storage/' . $request->file($elecFileKey)->store('meter_readings', 'public');
+                $elecImgPath = $request->file('elec_meter_image')->store('meter_readings', 'r2_public');
             }
 
             $waterImgPath = null;
             $waterOldImgPath = null;
             $waterFileKey = "readings.{$index}.water_image";
             if ($request->hasFile($waterFileKey)) {
-                $waterImgPath = '/storage/' . $request->file($waterFileKey)->store('meter_readings', 'public');
+                $waterImgPath = $request->file('water_meter_image')->store('meter_readings', 'r2_public');
             }
 
             // Default rates

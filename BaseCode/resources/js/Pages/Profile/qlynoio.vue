@@ -9,6 +9,7 @@ const props = defineProps({
     user: Object,
     contract: Object,
     isPrimaryTenant: Boolean,
+    reasons: Array,
 });
 
 const showPdfModal = ref(false);
@@ -275,6 +276,51 @@ const handleViewPdf = () => {
     }
     showPdfModal.value = true;
 };
+
+//state & form cho modal báo cáo
+const showReportModal = ref(false);
+const previewEvidenceImages = ref([]);
+
+const reportForm = useForm({
+    reportable_type: "Room",
+    reportable_id: null,
+    resolve_type: "direct",
+    reason: "",
+    description: "",
+    evidence_images: [],
+});
+
+// Hàm mở Modal Báo cáo
+const openReportModal = () => {
+    if (!props.contract || !props.contract.room_id) {
+        showError("Lỗi", "Không tìm thấy thông tin phòng trọ để báo cáo.");
+        return;
+    }
+    reportForm.reset();
+    reportForm.reportable_type = "Room";
+    reportForm.reportable_id = props.contract.room_id;
+    previewEvidenceImages.value = [];
+    showReportModal.value = true;
+};
+
+const handleEvidenceImages = (e) => {
+    const files = Array.from(e.target.files);
+    reportForm.evidence_images = files;
+    previewEvidenceImages.value = files.map((file) => URL.createObjectURL(file));
+};
+
+const submitReport = () => {
+    reportForm.post(route("reports.store"), {
+        forceFormData: true,
+        onSuccess: () => {
+            showReportModal.value = false;
+            showSuccess("Thành công", "Đã gửi báo cáo thành công! Hệ thống sẽ hỗ trợ bạn xử lý.");
+        },
+        onError: (errs) => {
+            showError("Lỗi", Object.values(errs).join("\n"));
+        },
+    });
+};
 </script>
 
 <template>
@@ -390,12 +436,12 @@ const handleViewPdf = () => {
                                     Điện:
                                     <strong style="color: #059669">{{
                                         contract.entry_elec_index
-                                        }}
+                                    }}
                                         kWh</strong>
                                     | Nước:
                                     <strong style="color: #2563eb">{{
                                         contract.entry_water_index
-                                        }}
+                                    }}
                                         m³</strong>
                                     <span style="
                                             font-size: 11px;
@@ -511,7 +557,7 @@ const handleViewPdf = () => {
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px;">
                                 <div>
                                     <strong style="font-size: 13px; color: #0f172a;">{{ res.user?.name || 'Thành viên'
-                                        }}</strong>
+                                    }}</strong>
                                     <span style="font-size: 11px; color: #64748b; margin-left: 8px;">SĐT: {{
                                         res.user?.phone || 'Chưa có' }}</span>
                                 </div>
@@ -589,6 +635,11 @@ const handleViewPdf = () => {
                     <h2>LỊCH SỬ HOÁ ĐƠN</h2>
                     <Link :href="route('lichsuthanhtoan')" class="btn-hopdong">Xem trực tiếp lịch sử thanh toán</Link>
                 </div>
+                <!-- Nút Báo cáo sự cố / vi phạm -->
+                <button @click="openReportModal" class="btn-bao-cao">
+                    <i class="bi bi-flag-fill"></i>
+                    Báo cáo sự cố / vi phạm
+                </button>
             </div>
         </div>
 

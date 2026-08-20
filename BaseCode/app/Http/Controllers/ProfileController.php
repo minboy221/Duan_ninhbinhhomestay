@@ -89,10 +89,12 @@ class ProfileController extends Controller
                 $room->current_people = $realCurrentPeople;
             }
         }
+        $reasons = \App\Models\ReportReason::where('is_active', true)->get();
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
             'contract' => $contract,
             'isPrimaryTenant' => $isPrimaryTenant,
+            'reasons' => $reasons,
         ]);
     }
 
@@ -218,6 +220,43 @@ class ProfileController extends Controller
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')
             ->get();
+
+        // Tự động đồng bộ trạng thái thực tế với Hợp đồng & Cư dân ở ghép
+        foreach ($appointments as $apt) {
+            $userId = $request->user()->id;
+            $roomId = $apt->room_id;
+
+            // Check xem có hợp đồng đang có hiệu lực / đã ký đứng tên người này không
+            $activeContract = \App\Models\Contract::where('room_id', $roomId)
+                ->where('tenant_id', $userId)
+                ->whereIn('status', ['active', 'signed'])
+                ->latest()
+                ->first();
+
+            // Check xem có hợp đồng đã thanh lý đứng tên người này không
+            $terminatedContract = \App\Models\Contract::where('room_id', $roomId)
+                ->where('tenant_id', $userId)
+                ->where('status', 'terminated')
+                ->latest()
+                ->first();
+
+            // Check xem người này có đang ở ghép trong phòng không
+            $isResident = \App\Models\RoomResident::where('room_id', $roomId)
+                ->where('user_id', $userId)
+                ->where('status', 'active')
+                ->exists();
+
+            if ($activeContract) {
+                // Nếu người này đứng tên chính hợp đồng active -> 'success_matched' hoặc 'became_main_tenant'
+                $apt->status = 'success_matched';
+            } else if ($terminatedContract && !$isResident) {
+                // Nếu hợp đồng đã thanh lý và không còn ở trong phòng -> 'terminated'
+                $apt->status = 'terminated';
+            } else if ($isResident) {
+                // Nếu đang là thành viên ở ghép trong phòng -> 'joined_roommate'
+                $apt->status = 'joined_roommate';
+            }
+        }
 
         $favoriteRoomIds = $request->user()->favoriteRooms()->pluck('rooms.id')->toArray();
 
@@ -488,6 +527,18 @@ class ProfileController extends Controller
             'cancelled_by' => $user->id
         ]);
         \App\Models\Contract::$allowImmutableUpdate = false;
+
+        // Gửi thông báo đến Chủ trọ
+        $landlord = $contract->room?->boardingHouse?->landlord;
+        if ($landlord) {
+            $roomNum = $contract->room?->room_number ?: '';
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'Yêu cầu chấm dứt hợp đồng mới',
+                "Khách thuê {$user->name} vừa gửi yêu cầu chấm dứt hợp đồng phòng {$roomNum}. Lý do: {$request->input('reason')}",
+                'warning',
+                route('landlord.contracts')
+            ));
+        }
 
         return Redirect::back()->with('success', 'Đã gửi yêu cầu chấm dứt hợp đồng thành công. Vui lòng chờ chủ trọ xác nhận thanh lý.');
     }
