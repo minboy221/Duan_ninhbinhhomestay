@@ -115,7 +115,7 @@ const onVideoPlay = async () => {
         const idDetection = await faceapi
             .detectSingleFace(
                 idImg,
-                new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }),
+                new faceapi.SsdMobilenetv1Options({ minConfidence: 0.7 }),
             )
             .withFaceLandmarks()
             .withFaceDescriptor();
@@ -126,7 +126,7 @@ const onVideoPlay = async () => {
             return;
         }
 
-        faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.4);
+        faceMatcher = new faceapi.FaceMatcher(idDetection.descriptor, 0.45);
 
         displaySize = {
             width: videoRef.value.videoWidth || 340,
@@ -162,8 +162,8 @@ const startScanning = () => {
                 .detectAllFaces(
                     videoRef.value,
                     new faceapi.TinyFaceDetectorOptions({
-                        inputSize: 320,
-                        scoreThreshold: 0.5,
+                        inputSize: 416,
+                        scoreThreshold: 0.65,
                     }),
                 )
                 .withFaceLandmarks()

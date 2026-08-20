@@ -4,6 +4,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useBackToTop, useDropdownMenu, useMobileDrawer } from '@/composables/main.js'
 import axios from 'axios'
 import AppointmentCountdown from '@/Components/AppointmentCountdown.vue';
+import AiChatAssistant from '@/Components/AiChatAssistant.vue';
 import { useFcm } from '@/composables/useFcm';
 
 const page = usePage()
@@ -573,6 +574,9 @@ const getAvatarUrl = (avatar) => {
                 </div>
             </div>
         </Transition>
+
+        <!-- Trợ lý AI Mascot Chatbot nổi toàn website -->
+        <AiChatAssistant />
     </Teleport>
 </template>
 
