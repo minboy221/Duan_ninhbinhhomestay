@@ -148,8 +148,9 @@ class PublicListingService
 
         // 2. Lọc theo loại phòng (Danh mục)
         if ($request->filled('category_id')) {
-            $query->whereHas('room', function ($q) use ($request) {
-                $q->where('category_id', $request->input('category_id'));
+            $categoryIds = is_array($request->input('category_id')) ? $request->input('category_id') : [$request->input('category_id')];
+            $query->whereHas('room', function ($q) use ($categoryIds) {
+                $q->whereIn('category_id', $categoryIds);
             });
         }
 
@@ -234,51 +235,7 @@ class PublicListingService
             });
         }
 
-        // 6. Lọc theo Loại phòng (Categories)
-        $categoryIds = $request->input('categories');
-        if (empty($categoryIds) && !empty($aiParsed['category_id'])) {
-            $categoryIds = [$aiParsed['category_id']];
-        }
-        if (!empty($categoryIds) && is_array($categoryIds)) {
-            $categoryNames = Category::whereIn('id', $categoryIds)->pluck('name')->toArray();
-            if (!empty($categoryNames)) {
-                $query->where(function ($q) use ($categoryNames) {
-                    foreach ($categoryNames as $catName) {
-                        $q->orWhere('title', 'like', "%{$catName}%")
-                          ->orWhere('description', 'like', "%{$catName}%");
-                    }
-                });
-            }
-        }
-
-        // 7. Lọc theo Tiện ích (Amenities)
-        $amenityIds = $request->input('amenities');
-        if (empty($amenityIds) && !empty($aiParsed['amenity_ids'])) {
-            $amenityIds = $aiParsed['amenity_ids'];
-        }
-        if (!empty($amenityIds) && is_array($amenityIds)) {
-            $amenityNames = Amenity::whereIn('id', $amenityIds)->pluck('name')->toArray();
-            if (!empty($amenityNames)) {
-                $query->where(function ($mainQ) use ($amenityNames) {
-                    foreach ($amenityNames as $name) {
-                        $mainQ->where(function ($subQ) use ($name) {
-                            $subQ->where('description', 'like', "%{$name}%")
-                                 ->orWhere('title', 'like', "%{$name}%")
-                                 ->orWhereHas('room.services', function ($sq) use ($name) {
-                                     $sq->where('name', 'like', "%{$name}%");
-                                 });
-                        });
-                    }
-                });
-            }
-        }
-
-        $paginatedListings = $query->latest()->paginate(10)->withQueryString();
-
-        return [
-            'listings' => $paginatedListings,
-            'ai_parsed' => $aiParsed,
-        ];
+        return $query->latest()->paginate(5)->withQueryString();
     }
 
     /**

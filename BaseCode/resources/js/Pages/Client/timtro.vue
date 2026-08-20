@@ -102,7 +102,27 @@ const handleClickOutside = (event) => {
 
 onMounted(() => {
     window.addEventListener('click', handleClickOutside);
-    syncFromProps();
+
+    // Khởi tạo bộ lọc từ URL nếu có
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('area_id')) {
+        form.value.area_id = Number(urlParams.get('area_id'));
+        selectedArea.value = (props.areas || []).find(a => a.id === form.value.area_id) || null;
+    }
+    if (urlParams.get('price')) {
+        form.value.price = urlParams.get('price');
+    }
+    if (urlParams.get('dientich')) {
+        form.value.dientich = urlParams.get('dientich');
+    }
+    const catParams = urlParams.getAll('category_id[]').concat(urlParams.get('category_id') ? [urlParams.get('category_id')] : []);
+    if (catParams.length > 0) {
+        form.value.categories = catParams.map(Number).filter(Boolean);
+    }
+    const amenityParams = urlParams.getAll('amenities[]').concat(urlParams.get('amenities') ? [urlParams.get('amenities')] : []);
+    if (amenityParams.length > 0) {
+        form.value.amenities = amenityParams.map(Number).filter(Boolean);
+    }
 });
 
 onUnmounted(() => {
@@ -222,6 +242,53 @@ const getStatusClass = (status) => {
         under_construction: 'room-badge-construction'
     };
     return classes[status] || 'room-badge-rented';
+};
+
+function submitSearch() {
+    const params = {};
+    if (form.value.area_id) params.area_id = form.value.area_id;
+    if (form.value.price) params.price = form.value.price;
+    if (form.value.dientich) params.dientich = form.value.dientich;
+    if (form.value.categories && form.value.categories.length > 0) {
+        params.category_id = form.value.categories;
+    }
+    if (form.value.amenities && form.value.amenities.length > 0) {
+        params.amenities = form.value.amenities;
+    }
+    if (props.filters?.search) {
+        params.search = props.filters.search;
+    }
+
+    router.get(route('timtro'), params, {
+        preserveState: true,
+        preserveScroll: false,
+    });
+}
+
+function resetFilters() {
+    form.value = {
+        area_id: null,
+        price: null,
+        dientich: null,
+        categories: [],
+        amenities: []
+    };
+    selectedArea.value = null;
+    router.get(route('timtro'), {}, {
+        preserveState: true,
+        preserveScroll: false,
+    });
+}
+
+const formatPaginationLabel = (label) => {
+    if (!label) return '';
+    if (label.includes('Previous') || label.includes('&laquo;')) {
+        return '<i class="bi bi-chevron-left" style="margin-right: 4px;"></i> Trước';
+    }
+    if (label.includes('Next') || label.includes('&raquo;')) {
+        return 'Sau <i class="bi bi-chevron-right" style="margin-left: 4px;"></i>';
+    }
+    return label;
 };
 
 const getAvatarUrl = (avatar) => {
@@ -458,6 +525,10 @@ const getRoomImageUrl = (images) => {
                             <div class="map_wrap rounded-lg overflow-hidden border border-slate-200" v-html="selectedArea.map_embed"></div>
                         </div>
 
+                        <div class="bao_btn" style="display: flex; gap: 8px; margin-top: 15px;">
+                            <button class="btn_filter" @click="submitSearch" style="flex: 2;">Tìm kiếm</button>
+                            <button type="button" @click="resetFilters" style="flex: 1; padding: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.2s;">
+                                Đặt lại
                         <!-- Nút Lọc và Đặt lại -->
                         <div class="bao_btn">
                             <button type="button" class="btn-apply-filter" @click="submitSearch">
@@ -483,6 +554,20 @@ const getRoomImageUrl = (images) => {
                 </div>
 
                 <div class="baoroom">
+                    <!-- Tiêu đề tổng quan số lượng phòng -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; width: 100%; padding: 0 4px;">
+                        <div style="font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                            <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #eff6ff; color: #2563eb; border-radius: 8px;">
+                                <i class="bi bi-houses-fill"></i>
+                            </span>
+                            <span>Danh sách phòng trọ</span>
+                            <span style="font-size: 13px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 10px; border-radius: 20px;">{{ listings.total || 0 }} phòng</span>
+                        </div>
+                        <div v-if="listings.last_page > 1" style="font-size: 12px; font-weight: 700; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 12px; border-radius: 20px;">
+                            Trang {{ listings.current_page }} / {{ listings.last_page }}
+                        </div>
+                    </div>
+
                     <div v-if="listings.data.length === 0"
                         style="text-align: center; padding: 60px 20px; width: 100%; color: #64748b;"
                         class="bg-white rounded-2xl border border-slate-200 shadow-sm"
@@ -540,6 +625,7 @@ const getRoomImageUrl = (images) => {
                                     </div>
                                     <div class="about_room mt-2">
                                         <p
+                                             v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'">
                                             v-html="post.description ? (post.description.length > 90 ? post.description.substring(0, 90) + '...' : post.description) : 'Không có mô tả'">
                                         </p>
                                     </div>
@@ -563,19 +649,19 @@ const getRoomImageUrl = (images) => {
                         </div>
                     </div>
                 </div>
-
-                <!-- Phân trang -->
-                <div class="phantrang" v-if="listings.links && listings.links.length > 3">
-                    <div class="baophantrang">
-                        <template v-for="(link, index) in listings.links" :key="index">
-                            <div class="so_trang" :class="{ 'active': link.active }">
-                                <Link v-if="link.url" :href="link.url" v-html="link.label"></Link>
-                                <span v-else v-html="link.label" style="opacity: 0.5; padding: 8px 12px;"></span>
-                            </div>
-                        </template>
-                    </div>
-                </div>
             </section>
+        </div>
+
+        <!-- Phân trang nằm chính giữa toàn bộ trang -->
+        <div class="phantrang" v-if="listings.links && listings.links.length > 3" style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 25px auto 80px auto; position: relative; z-index: 10;">
+            <div class="baophantrang" style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
+                <template v-for="(link, index) in listings.links" :key="index">
+                    <div class="so_trang" :class="{ 'active': link.active, 'disabled': !link.url }">
+                        <Link v-if="link.url" :href="link.url" v-html="formatPaginationLabel(link.label)" preserve-scroll></Link>
+                        <span v-else v-html="formatPaginationLabel(link.label)"></span>
+                    </div>
+                </template>
+            </div>
         </div>
     </MainLayout>
 </template>

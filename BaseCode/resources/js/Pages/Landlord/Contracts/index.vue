@@ -2005,6 +2005,7 @@ const getDepositBadgeConfig = (c) => {
                                 </button>
                             </div>
                         </div>
+
                         <div
                             class="px-6 py-3 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center text-xs font-bold text-slate-400">
                             <button @click="goToStep(1)"
