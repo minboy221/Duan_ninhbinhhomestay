@@ -54,23 +54,37 @@ const convertHeicToJpeg = async (file) => {
     }
 };
 
-// Hàm trích xuất tọa độ GPS từ ảnh bằng thư viện exifr
+// Hàm trích xuất tọa độ GPS từ Ảnh hoặc Video bằng exifr (có fallback Geolocation trình duyệt)
 const extractGPSMetadata = async (file) => {
     try {
         const gps = await exifr.gps(file);
         if (gps && gps.latitude && gps.longitude) {
             props.form.latitude = gps.latitude;
             props.form.longitude = gps.longitude;
-            console.log("Đã trích xuất GPS:", gps.latitude, gps.longitude);
-        } else {
-            console.log("Không tìm thấy dữ liệu GPS trong ảnh.");
+            console.log("Đã trích xuất GPS từ file:", gps.latitude, gps.longitude);
+            return;
         }
     } catch (error) {
-        console.error("Lỗi khi trích xuất dữ liệu GPS:", error);
+        console.warn("Không đọc được EXIF GPS từ file:", error);
+    }
+
+    // Nếu file ảnh/video không có sẵn dữ liệu GPS EXIF, dùng Geolocation API của trình duyệt làm fallback
+    if (!props.form.latitude && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                props.form.latitude = pos.coords.latitude;
+                props.form.longitude = pos.coords.longitude;
+                console.log("Đã lấy GPS vị trí hiện tại:", pos.coords.latitude, pos.coords.longitude);
+            },
+            (err) => {
+                console.warn("Không lấy được Geolocation trình duyệt:", err);
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
     }
 };
 
-// Xử lý tải ảnh/file cho hồ sơ pháp lý (contract_images) và không gian (room_images)
+// Xử lý tải ảnh/video cho hồ sơ pháp lý (contract_images) và không gian (room_images)
 const handleMultipleFiles = async (e, field) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -88,7 +102,7 @@ const handleMultipleFiles = async (e, field) => {
             file = await convertHeicToJpeg(file);
         }
 
-        // Nếu tải ảnh phòng và chưa có tọa độ GPS, thử trích xuất từ ảnh này
+        // Nếu tải ảnh/video phòng và chưa có tọa độ GPS, trích xuất GPS từ file này
         if (field === "room_images" && !props.form.latitude) {
             await extractGPSMetadata(file);
         }
@@ -297,17 +311,18 @@ const nextStep = () => {
                     <div>
                         <h2 class="text-xl font-bold text-on-surface mb-6 flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary">collections</span>
-                            Hình ảnh không gian <span class="text-error font-bold">*</span>
+                            Hình ảnh & Video không gian <span class="text-error font-bold">*</span>
                         </h2>
 
-                        <!-- Drag Drop Area for Room Images -->
+                        <!-- Drag Drop Area for Room Images & Videos -->
                         <label class="relative block group mb-6">
                             <div
                                 class="border-2 border-dashed border-outline-variant/40 rounded-xl p-6 text-center hover:border-primary transition-colors cursor-pointer bg-surface-container-low/30">
-                                <span class="material-symbols-outlined text-2xl text-outline mb-2">add_a_photo</span>
-                                <p class="text-sm font-medium">Tải lên ảnh Homestay</p>
+                                <span class="material-symbols-outlined text-2xl text-outline mb-2">video_camera_back</span>
+                                <p class="text-sm font-medium">Tải lên Ảnh / Video Homestay</p>
+                                <p class="text-xs text-outline font-normal mt-1">(Hỗ trợ JPG, PNG, HEIC, MP4, MOV - Tối đa 20MB)</p>
                             </div>
-                            <input type="file" multiple accept="image/*" class="hidden"
+                            <input type="file" multiple accept="image/*,video/*" class="hidden"
                                 @change="(e) => handleMultipleFiles(e, 'room_images')" />
                         </label>
 

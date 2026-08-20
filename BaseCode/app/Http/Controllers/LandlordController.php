@@ -537,15 +537,22 @@ class LandlordController extends Controller
         // Quét & cập nhật tự động trạng thái hợp đồng (expiring/expired) theo ngày hiện tại
         \App\Http\Controllers\Landlord\ContractController::scanContractStatuses($landlordId);
 
-        $query = \App\Models\Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
-            $q->where('user_id', $landlordId);
+        // Lấy danh sách ID các cơ sở do chủ trọ sở hữu hoặc được phân quyền làm quản lý phụ
+        $ownerHouseIds = \App\Models\BoardingHouse::where('user_id', $landlordId)->pluck('id')->toArray();
+        $managedHouseIds = \App\Models\PropertyManager::where('user_id', $landlordId)->pluck('boarding_house_id')->toArray();
+        $allHouseIds = array_unique(array_merge($ownerHouseIds, $managedHouseIds));
+
+        $query = \App\Models\Contract::whereHas('room', function ($q) use ($allHouseIds) {
+            $q->whereIn('boarding_house_id', $allHouseIds);
         });
-        //nếu chủ trọ chọn 1 cơ sở cụ thể trên header -> lấy hợp đồng thuộc cơ sở đó
+
+        // nếu chọn 1 cơ sở cụ thể trên header -> lấy hợp đồng thuộc cơ sở đó
         if ($boardingHousesId) {
             $query->whereHas('room', function ($q) use ($boardingHousesId) {
                 $q->where('boarding_house_id', $boardingHousesId);
             });
         }
+
         $contracts = $query->with(['room.residents.user', 'tenant'])
             ->orderBy('created_at', 'desc')
             ->get();

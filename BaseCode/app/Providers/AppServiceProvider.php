@@ -47,6 +47,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (is_dir(base_path('../public_html'))) {
+            $this->app->usePublicPath(base_path('../public_html'));
+        }
     }
 }

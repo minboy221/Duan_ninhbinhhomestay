@@ -37,6 +37,35 @@ class ContractController extends Controller
             ->get();
         return response()->json($users);
     }
+
+    // Kiểm tra số CCCD đã trùng với tài khoản khác trong CSDL hay chưa
+    public function checkCccd(Request $request)
+    {
+        $cccd = trim($request->get('cccd', ''));
+        $tenantId = $request->get('tenant_id');
+
+        if (strlen($cccd) !== 12 || !is_numeric($cccd)) {
+            return response()->json(['exists' => false]);
+        }
+
+        $existingUser = User::where('cccd_number', $cccd)
+            ->when($tenantId, function ($q) use ($tenantId) {
+                $q->where('id', '!=', $tenantId);
+            })
+            ->first(['id', 'name', 'phone']);
+
+        if ($existingUser) {
+            return response()->json([
+                'exists' => true,
+                'user' => [
+                    'name' => $existingUser->name,
+                    'phone' => $existingUser->phone,
+                ]
+            ]);
+        }
+
+        return response()->json(['exists' => false]);
+    }
     //Phần tạo hợp đồng mới
     public function storeDraftAndExport(StoreContractRequest $request)
     {
@@ -48,19 +77,23 @@ class ContractController extends Controller
         }
         $room = $roomId ? \App\Models\Room::find($roomId) : null;
         if (!$room) {
-            return redirect()->back()->with('error', 'Không tìm thấy thông tin phòng trọ để tạo hợp đồng.');
+            return redirect()->back()->withErrors(['error' => 'Không tìm thấy thông tin phòng trọ để tạo hợp đồng.']);
         }
 
         //check xem phòng có bị đóng băng không
         if($user->isRoomFrozen($room)){
-            return redirect()->back()->with('error','Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để làm hợp đồng cho thuê mới!');
+            return redirect()->back()->withErrors(['error' => 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để làm hợp đồng cho thuê mới!']);
         }
         try {
-            $file = $request->file('contract_file');
-            $this->contractService->createContract($request->validated(), $file);
+            $files = $request->file('contract_files') ?: ($request->file('contract_file') ? [$request->file('contract_file')] : []);
+            //tự động chuyển session về đúng cơ sở trọ của hợp đồng vừa tạo
+            if($room){
+                session(['selected_boarding_house_id' => $room->boarding_house_id]);
+            }
+            $this->contractService->createContract($request->all(), $files);
             return redirect()->back()->with('success', 'Hợp đồng đã được ký kết và lưu trữ thành công! trạng thái phòng chuyển sang đã thuê.');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', $e->getMessage());
+            return redirect()->back()->withErrors(['error' => $e->getMessage()]);
         }
     }
     //quét tự động trạng thái hợp đồng

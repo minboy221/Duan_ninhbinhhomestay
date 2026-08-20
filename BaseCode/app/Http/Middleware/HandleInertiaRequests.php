@@ -19,6 +19,13 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): string|null
     {
+        $manifestPath = public_path('build/manifest.json');
+        if (!file_exists($manifestPath)) {
+            $manifestPath = base_path('../public_html/build/manifest.json');
+        }
+        if (file_exists($manifestPath)) {
+            return md5_file($manifestPath);
+        }
         return parent::version($request);
     }
 
@@ -126,6 +133,14 @@ class HandleInertiaRequests extends Middleware
                 ] : [],
                 'has_submitted_verification' => $user
                     ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $user->id)->exists() : false,
+                'has_active_contract' => $user ? (
+                    \App\Models\Contract::where('tenant_id', $user->id)
+                        ->whereIn('status', ['active', 'signed', 'expiring', 'awaiting_upload'])
+                        ->exists()
+                    || \App\Models\RoomResident::where('user_id', $user->id)
+                        ->where('status', 'active')
+                        ->exists()
+                ) : false,
                 'notifications' => $user ? $user->unreadNotifications : [],
                 'pending_appointments_count' => $user && $user->role === 'landlord'
                     ? \App\Models\Appointment::where('landlord_id', $user->id)

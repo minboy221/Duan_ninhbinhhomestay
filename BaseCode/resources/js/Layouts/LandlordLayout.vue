@@ -646,15 +646,6 @@ const requestAndSaveFcmToken = async () => {
                         @click="drawerOpen = true">
                         <i class="bi bi-list text-2xl"></i>
                     </button>
-
-                    <!-- Search input (fake) -->
-                    <div
-                        class="hidden md:flex items-center bg-slate-50/60 border border-slate-100/80 rounded-xl px-3 py-1.5 w-64 text-slate-400 gap-2 hover:bg-slate-50 transition-colors duration-300">
-                        <i class="bi bi-search text-xs"></i>
-                        <span class="text-xs font-medium text-slate-400">Tìm kiếm...</span>
-                        <kbd
-                            class="ml-auto bg-white border border-slate-200/60 rounded px-1.5 py-0.5 text-[9px] font-mono text-slate-400/80 shadow-sm">⌘K</kbd>
-                    </div>
                 </div>
 
                 <!-- Right header tools -->

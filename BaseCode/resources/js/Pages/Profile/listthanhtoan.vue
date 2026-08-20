@@ -528,8 +528,8 @@ const submitReport = () => {
                         background-color: #fff;
                     ">
                     <option value="" disabled>-- Chọn lý do báo cáo --</option>
-                    <option v-for="(reason, index) in reasons" :key="index" :value="reason.reason">
-                        {{ reason.reason }}
+                    <option v-for="(reason, index) in reasons" :key="index" :value="typeof reason === 'object' ? reason.reason : reason">
+                        {{ typeof reason === 'object' ? reason.reason : reason }}
                     </option>
                 </select>
                 <p v-if="reportForm.errors.reason" style="color: #ef4444; font-size: 11px; margin-top: 4px">

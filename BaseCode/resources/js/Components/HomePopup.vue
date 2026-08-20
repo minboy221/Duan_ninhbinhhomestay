@@ -56,7 +56,7 @@ watch(
 </script>
 
 <template>
-    <div class="popup-chuyen-quyen" v-if="!$page.props.auth.has_submitted_verification">
+    <div class="popup-chuyen-quyen" v-if="!$page.props.auth.has_submitted_verification && !$page.props.auth.has_active_contract">
         <Teleport to="body">
             <Transition name="fade">
                 <div v-if="isVisible" class="popup-overlay" @click.self="closePopup">

@@ -76,11 +76,18 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        if ($request->user()->role === 'landlord') {
+        $user = $request->user();
+        $request->session()->forget('url.intended');
+
+        // chuyển hướng chính xác theo vai trò role của tài khoản
+        if ($user && $user->role === 'landlord') {
             return redirect()->route('landlord.dashboard');
         }
-
-        return redirect()->intended(RouteServiceProvider::HOME);
+        if ($user && $user->role === 'admin') {
+            return redirect()->route('admin.dashboard');
+        }
+        // khách thuê / người dùng
+        return redirect()->route('home');
     }
 
     /**

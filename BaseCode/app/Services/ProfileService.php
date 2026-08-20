@@ -168,6 +168,7 @@ class ProfileService
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Yêu cầu tìm người ở ghép mới',
                 "Khách thuê tại phòng {$roomNum} gửi yêu cầu đăng tin tìm người ở ghép.",
+                'info',
                 route('landlord.roommate-requests')
             ));
         }
@@ -286,6 +287,7 @@ class ProfileService
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Giới thiệu thành viên ở ghép mới',
                 "Khách thuê tại phòng {$roomNum} giới thiệu thành viên mới: {$data['new_resident_name']} vào ở ghép.",
+                'info',
                 route('landlord.roommate-requests')
             ));
         }

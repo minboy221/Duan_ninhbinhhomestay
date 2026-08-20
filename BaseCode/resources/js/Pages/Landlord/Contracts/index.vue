@@ -10,6 +10,7 @@ import CustomSwal, {
     showError,
 } from "@/Utils/swal";
 import axios from "axios";
+import { array } from "firebase/firestore/pipelines";
 
 const props = defineProps({
     dbContracts: Array,
@@ -464,9 +465,17 @@ const formatDate = (d) => (d ? new Date(d).toLocaleDateString("vi-VN") : "---");
 const activeStep = ref(1); // 1: Tenant & Room, 2: Terms & Period, 3: Direct Upload
 
 const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-        addForm.value.contract_file = file;
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+        addForm.value.contract_files = files;
+        addForm.value.contract_file = files[0];
+    }
+};
+
+const removeContractFile = (index) => {
+    if (addForm.value.contract_files) {
+        addForm.value.contract_files.splice(index, 1);
+        addForm.value.contract_file = addForm.value.contract_files[0] || null;
     }
 };
 
@@ -483,6 +492,7 @@ const getInitialAddForm = (appointmentId = "") => {
         billing_cycle: 1,
         entry_elec_index: "",
         entry_water_index: "",
+        contract_files: [],
         contract_file: null,
         tenant_id: "",
         is_for_other: false,
@@ -494,6 +504,30 @@ const getInitialAddForm = (appointmentId = "") => {
 };
 
 const addForm = ref(getInitialAddForm());
+
+const minEndDate = computed(() => {
+    if (!addForm.value?.start_date) {
+        const today = new Date();
+        today.setMonth(today.getMonth() + 3);
+        return today.toISOString().split("T")[0];
+    }
+    const startDate = new Date(addForm.value.start_date);
+    startDate.setMonth(startDate.getMonth() + 3);
+    return startDate.toISOString().split("T")[0];
+});
+
+// Tự động nhảy Ngày kết thúc = Ngày bắt đầu + 3 tháng
+watch(
+    () => addForm.value?.start_date,
+    (newStartDate) => {
+        if (newStartDate) {
+            const start = new Date(newStartDate);
+            start.setMonth(start.getMonth() + 3);
+            addForm.value.end_date = start.toISOString().split("T")[0];
+        }
+    },
+    { immediate: true }
+);
 
 // Hàm hiển thị tên phòng kèm trạng thái người ở ghép
 const getRoomStatusLabel = (r) => {
@@ -850,6 +884,26 @@ const tenantCountErrorMsg = computed(() => {
     return null;
 });
 
+// Hàm kiểm tra định danh CCCD chuẩn 12 số của Bộ Công An Việt Nam (Chống nhập rác 000..., 111..., mã tỉnh sai)
+const validateCCCD = (val) => {
+    if (!val) return false;
+    const str = String(val).trim();
+    if (!/^\d{12}$/.test(str)) return false;
+    // Chặn 12 số lặp giống hệt nhau (000000000000, 111111111111, v.v...)
+    if (/^(\d)\1{11}$/.test(str)) return false;
+    // Chặn chuỗi số tiến lùi bừa phổ biến
+    const dummyList = [
+        "012345678901", "123456789012", "234567890123", "345678901234",
+        "456789012345", "567890123456", "678901234567", "789012345678",
+        "890123456789", "987654321098", "876543210987"
+    ];
+    if (dummyList.includes(str)) return false;
+    // Kiểm tra Mã tỉnh thành (3 số đầu từ 001 đến 096)
+    const provinceCode = parseInt(str.substring(0, 3), 10);
+    if (provinceCode < 1 || provinceCode > 96) return false;
+    return true;
+};
+
 const tenantCccd = computed(() => {
     if (creationMode.value === "appointment") {
         return selectedAppointment.value?.user?.cccd_number || "";
@@ -861,18 +915,62 @@ const tenantCccd = computed(() => {
     return "";
 });
 
+const duplicateCccdUser = ref(null);
+let cccdCheckTimeout = null;
+
+const checkCccdDuplicateRealtime = (val, tenantId = null) => {
+    duplicateCccdUser.value = null;
+    if (cccdCheckTimeout) clearTimeout(cccdCheckTimeout);
+
+    if (!val || String(val).trim().length !== 12 || !validateCCCD(val)) {
+        return;
+    }
+
+    cccdCheckTimeout = setTimeout(async () => {
+        try {
+            const res = await axios.get("/landlord/check-cccd", {
+                params: { cccd: String(val).trim(), tenant_id: tenantId },
+            });
+            if (res.data && res.data.exists) {
+                duplicateCccdUser.value = res.data.user;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }, 400);
+};
+
+watch(
+    () => addForm.value.tenant_cccd_input,
+    (newVal) => {
+        const tenantId =
+            creationMode.value === "appointment"
+                ? selectedAppointment.value?.user_id
+                : creationMode.value === "direct"
+                ? selectedDirectUser.value?.id
+                : null;
+        checkCccdDuplicateRealtime(newVal, tenantId);
+    },
+);
+
+watch(
+    () => addForm.value.actual_tenant_cccd,
+    (newVal) => {
+        checkCccdDuplicateRealtime(newVal);
+    },
+);
+
 const isCccdValid = computed(() => {
+    if (duplicateCccdUser.value) return false;
     if (addForm.value.is_for_other) {
         const cccd = String(addForm.value.actual_tenant_cccd || "").trim();
         const phone = String(addForm.value.actual_tenant_phone || "").trim();
         const name = String(addForm.value.actual_tenant_name || "").trim();
-        return name.length > 0 && phone.length >= 9 && cccd.length === 12 && /^\d+$/.test(cccd);
+        return name.length > 0 && phone.length >= 9 && validateCCCD(cccd);
     }
     const cccd = String(tenantCccd.value || "").trim();
     const inputCccd = String(addForm.value.tenant_cccd_input || "").trim();
-    return (cccd.length === 12 && /^\d+$/.test(cccd)) ||
-        (inputCccd.length === 12 && /^\d+$/.test(inputCccd));
-
+    return validateCCCD(cccd) || validateCCCD(inputCccd);
 });
 
 const isStep1Valid = computed(() => {
@@ -944,6 +1042,18 @@ const goToNextStep = () => {
             showWarning(
                 "Thiếu thông tin",
                 "Vui lòng điền đầy đủ Ngày bắt đầu và Ngày kết thúc hợp đồng!",
+            );
+            return;
+        }
+        //kiểm tra thời gian tối thiểu 3 tháng
+        const startDate = new Date(addForm.value.start_date);
+        const endDate = new Date(addForm.value.end_date);
+        const minAllowedEnd = new Date(startDate);
+        minAllowedEnd.setMonth(minAllowedEnd.getMonth() + 3);
+        if (endDate < minAllowedEnd) {
+            showWarning(
+                "Thời gian hợp đồng không hợp lệ",
+                "Thời gian hợp đồng thuê tối thiểu từ 3 tháng trở lên!",
             );
             return;
         }
@@ -1034,10 +1144,10 @@ const submitAddContract = () => {
         );
         return;
     }
-    if (!addForm.value.contract_file) {
+    if ((!addForm.value.contract_files || addForm.value.contract_files.length === 0) && !addForm.value.contract_file) {
         showWarning(
             "Thiếu file hợp đồng",
-            "Vui lòng tải lên ảnh chụp hoặc file PDF hợp đồng giấy đã ký!",
+            "Vui lòng tải lên ít nhất 1 trang ảnh hoặc file PDF hợp đồng giấy đã ký!",
         );
         return;
     }
@@ -1084,11 +1194,22 @@ const submitAddContract = () => {
     if (addForm.value.entry_water_index !== "" && addForm.value.entry_water_index !== null) {
         payload.append("entry_water_index", addForm.value.entry_water_index);
     }
-    payload.append("contract_file", addForm.value.contract_file);
+    if (addForm.value.contract_files && addForm.value.contract_files.length > 0) {
+        addForm.value.contract_files.forEach((f) => {
+            payload.append("contract_files[]", f);
+        });
+    } else if (addForm.value.contract_file) {
+        payload.append("contract_file", addForm.value.contract_file);
+    }
 
     router.post("/landlord/contracts/store-draft", payload, {
         forceFormData: true,
-        onSuccess: () => {
+        onSuccess: (page) => {
+            const flashError = page?.props?.flash?.error || page?.props?.errors?.error;
+            if (flashError) {
+                showError("Không thể tạo hợp đồng", flashError);
+                return;
+            }
             showAddModal.value = false;
             showSuccess(
                 "Thành công",
@@ -1096,7 +1217,8 @@ const submitAddContract = () => {
             );
         },
         onError: (errs) => {
-            showError("Lỗi", Object.values(errs).join("\n"));
+            const errorMsg = typeof errs === "object" ? Object.values(errs).join("\n") : errs;
+            showError("Tạo hợp đồng thất bại", errorMsg || "Không thể tạo hợp đồng. Vui lòng kiểm tra lại thông tin.");
         },
     });
 };
@@ -1362,6 +1484,8 @@ const getDepositBadgeConfig = (c) => {
         cls: "bg-slate-50 text-slate-600 border-slate-200",
     };
 };
+
+
 </script>
 
 <template>
@@ -2211,28 +2335,40 @@ const getDepositBadgeConfig = (c) => {
                                         <div class="col-span-2 pt-2 border-t border-slate-100"
                                             v-if="!addForm.is_for_other">
                                             <span class="text-[10px] text-slate-400 font-bold">Số CCCD:</span>
-                                            <div v-if="tenantCccd && String(tenantCccd).trim().length === 12"
+                                            <div v-if="tenantCccd && validateCCCD(tenantCccd)"
                                                 class="flex items-center gap-1.5 text-emerald-600 font-bold mt-0.5">
                                                 <i class="bi bi-patch-check-fill text-emerald-500 text-sm"></i>
                                                 <span>Hợp lệ ({{ tenantCccd }})</span>
                                             </div>
                                             <div v-else class="space-y-2 mt-1">
                                                 <input v-model="addForm.tenant_cccd_input" type="text" maxlength="12"
-                                                    placeholder="Nhập 12 số CCCD của khách thuê tại đây..."
+                                                    placeholder="Nhập 12 số CCCD chuẩn của khách thuê..."
                                                     class="w-full px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all"
-                                                    :class="addForm.tenant_cccd_input && addForm.tenant_cccd_input.length === 12 && /^\d+$/.test(addForm.tenant_cccd_input)
+                                                    :class="validateCCCD(addForm.tenant_cccd_input)
                                                         ? 'border-emerald-500 bg-emerald-50/30 text-emerald-900'
-                                                        : 'border-amber-300 bg-amber-50/20 text-slate-800 focus:border-amber-500'" />
-                                                <p v-if="!addForm.tenant_cccd_input || addForm.tenant_cccd_input.length !== 12"
+                                                        : (addForm.tenant_cccd_input && addForm.tenant_cccd_input.length === 12 ? 'border-rose-500 bg-rose-50/30 text-rose-900' : 'border-amber-300 bg-amber-50/20 text-slate-800 focus:border-amber-500')" />
+                                                <p v-if="duplicateCccdUser"
+                                                    class="text-[11px] text-rose-700 font-bold flex items-start gap-1.5 p-2.5 bg-rose-50 border border-rose-200 rounded-xl mt-1.5 shadow-2xs">
+                                                    <i class="bi bi-exclamation-triangle-fill text-rose-500 text-sm mt-0.5"></i>
+                                                    <span>CẢNH BÁO TRÙNG CCCD: Số CCCD <strong>{{ addForm.tenant_cccd_input }}</strong> này đã thuộc về tài khoản <strong>{{ duplicateCccdUser.name }}</strong> (SĐT: <strong>{{ duplicateCccdUser.phone }}</strong>) trên hệ thống!</span>
+                                                </p>
+                                                <p v-else-if="!addForm.tenant_cccd_input || addForm.tenant_cccd_input.length !== 12"
                                                     class="text-[11px] text-amber-700 font-medium flex items-center gap-1">
                                                     <i class="bi bi-info-circle-fill text-amber-500"></i>
-                                                    <span>Khách chưa có CCCD trong Profile. Nhập 12 số CCCD để tiếp
+                                                    <span>Khách chưa có CCCD trong Profile. Nhập 12 số CCCD chuẩn để
+                                                        tiếp
                                                         tục.</span>
+                                                </p>
+                                                <p v-else-if="!validateCCCD(addForm.tenant_cccd_input)"
+                                                    class="text-[11px] text-rose-600 font-bold flex items-center gap-1">
+                                                    <i class="bi bi-exclamation-octagon-fill text-rose-500"></i>
+                                                    <span>Số CCCD không hợp lệ! Không được nhập 12 số rác (000...,
+                                                        111..., 123... hoặc mã tỉnh sai).</span>
                                                 </p>
                                                 <p v-else
                                                     class="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
                                                     <i class="bi bi-check-circle-fill text-emerald-500"></i>
-                                                    <span>Số CCCD hợp lệ! Sẽ tự động cập nhật vào tài khoản
+                                                    <span>Số CCCD hợp lệ & không bị trùng! Sẽ tự động cập nhật vào tài khoản
                                                         khách.</span>
                                                 </p>
                                             </div>
@@ -2287,6 +2423,11 @@ const getDepositBadgeConfig = (c) => {
                                                     <input v-model="addForm.actual_tenant_cccd" type="text"
                                                         maxlength="12" placeholder="Nhập đúng 12 số CCCD..."
                                                         class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 bg-white" />
+                                                    <p v-if="duplicateCccdUser"
+                                                        class="text-[11px] text-rose-700 font-bold flex items-start gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-xl mt-1 shadow-2xs">
+                                                        <i class="bi bi-exclamation-triangle-fill text-rose-500 text-xs mt-0.5"></i>
+                                                        <span>Số CCCD đã thuộc tài khoản {{ duplicateCccdUser.name }} (SĐT: {{ duplicateCccdUser.phone }}).</span>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -2373,7 +2514,7 @@ const getDepositBadgeConfig = (c) => {
                                         <div class="space-y-1">
                                             <label class="text-xs font-bold text-slate-500">Ngày kết thúc hợp đồng
                                                 <span class="text-rose-500">*</span></label>
-                                            <input v-model="addForm.end_date" type="date" :min="minDate"
+                                            <input v-model="addForm.end_date" type="date" :min="minEndDate"
                                                 class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white" />
                                         </div>
                                         <div class="space-y-1 sm:col-span-2">
@@ -2398,32 +2539,28 @@ const getDepositBadgeConfig = (c) => {
                                 </div>
 
                                 <div class="space-y-2">
-                                    <label class="text-xs font-bold text-slate-500">Chọn tệp hợp đồng đính kèm
+                                    <label class="text-xs font-bold text-slate-500">Chọn tệp hợp đồng đính kèm (Có thể chọn nhiều trang ảnh)
                                         <span class="text-rose-500">*</span></label>
-                                    <input type="file" accept="image/*,application/pdf" @change="handleFileSelect"
+                                    <input type="file" multiple accept="image/*,application/pdf" @change="handleFileSelect"
                                         class="w-full px-3.5 py-3 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs outline-none bg-slate-50 cursor-pointer" />
                                     <p class="text-[10px] text-slate-400 font-semibold">
-                                        Chấp nhận file ảnh (.jpg, .jpeg, .png)
-                                        hoặc tài liệu PDF dưới 10MB.
+                                        Chấp nhận chọn cùng lúc nhiều file ảnh (.jpg, .jpeg, .png) hoặc 01 tài liệu PDF (dưới 10MB/file). Hệ thống sẽ tự động ghép thành 01 bản PDF duy nhất.
                                     </p>
                                 </div>
 
-                                <div v-if="addForm.contract_file"
-                                    class="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 space-y-1">
+                                <div v-if="addForm.contract_files && addForm.contract_files.length > 0"
+                                    class="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 space-y-2">
                                     <div class="font-bold flex items-center gap-1">
-                                        <i class="bi bi-file-earmark-check-fill text-emerald-600 text-base"></i>
-                                        <span>Tệp đã chọn:</span>
+                                        <i class="bi bi-file-earmark-pdf-fill text-emerald-600 text-base"></i>
+                                        <span>Đã chọn {{ addForm.contract_files.length }} trang/file đính kèm:</span>
                                     </div>
-                                    <p class="font-bold text-slate-700">
-                                        {{ addForm.contract_file.name }} ({{
-                                            (
-                                                addForm.contract_file.size /
-                                                1024 /
-                                                1024
-                                            ).toFixed(2)
-                                        }}
-                                        MB)
-                                    </p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <div v-for="(f, idx) in addForm.contract_files" :key="idx"
+                                            class="p-2 bg-white border border-emerald-200 rounded-xl flex items-center justify-between shadow-2xs">
+                                            <span class="truncate max-w-[180px] font-bold text-slate-700">Trang {{ idx + 1 }}: {{ f.name }}</span>
+                                            <button type="button" @click="removeContractFile(idx)" class="text-rose-500 hover:text-rose-700 font-bold px-2 py-0.5 rounded-md hover:bg-rose-50">✕</button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="pt-2">
@@ -2843,7 +2980,8 @@ const getDepositBadgeConfig = (c) => {
                         <div>
                             <div class="font-extrabold text-slate-800 text-sm">
                                 Phòng {{ req.room ? req.room.room_number : "?" }}
-                                <span v-if="req.type === 'stranger_applicant'" class="text-blue-700"> - Khách đăng ký: {{ req.new_resident_name }}</span>
+                                <span v-if="req.type === 'stranger_applicant'" class="text-blue-700"> - Khách đăng ký:
+                                    {{ req.new_resident_name }}</span>
                                 <span v-else> - Người gửi: {{ req.tenant ? req.tenant.name : "Ẩn danh" }}</span>
                             </div>
                             <div class="text-[11px] font-bold mt-0.5"

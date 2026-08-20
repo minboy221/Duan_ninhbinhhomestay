@@ -17,9 +17,9 @@ use PHPUnit\Framework\TestStatus\Notice;
 class ContractService
 {
     // tạo hợp đồng mới (Luồng 4 bước: Direct Upload,Gate CCCD Check)\
-    public function createContract(array $data, $file)
+    public function createContract(array $data, $files = null)
     {
-        return DB::transaction(function () use ($data, $file) {
+        return DB::transaction(function () use ($data, $files) {
             $appointment = null;
             if (!empty($data['appointment_id'])) {
                 // Trường hợp 1: Ký từ lịch hẹn
@@ -95,7 +95,16 @@ class ContractService
 
             // Bổ sung: Nếu chủ trọ gửi kèm số CCCD nhập từ Form cho luồng bình thường
             if (empty($data['is_for_other']) && !empty($data['tenant_cccd']) && strlen(trim($data['tenant_cccd'])) === 12 && is_numeric(trim($data['tenant_cccd']))) {
-                $tenant->update(['cccd_number' => trim($data['tenant_cccd'])]);
+                $inputCccd = trim($data['tenant_cccd']);
+                $existingUserWithCccd = User::where('cccd_number', $inputCccd)
+                    ->where('id', '!=', $tenant->id)
+                    ->first();
+
+                if ($existingUserWithCccd) {
+                    throw new \Exception("Số CCCD {$inputCccd} đã được đăng ký cho tài khoản khác trên hệ thống ({$existingUserWithCccd->name} - SĐT: {$existingUserWithCccd->phone}). Vui lòng kiểm tra lại!");
+                }
+
+                $tenant->update(['cccd_number' => $inputCccd]);
                 $tenant->refresh();
             }
             if (!$tenant) {
@@ -138,34 +147,44 @@ class ContractService
             if (!$isAlreadyResident && $numberOfTenants > $availableCapacity) {
                 throw new \Exception("Số lượng người ở ({$numberOfTenants} người) vượt quá sức chứa còn lại của phòng (Còn trống {$availableCapacity} chỗ).");
             }
-            //4. Upload file đính kèm trực tiếp & tự động chuyển ảnh sang pdf
+            //4. Upload nhiều trang ảnh hợp đồng & tự động nối thành 01 file PDF duy nhất
+            $fileList = is_array($files) ? $files : ($files ? [$files] : []);
             $filePath = null;
-            if ($file) {
-                $extension = strtolower($file->getClientOriginalExtension());
-                if (in_array($extension, ['jpg', 'png', 'jpeg'])) {
-                    $imageData = base64_encode(file_get_contents($file->getRealPath()));
-                    $mimeType = $file->getMimeType();
-                    $src = 'data:' . $mimeType . ';base64,' . $imageData;
-                    //tạo html chứa ảnh để xuất sang PDF
-                    $html = '<html><head><style>
-                        body { margin: 0; padding: 0; text-align: center; background-color: #ffffff; }
-                        img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-                    </style></head><body><img src="' . $src . '" /></body></html>';
 
-                    //tạo file PDF sử dụng DomPDF
-                    $pdf = Pdf::loadHTML($html);
-                    //lưu file PDF
+            if (!empty($fileList)) {
+                $htmlPages = [];
+                foreach ($fileList as $f) {
+                    if (!$f) continue;
+                    $extension = strtolower($f->getClientOriginalExtension());
+                    if (in_array($extension, ['jpg', 'png', 'jpeg'])) {
+                        $imageData = base64_encode(file_get_contents($f->getRealPath()));
+                        $mimeType = $f->getMimeType();
+                        $src = 'data:' . $mimeType . ';base64,' . $imageData;
+                        $htmlPages[] = '<div class="page"><img src="' . $src . '" /></div>';
+                    } else if ($extension === 'pdf' && count($fileList) === 1) {
+                        $filePath = $f->store('contracts/documents', 'r2_private');
+                        break;
+                    }
+                }
+
+                if (!empty($htmlPages) && !$filePath) {
+                    $fullHtml = '<html><head><style>
+                        @page { margin: 0px; }
+                        body { margin: 0; padding: 0; text-align: center; background-color: #ffffff; }
+                        .page { page-break-after: always; width: 100%; text-align: center; }
+                        .page:last-child { page-break-after: avoid; }
+                        img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+                    </style></head><body>' . implode('', $htmlPages) . '</body></html>';
+
+                    $pdf = Pdf::loadHTML($fullHtml);
                     $fileName = 'contracts/documents/' . uniqid() . '.pdf';
                     Storage::disk('r2_private')->put($fileName, $pdf->output());
                     $filePath = $fileName;
-                } else {
-                    //nếu là tệp pdf thì sẽ lưu trực tiếp
-                    $filePath = $file->store('contracts/documents', 'r2_private');
                 }
             }
+
             if (!$filePath) {
-                throw new \Exception('Không thể tải file hợp đồng lên. Vui lòng thử lại.');
-                ;
+                throw new \Exception('Không thể tải file hợp đồng lên. Vui lòng chọn ít nhất 1 trang ảnh hoặc tệp PDF.');
             }
             //lưu DB & kích hoạt hợp đồng
             $contract = Contract::create([
@@ -479,11 +498,19 @@ class ContractService
                     ));
                 }
                 if ($request->room) {
-                    if ($request->room->current_people < $request->room->capacity) {
-                        $request->room->increment('current_people');
-                    }
-                    // Nếu số người đã đạt/vượt quá sức chứa -> Tự động ẩn tin đăng phòng này
-                    if ($request->room->current_people >= $request->room->capacity) {
+                    $hasActiveContract = Contract::where('room_id', $request->room_id)
+                        ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'termination_requested', 'expiring'])
+                        ->exists();
+                    $activeResidentsCount = RoomResident::where('room_id', $request->room_id)
+                        ->where('status', 'active')
+                        ->count();
+                    $newCurrentPeople = max(1, ($hasActiveContract ? 1 : 0) + $activeResidentsCount);
+
+                    $request->room->update(['current_people' => $newCurrentPeople]);
+                    $request->room->current_people = $newCurrentPeople;
+
+                    // Nếu số người đã đạt/vượt quá sức chứa -> Tự động đánh dấu tin đăng là đã cho thuê hết
+                    if ($newCurrentPeople >= $request->room->capacity) {
                         \App\Models\RoomPost::where('room_id', $request->room_id)->update(['status' => 'rented']);
                     }
                 }

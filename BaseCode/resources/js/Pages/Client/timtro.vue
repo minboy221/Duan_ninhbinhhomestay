@@ -113,9 +113,7 @@ const getAvatarUrl = (avatar) => {
             <img src="/anh/banner.png" alt="banner">
             <div class="banner-text">
                 <h1>Tìm Trọ</h1>
-                <p>
                 <p><a href="/">Trang Chủ</a> / Tìm Trọ</p>
-                </p>
             </div>
         </div>
         <!-- phần chia layout -->

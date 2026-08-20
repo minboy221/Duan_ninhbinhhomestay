@@ -4,7 +4,6 @@ import { Head, Link, router, useForm, usePage } from "@inertiajs/vue3";
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import { showSuccess, showWarning, showConfirm } from "@/Utils/swal";
-import LandlordRankCard from "@/Components/LandlordRankCard.vue";
 
 const props = defineProps({
     reportable_type: "Room",
