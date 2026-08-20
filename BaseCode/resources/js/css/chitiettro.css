@@ -329,40 +329,23 @@ button.next {
 }
 
 .name_chutro h3 {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.3;
 }
 
 .kiem_chung {
     display: flex;
-    gap: 5px;
-    background-color: #6ddf9c;
+    align-items: center;
+    gap: 6px;
+    background-color: #22c55e;
     color: #fff;
-    border-radius: 15px;
-    padding: 5px;
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
     width: fit-content;
     white-space: nowrap;
-}
-
-.content_chutro {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    text-align: center;
-    padding: 10px;
-}
-
-/* 2 nút trên giữ nguyên */
-.phone,
-.nhantin_chutro {
-    grid-column: span 1;
-}
-
-/* Nút báo xấu xuống dưới + full */
-.warning {
-    grid-column: span 2;
-    text-align: center;
-    margin-top: 15px;
 }
 
 .content_chutro {
@@ -375,6 +358,14 @@ button.next {
 .phone,
 .nhantin_chutro {
     width: 100%;
+    grid-column: span 1;
+}
+
+/* Nút báo xấu xuống dưới + full */
+.warning {
+    grid-column: span 2;
+    text-align: center;
+    margin-top: 15px;
 }
 
 .btn_content,
@@ -387,8 +378,8 @@ button.next {
     gap: 8px;
     border: none;
     border-radius: 10px;
-    font-size: 15px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
     color: #fff;
     cursor: pointer;
     box-sizing: border-box;
