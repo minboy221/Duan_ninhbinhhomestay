@@ -367,6 +367,13 @@ function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 
         reader.onerror = (error) => reject(error);
     });
 }
+
+const formatPrice = (val) => {
+    if (val === null || val === undefined || val === '') return '0 đ';
+    const num = typeof val === 'number' ? val : parseFloat(val);
+    if (isNaN(num)) return '0 đ';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(num)) + ' đ';
+};
 </script>
 
 <template>
@@ -546,15 +553,11 @@ function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 
                         </h3>
                         <div class="form-row-3">
                             <div class="form-group">
-                                <label class="form-label">Giá thuê (đ/tháng) *</label>
-                                <input type="number" :value="roomDetails?.price || ''" disabled
-                                    class="form-input bg-gray-50 text-gray-500" />
-                                <span class="form-hint" v-if="roomDetails?.price">
-                                    {{
-                                        new Intl.NumberFormat("vi-VN").format(
-                                            roomDetails.price,
-                                        )
-                                    }}đ
+                                <label class="form-label font-bold text-gray-700">Giá thuê (đ/tháng) *</label>
+                                <input type="text" :value="formatPrice(roomDetails?.price)" disabled readonly
+                                    class="form-input bg-emerald-50/60 text-emerald-700 font-bold border-emerald-200 text-base" />
+                                <span class="form-hint text-emerald-600 font-semibold mt-1 flex items-center gap-1" v-if="roomDetails?.price">
+                                    <i class="bi bi-check-circle-fill"></i> Giá thuê phòng: {{ formatPrice(roomDetails.price) }}/tháng
                                 </span>
                             </div>
                         </div>
@@ -632,14 +635,8 @@ function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 
                         <div class="prev-title">
                             {{ form.title || "Tiêu đề bài đăng..." }}
                         </div>
-                        <div class="prev-price text-emerald-600 font-bold">
-                            {{
-                                roomDetails?.price
-                                    ? new Intl.NumberFormat("vi-VN").format(
-                                        roomDetails.price,
-                                    ) + "đ"
-                                    : "0đ"
-                            }}
+                        <div class="prev-price font-extrabold text-emerald-600 text-xl">
+                            {{ formatPrice(roomDetails?.price) }} <span class="text-xs font-normal text-slate-500">/tháng</span>
                         </div>
                         <div class="prev-meta text-slate-400 text-xs mt-1">
                             <span>Diện tích:

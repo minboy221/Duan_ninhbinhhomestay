@@ -33,6 +33,12 @@ let scanInterval = null;
  */
 const startCamera = async () => {
     try {
+        if (!navigator?.mediaDevices?.getUserMedia) {
+            statusMsg.value = "Trình duyệt không hỗ trợ mở camera (cần dùng HTTPS)";
+            statusColor.value = "bg-rose-500 text-white";
+            return;
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: "user",
@@ -46,7 +52,7 @@ const startCamera = async () => {
             statusColor.value = "bg-emerald-600 text-white";
         }
     } catch (error) {
-        statusMsg.value = "Vui lòng cấp quyền camera";
+        statusMsg.value = "Vui lòng cấp quyền camera trong Cài đặt";
         statusColor.value = "bg-rose-500 text-white";
     }
 };
@@ -69,7 +75,7 @@ const stopCamera = () => {
  */
 const captureAndSubmit = () => {
     if (!videoRef.value) return;
-    
+
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.value.videoWidth;
     canvas.height = videoRef.value.videoHeight;
@@ -136,7 +142,7 @@ const onVideoPlay = async () => {
         if (canvasRef.value) {
             faceapi.matchDimensions(canvasRef.value, displaySize);
         }
-        
+
         statusMsg.value = "Đưa khuôn mặt vào giữa khung hình";
         statusColor.value = "bg-emerald-600 text-white";
 
@@ -151,7 +157,7 @@ const onVideoPlay = async () => {
 
 const startScanning = () => {
     if (scanInterval) clearInterval(scanInterval);
-    
+
     scanInterval = setInterval(async () => {
         if (isMatched.value || !videoRef.value || !faceMatcher) {
             return;
@@ -170,7 +176,7 @@ const startScanning = () => {
                 .withFaceDescriptors();
 
             const resized = faceapi.resizeResults(detections, displaySize);
-            
+
             if (canvasRef.value) {
                 const ctx = canvasRef.value.getContext("2d");
                 ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
@@ -197,12 +203,13 @@ const startScanning = () => {
             }
 
             if (!foundMatch && !isMatched.value) {
-                statusMsg.value = "Khuôn mặt không khớp CCCD";
+                failedMatchCount.value++;
+                statusMsg.value = `Không khớp CCCD (${failedMatchCount.value}/5 lần)`;
                 statusColor.value = "bg-rose-500 text-white";
                 //nếu khuôn mặt xác minh không khớp sẽ hiển thị số lần
-                failedMatchCount.value++;
                 //nếu sai 5 lần trở lên
-                if(failedMatchCount.value >= 5){
+                if (failedMatchCount.value >= 5) {
+                    clearInterval(scanInterval);
                     alert("Xác minih khuôn mặt không trùng khớp quá 5 lần! vui lòng quay lại các bước để kiểm tra lại thông tin.");
                     stopCamera();
                     emit('goToStep1');
@@ -221,10 +228,10 @@ const handleCaptureManual = async () => {
         statusColor.value = "bg-amber-500 text-white";
         return;
     }
-    
+
     statusMsg.value = "Đang quét khuôn mặt...";
     statusColor.value = "bg-blue-600 text-white";
-    
+
     try {
         const detection = await faceapi
             .detectSingleFace(
@@ -236,13 +243,13 @@ const handleCaptureManual = async () => {
             )
             .withFaceLandmarks()
             .withFaceDescriptor();
-            
+
         if (!detection) {
             statusMsg.value = "Không phát hiện khuôn mặt";
             statusColor.value = "bg-amber-500 text-white";
             return;
         }
-        
+
         const match = faceMatcher.findBestMatch(detection.descriptor);
         if (match.label !== "unknown") {
             isMatched.value = true;
@@ -264,13 +271,11 @@ watch(
     () => props.currentStep,
     (step) => {
         if (step === 3) {
+            failedMatchCount.value = 0;
             isMatched.value = false;
-            statusMsg.value = "Vui lòng đưa khuôn mặt vào khung hình";
-            statusColor.value = "bg-blue-500 text-white";
-            if (props.form) {
-                props.form.is_face_matched = false;
-                props.form.face_auth_image = null;
-            }
+            faceMatcher = null;
+            statusMsg.value = "Đang khởi động camera...";
+            statusColor.value = "bg-emerald-600 text-white";
             startCamera();
         } else {
             stopCamera();
@@ -301,66 +306,59 @@ onUnmounted(() => {
 <template>
     <div class="max-w-4xl mx-auto space-y-6 relative z-10">
         <!-- Main Verification Canvas -->
-        <div class="glass-panel w-full max-w-4xl rounded-xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[650px] p-6 md:p-8 gap-6 md:gap-8">
-            
+        <div
+            class="glass-panel w-full max-w-4xl rounded-xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[650px] p-6 md:p-8 gap-6 md:gap-8">
+
             <!-- Left Side: Camera Box & Status Bar -->
             <div class="flex-1 flex flex-col items-center justify-center gap-4">
                 <!-- Camera Container -->
                 <div
-                    class="relative w-full aspect-[4/5] max-w-[340px] md:max-w-[400px] bg-black rounded-3xl overflow-hidden shadow-2xl"
-                >
+                    class="relative w-full aspect-[4/5] max-w-[340px] md:max-w-[400px] bg-black rounded-3xl overflow-hidden shadow-2xl">
                     <!-- Camera Video Stream -->
-                    <video
-                        ref="videoRef"
-                        @play="onVideoPlay"
-                        autoplay
-                        muted
-                        playsinline
-                        class="w-full h-full object-cover"
-                    />
+                    <video ref="videoRef" @play="onVideoPlay" autoplay muted playsinline
+                        class="w-full h-full object-cover" />
 
                     <!-- Face-api Canvas overlay -->
-                    <canvas
-                        ref="canvasRef"
-                        class="absolute inset-0 w-full h-full pointer-events-none z-10"
-                    />
+                    <canvas ref="canvasRef" class="absolute inset-0 w-full h-full pointer-events-none z-10" />
 
                     <!-- Biometric Guide Overlay -->
                     <div class="biometric-guide">
                         <div class="scanning-line"></div>
                     </div>
-                    
+
                     <!-- Corner Accents -->
-                    <div class="absolute top-6 left-6 w-6 h-6 border-t-2 border-l-2 border-emerald-500 rounded-tl-md"></div>
-                    <div class="absolute top-6 right-6 w-6 h-6 border-t-2 border-r-2 border-emerald-500 rounded-tr-md"></div>
-                    <div class="absolute bottom-6 left-6 w-6 h-6 border-b-2 border-l-2 border-emerald-500 rounded-bl-md"></div>
-                    <div class="absolute bottom-6 right-6 w-6 h-6 border-b-2 border-r-2 border-emerald-500 rounded-br-md"></div>
+                    <div class="absolute top-6 left-6 w-6 h-6 border-t-2 border-l-2 border-emerald-500 rounded-tl-md">
+                    </div>
+                    <div class="absolute top-6 right-6 w-6 h-6 border-t-2 border-r-2 border-emerald-500 rounded-tr-md">
+                    </div>
+                    <div
+                        class="absolute bottom-6 left-6 w-6 h-6 border-b-2 border-l-2 border-emerald-500 rounded-bl-md">
+                    </div>
+                    <div
+                        class="absolute bottom-6 right-6 w-6 h-6 border-b-2 border-r-2 border-emerald-500 rounded-br-md">
+                    </div>
                 </div>
 
                 <!-- Status Notifier Bar (Below Video Box) -->
                 <div class="w-full max-w-[340px] md:max-w-[400px]">
-                    <div
-                        :class="[
-                            statusColor,
-                            'h-12 rounded-xl font-semibold text-sm flex items-center justify-center px-4 transition-all duration-300 shadow-sm text-center',
-                        ]"
-                    >
+                    <div :class="[
+                        statusColor,
+                        'h-12 rounded-xl font-semibold text-sm flex items-center justify-center px-4 transition-all duration-300 shadow-sm text-center',
+                    ]">
                         {{ statusMsg }}
                     </div>
                 </div>
             </div>
 
             <!-- Right Side: Instructions & Action Buttons -->
-            <div
-                class="w-full md:w-80 flex flex-col justify-between py-2 gap-8"
-            >
+            <div class="w-full md:w-80 flex flex-col justify-between py-2 gap-8">
                 <!-- Instructions Section -->
                 <div class="space-y-6">
                     <div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
                         <span class="material-symbols-outlined text-lg">info</span>
                         Lưu ý quan trọng
                     </div>
-                    
+
                     <ul class="space-y-4">
                         <li class="flex items-center gap-3 text-sm font-semibold text-slate-700">
                             <span class="material-symbols-outlined text-emerald-500 text-lg">check_circle</span>
@@ -380,20 +378,15 @@ onUnmounted(() => {
                 <!-- Action Buttons (Stacked) -->
                 <div class="space-y-3 w-full">
                     <!-- Quay lại Button -->
-                    <button
-                        type="button"
-                        @click="emit('prev')"
-                        class="w-full h-12 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
-                    >
+                    <button type="button" @click="emit('prev')"
+                        class="w-full h-12 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2 text-sm shadow-sm">
                         <span class="material-symbols-outlined text-base">arrow_back</span>
                         Quay lại
                     </button>
 
                     <!-- Auto-submit / Manual capture Button -->
-                    <button
-                        disabled
-                        class="w-full h-12 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-2 border border-slate-200 shadow-sm"
-                    >
+                    <button disabled
+                        class="w-full h-12 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-2 border border-slate-200 shadow-sm">
                         <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span>
                         Tự động nộp hồ sơ khi khớp ảnh
                     </button>
@@ -418,7 +411,8 @@ onUnmounted(() => {
     transform: translate(-50%, -50%);
     width: 220px;
     height: 280px;
-    border: 2px dashed rgba(16, 185, 129, 0.5); /* Emerald border matching screen accents */
+    border: 2px dashed rgba(16, 185, 129, 0.5);
+    /* Emerald border matching screen accents */
     border-radius: 50% 50% 45% 45%;
     pointer-events: none;
     z-index: 20;
@@ -438,9 +432,11 @@ onUnmounted(() => {
         top: 10%;
         opacity: 0;
     }
+
     50% {
         opacity: 1;
     }
+
     100% {
         top: 90%;
         opacity: 0;

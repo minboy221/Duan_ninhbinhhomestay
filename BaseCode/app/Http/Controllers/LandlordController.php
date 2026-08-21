@@ -61,10 +61,20 @@ class LandlordController extends Controller
         $data = $request->only('name', 'phone', 'email', 'bank_name', 'bank_account_no', 'bank_account_name');
 
         if ($request->hasFile('avatar')) {
-            if ($user->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->avatar)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+            try {
+                if ($user->avatar) {
+                    $oldPath = str_replace('/storage/', '', $user->avatar);
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+                }
+                $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
+                $path = $request->file('avatar')->store('avatars', $disk);
+                $data['avatar'] = (str_starts_with($path, 'http') || str_starts_with($path, '/storage/')) 
+                    ? $path 
+                    : '/storage/' . ltrim($path, '/');
+            } catch (\Throwable $e) {
+                $path = $request->file('avatar')->store('avatars', 'public');
+                $data['avatar'] = '/storage/' . ltrim($path, '/');
             }
-            $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
         }
 
         $user->update($data);
@@ -187,56 +197,62 @@ class LandlordController extends Controller
 
     public function storeRoom(Request $request)
     {
-        $user = auth()->user();
-        //đếm tổng số phòng hiện tại của chủ trọ
-        $currentRoomCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user) {
-            $q->where('user_id', $user->id);
-        })->count();
-        //check với giới hạn max_rooms trong gói dịch vụ
-        if (!$user->canCreateResource('max_rooms', $currentRoomCount)) {
-            $limit = $user->getFeatureValue('max_rooms');
-            return redirect()->back()->with(
-                'error',
-                "Gói dịch vụ hiện tại của bạn chỉ cho phép tối đa {$limit} phòng trọ. Vui lòng nâng cấp gói VIP để tạo thêm phòng mới!"
-            );
-        }
-        $request->validate([
-            'floor_id' => 'required|integer|exists:floors,id',
-            'room_numbers' => 'nullable|array',
-            'room_number' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:255',
-            'price' => 'required|numeric|min:0',
-            'area' => 'required|numeric|min:0',
-            'capacity' => 'nullable|integer|min:1',
-            'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
-            'amenities' => 'nullable|string',
-            'images' => 'nullable|array|max:10',
-            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-        ]);
-
-        $imageFiles = $request->file('images', []);
-        $boardingHouseId = session('selected_boarding_house_id');
-
-        if ($request->has('room_numbers') && is_array($request->room_numbers)) {
-            $count = 0;
-            foreach ($request->room_numbers as $rn) {
-                $data = $request->except(['room_numbers', 'room_number']);
-                $data['room_number'] = $rn;
-                $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles, $boardingHouseId);
-                if ($room) {
-                    $count++;
-                }
+        try {
+            $user = auth()->user();
+            //đếm tổng số phòng hiện tại của chủ trọ
+            $currentRoomCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->count();
+            //check với giới hạn max_rooms trong gói dịch vụ
+            if (!$user->canCreateResource('max_rooms', $currentRoomCount)) {
+                $limit = $user->getFeatureValue('max_rooms');
+                return redirect()->back()->with(
+                    'error',
+                    "Gói dịch vụ hiện tại của bạn chỉ cho phép tối đa {$limit} phòng trọ. Vui lòng nâng cấp gói VIP để tạo thêm phòng mới!"
+                );
             }
-            if ($count === 0)
-                return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Vui lòng kiểm tra lại.');
-            return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
-        } else {
-            $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles, $boardingHouseId);
-            if (!$result)
-                return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
-            return redirect()->back()->with('success', 'Thêm phòng thành công!');
+            $request->validate([
+                'floor_id' => 'required|integer|exists:floors,id',
+                'room_numbers' => 'nullable|array',
+                'room_number' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                'price' => 'required|numeric|min:0',
+                'area' => 'required|numeric|min:0',
+                'capacity' => 'nullable|integer|min:1',
+                'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+                'amenities' => 'nullable|string',
+                'images' => 'nullable|array|max:10',
+                'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
+            ]);
+
+            $imageFiles = $request->file('images', []);
+            $boardingHouseId = session('selected_boarding_house_id');
+
+            if ($request->has('room_numbers') && is_array($request->room_numbers)) {
+                $count = 0;
+                foreach ($request->room_numbers as $rn) {
+                    $data = $request->except(['room_numbers', 'room_number']);
+                    $data['room_number'] = $rn;
+                    $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles, $boardingHouseId);
+                    if ($room) {
+                        $count++;
+                    }
+                }
+                if ($count === 0)
+                    return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Số phòng có thể đã tồn tại.');
+                return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
+            } else {
+                $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles, $boardingHouseId);
+                if (!$result)
+                    return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
+                return redirect()->back()->with('success', 'Thêm phòng thành công!');
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Lỗi khi tạo phòng: ' . $e->getMessage());
         }
     }
 
@@ -536,15 +552,22 @@ class LandlordController extends Controller
         // Quét & cập nhật tự động trạng thái hợp đồng (expiring/expired) theo ngày hiện tại
         \App\Http\Controllers\Landlord\ContractController::scanContractStatuses($landlordId);
 
-        $query = \App\Models\Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
-            $q->where('user_id', $landlordId);
+        // Lấy danh sách ID các cơ sở do chủ trọ sở hữu hoặc được phân quyền làm quản lý phụ
+        $ownerHouseIds = \App\Models\BoardingHouse::where('user_id', $landlordId)->pluck('id')->toArray();
+        $managedHouseIds = \App\Models\PropertyManager::where('user_id', $landlordId)->pluck('boarding_house_id')->toArray();
+        $allHouseIds = array_unique(array_merge($ownerHouseIds, $managedHouseIds));
+
+        $query = \App\Models\Contract::whereHas('room', function ($q) use ($allHouseIds) {
+            $q->whereIn('boarding_house_id', $allHouseIds);
         });
-        //nếu chủ trọ chọn 1 cơ sở cụ thể trên header -> lấy hợp đồng thuộc cơ sở đó
+
+        // nếu chọn 1 cơ sở cụ thể trên header -> lấy hợp đồng thuộc cơ sở đó
         if ($boardingHousesId) {
             $query->whereHas('room', function ($q) use ($boardingHousesId) {
                 $q->where('boarding_house_id', $boardingHousesId);
             });
         }
+
         $contracts = $query->with(['room.residents.user', 'tenant'])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -557,16 +580,64 @@ class LandlordController extends Controller
             ->pluck('room_id')
             ->toArray();
 
-        // Chỉ lấy những lịch hẹn mà:
-        // 1. Trạng thái là approved, viewed hoặc waiting_contract
-        // 2. Khách đã phản hồi "ƯNG" (feedback_result = 'interested' hoặc 'like')
-        // 3. Phòng chưa có hợp đồng hiệu lực
+        // 1. Lịch hẹn thuê phòng mới (nguyên căn chưa có hợp đồng) -> Đưa vào "Hợp đồng chờ"
         $appointments = \App\Models\Appointment::with(['user', 'room'])
             ->where('landlord_id', $landlordId)
-            ->whereIn('status', ['approved', 'viewed', 'waiting_contract', 'success_matched'])
+            ->whereIn('status', ['approved', 'viewed', 'waiting_contract'])
             ->whereIn('feedback_result', ['interested', 'like'])
             ->whereNotIn('room_id', $existingContractRoomIds)
             ->get();
+
+        // 2. Lịch hẹn Người lạ đăng ký ở ghép -> Chỉ lấy lịch hẹn ĐANG CHỜ (Chưa chốt/Chưa thanh toán/Chưa vào ở)
+        $roommateAppointments = \App\Models\Appointment::with(['user', 'room'])
+            ->where('landlord_id', $landlordId)
+            ->whereIn('status', ['approved', 'viewed', 'waiting_contract'])
+            ->whereIn('feedback_result', ['interested', 'like'])
+            ->whereIn('room_id', $existingContractRoomIds)
+            ->whereHas('room', function ($q) {
+                $q->whereColumn('current_people', '<', 'capacity');
+            })
+            ->get()
+            ->reject(function ($apt) {
+                // Loại bỏ nếu người này ĐÃ LÀ cư dân ở ghép active hoặc Chủ hợp đồng active của phòng này
+                $isAlreadyResident = \App\Models\RoomResident::where('room_id', $apt->room_id)
+                    ->where('user_id', $apt->user_id)
+                    ->where('status', 'active')
+                    ->exists();
+
+                $isAlreadyTenant = \App\Models\Contract::where('room_id', $apt->room_id)
+                    ->where('tenant_id', $apt->user_id)
+                    ->whereIn('status', ['signed', 'active'])
+                    ->exists();
+
+                return $isAlreadyResident || $isAlreadyTenant;
+            })
+            ->map(function ($apt) {
+                return [
+                    'id' => 'apt_' . $apt->id,
+                    'appointment_id' => $apt->id,
+                    'room_id' => $apt->room_id,
+                    'type' => 'stranger_applicant',
+                    'new_resident_name' => $apt->user?->name ?: 'Người lạ đăng ký ở ghép',
+                    'new_resident_phone' => $apt->user?->phone ?: '',
+                    'new_resident_cccd' => $apt->user?->cccd_number ?: '',
+                    'created_at' => $apt->created_at,
+                    'room' => $apt->room,
+                    'tenant' => $apt->user,
+                ];
+            });
+
+        // 3. Lấy danh sách yêu cầu ở ghép (loại giới thiệu người quen) đang chờ
+        $acquaintanceRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+            ->where('status', 'pending')
+            ->where('type', 'acquaintance')
+            ->with(['room', 'tenant'])
+            ->get();
+
+        // Hợp nhất cả 2 nguồn người ở ghép (Người quen B + Người lạ B ấn ƯNG) đưa vào pendingRoommateRequests
+        $pendingRoommateRequests = $acquaintanceRequests->concat($roommateAppointments);
 
         // Lấy danh sách Nhà trọ kèm các Tầng và Phòng trọ
         $boardingHousesQuery = \App\Models\BoardingHouse::where('user_id', $landlordId);
@@ -575,13 +646,7 @@ class LandlordController extends Controller
         }
         $boardingHouses = $boardingHousesQuery->with(['rooms.residents.user', 'floors.rooms.residents.user'])
             ->get();
-        //lấy danh sách yêu cầu ở ghép đang chờ tạo hợp đồng
-        $pendingRoommateRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
-            $q->where('user_id', $landlordId);
-        })
-            ->where('status', 'pending')
-            ->with(['room', 'tenant'])
-            ->get();
+
         return Inertia::render('Landlord/Contracts/index', [
             'dbContracts' => $contracts,
             'appointments' => $appointments,
@@ -713,10 +778,10 @@ class LandlordController extends Controller
         $elecImgPath = null;
         $elecOldImgPath = null;
         if ($request->hasFile('elec_meter_image')) {
-            $elecImgPath = '/storage/' . $request->file('elec_meter_image')->store('meter_readings', 'public');
+            $elecImgPath = '/storage/' . $request->file('elec_meter_image')->store('meter_readings', 'r2_public');
         }
         if ($request->hasFile('elec_old_meter_image')) {
-            $elecOldImgPath = '/storage/' . $request->file('elec_old_meter_image')->store('meter_readings', 'public');
+            $elecOldImgPath = '/storage/' . $request->file('elec_old_meter_image')->store('meter_readings', 'r2_public');
         }
 
         $waterImgPath = null;
@@ -946,14 +1011,14 @@ class LandlordController extends Controller
             $elecOldImgPath = null;
             $elecFileKey = "readings.{$index}.elec_image";
             if ($request->hasFile($elecFileKey)) {
-                $elecImgPath = '/storage/' . $request->file($elecFileKey)->store('meter_readings', 'public');
+                $elecImgPath = $request->file('elec_meter_image')->store('meter_readings', 'r2_public');
             }
 
             $waterImgPath = null;
             $waterOldImgPath = null;
             $waterFileKey = "readings.{$index}.water_image";
             if ($request->hasFile($waterFileKey)) {
-                $waterImgPath = '/storage/' . $request->file($waterFileKey)->store('meter_readings', 'public');
+                $waterImgPath = $request->file('water_meter_image')->store('meter_readings', 'r2_public');
             }
 
             // Default rates

@@ -136,11 +136,6 @@ const navGroups = [
         label: "Hệ Thống",
         items: [
             {
-                label: "Phân Quyền",
-                path: "/admin/roles",
-                icon: "bi-shield-lock-fill",
-            },
-            {
                 label: "Audit Log",
                 path: "/admin/auditlog",
                 icon: "bi-journal-text",
@@ -149,11 +144,6 @@ const navGroups = [
                 label: "Chỉnh Website",
                 path: "/admin/website",
                 icon: "bi-brush-fill",
-            },
-            {
-                label: "Quảng Cáo",
-                path: "/admin/ads",
-                icon: "bi-megaphone-fill",
             },
         ],
     },

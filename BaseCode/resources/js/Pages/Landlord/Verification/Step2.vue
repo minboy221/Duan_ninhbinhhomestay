@@ -276,17 +276,18 @@ const nextStep = () => {
                     <div>
                         <h2 class="text-xl font-bold text-on-surface mb-6 flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary">collections</span>
-                            Hình ảnh không gian <span class="text-error font-bold">*</span>
+                            Hình ảnh & Video không gian <span class="text-error font-bold">*</span>
                         </h2>
 
-                        <!-- Drag Drop Area for Room Images -->
+                        <!-- Drag Drop Area for Room Images & Videos -->
                         <label class="relative block group mb-6">
                             <div
                                 class="border-2 border-dashed border-outline-variant/40 rounded-xl p-6 text-center hover:border-primary transition-colors cursor-pointer bg-surface-container-low/30">
-                                <span class="material-symbols-outlined text-2xl text-outline mb-2">add_a_photo</span>
-                                <p class="text-sm font-medium">Tải lên ảnh Homestay</p>
+                                <span class="material-symbols-outlined text-2xl text-outline mb-2">video_camera_back</span>
+                                <p class="text-sm font-medium">Tải lên Ảnh / Video Homestay</p>
+                                <p class="text-xs text-outline font-normal mt-1">(Hỗ trợ JPG, PNG, HEIC, MP4, MOV - Tối đa 20MB)</p>
                             </div>
-                            <input type="file" multiple accept="image/*" class="hidden"
+                            <input type="file" multiple accept="image/*,video/*" class="hidden"
                                 @change="(e) => handleMultipleFiles(e, 'room_images')" />
                         </label>
 

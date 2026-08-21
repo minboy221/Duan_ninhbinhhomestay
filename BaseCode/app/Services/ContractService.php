@@ -17,9 +17,9 @@ use PHPUnit\Framework\TestStatus\Notice;
 class ContractService
 {
     // tạo hợp đồng mới (Luồng 4 bước: Direct Upload,Gate CCCD Check)\
-    public function createContract(array $data, $file)
+    public function createContract(array $data, $files = null)
     {
-        return DB::transaction(function () use ($data, $file) {
+        return DB::transaction(function () use ($data, $files) {
             $appointment = null;
             if (!empty($data['appointment_id'])) {
                 // Trường hợp 1: Ký từ lịch hẹn
@@ -30,6 +30,82 @@ class ContractService
                 // Trường hợp 2: Ký trực tiếp cho người ở ghép (không qua lịch hẹn)
                 $tenant = User::findOrFail($data['tenant_id']);
                 $room = Room::findOrFail($data['room_id']);
+            }
+
+            // Trường hợp Thuê hộ (Người ở thực tế khác với người xem phòng)
+            if (!empty($data['is_for_other']) && !empty($data['actual_tenant_phone']) && !empty($data['actual_tenant_cccd'])) {
+                $actualPhone = trim($data['actual_tenant_phone']);
+                $actualCccd = trim($data['actual_tenant_cccd']);
+                $actualName = trim($data['actual_tenant_name'] ?? 'Cư dân thuê trọ');
+                $actualEmail = !empty($data['actual_tenant_email']) ? trim($data['actual_tenant_email']) : null;
+
+                // Tìm xem người con/người ở thực tế đã có tài khoản trên hệ thống chưa
+                $actualTenant = User::where('phone', $actualPhone)
+                    ->orWhere('cccd_number', $actualCccd)
+                    ->when($actualEmail, function ($q) use ($actualEmail) {
+                        $q->orWhere('email', $actualEmail);
+                    })
+                    ->first();
+
+                $plainPassword = '12345678';
+
+                // Nếu chưa có tài khoản -> Tự động khởi tạo tài khoản mới
+                if (!$actualTenant) {
+                    $actualTenant = User::create([
+                        'name' => $actualName,
+                        'phone' => $actualPhone,
+                        'email' => $actualEmail,
+                        'cccd_number' => $actualCccd,
+                        'role' => 'tenant',
+                        'password' => \Illuminate\Support\Facades\Hash::make($plainPassword),
+                    ]);
+
+                    // Gửi Email thông tin đăng nhập nếu có địa chỉ Email
+                    if (!empty($actualTenant->email)) {
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($actualTenant->email)
+                                ->send(new \App\Mail\NewTenantAccountMail(
+                                    tenantName: $actualName,
+                                    phone: $actualPhone,
+                                    email: $actualTenant->email,
+                                    password: $plainPassword,
+                                    roomName: $room->room_number ?? '',
+                                    boardingHouseName: $room->boardingHouse->name ?? ''
+                                ));
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error('Lỗi gửi email tài khoản thuê hộ: ' . $e->getMessage());
+                        }
+                    }
+                } else {
+                    // Nếu tài khoản đã tồn tại nhưng chưa có CCCD hoặc Email -> Cập nhật bổ sung
+                    $updateData = [];
+                    if (empty($actualTenant->cccd_number)) {
+                        $updateData['cccd_number'] = $actualCccd;
+                    }
+                    if (empty($actualTenant->email) && $actualEmail) {
+                        $updateData['email'] = $actualEmail;
+                    }
+                    if (!empty($updateData)) {
+                        $actualTenant->update($updateData);
+                    }
+                }
+                // Chuyển đối tượng ký Hợp đồng sang cho Cư dân ở thực tế!
+                $tenant = $actualTenant;
+            }
+
+            // Bổ sung: Nếu chủ trọ gửi kèm số CCCD nhập từ Form cho luồng bình thường
+            if (empty($data['is_for_other']) && !empty($data['tenant_cccd']) && strlen(trim($data['tenant_cccd'])) === 12 && is_numeric(trim($data['tenant_cccd']))) {
+                $inputCccd = trim($data['tenant_cccd']);
+                $existingUserWithCccd = User::where('cccd_number', $inputCccd)
+                    ->where('id', '!=', $tenant->id)
+                    ->first();
+
+                if ($existingUserWithCccd) {
+                    throw new \Exception("Số CCCD {$inputCccd} đã được đăng ký cho tài khoản khác trên hệ thống ({$existingUserWithCccd->name} - SĐT: {$existingUserWithCccd->phone}). Vui lòng kiểm tra lại!");
+                }
+
+                $tenant->update(['cccd_number' => $inputCccd]);
+                $tenant->refresh();
             }
             if (!$tenant) {
                 throw new \Exception('Không tìm thấy thông tin khách thuê.');
@@ -71,34 +147,44 @@ class ContractService
             if (!$isAlreadyResident && $numberOfTenants > $availableCapacity) {
                 throw new \Exception("Số lượng người ở ({$numberOfTenants} người) vượt quá sức chứa còn lại của phòng (Còn trống {$availableCapacity} chỗ).");
             }
-            //4. Upload file đính kèm trực tiếp & tự động chuyển ảnh sang pdf
+            //4. Upload nhiều trang ảnh hợp đồng & tự động nối thành 01 file PDF duy nhất
+            $fileList = is_array($files) ? $files : ($files ? [$files] : []);
             $filePath = null;
-            if ($file) {
-                $extension = strtolower($file->getClientOriginalExtension());
-                if (in_array($extension, ['jpg', 'png', 'jpeg'])) {
-                    $imageData = base64_encode(file_get_contents($file->getRealPath()));
-                    $mimeType = $file->getMimeType();
-                    $src = 'data:' . $mimeType . ';base64,' . $imageData;
-                    //tạo html chứa ảnh để xuất sang PDF
-                    $html = '<html><head><style>
-                        body { margin: 0; padding: 0; text-align: center; background-color: #ffffff; }
-                        img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-                    </style></head><body><img src="' . $src . '" /></body></html>';
 
-                    //tạo file PDF sử dụng DomPDF
-                    $pdf = Pdf::loadHTML($html);
-                    //lưu file PDF
+            if (!empty($fileList)) {
+                $htmlPages = [];
+                foreach ($fileList as $f) {
+                    if (!$f) continue;
+                    $extension = strtolower($f->getClientOriginalExtension());
+                    if (in_array($extension, ['jpg', 'png', 'jpeg'])) {
+                        $imageData = base64_encode(file_get_contents($f->getRealPath()));
+                        $mimeType = $f->getMimeType();
+                        $src = 'data:' . $mimeType . ';base64,' . $imageData;
+                        $htmlPages[] = '<div class="page"><img src="' . $src . '" /></div>';
+                    } else if ($extension === 'pdf' && count($fileList) === 1) {
+                        $filePath = $f->store('contracts/documents', 'r2_private');
+                        break;
+                    }
+                }
+
+                if (!empty($htmlPages) && !$filePath) {
+                    $fullHtml = '<html><head><style>
+                        @page { margin: 0px; }
+                        body { margin: 0; padding: 0; text-align: center; background-color: #ffffff; }
+                        .page { page-break-after: always; width: 100%; text-align: center; }
+                        .page:last-child { page-break-after: avoid; }
+                        img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+                    </style></head><body>' . implode('', $htmlPages) . '</body></html>';
+
+                    $pdf = Pdf::loadHTML($fullHtml);
                     $fileName = 'contracts/documents/' . uniqid() . '.pdf';
-                    Storage::disk('public')->put($fileName, $pdf->output());
+                    Storage::disk('r2_private')->put($fileName, $pdf->output());
                     $filePath = $fileName;
-                } else {
-                    //nếu là tệp pdf thì sẽ lưu trực tiếp
-                    $filePath = $file->store('contracts/documents', 'public');
                 }
             }
+
             if (!$filePath) {
-                throw new \Exception('Không thể tải file hợp đồng lên. Vui lòng thử lại.');
-                ;
+                throw new \Exception('Không thể tải file hợp đồng lên. Vui lòng chọn ít nhất 1 trang ảnh hoặc tệp PDF.');
             }
             //lưu DB & kích hoạt hợp đồng
             $contract = Contract::create([
@@ -146,10 +232,14 @@ class ContractService
             ]);
 
             RoomPost::where('room_id', $room->id)->update(['status' => 'hidden']);
-            //cập nhật lịch hẹn khớp thành công (nếu ký từ lịch hẹn)
-            if ($appointment) {
-                $appointment->update(['status' => 'success_matched']);
-            }
+            
+            // Cập nhật trạng thái lịch hẹn:
+            // - Nếu là Cư dân ở ghép lên làm Chủ hợp đồng -> became_main_tenant (Đã đứng tên Hợp đồng)
+            // - Nếu là Thuê mới -> success_matched (Đã ký Hợp đồng & Đóng cọc)
+            $newApptStatus = $isAlreadyResident ? 'became_main_tenant' : 'success_matched';
+            \App\Models\Appointment::where('room_id', $room->id)
+                ->where('user_id', $tenant->id)
+                ->update(['status' => $newApptStatus]);
             //phát event cập nhật trạng thái phòng
             event(new \App\Events\RoomStatusUpdated($room->id, 'rented'));
             //gửi thông báo tới khách thuê
@@ -208,6 +298,11 @@ class ContractService
                     route('quanlynoio')
                 ));
             }
+            // Chuyển trạng thái lịch hẹn của người dùng này sang terminated (Hợp đồng đã thanh lý)
+            \App\Models\Appointment::where('room_id', $contract->room_id)
+                ->where('user_id', $contract->tenant_id)
+                ->update(['status' => 'terminated']);
+
             // chuyển trạng thái user của người thanh lý sang inactive
             RoomResident::where('room_id', $contract->room_id)
                 ->where('user_id', $contract->tenant_id)
@@ -403,11 +498,19 @@ class ContractService
                     ));
                 }
                 if ($request->room) {
-                    if ($request->room->current_people < $request->room->capacity) {
-                        $request->room->increment('current_people');
-                    }
-                    // Nếu số người đã đạt/vượt quá sức chứa -> Tự động ẩn tin đăng phòng này
-                    if ($request->room->current_people >= $request->room->capacity) {
+                    $hasActiveContract = Contract::where('room_id', $request->room_id)
+                        ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'termination_requested', 'expiring'])
+                        ->exists();
+                    $activeResidentsCount = RoomResident::where('room_id', $request->room_id)
+                        ->where('status', 'active')
+                        ->count();
+                    $newCurrentPeople = max(1, ($hasActiveContract ? 1 : 0) + $activeResidentsCount);
+
+                    $request->room->update(['current_people' => $newCurrentPeople]);
+                    $request->room->current_people = $newCurrentPeople;
+
+                    // Nếu số người đã đạt/vượt quá sức chứa -> Tự động đánh dấu tin đăng là đã cho thuê hết
+                    if ($newCurrentPeople >= $request->room->capacity) {
                         \App\Models\RoomPost::where('room_id', $request->room_id)->update(['status' => 'rented']);
                     }
                 }

@@ -17,8 +17,18 @@ class HandleInertiaRequests extends Middleware
     /**
      * Determine the current asset version.
      */
-    public function version(Request $request): string|null
+    public function version(Request $request): ?string
     {
+        $manifestPath = public_path('build/manifest.json');
+        if (!file_exists($manifestPath)) {
+            $manifestPath = base_path('../public_html/build/manifest.json');
+        }
+        if (!file_exists($manifestPath)) {
+            $manifestPath = base_path('public/build/manifest.json');
+        }
+        if (file_exists($manifestPath)) {
+            return md5_file($manifestPath);
+        }
         return parent::version($request);
     }
 
@@ -31,17 +41,21 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         if ($user) {
-            // Check for today's approved appointments to notify
-            $today = \Carbon\Carbon::today()->format('Y-m-d');
-            $todayAppointments = \App\Models\Appointment::where('user_id', $user->id)
-                ->where('date', $today)
-                ->where('status', 'approved')
-                ->where('notified', false)
-                ->get();
+            try {
+                // Check for today's approved appointments to notify
+                $today = \Carbon\Carbon::today()->format('Y-m-d');
+                $todayAppointments = \App\Models\Appointment::where('user_id', $user->id)
+                    ->where('date', $today)
+                    ->where('status', 'approved')
+                    ->where('notified', false)
+                    ->get();
 
-            foreach ($todayAppointments as $apt) {
-                $user->notify(new \App\Notifications\AppointmentReminder($apt));
-                $apt->update(['notified' => true]);
+                foreach ($todayAppointments as $apt) {
+                    $user->notify(new \App\Notifications\AppointmentReminder($apt));
+                    $apt->update(['notified' => true]);
+                }
+            } catch (\Throwable $e) {
+                // Safely handle notification errors
             }
         }
 
@@ -71,17 +85,17 @@ class HandleInertiaRequests extends Middleware
                 session(['selected_boarding_house_id' => $selectedBoardingHouseId]);
             }
             //xác định quyền trên cơ sở đang chọn
-            if($selectedBoardingHouseId){
+            if ($selectedBoardingHouseId) {
                 //check user có phải chủ sở hữu chính của cơ sở
                 $currentHouse = \App\Models\BoardingHouse::find($selectedBoardingHouseId);
-                if($currentHouse && $currentHouse->user_id === $user->id){
+                if ($currentHouse && $currentHouse->user_id === $user->id) {
                     $isOwner = true;
                     $managerPermissions = ['*']; //toàn quyền
-                }else{
+                } else {
                     //nếu là tài khoản phụ -> lấy mảng permissions từ bảng PropertyManager
                     $manager = \App\Models\PropertyManager::where('boarding_house_id', $selectedBoardingHouseId)
-                    ->where('user_id', $user->id)
-                    ->first();
+                        ->where('user_id', $user->id)
+                        ->first();
                     $managerPermissions = $manager ? ($manager->permissions ?? []) : [];
                 }
             }
@@ -110,6 +124,41 @@ class HandleInertiaRequests extends Middleware
             ]);
         }
 
+        $notifications = [];
+        if ($user) {
+            try {
+                $notifications = $user->unreadNotifications;
+            } catch (\Throwable $e) {
+                $notifications = [];
+            }
+        }
+
+        $hasActiveContract = false;
+        if ($user) {
+            try {
+                $hasActiveContract = \App\Models\Contract::where('tenant_id', $user->id)
+                    ->whereIn('status', ['active', 'signed', 'expiring', 'awaiting_upload'])
+                    ->exists()
+                    || \App\Models\RoomResident::where('user_id', $user->id)
+                    ->where('status', 'active')
+                    ->exists();
+            } catch (\Throwable $e) {
+                $hasActiveContract = false;
+            }
+        }
+
+        $settings = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                $settings = \App\Models\Setting::pluck('value', 'key')->map(function ($val) {
+                    $decoded = json_decode($val, true);
+                    return is_array($decoded) ? $decoded : $val;
+                });
+            }
+        } catch (\Throwable $e) {
+            $settings = [];
+        }
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $userData,
@@ -126,41 +175,15 @@ class HandleInertiaRequests extends Middleware
                 ] : [],
                 'has_submitted_verification' => $user
                     ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $user->id)->exists() : false,
-                'notifications' => $user ? $user->unreadNotifications : [],
+                'has_active_contract' => $hasActiveContract,
+                'notifications' => $notifications,
                 'pending_appointments_count' => $user && $user->role === 'landlord'
                     ? \App\Models\Appointment::where('landlord_id', $user->id)
                         ->where('status', 'pending')
                         ->whereHas('room', function ($q) use ($selectedBoardingHouseId) {
                             $q->where('boarding_house_id', $selectedBoardingHouseId);
                         })->count() : 0,
-                'pending_landlord_reports_count' => $user && $user->role === 'landlord'
-                    ? \App\Models\Report::where('status', 'pending')
-                        ->whereHasMorph('reportable', [
-                            \App\Models\Room::class,
-                            \App\Models\Invoice::class,
-                            \App\Models\Contract::class,
-                            \App\Models\BoardingHouse::class
-                        ], function ($query, $type) use ($user, $selectedBoardingHouseId) {
-                            if ($type === \App\Models\Room::class) {
-                                $query->whereHas('boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
-                                    $q->where('user_id', $user->id)
-                                        ->where('id', $selectedBoardingHouseId);
-                                });
-                            } elseif ($type === \App\Models\Invoice::class) {
-                                $query->whereHas('contract.room.boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
-                                    $q->where('user_id', $user->id)
-                                        ->where('id', $selectedBoardingHouseId);
-                                });
-                            } elseif ($type === \App\Models\Contract::class) {
-                                $query->whereHas('room.boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
-                                    $q->where('user_id', $user->id)
-                                        ->where('id', $selectedBoardingHouseId);
-                                });
-                            } elseif ($type === \App\Models\BoardingHouse::class) {
-                                $query->where('user_id', $user->id)
-                                    ->where('id', $selectedBoardingHouseId);
-                            }
-                        })->count() : 0,
+                'pending_landlord_reports_count' => 0,
                 'admin_counts' => $user && $user->role === 'admin' ? [
                     'reports' => \App\Models\Report::where('status', 'pending')->count(),
                     'verifications' => \App\Models\UserVerification::where('kyc_status', 'pending')->count(),
@@ -173,10 +196,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
             ],
-            'settings' => \App\Models\Setting::pluck('value', 'key')->map(function ($val) {
-                $decoded = json_decode($val, true);
-                return is_array($decoded) ? $decoded : $val;
-            }),
+            'settings' => $settings,
         ]);
     }
 }

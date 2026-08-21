@@ -20,4 +20,4 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const messaging = getMessaging(app);
-export const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "";
+export const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BI4oQirK1z-KOrTARFVW3MGns6MfSqu6hchiA5fnAA55zQhkbQFF6ZV8jWljiOyNy8pfX1Xeb-9y9Qc84QyAxBY";

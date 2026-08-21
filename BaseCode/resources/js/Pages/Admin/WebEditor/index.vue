@@ -40,14 +40,18 @@ const form = useForm({
         props.initialSettings.warning_invoice_amount || 10000000,
     warning_monthly_rent:
         props.initialSettings.warning_monthly_rent || 15000000,
-    not_interested_reasons: props.initialSettings.not_interested_reasons || [
-        "Giá thuê quá cao so với chất lượng",
-        "Phòng thực tế khác nhiều so với ảnh",
-        "Cơ sở vật chất xuống cấp, vệ sinh kém",
-        "Thái độ của chủ trọ không tốt",
-        "Vị trí không thuận tiện đi lại",
-        "Lý do khác",
-    ],
+    not_interested_reasons: Array.isArray(props.initialSettings.not_interested_reasons)
+        ? props.initialSettings.not_interested_reasons
+        : (typeof props.initialSettings.not_interested_reasons === 'object' && props.initialSettings.not_interested_reasons !== null
+            ? Object.values(props.initialSettings.not_interested_reasons)
+            : [
+                "Giá thuê quá cao so với chất lượng",
+                "Phòng thực tế khác nhiều so với ảnh",
+                "Cơ sở vật chất xuống cấp, vệ sinh kém",
+                "Thái độ của chủ trọ không tốt",
+                "Vị trí không thuận tiện đi lại",
+                "Lý do khác",
+            ]),
 });
 
 // Quản lý Tab hiện tại: 'banners', 'hero', 'contact'
@@ -136,12 +140,22 @@ function onDropzoneFileChange(e) {
 //phần crud lý do
 const newReasonText = ref("");
 
+function ensureReasonsArray() {
+    if (!Array.isArray(form.not_interested_reasons)) {
+        form.not_interested_reasons = typeof form.not_interested_reasons === "object" && form.not_interested_reasons !== null
+            ? Object.values(form.not_interested_reasons)
+            : [];
+    }
+}
+
 function addReason() {
     if (!newReasonText.value.trim()) return;
+    ensureReasonsArray();
     form.not_interested_reasons.push(newReasonText.value.trim());
     newReasonText.value = "";
 }
 function removeReason(index) {
+    ensureReasonsArray();
     form.not_interested_reasons.splice(index, 1);
 }
 </script>

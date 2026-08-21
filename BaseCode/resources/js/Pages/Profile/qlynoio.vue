@@ -9,6 +9,7 @@ const props = defineProps({
     user: Object,
     contract: Object,
     isPrimaryTenant: Boolean,
+    reasons: Array,
 });
 
 const showPdfModal = ref(false);
@@ -274,6 +275,51 @@ const handleViewPdf = () => {
         return;
     }
     showPdfModal.value = true;
+};
+
+//state & form cho modal báo cáo
+const showReportModal = ref(false);
+const previewEvidenceImages = ref([]);
+
+const reportForm = useForm({
+    reportable_type: "Room",
+    reportable_id: null,
+    resolve_type: "direct",
+    reason: "",
+    description: "",
+    evidence_images: [],
+});
+
+// Hàm mở Modal Báo cáo
+const openReportModal = () => {
+    if (!props.contract || !props.contract.room_id) {
+        showError("Lỗi", "Không tìm thấy thông tin phòng trọ để báo cáo.");
+        return;
+    }
+    reportForm.reset();
+    reportForm.reportable_type = "Room";
+    reportForm.reportable_id = props.contract.room_id;
+    previewEvidenceImages.value = [];
+    showReportModal.value = true;
+};
+
+const handleEvidenceImages = (e) => {
+    const files = Array.from(e.target.files);
+    reportForm.evidence_images = files;
+    previewEvidenceImages.value = files.map((file) => URL.createObjectURL(file));
+};
+
+const submitReport = () => {
+    reportForm.post(route("reports.store"), {
+        forceFormData: true,
+        onSuccess: () => {
+            showReportModal.value = false;
+            showSuccess("Thành công", "Đã gửi báo cáo thành công! Hệ thống sẽ hỗ trợ bạn xử lý.");
+        },
+        onError: (errs) => {
+            showError("Lỗi", Object.values(errs).join("\n"));
+        },
+    });
 };
 </script>
 
@@ -589,6 +635,11 @@ const handleViewPdf = () => {
                     <h2>LỊCH SỬ HOÁ ĐƠN</h2>
                     <Link :href="route('lichsuthanhtoan')" class="btn-hopdong">Xem trực tiếp lịch sử thanh toán</Link>
                 </div>
+                <!-- Nút Báo cáo sự cố / vi phạm -->
+                <button @click="openReportModal" class="btn-bao-cao">
+                    <i class="bi bi-flag-fill"></i>
+                    Báo cáo sự cố / vi phạm
+                </button>
             </div>
         </div>
 
@@ -932,6 +983,72 @@ const handleViewPdf = () => {
                         <button type="submit"
                             class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
                             Gửi Yêu Cầu
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL BÁO CÁO SỰ CỐ VÀ VI PHẠM -->
+        <div v-if="showReportModal"
+            class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div
+                class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5 border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-extrabold text-rose-600 flex items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill text-rose-500"></i>
+                        <span>Gửi Báo Cáo Sự Cố / Vi Phạm</span>
+                    </h3>
+                    <button @click="showReportModal = false"
+                        class="text-slate-400 hover:text-slate-600 text-2xl font-bold">
+                        &times;
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitReport" class="space-y-4">
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-600">Loại báo cáo <span
+                                class="text-rose-500">*</span></label>
+                        <select v-model="reportForm.reason" required
+                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-white">
+                            <option value="" disabled>--Chọn phân loại báo cáo--</option>
+                            <option v-for="(r, idx) in props.reasons" :key="r.id || idx" :value="typeof r === 'object' ? r.reason : r">
+                                {{ typeof r === 'object' ? r.reason : r }}
+                            </option>
+                            <option v-if="!props.reasons || props.reasons.length === 0" value="Khác">
+                                Lý do khác
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-600">Mô tả chi tiết sự cố <span
+                                class="text-rose-500">*</span></label>
+                        <textarea v-model="reportForm.description" rows="4" required
+                            placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề vi phạm cần xử lý..."
+                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs outline-none resize-none"></textarea>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-600">Hình ảnh minh chứng (nếu có)</label>
+                        <input type="file" multiple accept="image/*" @change="handleEvidenceImages"
+                            class="block w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer" />
+                        <div v-if="previewEvidenceImages.length > 0" class="flex flex-wrap gap-2 pt-2">
+                            <img v-for="(img, idx) in previewEvidenceImages" :key="idx" :src="img"
+                                class="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs" />
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
+                        <button type="button" @click="showReportModal = false"
+                            class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
+                            Hủy
+                        </button>
+                        <button type="submit" :disabled="reportForm.processing"
+                            class="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
+                            <i v-if="reportForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
+                            <i v-else class="bi bi-send-fill"></i>
+                            <span>Gửi Báo Cáo</span>
                         </button>
                     </div>
                 </form>

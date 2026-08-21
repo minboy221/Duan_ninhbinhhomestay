@@ -940,13 +940,25 @@ body {
 
 /* card */
 .card {
-    min-width: 350px;
+    width: 400px;
+    min-width: 400px;
+    max-width: 400px;
+    flex: 0 0 350px;
+    box-sizing: border-box;
     margin: 0 15px;
     padding: 25px;
     background: #fff;
     border-radius: 15px;
     text-align: left;
     box-shadow: 0 10px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card p {
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 /* sao */
@@ -971,7 +983,19 @@ body {
 
 .name_user {
     display: flex;
-    gap: 5px;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.name_user b {
+    color: #1e293b;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.name_user span {
+    color: #64748b;
+    font-size: 12px;
 }
 
 /* nút */

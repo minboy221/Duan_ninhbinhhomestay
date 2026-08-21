@@ -51,24 +51,8 @@ use Symfony\Component\Routing\Router;
 
 use App\Http\Controllers\Client\HomeController;
 
-// Route phần clien
-Route::get('/', function (CategoryService $categoryService) {
-    //nếu là tài khoản đã đăng nhập và có vai trò là chủ trọ -> chuyển trực tiếp sang trang quản lý
-    if (auth()->check() && auth()->user()->role === 'landlord') {
-        return redirect()->route('landlord.dashboard');
-    }
-    $categoryData = $categoryService->getActiveData();
-    return Inertia::render('Client/Index', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('signup'),
-        'canVerfyEmail' => Route::has('canverfyemail'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-        'categories' => $categoryData['types'],
-        'areas' => $categoryData['areas'],
-        'amenities' => $categoryData['amenities'],
-    ]);
-})->name('home');
+// Route phần client (Trang chủ)
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 // Route cho Trang Giới thiệu
 Route::get('/about', function () {
@@ -140,6 +124,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/rooms/{room}/direct-review', [PublicListingController::class, 'submitDirectReview'])->name('rooms.direct-review');
     Route::post('/appointments/{appointment}/review', [ProfileController::class, 'submitReview'])->name('appointments.review');
     Route::post('/appointments/{appointment}/interest', [ProfileController::class, 'submitInterest'])->name('appointments.interest');
+    Route::get('/appointments/{appointment}/ai-alternatives', [ProfileController::class, 'getAiRecommendations'])->name('appointments.ai-alternatives');
     Route::post('/appointments/{appointment}/cancel-interest', [ProfileController::class, 'cancelInterest'])->name('appointments.cancel_interest');
 
     // Route Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
@@ -198,20 +183,19 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     //Phần quản lý báo cáo & khiếu nại
     Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
     Route::patch('/reports/{id}', [AdminController::class, 'updateReport'])->name('admin.reports.update');
-    Route::post('/reports/settings/days', [AdminController::class, 'updateReportDays'])->name('admin.reports.update-days');
-    //CRUD lý do báo cáo vi phạm
+
+    // Quản lý Lý do Báo cáo (Report Reasons)
     Route::get('/report-reasons', [AdminController::class, 'reportReasons'])->name('admin.report-reasons.index');
     Route::post('/report-reasons', [AdminController::class, 'storeReportReason'])->name('admin.report-reasons.store');
     Route::put('/report-reasons/{id}', [AdminController::class, 'updateReportReason'])->name('admin.report-reasons.update');
     Route::delete('/report-reasons/{id}', [AdminController::class, 'destroyReportReason'])->name('admin.report-reasons.destroy');
+    Route::post('/reports/settings/days', [AdminController::class, 'updateReportDays'])->name('admin.reports.update-days');
 
     Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
     Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
-    Route::get('/roles', [AdminController::class, 'roles'])->name('admin.roles');
     Route::get('/auditlog', [AdminController::class, 'auditlog'])->name('admin.auditlog');
     Route::get('/website', [AdminController::class, 'website'])->name('admin.website');
     Route::post('/website', [AdminController::class, 'updateWebsite'])->name('admin.website.update');
-    Route::get('/ads', [AdminController::class, 'ads'])->name('admin.ads');
     Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     //Phần route để xác minh thông tin chủ trọ
     Route::get('/verifications', [AdminVerificationController::class, 'index'])->name('admin.verifications.index');
@@ -311,6 +295,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     // Đăng ký hợp đồng & Quản lý hợp đồng
     Route::get('/search-tenant', [\App\Http\Controllers\Landlord\ContractController::class, 'searchTenant'])->name('landlord.tenants.search');
+    Route::get('/check-cccd', [\App\Http\Controllers\Landlord\ContractController::class, 'checkCccd'])->name('landlord.cccd.check');
     Route::post('/contracts', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store');
     Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
     Route::post('/contracts/scan', [\App\Http\Controllers\Landlord\ContractController::class, 'scanContracts'])->name('landlord.contracts.scan');
