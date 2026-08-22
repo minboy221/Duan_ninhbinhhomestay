@@ -826,61 +826,65 @@ const goToCreateForContract = (contractId) => {
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
-                            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                <th class="py-3 px-4 w-12 text-center">#</th>
-                                <th class="py-3.5 px-4">Kỳ thanh toán</th>
-                                <th class="py-3.5 px-4">Mã hóa đơn</th>
-                                <th class="py-3.5 px-4">Phòng</th>
-                                <th class="py-3.5 px-4 text-right">Tổng cộng</th>
-                                <th class="py-3.5 px-4 text-center">Tình trạng</th>
-                                <th class="py-3.5 px-4">Khách hàng</th>
-                                <th class="py-3.5 px-6 text-right">Hành động</th>
+                            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                                <th class="py-4 px-4 w-12 text-center">#</th>
+                                <th class="py-4 px-4">Kỳ thanh toán</th>
+                                <th class="py-4 px-4">Mã hóa đơn</th>
+                                <th class="py-4 px-4">Phòng</th>
+                                <th class="py-4 px-4 text-right">Tổng cộng</th>
+                                <th class="py-4 px-4 text-center">Tình trạng</th>
+                                <th class="py-4 px-4">Khách hàng</th>
+                                <th class="py-4 px-6 text-right">Hành động</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-50 text-xs font-semibold text-slate-600">
-                            <tr v-for="(inv, idx) in filteredInvoices" :key="inv.id" class="hover:bg-slate-50/40">
-                                <td class="py-4 px-4 text-center text-slate-400 font-bold">{{ idx + 1 }}</td>
+                        <tbody class="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
+                            <tr v-for="(inv, idx) in filteredInvoices" :key="inv.id" class="hover:bg-slate-50/50 transition-colors">
+                                <td class="py-4 px-4 text-center text-slate-400 font-bold text-sm">{{ idx + 1 }}</td>
                                 <td class="py-4 px-4">
-                                    <div class="font-bold text-slate-800">Tháng {{ inv.billing_month }}</div>
-                                    <div class="text-[10px] text-slate-400 font-semibold">Hạn: {{ formatDate(inv.due_date) }}</div>
+                                    <div class="font-extrabold text-slate-900 text-sm">Tháng {{ inv.billing_month }}</div>
+                                    <div class="text-xs text-slate-400 font-semibold mt-0.5">Hạn: {{ formatDate(inv.due_date) }}</div>
                                 </td>
-                                <td class="py-4 px-4 text-slate-500 font-mono font-medium">#{{ inv.invoice_code }}</td>
-                                <td class="py-4 px-4 text-slate-800 font-bold">Phòng {{ inv.contract?.room?.room_number }}</td>
-                                <td class="py-4 px-4 text-right text-rose-500 font-bold">{{ formatMoney(inv.total_amount) }}</td>
+                                <td class="py-4 px-4 text-slate-600 font-mono font-semibold text-sm">#{{ inv.invoice_code }}</td>
+                                <td class="py-4 px-4 text-slate-900 font-black text-sm">Phòng {{ inv.contract?.room?.room_number }}</td>
+                                <td class="py-4 px-4 text-right text-rose-600 font-black text-sm">{{ formatMoney(inv.total_amount) }}</td>
                                 <td class="py-4 px-4 text-center">
                                     <div class="flex justify-center">
-                                        <span v-if="inv.archived_at" class="px-2 py-0.5 bg-purple-50 text-purple-600 border border-purple-100 rounded-md text-[10px] font-bold flex items-center gap-1">
+                                        <span v-if="inv.archived_at" class="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200/60 rounded-lg text-xs font-bold flex items-center gap-1">
                                             <i class="bi bi-archive-fill"></i> Đã Lưu Trữ
                                         </span>
-                                        <span v-else-if="inv.status === 'paid'" class="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-md text-[10px] font-bold">
+                                        <span v-else-if="inv.status === 'paid'" class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-lg text-xs font-bold">
                                             Hoàn Thành
                                         </span>
-                                        <span v-else class="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[10px] font-bold">
+                                        <span v-else-if="inv.status === 'partially_paid'" class="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-lg text-xs font-bold text-center">
+                                            Thanh toán 1 phần<br/>
+                                            <span class="text-[10px] font-extrabold text-amber-600">({{ formatMoney(inv.paid_amount || 0) }})</span>
+                                        </span>
+                                        <span v-else class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-lg text-xs font-bold">
                                             Đang Mở (Chưa thu)
                                         </span>
                                     </div>
                                 </td>
                                 <td class="py-4 px-4">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-[10px]">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-extrabold flex items-center justify-center text-xs">
                                             {{ inv.contract?.tenant?.name?.charAt(0).toUpperCase() }}
                                         </div>
-                                        <div class="text-slate-700 font-semibold">{{ inv.contract?.tenant?.name }}</div>
+                                        <div class="text-slate-800 font-bold text-sm">{{ inv.contract?.tenant?.name }}</div>
                                     </div>
                                 </td>
                                 <td class="py-4 px-6 text-right">
-                                    <div class="flex items-center justify-end gap-1.5">
-                                        <button @click="openViewModal(inv)" class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 rounded-lg flex items-center justify-center cursor-pointer" title="Xem chi tiết hóa đơn & Bằng chứng">
-                                            <i class="bi bi-eye"></i>
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button @click="openViewModal(inv)" class="w-8 h-8 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 text-slate-600 rounded-xl flex items-center justify-center cursor-pointer transition-all" title="Xem chi tiết hóa đơn & Bằng chứng">
+                                            <i class="bi bi-eye text-base"></i>
                                         </button>
-                                        <button v-if="!inv.archived_at && inv.status !== 'paid'" @click="changeStatus(inv, 'paid')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer">
-                                            <i class="bi bi-check-lg"></i> Thu tiền
+                                        <button v-if="!inv.archived_at && inv.status !== 'paid'" @click="changeStatus(inv, 'paid')" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer transition-all">
+                                            <i class="bi bi-check-lg text-sm"></i> Thu tiền
                                         </button>
-                                        <button v-if="!inv.archived_at" @click="archiveInvoice(inv)" class="w-7 h-7 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center cursor-pointer" title="Đưa vào kho lưu trữ">
-                                            <i class="bi bi-archive"></i>
+                                        <button v-if="!inv.archived_at" @click="archiveInvoice(inv)" class="w-8 h-8 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl flex items-center justify-center cursor-pointer transition-all" title="Đưa vào kho lưu trữ">
+                                            <i class="bi bi-archive text-sm"></i>
                                         </button>
-                                        <button v-else @click="restoreInvoice(inv)" class="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer">
-                                            <i class="bi bi-arrow-counterclockwise"></i> Khôi phục
+                                        <button v-else @click="restoreInvoice(inv)" class="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/60 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer transition-all">
+                                            <i class="bi bi-arrow-counterclockwise text-sm"></i> Khôi phục
                                         </button>
                                     </div>
                                 </td>

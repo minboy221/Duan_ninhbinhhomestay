@@ -154,16 +154,27 @@ const triggerSimulatedPayment = async () => {
     try {
         const res = await axios.post("/api/webhooks/simulate-payment", {
             invoice_id: activeInvoice.value.id,
+            amount: currentPaymentAmount.value,
         });
         if (res.data?.success) {
-            activeInvoice.value.status = "paid";
+            const newStatus = res.data.status || "paid";
+            const newPaid = res.data.paid_amount || activeInvoice.value.total_amount;
+            activeInvoice.value.status = newStatus;
+            activeInvoice.value.paid_amount = newPaid;
             const invInList = props.invoices.find(
                 (i) => i.id === activeInvoice.value.id,
             );
-            if (invInList) invInList.status = "paid";
-            autoSuccessMsg.value =
-                "Tín hiệu Webhook Ngân hàng đã khớp! Hóa đơn tự động ĐÃ THANH TOÁN 🎉";
-            stopPolling();
+            if (invInList) {
+                invInList.status = newStatus;
+                invInList.paid_amount = newPaid;
+            }
+            if (newStatus === "partially_paid") {
+                autoSuccessMsg.value = `Tín hiệu Webhook Ngân hàng đã khớp! Ghi nhận ĐÃ THANH TOÁN 1 PHẦN (${new Intl.NumberFormat("vi-VN").format(newPaid)}đ) 🟡`;
+            } else {
+                autoSuccessMsg.value =
+                    "Tín hiệu Webhook Ngân hàng đã khớp! Hóa đơn tự động ĐÃ THANH TOÁN HOÀN TẤT 🎉";
+                stopPolling();
+            }
         }
     } catch (err) {
         alert(
@@ -339,20 +350,70 @@ const isRoomSharing = computed(() => {
     return roomOccupantsCount.value > 1;
 });
 
+// Thông tin ngày ở lẻ & tính toán tiền cá nhân cho người dùng hiện tại
+const currentUserResidentInfo = computed(() => {
+    if (!activeInvoice.value || !props.user) return null;
+    const room = activeInvoice.value.contract?.room;
+    if (!room || !Array.isArray(room.residents)) return null;
+
+    // Tìm thông tin cư dân của người dùng hiện tại
+    const resident = room.residents.find(r => Number(r.user_id) === Number(props.user.id));
+    if (!resident || !resident.start_date) return null;
+
+    const startDateStr = String(resident.start_date).substring(0, 10);
+    const billingMonthStr = activeInvoice.value.billing_month; // YYYY-MM
+
+    if (startDateStr.substring(0, 7) === billingMonthStr) {
+        const parts = startDateStr.split("-");
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        const startDay = Number(parts[2]);
+
+        const totalDaysInMonth = new Date(year, month, 0).getDate();
+        const occupiedDays = totalDaysInMonth - startDay + 1;
+
+        return {
+            isMidMonth: true,
+            startDay,
+            occupiedDays,
+            totalDaysInMonth,
+        };
+    }
+
+    return { isMidMonth: false };
+});
+
 const perPersonAmount = computed(() => {
     if (!activeInvoice.value || !isRoomSharing.value) return 0;
-    return Math.round(activeInvoice.value.total_amount / roomOccupantsCount.value);
+    const baseShare = activeInvoice.value.total_amount / roomOccupantsCount.value;
+
+    const info = currentUserResidentInfo.value;
+    if (info && info.isMidMonth && info.occupiedDays < info.totalDaysInMonth) {
+        return Math.round((baseShare / info.totalDaysInMonth) * info.occupiedDays);
+    }
+
+    return Math.round(baseShare);
 });
 
 // Chế độ thanh toán: 'full' (Toàn bộ hóa đơn) hoặc 'split' (Phần tiền chia đều của tôi)
 const paymentSplitMode = ref("full");
 
+const remainingInvoiceAmount = computed(() => {
+    if (!activeInvoice.value) return 0;
+    const total = Number(activeInvoice.value.total_amount || 0);
+    const paid = Number(activeInvoice.value.paid_amount || 0);
+    return Math.max(0, total - paid);
+});
+
 const currentPaymentAmount = computed(() => {
     if (!activeInvoice.value) return 0;
+    const remaining = remainingInvoiceAmount.value;
+    if (remaining <= 0) return 0;
+
     if (paymentSplitMode.value === "split" && isRoomSharing.value) {
-        return perPersonAmount.value;
+        return Math.min(remaining, perPersonAmount.value);
     }
-    return Math.round(activeInvoice.value.total_amount);
+    return Math.round(remaining);
 });
 
 // Dynamic VietQR code generation
@@ -475,6 +536,9 @@ const submitReport = () => {
                             <td data-label="Trạng thái">
                                 <div v-if="inv.status === 'paid'" class="trangthai">
                                     Đã nhận
+                                </div>
+                                <div v-else-if="inv.status === 'partially_paid'" class="trangthai warning" style="background: #f59e0b; color: #fff;">
+                                    Đã đóng {{ formatMoney(inv.paid_amount || 0) }}
                                 </div>
                                 <div v-else class="trangthai warning">
                                     Chưa thanh toán
@@ -652,10 +716,14 @@ const submitReport = () => {
                         Phòng ở ghép ({{ roomOccupantsCount }} người):
                     </span>
                     <span style="font-size: 14px; font-weight: 800; color: #15803d;">
-                        {{ formatMoney(perPersonAmount) }} <span style="font-size: 11px; font-weight: normal; color: #166534;">/ người</span>
+                        {{ formatMoney(perPersonAmount) }} <span style="font-size: 11px; font-weight: normal; color: #166534;">/ phần của bạn</span>
                     </span>
                 </div>
-                <p style="font-size: 11px; color: #166534; margin: 0; line-height: 1.4;">
+                <p v-if="currentUserResidentInfo && currentUserResidentInfo.isMidMonth" style="font-size: 11px; color: #166534; margin: 0; line-height: 1.4;">
+                    <i class="bi bi-calendar-check-fill mr-1 text-emerald-600"></i>
+                    Bạn dọn vào ở từ ngày <strong>{{ currentUserResidentInfo.startDay }}</strong> trong tháng (ở {{ currentUserResidentInfo.occupiedDays }}/{{ currentUserResidentInfo.totalDaysInMonth }} ngày). Số tiền phần của bạn đã được tự động tính theo số ngày lẻ thực tế!
+                </p>
+                <p v-else style="font-size: 11px; color: #166534; margin: 0; line-height: 1.4;">
                     Tổng tiền phòng <strong>{{ formatMoney(activeInvoice.total_amount) }}</strong> được chia đều cho <strong>{{ roomOccupantsCount }}</strong> thành viên trong phòng.
                 </p>
             </div>

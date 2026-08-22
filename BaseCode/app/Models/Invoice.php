@@ -18,6 +18,7 @@ class Invoice extends Model
         'invoice_code',
         'billing_month',
         'total_amount',
+        'paid_amount',
         'status',
         'due_date',
         'paid_at',
@@ -26,6 +27,7 @@ class Invoice extends Model
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
         'paid_at' => 'datetime',
         'archived_at' => 'datetime',
         'due_date' => 'date',

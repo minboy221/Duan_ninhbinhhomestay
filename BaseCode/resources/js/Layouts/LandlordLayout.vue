@@ -1372,4 +1372,27 @@ body.landlord-theme .font-black,
 body.landlord-theme .font-extrabold {
     font-weight: 700 !important;
 }
+
+/* Tăng cỡ chữ bảng dữ liệu và danh sách trên toàn bộ trang của Chủ trọ */
+.landlord-layout table {
+    font-size: 14px !important;
+}
+
+.landlord-layout table th {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+}
+
+.landlord-layout table td {
+    font-size: 14px !important;
+}
+
+.landlord-layout table td .text-xs,
+.landlord-layout table td .text-\[10px\] {
+    font-size: 12px !important;
+}
+
+.landlord-layout table td .text-sm {
+    font-size: 14px !important;
+}
 </style>

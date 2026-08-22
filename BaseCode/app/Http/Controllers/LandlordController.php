@@ -639,17 +639,22 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         $boardingHouseId = session('selected_boarding_house_id');
-        $baseQuery = \App\Models\Invoice::whereHas('contract.room', function ($q) use ($boardingHouseId) {
-            $q->where('boarding_house_id', $boardingHouseId);
+        $baseQuery = \App\Models\Invoice::whereHas('contract.room.boardingHouse', function ($q) use ($landlordId, $boardingHouseId) {
+            $q->where('user_id', $landlordId);
+            if ($boardingHouseId) {
+                $q->where('id', $boardingHouseId);
+            }
         })
             ->with(['contract.room', 'contract.tenant', 'details.service']);
 
         $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->get();
         $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->get();
 
-        $activeContracts = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHouseId) {
-            $q->where('boarding_house_id', $boardingHouseId);
-            //lọc theo cơ sở được chọn
+        $activeContracts = \App\Models\Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId, $boardingHouseId) {
+            $q->where('user_id', $landlordId);
+            if ($boardingHouseId) {
+                $q->where('id', $boardingHouseId);
+            }
         })
             ->where('status', '!=', 'terminated')
             ->with([
