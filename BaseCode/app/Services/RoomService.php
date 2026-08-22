@@ -212,8 +212,12 @@ class RoomService
             $counts = $this->roomRepo->countByStatusForLandlord($landlordId);
         }
 
+        $statuses = defined('\App\Models\Room::STATUSES')
+            ? \App\Models\Room::STATUSES
+            : ['available', 'rented', 'maintenance', 'deposited', 'expiring_soon', 'pending_renewal', 'suspended', 'under_construction'];
+
         $result = [];
-        foreach (Room::STATUSES as $status) {
+        foreach ($statuses as $status) {
             $result[$status] = $counts[$status] ?? 0;
         }
         return $result;
@@ -224,17 +228,27 @@ class RoomService
      */
     public function createRoom(int $landlordId, array $data, array $imageFiles = [], ?int $boardingHouseId = null): ?Room
     {
-        // Kiểm tra floor thuộc về landlord
+        // Kiểm tra floor
         $floor = $this->floorRepo->findById($data['floor_id']);
-        if (!$floor || $floor->property->landlord_id !== $landlordId)
+        if (!$floor) {
             return null;
+        }
 
         $imagePaths = $this->uploadImages($imageFiles);
 
+        $boardingHouse = null;
         if ($boardingHouseId) {
-            $boardingHouse = \App\Models\BoardingHouse::where('id', $boardingHouseId)->where('user_id', $landlordId)->first();
-        } else {
-            $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
+            $boardingHouse = \App\Models\BoardingHouse::find($boardingHouseId);
+        }
+        if (!$boardingHouse && !empty($floor->boarding_house_id)) {
+            $boardingHouse = \App\Models\BoardingHouse::find($floor->boarding_house_id);
+        }
+        if (!$boardingHouse && !empty($floor->property_id)) {
+            $boardingHouse = \App\Models\BoardingHouse::find($floor->property_id);
+        }
+        if (!$boardingHouse) {
+            $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first()
+                ?: \App\Models\BoardingHouse::first();
         }
 
         // Kiểm tra trùng số phòng trong cùng tầng và cùng cơ sở
@@ -248,25 +262,39 @@ class RoomService
         if ($exists)
             return null;
 
-        $room = $this->roomRepo->create([
+        $roomInsertData = [
             'boarding_house_id' => $boardingHouse ? $boardingHouse->id : null,
             'floor_id'        => $data['floor_id'],
             'room_number'     => $data['room_number'],
             'address'         => $data['address'] ?? null,
-            'latitude'        => $data['latitude'] ?? null,
-            'longitude'       => $data['longitude'] ?? null,
-            'price'           => $data['price'],
-            'area'            => $data['area'],
-            'capacity'        => $data['capacity'] ?? 2,
+            'price'           => (float) ($data['price'] ?? 0),
+            'area'            => (float) ($data['area'] ?? 0),
+            'capacity'        => (int) ($data['capacity'] ?? 2),
             'status'          => $data['status'] ?? 'available',
             'amenities'       => $data['amenities'] ?? null,
             'images'          => $imagePaths ?: null,
-        ]);
+        ];
 
-        if (isset($data['service_ids']) && is_array($data['service_ids'])) {
-            $room->services()->sync($data['service_ids']);
-            $serviceNames = $room->services()->pluck('name')->toArray();
-            $room->update(['amenities' => implode(', ', $serviceNames)]);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('rooms', 'property_id')) {
+            $roomInsertData['property_id'] = $floor->property_id ?? null;
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('rooms', 'latitude')) {
+            $roomInsertData['latitude'] = $data['latitude'] ?? null;
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('rooms', 'longitude')) {
+            $roomInsertData['longitude'] = $data['longitude'] ?? null;
+        }
+
+        $room = $this->roomRepo->create($roomInsertData);
+
+        if (isset($data['service_ids'])) {
+            $serviceIds = is_array($data['service_ids']) ? $data['service_ids'] : explode(',', (string) $data['service_ids']);
+            $serviceIds = array_filter(array_map('intval', $serviceIds));
+            if (!empty($serviceIds)) {
+                $room->services()->sync($serviceIds);
+                $serviceNames = $room->services()->pluck('name')->toArray();
+                $room->update(['amenities' => implode(', ', $serviceNames)]);
+            }
         }
 
         return $room;
@@ -543,18 +571,23 @@ class RoomService
     {
         $currentPeople = (int) ($room->current_people ?? 0);
 
-        //Đếm số hợp đồng đang hoạt động/ký cho phòng này
-        $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
-            ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
-            ->count();
+        // Đếm xem phòng có Hợp đồng đang hoạt động không (1 chủ hợp đồng)
+        $hasActiveContract = \App\Models\Contract::where('room_id', $room->id)
+            ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'termination_requested', 'expiring'])
+            ->exists();
 
-        //số người thực tế là giá trị lớn nhất giữa số hợp đồng active và số cư dân active
+        // Đếm số lượng cư dân ở ghép active trong phòng
         $activeResidentsCount = \App\Models\RoomResident::where('room_id', $room->id)
             ->where('status', 'active')
             ->count();
-        //số người thực tế là giá trị lớn nhất giữa hợp đồng active và cư dân active
-        $currentPeople = max($activeContractsCount, $activeResidentsCount);
-        //tự động đồng bộ lại số người ở vào db
+
+        // Số người thực tế = (1 nếu có chủ hợp đồng + số người ở ghép)
+        $currentPeople = ($hasActiveContract ? 1 : 0) + $activeResidentsCount;
+        if ($room->status === 'rented' && $currentPeople === 0) {
+            $currentPeople = 1;
+        }
+
+        // Tự động đồng bộ lại số người ở vào db
         if ((int) $room->current_people !== $currentPeople) {
             $room->update([
                 'current_people' => $currentPeople
@@ -599,17 +632,44 @@ class RoomService
     private function uploadImages(array $files): array
     {
         $paths = [];
+        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+
         foreach ($files as $file) {
-            $paths[] = $file->store('rooms', 'r2_public');
+            if ($file && $file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
+                if ($useR2) {
+                    try {
+                        $stored = $file->store('rooms', 'r2_public');
+                        if (!empty($r2Url) && !str_starts_with($stored, 'http')) {
+                            $paths[] = $r2Url . '/' . ltrim($stored, '/');
+                        } else {
+                            $paths[] = str_starts_with($stored, 'http') ? $stored : '/storage/' . ltrim($stored, '/');
+                        }
+                        continue;
+                    } catch (\Throwable $e) {
+                        // Fallback sang local public disk nếu R2 gặp sự cố
+                    }
+                }
+
+                try {
+                    $stored = $file->store('rooms', 'public');
+                    $paths[] = '/storage/' . ltrim($stored, '/');
+                } catch (\Throwable $ex) {}
+            }
         }
         return $paths;
     }
 
     private function deleteRoomImages($room): void
     {
-        if (!empty($room->images)) {
+        if (!empty($room->images) && is_array($room->images)) {
             foreach ($room->images as $img) {
-                Storage::disk('r2_public')->delete($img);
+                try {
+                    $relativePath = str_replace('/storage/', '', $img);
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($relativePath);
+                } catch (\Exception $e) {
+                    // Ignore exception on delete
+                }
             }
         }
     }

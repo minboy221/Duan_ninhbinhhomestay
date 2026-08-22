@@ -148,7 +148,7 @@ const recentTenants = ref([
                     <div class="space-y-2 z-10">
                         <h2 class="text-xl md:text-2xl font-black font-headline tracking-tight">
                             Chào mừng quay lại,
-                            {{ user?.name || "Phạm Mạnh Dũng" }} 👋
+                            {{ user?.name || "Phạm Mạnh Dũng" }}
                         </h2>
                         <p class="text-sm text-emerald-100/80 leading-relaxed max-w-lg font-medium">
                             Bạn muốn tạo hóa đơn cho kỳ thanh toán này? Hãy

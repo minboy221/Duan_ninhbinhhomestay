@@ -83,12 +83,31 @@ class RoomListingService
     //phần sử lý upload ảnh bài đăng
     public function uploadImages(array $files): array
     {
-
-        // Phần sử lý upload danh sách hình ảnh bài đăng
         $uploadedImages = [];
+        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+
         foreach ($files as $file) {
-            $path = $file->store('room_posts_images', 'r2_public');
-            $uploadedImages[] = '/storage/' . $path;
+            if ($file && $file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
+                if ($useR2) {
+                    try {
+                        $path = $file->store('room_posts_images', 'r2_public');
+                        if (!empty($r2Url) && !str_starts_with($path, 'http')) {
+                            $uploadedImages[] = $r2Url . '/' . ltrim($path, '/');
+                        } else {
+                            $uploadedImages[] = str_starts_with($path, 'http') ? $path : '/storage/' . ltrim($path, '/');
+                        }
+                        continue;
+                    } catch (\Throwable $e) {
+                        // Fallback sang public disk
+                    }
+                }
+
+                try {
+                    $path = $file->store('room_posts_images', 'public');
+                    $uploadedImages[] = '/storage/' . ltrim($path, '/');
+                } catch (\Throwable $ex) {}
+            }
         }
         return $uploadedImages;
     }

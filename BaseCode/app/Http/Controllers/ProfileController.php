@@ -77,19 +77,32 @@ class ProfileController extends Controller
         //tự động kiểm tra và đồng bộ số người ở hiện tại của phòng
         if ($contract && $contract->room) {
             $room = $contract->room;
-            $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
-                ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
-                ->count();
-            $activeContractsCount = \App\Models\RoomResident::where('room_id', $room->id)
+            $hasActiveContract = \App\Models\Contract::where('room_id', $room->id)
+                ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'termination_requested', 'expiring'])
+                ->exists();
+            $activeResidentsCount = \App\Models\RoomResident::where('room_id', $room->id)
                 ->where('status', 'active')
                 ->count();
-            $realCurrentPeople = max($activeContractsCount, $activeContractsCount);
+            $realCurrentPeople = max(1, ($hasActiveContract ? 1 : 0) + $activeResidentsCount);
             if ((int) $room->current_people !== $realCurrentPeople) {
                 $room->update(['current_people' => $realCurrentPeople]);
                 $room->current_people = $realCurrentPeople;
             }
         }
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+        if ($reasons->isEmpty()) {
+            $defaults = [
+                'Hỏng hóc thiết bị / Sự cố điện nước',
+                'Thành viên khác vi phạm nội quy / Ồn ào',
+                'Sự cố về Hợp đồng / Tiền trọ',
+                'Không minh bạch về chi phí dịch vụ',
+                'Khác'
+            ];
+            foreach ($defaults as $item) {
+                \App\Models\ReportReason::firstOrCreate(['reason' => $item], ['is_active' => true]);
+            }
+            $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+        }
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
             'contract' => $contract,
@@ -118,6 +131,19 @@ class ProfileController extends Controller
             ->get();
 
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+        if ($reasons->isEmpty()) {
+            $defaults = [
+                'Hỏng hóc thiết bị / Sự cố điện nước',
+                'Thành viên khác vi phạm nội quy / Ồn ào',
+                'Sự cố về Hợp đồng / Tiền trọ',
+                'Không minh bạch về chi phí dịch vụ',
+                'Khác'
+            ];
+            foreach ($defaults as $item) {
+                \App\Models\ReportReason::firstOrCreate(['reason' => $item], ['is_active' => true]);
+            }
+            $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+        }
 
         return Inertia::render('Profile/listthanhtoan', [
             'user' => $user,
@@ -581,6 +607,7 @@ class ProfileController extends Controller
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Yêu cầu gia hạn hợp đồng mới',
                 "Khách thuê tại phòng {$roomNum} ({$user->name}) gửi yêu cầu gia hạn {$months} tháng. {$requestedInfor}",
+                'info',
                 route('landlord.contracts')
             ));
         }
@@ -629,6 +656,7 @@ class ProfileController extends Controller
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Khách đã cập nhật chỉ số nhận phòng',
                 "Khách thuê tại phòng {$roomNum} đã tải lên chỉ số điện/nước ban đầu lúc nhận phòng.",
+                'info',
                 route('landlord.contracts')
             ));
         }

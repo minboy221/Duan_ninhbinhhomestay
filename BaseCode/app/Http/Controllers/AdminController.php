@@ -314,6 +314,19 @@ class AdminController extends Controller
     public function reportReasons()
     {
         $reasons = \App\Models\ReportReason::orderBy('created_at', 'desc')->get();
+        if ($reasons->isEmpty()) {
+            $defaults = [
+                'Hỏng hóc thiết bị / Sự cố điện nước',
+                'Thành viên khác vi phạm nội quy / Ồn ào',
+                'Sự cố về Hợp đồng / Tiền trọ',
+                'Không minh bạch về chi phí dịch vụ',
+                'Khác'
+            ];
+            foreach ($defaults as $item) {
+                \App\Models\ReportReason::firstOrCreate(['reason' => $item], ['is_active' => true]);
+            }
+            $reasons = \App\Models\ReportReason::orderBy('created_at', 'desc')->get();
+        }
         return Inertia::render('Admin/ReportReasons/Index', [
             'reasons' => $reasons
         ]);
@@ -407,7 +420,7 @@ class AdminController extends Controller
     {
         $settings = \App\Models\Setting::pluck('value', 'key')->map(function ($val) {
             $decoded = json_decode($val, true);
-            return is_array($decoded) ? $decoded : $val;
+            return is_array($decoded) ? array_values($decoded) : $val;
         });
 
         return Inertia::render('Admin/WebEditor/index', [
@@ -466,7 +479,11 @@ class AdminController extends Controller
         \App\Models\Setting::updateOrCreate(['key' => 'warning_water_price'], ['value' => $request->warning_water_price]);
         \App\Models\Setting::updateOrCreate(['key' => 'warning_invoice_amount'], ['value' => $request->warning_invoice_amount]);
         \App\Models\Setting::updateOrCreate(['key' => 'warning_monthly_rent'], ['value' => $request->warning_monthly_rent]);
-        \App\Models\Setting::updateOrCreate(['key' => 'not_interested_reasons'], ['value' => json_encode($request->input('not_interested_reasons', []), JSON_UNESCAPED_UNICODE)]);
+        $rawReasons = $request->input('not_interested_reasons', []);
+        $reasonsArray = array_values(array_filter((array) $rawReasons, function($r) {
+            return !is_null($r) && trim($r) !== '';
+        }));
+        \App\Models\Setting::updateOrCreate(['key' => 'not_interested_reasons'], ['value' => json_encode($reasonsArray, JSON_UNESCAPED_UNICODE)]);
         $banners = $request->input('banners', []);
         $files = $request->file('banners');
 

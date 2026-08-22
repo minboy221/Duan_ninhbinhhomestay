@@ -183,12 +183,13 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     //Phần quản lý báo cáo & khiếu nại
     Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
     Route::patch('/reports/{id}', [AdminController::class, 'updateReport'])->name('admin.reports.update');
-    Route::post('/reports/settings/days', [AdminController::class, 'updateReportDays'])->name('admin.reports.update-days');
-    //CRUD lý do báo cáo vi phạm
+
+    // Quản lý Lý do Báo cáo (Report Reasons)
     Route::get('/report-reasons', [AdminController::class, 'reportReasons'])->name('admin.report-reasons.index');
     Route::post('/report-reasons', [AdminController::class, 'storeReportReason'])->name('admin.report-reasons.store');
     Route::put('/report-reasons/{id}', [AdminController::class, 'updateReportReason'])->name('admin.report-reasons.update');
     Route::delete('/report-reasons/{id}', [AdminController::class, 'destroyReportReason'])->name('admin.report-reasons.destroy');
+    Route::post('/reports/settings/days', [AdminController::class, 'updateReportDays'])->name('admin.reports.update-days');
 
     Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
     Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
@@ -294,6 +295,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     // Đăng ký hợp đồng & Quản lý hợp đồng
     Route::get('/search-tenant', [\App\Http\Controllers\Landlord\ContractController::class, 'searchTenant'])->name('landlord.tenants.search');
+    Route::get('/check-cccd', [\App\Http\Controllers\Landlord\ContractController::class, 'checkCccd'])->name('landlord.cccd.check');
     Route::post('/contracts', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store');
     Route::post('/contracts/store-draft', [\App\Http\Controllers\Landlord\ContractController::class, 'storeDraftAndExport'])->name('landlord.contracts.store_draft');
     Route::post('/contracts/scan', [\App\Http\Controllers\Landlord\ContractController::class, 'scanContracts'])->name('landlord.contracts.scan');

@@ -111,18 +111,34 @@ class ProfileService
      */
     public function updateAvatar(User $user, $avatarFile): string
     {
+        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+        $urlPath = '';
+
         // Xóa ảnh cũ nếu có
         if ($user->avatar) {
-            Storage::disk('r2_public')->delete($user->avatar);
+            try {
+                $oldPath = str_replace('/storage/', '', parse_url($user->avatar, PHP_URL_PATH));
+                Storage::disk('public')->delete($oldPath);
+            } catch (\Throwable $e) {}
         }
 
-        // Lưu ảnh mới
-        $path = $avatarFile->store('avatars', 'r2_public');
+        if ($useR2 && !empty($r2Url)) {
+            try {
+                $path = $avatarFile->store('avatars', 'r2_public');
+                $urlPath = str_starts_with($path, 'http') ? $path : $r2Url . '/' . ltrim($path, '/');
+            } catch (\Throwable $e) {}
+        }
+
+        if (empty($urlPath)) {
+            $path = $avatarFile->store('avatars', 'public');
+            $urlPath = '/storage/' . ltrim($path, '/');
+        }
 
         // Cập nhật database
-        $this->userRepository->updateUser($user->id, ['avatar' => $path]);
+        $this->userRepository->updateUser($user->id, ['avatar' => $urlPath]);
 
-        return $path;
+        return $urlPath;
     }
 
     /**
@@ -168,6 +184,7 @@ class ProfileService
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Yêu cầu tìm người ở ghép mới',
                 "Khách thuê tại phòng {$roomNum} gửi yêu cầu đăng tin tìm người ở ghép.",
+                'info',
                 route('landlord.roommate-requests')
             ));
         }
@@ -286,6 +303,7 @@ class ProfileService
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Giới thiệu thành viên ở ghép mới',
                 "Khách thuê tại phòng {$roomNum} giới thiệu thành viên mới: {$data['new_resident_name']} vào ở ghép.",
+                'info',
                 route('landlord.roommate-requests')
             ));
         }

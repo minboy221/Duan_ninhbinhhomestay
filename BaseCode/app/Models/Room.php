@@ -8,7 +8,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Room extends Model
 {
-    use HasFactory;
+    public const STATUSES = [
+        'available',
+        'rented',
+        'maintenance',
+        'deposited',
+        'expiring_soon',
+        'pending_renewal',
+        'suspended',
+        'under_construction',
+    ];
+
     protected $fillable = [
         'boarding_house_id',
         'floor_id',
@@ -63,20 +73,6 @@ class Room extends Model
         
         return $base;
     }
-
-    /**
-     * Danh sách trạng thái hợp lệ
-     */
-    public const STATUSES = [
-        'available',
-        'rented',
-        'maintenance',
-        'deposited',
-        'expiring_soon',
-        'pending_renewal',
-        'suspended',
-        'under_construction',
-    ];
 
 
     // quan hệ phòng thuộc về một boarding house / property

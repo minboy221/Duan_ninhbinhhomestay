@@ -280,12 +280,12 @@ const getAvatarUrl = (avatar) => {
                                     <span>Trang Chủ Trọ</span>
                                 </a>
                             </li>
-                            <li v-if="user.role === 'user' && !auth.has_submitted_verification">
+                            <li v-if="user.role === 'user' && !auth.has_active_contract && !auth.has_submitted_verification">
                                 <Link :href="route('landlord.verify.create')"> <i class="bi bi-house-add"></i>
                                     <span>Đăng ký làm Chủ Trọ</span>
                                 </Link>
                             </li>
-                            <li v-if="user.role === 'user' && auth.has_submitted_verification">
+                            <li v-if="user.role === 'user' && !auth.has_active_contract && auth.has_submitted_verification">
                                 <Link :href="route('landlord.verify.create')"> <i class="bi bi-hourglass-split"></i>
                                     <span>Hồ sơ Chủ Trọ (Chờ duyệt)</span>
                                 </Link>
