@@ -205,6 +205,7 @@ const isToday = (dateStr) => {
 
 import { usePage } from "@inertiajs/vue3";
 import { showSuccess, showError } from "@/Utils/swal";
+import axios from "axios";
 
 const page = usePage();
 
@@ -215,6 +216,12 @@ const confirmApt = ref(null);
 const tenantCccd = ref("");
 const selectedReason = ref("");
 const otherReasonDetail = ref("");
+const submittingInterest = ref(false);
+
+// State cho Modal Gợi Ý 3 Phòng Trọ Tương Tự từ AI
+const showAiAlternativesModal = ref(false);
+const loadingAiAlternatives = ref(false);
+const aiAlternativesData = ref(null);
 
 function openConfirmInterest(apt, isInterested) {
     confirmApt.value = apt;
@@ -230,6 +237,7 @@ function closeConfirmModal() {
     confirmApt.value = null;
     selectedReason.value = "";
     otherReasonDetail.value = "";
+    submittingInterest.value = false;
 }
 
 function executeInterest() {
@@ -249,8 +257,34 @@ function executeInterest() {
             alert("Vui lòng nhập chi tiết lý do!");
             return;
         }
+
+        submittingInterest.value = true;
+        axios.post(route("appointments.interest", confirmApt.value.id), {
+            result: 'not_interested',
+            cccd: tenantCccd.value,
+            reason: finalReason,
+        })
+        .then((res) => {
+            closeConfirmModal();
+            if (res.data && res.data.ai_recommendations && res.data.ai_recommendations.rooms && res.data.ai_recommendations.rooms.length > 0) {
+                aiAlternativesData.value = res.data.ai_recommendations;
+                showAiAlternativesModal.value = true;
+            } else {
+                showSuccess("Thành công", "Đã ghi nhận lựa chọn của bạn!");
+            }
+            router.reload({ only: ['appointments'] });
+        })
+        .catch(() => {
+            showError("Lỗi", "Không thể thực hiện thao tác. Vui lòng thử lại!");
+        })
+        .finally(() => {
+            submittingInterest.value = false;
+        });
+
+        return;
     }
 
+    // Trường hợp Ưng thuê
     router.post(
         route("appointments.interest", confirmApt.value.id),
         {
@@ -269,6 +303,36 @@ function executeInterest() {
             },
         }
     );
+}
+
+// Hàm mở Modal xem 3 phòng AI gợi ý cho lịch hẹn đã chốt không ưng
+function fetchAndShowAiAlternatives(apt) {
+    loadingAiAlternatives.value = true;
+    showAiAlternativesModal.value = true;
+    aiAlternativesData.value = null;
+
+    axios.get(route('appointments.ai-alternatives', apt.id))
+        .then((res) => {
+            if (res.data && res.data.success) {
+                aiAlternativesData.value = res.data;
+            } else {
+                showError("Thông báo", res.data.message || "Hiện chưa có phòng phù hợp.");
+                showAiAlternativesModal.value = false;
+            }
+        })
+        .catch(() => {
+            showError("Lỗi", "Không thể tải danh sách gợi ý phòng từ AI.");
+            showAiAlternativesModal.value = false;
+        })
+        .finally(() => {
+            loadingAiAlternatives.value = false;
+        });
+}
+
+function closeAiAlternativesModal() {
+    showAiAlternativesModal.value = false;
+    aiAlternativesData.value = null;
+    loadingAiAlternatives.value = false;
 }
 
 // State cho Modal Hủy Hợp Đồng / Đổi ý
@@ -452,11 +516,16 @@ const paginatedAppointments = computed(() => {
                                             </span>
 
                                             <!-- Trường hợp Không ưng -->
-                                            <span
+                                            <div
                                                 v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
-                                                class="badge-not-interested">
-                                                <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
-                                            </span>
+                                                style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                                <span class="badge-not-interested">
+                                                    <i class="bi bi-x-circle-fill"></i> Đã chốt: Không ưng
+                                                </span>
+                                                <button type="button" @click="fetchAndShowAiAlternatives(apt)" class="btn-ai-suggest-badge" title="Xem 3 phòng trọ tương tự do AI gợi ý">
+                                                    <i class="bi bi-stars"></i> 3 phòng AI gợi ý
+                                                </button>
+                                            </div>
                                         </div>
 
                                     </td>
@@ -584,6 +653,31 @@ const paginatedAppointments = computed(() => {
                                 </div>
                             </div>
 
+                            <div class="mobile-apt-info-item">
+                                <i class="bi bi-person-fill text-emerald-500"></i>
+                                <div>
+                                    <span class="info-label">Chủ trọ</span>
+                                    <span class="info-value">
+                                        {{ apt.room?.boardingHouse?.landlord?.name ||
+                                            apt.room?.boarding_house?.landlord?.name }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div v-if="apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone"
+                                class="mobile-apt-info-item">
+                                <i class="bi bi-telephone-fill text-indigo-500"></i>
+                                <div>
+                                    <span class="info-label">Số điện thoại</span>
+                                    <span class="info-value">
+                                        <a :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
+                                            class="mobile-call-link"
+                                            style="color: #2563eb; font-weight: bold; text-decoration: underline;">
+                                            {{ apt.room?.boardingHouse?.landlord?.phone ||
+                                                apt.room?.boarding_house?.landlord?.phone }}
+                                        </a>
+                                    </span>
+                                </div>
                             <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result"
                                 style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
                                 <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"
@@ -669,11 +763,22 @@ const paginatedAppointments = computed(() => {
                                     Đã chốt: Ưng thuê
                                 </span>
 
-                                <span v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)"
-                                    class="feedback-badge dislike">
-                                    <i class="bi bi-x-circle-fill"></i>
-                                    Đã chốt: Không ưng
+                                <span v-else-if="apt.feedback_result === 'cancel_requested'"
+                                    class="feedback-badge"
+                                    style="background-color: #fffbeb; color: #d97706; border: 1px solid #fde68a; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">
+                                    <i class="bi bi-clock-history"></i>
+                                    Đã gửi yêu cầu hủy HĐ (Chờ duyệt)
                                 </span>
+
+                                <div v-else-if="['not_interested', 'dislike'].includes(apt.feedback_result)" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+                                    <span class="feedback-badge dislike">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                        Đã chốt: Không ưng
+                                    </span>
+                                    <button type="button" @click="fetchAndShowAiAlternatives(apt)" class="mobile-btn-ai-suggest">
+                                        <i class="bi bi-stars"></i> Xem 3 phòng AI gợi ý
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1002,6 +1107,124 @@ const paginatedAppointments = computed(() => {
                             <i class="bi bi-send-fill"></i> Gửi Yêu Cầu Hủy
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- AI Alternative Rooms Modal -->
+    <Teleport to="body">
+        <div v-if="showAiAlternativesModal" class="ai-modal-overlay" @click.self="closeAiAlternativesModal">
+            <div class="ai-modal-box">
+                <!-- Modal Header -->
+                <div class="ai-modal-header">
+                    <div class="ai-header-left">
+                        <div class="ai-header-avatar-box">
+                            <i class="bi bi-robot" style="font-size: 24px; color: #ffffff;"></i>
+                            <span class="ai-sparkle-dot"></span>
+                        </div>
+                        <div class="ai-header-title-box">
+                            <h3>
+                                <span>Gợi Ý Phòng Trọ Thay Thế</span>
+                                <span class="ai-header-badge"><i class="bi bi-stars"></i> AI Smart</span>
+                            </h3>
+                            <p>Trợ lý AI Ninh Bình tự động đề xuất 3 phòng tương tự sát nhất</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="closeAiAlternativesModal" class="ai-modal-close-btn" title="Đóng">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="ai-modal-body">
+                    <!-- Loading State -->
+                    <div v-if="loadingAiAlternatives" class="ai-loading-state">
+                        <div class="ai-spinner"></div>
+                        <div>
+                            <h4 style="font-size: 15px; font-weight: 700; color: #1e293b; margin: 0 0 4px 0;">Đang tìm phòng tương tự...</h4>
+                            <p style="font-size: 13px; color: #64748b; margin: 0;">Trợ lý AI đang phân tích kho phòng và chọn 3 phòng phù hợp nhất với bạn</p>
+                        </div>
+                    </div>
+
+                    <!-- Loaded Content -->
+                    <template v-else-if="aiAlternativesData">
+                        <!-- Viewed Room Summary Banner -->
+                        <div class="ai-viewed-summary-card">
+                            <div class="ai-viewed-info">
+                                <span class="ai-viewed-label">Phòng bạn vừa xem</span>
+                                <span class="ai-viewed-title">
+                                    🏠 {{ aiAlternativesData.viewed_room?.room_number }} — {{ aiAlternativesData.viewed_room?.house_name }}
+                                </span>
+                                <span class="ai-viewed-sub">
+                                    📍 {{ aiAlternativesData.viewed_room?.address }}
+                                    <template v-if="aiAlternativesData.viewed_room?.price_formatted">
+                                        • 💰 {{ aiAlternativesData.viewed_room?.price_formatted }}
+                                    </template>
+                                </span>
+                            </div>
+
+                            <div v-if="aiAlternativesData.viewed_room?.reason" class="ai-reason-pill">
+                                <i class="bi bi-chat-left-quote-fill"></i>
+                                <span>Lý do: <strong>{{ aiAlternativesData.viewed_room?.reason }}</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- AI Advice Message -->
+                        <div class="ai-message-box">
+                            <i class="bi bi-lightbulb-fill"></i>
+                            <span>{{ aiAlternativesData.ai_message }}</span>
+                        </div>
+
+                        <!-- 3 Room Cards Grid -->
+                        <div v-if="aiAlternativesData.rooms && aiAlternativesData.rooms.length > 0" class="ai-recommendations-grid">
+                            <div v-for="room in aiAlternativesData.rooms" :key="'ai-rec-' + room.id" class="ai-room-card">
+                                <div class="ai-room-image-box">
+                                    <img :src="room.image || '/anh/phong1.jpg'" :alt="room.title" class="ai-room-img" @error="$event.target.src = '/anh/phong1.jpg'" />
+                                    <span class="ai-room-occupancy-badge" :class="room.has_residents ? 'has-people' : 'empty'">
+                                        <i :class="room.has_residents ? 'bi bi-person-check-fill' : 'bi bi-door-open-fill'"></i>
+                                        {{ room.status_label }}
+                                    </span>
+                                </div>
+
+                                <div class="ai-room-content">
+                                    <h4 class="ai-room-title" :title="room.title">{{ room.title }}</h4>
+                                    <div class="ai-room-price">{{ room.price_formatted }}</div>
+                                    <div class="ai-room-meta-tags">
+                                        <span v-if="room.floor" class="ai-meta-tag"><i class="bi bi-layers-fill"></i> {{ room.floor }}</span>
+                                        <span v-if="room.area" class="ai-meta-tag"><i class="bi bi-aspect-ratio-fill"></i> {{ room.area }} m²</span>
+                                    </div>
+                                    <div class="ai-room-address" :title="room.address">
+                                        <i class="bi bi-geo-alt-fill text-blue-500"></i>
+                                        <span>{{ room.address }}</span>
+                                    </div>
+
+                                    <div class="ai-room-actions">
+                                        <a :href="room.url" target="_blank" class="btn-ai-view-room">
+                                            <span>Xem phòng này</span>
+                                            <i class="bi bi-arrow-right-short text-lg"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div v-else style="text-align: center; padding: 30px; background: #ffffff; border-radius: 16px; border: 1px dashed #cbd5e1;">
+                            <i class="bi bi-emoji-smile text-3xl text-slate-400"></i>
+                            <p style="margin: 10px 0 0 0; color: #64748b; font-size: 14px;">Hiện chưa có thêm phòng phù hợp khác trong cùng phân khúc.</p>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="ai-modal-footer">
+                    <Link :href="route('timtro')" class="btn-ai-footer-explore">
+                        <i class="bi bi-search"></i> Khám phá thêm trên bản đồ Tìm Trọ
+                    </Link>
+                    <button type="button" @click="closeAiAlternativesModal" class="btn-ai-footer-close">
+                        Đóng
+                    </button>
                 </div>
             </div>
         </div>

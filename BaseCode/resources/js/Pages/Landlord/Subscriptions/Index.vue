@@ -45,7 +45,7 @@ const buyPlan = (plan) => {
 };
 
 const getVietQRUrl = (sub) => {
-    const bank = props.adminBank.bank_name;
+    const bank = props.adminBank.bank_code || props.adminBank.bank_name;
     const acc = props.adminBank.account_no;
     const name = encodeURIComponent(props.adminBank.account_name);
     const amount = sub.price_at_purchase;
@@ -214,7 +214,7 @@ const formatDate = (dateStr) => {
                         <span class="text-4xl font-extrabold text-white my-1 block">{{ daysRemaining }}</span>
                         <span class="text-xs text-indigo-200">
                             {{ daysRemaining === 0 ? "(Ngày cuối cùng - Hết hạn: " : "ngày (Hết hạn: " }}
-                            {{ formatDate(activeSubscription.end_date) }}
+                            {{ activeSubscription.end_date ? formatDate(activeSubscription.end_date) : 'Vĩnh viễn' }}
                         </span>
                     </div>
                 </div>
@@ -423,9 +423,7 @@ const formatDate = (dateStr) => {
 
                                 <div
                                     class="flex items-center gap-1 font-extrabold text-rose-600 bg-white px-2 py-0.5 rounded border border-rose-200">
-                                    <span>{{
-                                        pendingSubscription.payment_code
-                                    }}</span>
+                                    <span>{{ pendingSubscription.payment_code }}</span>
 
                                     <button @click="
                                         copyText(

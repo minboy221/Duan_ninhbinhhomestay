@@ -104,7 +104,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function boardingHouse()
     {
-        return $this->hasOne(BoardingHouse::class, 'user_id', 'id');
+        return $this->hasOne(BoardingHouse::class, 'user_id', 'id')->latestOfMany();
     }
 
     /**
@@ -146,16 +146,16 @@ class User extends Authenticatable implements MustVerifyEmail
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>=', now()->toDateString());
             })
-            //ưu tiên lấy gói trả phí mới nhất trước gói miễn phí
+            // Ưu tiên lấy gói trả phí mới nhất trước gói miễn phí
             ->orderBy('price_at_purchase', 'desc')
             ->orderBy('id', 'desc');
     }
 
-    //hàm check lấy giá trị của feature_code từ gói dịch vụ đang hoạt động
+    // Hàm check lấy giá trị của feature_code từ gói dịch vụ đang hoạt động
     public function getFeatureValue(string $featureCode)
     {
         $activeSub = $this->activeSubscription()->with('plan.features')->first();
-        //nếu chủ trọ không có gói active nào -> tự động lấy cấu hình của gói miễn phí
+        // Nếu chủ trọ không có gói active nào -> tự động lấy cấu hình của gói miễn phí
         if (!$activeSub || !$activeSub->plan) {
             $freePlan = \App\Models\SubscriptionPlan::where('price', 0)->with('features')->first();
             if ($freePlan) {
@@ -171,25 +171,25 @@ class User extends Authenticatable implements MustVerifyEmail
         return $feature ? $feature->pivot->feature_value : null;
     }
 
-    //hàm check xem chủ trọ có thể tạo thêm tài nguyên trong hệ thống không
+    // Hàm check xem chủ trọ có thể tạo thêm tài nguyên trong hệ thống không
     public function canCreateResource(string $featureCode, int $currentCount): bool
     {
         $limit = $this->getFeatureValue($featureCode);
         if ($limit === null)
             return true;
         if ($limit === '-1' || (int) $limit === -1)
-            return true; //giá trị -1 là vô hạn
+            return true; // Giá trị -1 là vô hạn
         return $currentCount < (int) $limit;
     }
 
-    //hàm check xem chủ trọ có quyền bật/tắt tính năng hay không
+    // Hàm check xem chủ trọ có quyền bật/tắt tính năng hay không
     public function hasFeature(string $featureCode): bool
     {
         $val = $this->getFeatureValue($featureCode);
         return $val === 'true' || $val === true || $val === 'gold';
     }
 
-    // check tài khoản của chủ trọ có bị đóng băng do vượt hạn mức của gói không
+    // Check tài khoản của chủ trọ có bị đóng băng do vượt hạn mức của gói không
     public function isRoomFrozen(\App\Models\Room $room): bool
     {
         // 1. Phòng đang được thuê / có người ở -> Không bao giờ bị đóng băng

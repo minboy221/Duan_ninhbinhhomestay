@@ -33,7 +33,6 @@ watch(
     },
     { deep: true, immediate: true }
 );
-
 watchEffect(() => {
     if (page.url) {
         mobileMenuOpen.value = false;

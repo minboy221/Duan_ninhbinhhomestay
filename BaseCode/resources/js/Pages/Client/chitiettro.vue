@@ -52,6 +52,16 @@ const submitDirectReview = () => {
 const disabledSlots = ref([]);
 const availablSlots = ref([]);
 
+const formatImgUrl = (img) => {
+    if (!img || typeof img !== 'string' || !img.trim()) return '/anh/banner_tro.png';
+    const trimmed = img.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) return trimmed;
+    if (trimmed.startsWith('/storage/')) return trimmed;
+    if (trimmed.startsWith('storage/')) return '/' + trimmed;
+    if (trimmed.startsWith('/')) return trimmed;
+    return '/storage/' + trimmed;
+};
+
 // Image carousel state
 const activeImageIndex = ref(0);
 const roomImages = computed(() => {
@@ -61,7 +71,9 @@ const roomImages = computed(() => {
             : props.room.images?.length > 0
                 ? props.room.images
                 : null;
-    if (imgs && Array.isArray(imgs) && imgs.length > 0) return imgs;
+    if (imgs && Array.isArray(imgs) && imgs.length > 0) {
+        return imgs.map(i => formatImgUrl(i));
+    }
     return ["/anh/banner_tro.png"];
 });
 
@@ -912,9 +924,7 @@ onUnmounted(() => {
                 <div v-for="sim in similarRooms" :key="sim.id" class="item_tindang">
                     <Link :href="route('chitiettro', sim.slug_with_hash)" class="similar-card-link">
                         <div class="img">
-                            <img :src="(sim.images && sim.images[0]) ||
-                                '/anh/banner_tro.png'
-                                " alt="Phòng tương tự" />
+                            <img :src="formatImgUrl(sim.images && sim.images[0])" alt="Phòng tương tự" @error="$event.target.src = '/anh/banner_tro.png'" />
                             <span class="count"><i class="bi bi-camera"></i>
                                 {{ sim.images ? sim.images.length : 1 }}</span>
                         </div>

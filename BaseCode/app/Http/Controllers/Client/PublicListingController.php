@@ -28,16 +28,66 @@ class PublicListingController extends Controller
     public function index(Request $request, CategoryService $categoryService)
     {
         //Giao việc lọc dữ liệu cho Service
-        $listings = $this->listingService->getFilteredListings($request);
+        $filteredData = $this->listingService->getFilteredListings($request);
         $categoryData = $categoryService->getActiveData();
 
         return Inertia::render('Client/timtro', [
-            'listings' => $listings,
-            'filters' => $request->only(['search']),
+            'listings' => $filteredData['listings'],
+            'ai_parsed' => $filteredData['ai_parsed'],
+            'filters' => $request->only(['search', 'ai_prompt', 'area_id', 'price', 'dientich', 'categories', 'amenities', 'price_min', 'price_max', 'floor']),
             'categories' => $categoryData['types'],
             'areas' => $categoryData['areas'],
             'amenities' => $categoryData['amenities'],
         ]);
+    }
+
+    // API phân tích nhanh prompt AI cho Client
+    public function parseAiSearch(Request $request, \App\Services\AiRoomSearchService $aiSearchService)
+    {
+        $prompt = (string) $request->input('prompt', '');
+        $result = $aiSearchService->parseSearchPrompt($prompt);
+        return response()->json($result);
+    }
+
+    // API Trợ lý AI Chatbot gợi ý phòng trọ toàn trang
+    public function chatAiAssistant(Request $request)
+    {
+        $prompt = (string) $request->input('prompt', '');
+        $userId = auth()->id();
+        $result = $this->listingService->searchRoomsForChatAssistant($prompt, $userId);
+        return response()->json($result);
+    }
+
+    // Lấy lịch sử chat trong 7 ngày của tài khoản
+    public function getChatHistory(Request $request)
+    {
+        $userId = auth()->id();
+        if (!$userId) {
+            return response()->json([]);
+        }
+        $histories = $this->listingService->getChatHistory($userId);
+        return response()->json($histories);
+    }
+
+    // Xóa sạch lịch sử chat của tài khoản
+    public function clearChatHistory(Request $request)
+    {
+        $userId = auth()->id();
+        if ($userId) {
+            $this->listingService->clearChatHistory($userId);
+        }
+        return response()->json(['success' => true]);
+    }
+
+    // Đồng bộ lịch sử từ localStorage của khách vãng lai khi vừa đăng nhập
+    public function syncGuestHistory(Request $request)
+    {
+        $userId = auth()->id();
+        $messages = (array) $request->input('messages', []);
+        if ($userId && !empty($messages)) {
+            $this->listingService->syncGuestChatHistory($userId, $messages);
+        }
+        return response()->json(['success' => true]);
     }
 
     // Hiển thị chi tiết 1 tin đăng phòng trọ
@@ -347,51 +397,16 @@ class PublicListingController extends Controller
             'feedback_time' => now()
         ]);
 
-        //phần DEMO ĐỂ GỢI Ý PHÒNG TỚI NGƯỜI DÙNG
+        // Sử dụng AI Recommendation Service để phân tích và gợi ý 3 phòng tương tự sát nhất
+        $aiData = $this->listingService->getAiAlternativeRecommendationsForAppointment($appointment, $request->reason);
 
-        //tìm thông tin bài đăng của căn phòng vừa xem để lấy mốc so sánh (giá cả, khu vực)
-        $currentRoomPost = RoomPost::where('room_id', $appointment->room_id)->first();
-        if (!$currentRoomPost) {
-            return response()->json([
-                'status' => 'success',
-                'message' => 'đã ghi nhận phản hồi của bạn',
-                'recommendations' => []
-            ]);
-        }
-        $district = $currentRoomPost->room->boardingHouse->district ?? null;
-        $price = $currentRoomPost->room->price ?? 0;
-        $query = RoomPost::select('room_posts.*')
-            ->join('rooms', 'room_posts.room_id', '=', 'rooms.id')
-            ->where('room_posts.id', '!=', $currentRoomPost->id)
-            ->where('room_posts.status', 'approved')
-            ->whereHas('room', function ($q) use ($district, $price, $request) {
-                if ($district) {
-                    $q->whereHas('boardingHouse', function ($bh) use ($district) {
-                        $bh->where('district', $district);
-                    });
-                }
-                $reasonLower = mb_strtolower(trim($request->reason));
-                switch ($reasonLower) {
-                    case 'giá cao quá':
-                        $q->where('price', '<', $price);
-                        break;
-                    case 'xa nơi làm việc/học tập':
-                    case 'phòng thực tế không giống với ảnh':
-                        $q->whereBetween('price', [$price * 0.8, $price * 1.2]);
-                        break;
-                }
-            });
-
-        if ($request->reason === 'Giá cao quá') {
-            $query->orderBy('rooms.price', 'asc');
-        } else {
-            $query->orderBy('room_posts.created_at', 'desc');
-        }
-        $recommendations = $query->take(3)->get();
-        //trả về JSON chứa danh sách phòng gợi ý thay thế
+        // Trả về JSON chứa danh sách phòng gợi ý thay thế chuẩn hóa từ AI
         return response()->json([
-            'messeage' => 'đã ghi nhận phản hồi của bạn',
-            'recommendations' => $recommendations
+            'status' => 'success',
+            'message' => 'Đã ghi nhận phản hồi của bạn!',
+            'ai_message' => $aiData['ai_message'] ?? '',
+            'viewed_room' => $aiData['viewed_room'] ?? null,
+            'recommendations' => $aiData['rooms'] ?? [],
         ]);
     }
     
