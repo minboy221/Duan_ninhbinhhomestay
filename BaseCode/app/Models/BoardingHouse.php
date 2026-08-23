@@ -77,6 +77,6 @@ class BoardingHouse extends Model
     }
 
     public function propertyManager(){
-        return $this->hasOne(propertyManager::class,'boarding_house_id');
+        return $this->hasOne(PropertyManager::class,'boarding_house_id');
     }
 }

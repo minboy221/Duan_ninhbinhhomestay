@@ -3,6 +3,10 @@ import { ref, computed, onUnmounted } from "vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import axios from "axios";
 import { showWarning, showSuccess } from "@/Utils/swal";
+import { compressMultipleImages } from "@/Utils/compressor";
+import { formatMoney, timeAgo } from "@/Utils/formatters";
+import Pagination from "@/Components/Pagination.vue";
+
 
 const props = defineProps({
     user: Object,
@@ -66,62 +70,11 @@ const reportForm = useForm({
     evidence_images: [],
 });
 
-//phần nén ảnh
-const handleEvidenceChange = (e) => {
+const handleEvidenceChange = async (e) => {
     const files = Array.from(e.target.files);
-    reportForm.evidence_images = [];
-
-    files.forEach((file) => {
-        if (!file.type.startsWith("image/")) {
-            reportForm.evidence_images.push(file);
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const canvas = document.createElement("canvas");
-                const max_size = 1200;
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > max_size) {
-                        height *= max_size / width;
-                        width = max_size;
-                    }
-                } else {
-                    if (height > max_size) {
-                        width *= max_size / height;
-                        height = max_size;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob) {
-                            const compressedFile = new File([blob], file.name, {
-                                type: "image/jpeg",
-                                lastModified: Date.now(),
-                            });
-                            reportForm.evidence_images.push(compressedFile);
-                        }
-                    },
-                    "image/jpeg",
-                    0.7,
-                );
-            };
-        };
-    });
+    reportForm.evidence_images = await compressMultipleImages(files);
 };
+
 
 const stopPolling = () => {
     if (pollTimer) {
@@ -205,9 +158,6 @@ const formatDate = (dateStr) => {
     return d.toLocaleDateString("vi-VN");
 };
 
-// Format money helper
-const formatMoney = (n) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
-
 // Get specific detail row by keyword
 const getDetailByItem = (inv, keyword) => {
     if (!inv || !inv.details) return null;
@@ -232,7 +182,7 @@ const hasMeterImages = computed(() => {
     const eDet = elecDetail.value
     const wDet = waterDetail.value
     return (eDet && (eDet.meter_image_path || eDet.old_meter_image_path)) ||
-           (wDet && (wDet.meter_image_path || wDet.old_meter_image_path))
+        (wDet && (wDet.meter_image_path || wDet.old_meter_image_path))
 })
 
 const getMeterImgUrl = (path) => {
@@ -405,8 +355,8 @@ const submitReport = () => {
             }
             showSuccess(
                 "Thành công",
-                reportForm.resolve_type === 'direct' 
-                    ? "Yêu cầu tự giải quyết khiếu nại đã gửi tới chủ trọ!" 
+                reportForm.resolve_type === 'direct'
+                    ? "Yêu cầu tự giải quyết khiếu nại đã gửi tới chủ trọ!"
                     : "Báo cáo hóa đơn đã được gửi đi! Hệ thống sẽ kiểm tra và phản hồi sớm nhất."
             );
             closeReport();
@@ -468,8 +418,11 @@ const submitReport = () => {
                                 <div class="price">
                                     {{ formatMoney(inv.total_amount) }}
                                 </div>
-                                <div v-if="(inv.contract?.number_of_tenants || inv.contract?.room?.current_occupants || (inv.contract?.room?.residents && inv.contract.room.residents.length) || 1) > 1" class="text-[11px] text-indigo-600 font-bold mt-0.5">
-                                    <i class="bi bi-people-fill"></i> Chia {{ formatMoney(Math.round(inv.total_amount / Math.max(inv.contract?.number_of_tenants || 0, inv.contract?.room?.current_occupants || 0, (inv.contract?.room?.residents?.length || 0), 1))) }}/người
+                                <div v-if="(inv.contract?.number_of_tenants || inv.contract?.room?.current_occupants || (inv.contract?.room?.residents && inv.contract.room.residents.length) || 1) > 1"
+                                    class="text-[11px] text-indigo-600 font-bold mt-0.5">
+                                    <i class="bi bi-people-fill"></i> Chia {{ formatMoney(Math.round(inv.total_amount /
+                                        Math.max(inv.contract?.number_of_tenants || 0, inv.contract?.room?.current_occupants
+                                    || 0, (inv.contract?.room?.residents?.length || 0), 1))) }}/người
                                 </div>
                             </td>
                             <td data-label="Trạng thái">
@@ -526,21 +479,21 @@ const submitReport = () => {
                         margin-bottom: 6px;
                     ">Hình thức xử lý khiếu nại <span style="color: #ef4444">*</span></label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <label 
+                    <label
                         style="display: flex; align-items: center; gap: 6px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; font-size: 11px; transition: all 0.2s;"
-                        :style="reportForm.resolve_type === 'direct' ? 'border-color: #4f46e5; background-color: #f5f3ff; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);' : 'background-color: #f8fafc;'"
-                    >
-                        <input type="radio" v-model="reportForm.resolve_type" value="direct" style="accent-color: #4f46e5;" />
+                        :style="reportForm.resolve_type === 'direct' ? 'border-color: #4f46e5; background-color: #f5f3ff; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);' : 'background-color: #f8fafc;'">
+                        <input type="radio" v-model="reportForm.resolve_type" value="direct"
+                            style="accent-color: #4f46e5;" />
                         <div>
                             <strong style="color: #1e293b; display: block;">Tự giải quyết</strong>
                             <span style="font-size: 9px; color: #64748b;">Thương lượng với chủ trọ</span>
                         </div>
                     </label>
-                    <label 
+                    <label
                         style="display: flex; align-items: center; gap: 6px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; font-size: 11px; transition: all 0.2s;"
-                        :style="reportForm.resolve_type === 'system' ? 'border-color: #ef4444; background-color: #fef2f2; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);' : 'background-color: #f8fafc;'"
-                    >
-                        <input type="radio" v-model="reportForm.resolve_type" value="system" style="accent-color: #ef4444;" />
+                        :style="reportForm.resolve_type === 'system' ? 'border-color: #ef4444; background-color: #fef2f2; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);' : 'background-color: #f8fafc;'">
+                        <input type="radio" v-model="reportForm.resolve_type" value="system"
+                            style="accent-color: #ef4444;" />
                         <div>
                             <strong style="color: #1e293b; display: block;">Báo cáo hệ thống</strong>
                             <span style="font-size: 9px; color: #64748b;">Gửi yêu cầu lên Admin</span>
@@ -568,7 +521,8 @@ const submitReport = () => {
                         background-color: #fff;
                     ">
                     <option value="" disabled>-- Chọn lý do báo cáo --</option>
-                    <option v-for="(reason, index) in reasons" :key="index" :value="typeof reason === 'object' ? reason.reason : reason">
+                    <option v-for="(reason, index) in reasons" :key="index"
+                        :value="typeof reason === 'object' ? reason.reason : reason">
                         {{ typeof reason === 'object' ? reason.reason : reason }}
                     </option>
                 </select>
@@ -603,21 +557,39 @@ const submitReport = () => {
                 </p>
             </div>
 
-            <!-- Upload hình ảnh bằng chứng có nén (Chỉ hiển thị khi báo cáo hệ thống) -->
+            <!-- Upload hình ảnh bằng chứng có nén -->
             <div v-if="reportForm.resolve_type === 'system'" class="mb-3" style="text-align: left; margin-bottom: 16px">
-                <label style="
-                        display: block;
-                        font-size: 11px;
-                        font-weight: 700;
-                        color: #475569;
-                        margin-bottom: 4px;
-                    ">Ảnh bằng chứng hóa đơn (Tối đa 5 ảnh) <span style="color: #ef4444">*</span></label>
-                <input type="file" @change="handleEvidenceChange" multiple accept="image/*"
-                    style="font-size: 11px; display: block; width: 100%" />
+                <label style="display: block; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 6px">
+                    Ảnh bằng chứng hóa đơn (Tối đa 5 ảnh) <span style="color: #ef4444">*</span>
+                </label>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px">
+                    <!-- Nút 1: Chụp ảnh bằng Camera -->
+                    <label
+                        style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; border: 1.5px dashed #3b82f6; background: #eff6ff; border-radius: 10px; cursor: pointer">
+                        <i class="bi bi-camera-fill" style="font-size: 22px; color: #2563eb; margin-bottom: 2px"></i>
+                        <span style="font-size: 11px; font-weight: 700; color: #1d4ed8">Chụp camera</span>
+                        <span style="font-size: 9px; color: #3b82f6">Mở camera chụp ngay</span>
+                        <input type="file" accept="image/*" capture="environment" style="display: none"
+                            @change="handleEvidenceChange" />
+                    </label>
+
+                    <!-- Nút 2: Chọn từ Bộ sưu tập ảnh -->
+                    <label
+                        style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; border: 1.5px dashed #cbd5e1; background: #f8fafc; border-radius: 10px; cursor: pointer">
+                        <i class="bi bi-images" style="font-size: 22px; color: #64748b; margin-bottom: 2px"></i>
+                        <span style="font-size: 11px; font-weight: 700; color: #475569">Bộ sưu tập</span>
+                        <span style="font-size: 9px; color: #94a3b8">Chọn ảnh từ máy</span>
+                        <input type="file" multiple accept="image/*,.heic,.heif" style="display: none"
+                            @change="handleEvidenceChange" />
+                    </label>
+                </div>
+
                 <p v-if="reportForm.errors.evidence_images" style="color: #ef4444; font-size: 11px; margin-top: 4px">
                     {{ reportForm.errors.evidence_images }}
                 </p>
             </div>
+
             <button class="btn-submit" @click="submitReport" :disabled="reportForm.processing">
                 {{ reportForm.processing ? "Đang gửi..." : "Gửi báo cáo" }}
             </button>
@@ -640,23 +612,28 @@ const submitReport = () => {
                 </p>
                 <p style="border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 4px">
                     <strong>Tổng tiền phòng:</strong>
-                    <span style="color: #059669; font-weight: 800; font-size: 15px">{{ formatMoney(activeInvoice.total_amount) }}</span>
+                    <span style="color: #059669; font-weight: 800; font-size: 15px">{{
+                        formatMoney(activeInvoice.total_amount) }}</span>
                 </p>
             </div>
 
             <!-- THÔNG TIN PHÒNG Ở GHÉP & CHIA TIỀN -->
-            <div v-if="isRoomSharing" style="margin: 12px 0; padding: 12px; background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 12px;">
+            <div v-if="isRoomSharing"
+                style="margin: 12px 0; padding: 12px; background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 12px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                    <span style="font-size: 12px; font-weight: 700; color: #166534; display: flex; align-items: center; gap: 6px;">
+                    <span
+                        style="font-size: 12px; font-weight: 700; color: #166534; display: flex; align-items: center; gap: 6px;">
                         <i class="bi bi-people-fill" style="color: #15803d; font-size: 14px;"></i>
                         Phòng ở ghép ({{ roomOccupantsCount }} người):
                     </span>
                     <span style="font-size: 14px; font-weight: 800; color: #15803d;">
-                        {{ formatMoney(perPersonAmount) }} <span style="font-size: 11px; font-weight: normal; color: #166534;">/ người</span>
+                        {{ formatMoney(perPersonAmount) }} <span
+                            style="font-size: 11px; font-weight: normal; color: #166534;">/ người</span>
                     </span>
                 </div>
                 <p style="font-size: 11px; color: #166534; margin: 0; line-height: 1.4;">
-                    Tổng tiền phòng <strong>{{ formatMoney(activeInvoice.total_amount) }}</strong> được chia đều cho <strong>{{ roomOccupantsCount }}</strong> thành viên trong phòng.
+                    Tổng tiền phòng <strong>{{ formatMoney(activeInvoice.total_amount) }}</strong> được chia đều cho
+                    <strong>{{ roomOccupantsCount }}</strong> thành viên trong phòng.
                 </p>
             </div>
 
@@ -732,33 +709,31 @@ const submitReport = () => {
                         selectedPaymentMethod === 'qr' ? 'block' : 'none',
                 }">
                     <!-- Lựa chọn mức thanh toán cho phòng ở ghép -->
-                    <div v-if="isRoomSharing" style="margin-bottom: 16px; padding: 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 12px;">
-                        <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 8px; text-align: left; display: flex; align-items: center; gap: 6px;">
+                    <div v-if="isRoomSharing"
+                        style="margin-bottom: 16px; padding: 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 12px;">
+                        <div
+                            style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 8px; text-align: left; display: flex; align-items: center; gap: 6px;">
                             <i class="bi bi-people-fill" style="color: #4f46e5;"></i>
                             <span>Chọn mức thanh toán cho mã QR:</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <button 
-                                type="button" 
-                                @click="paymentSplitMode = 'full'"
+                            <button type="button" @click="paymentSplitMode = 'full'"
                                 style="padding: 10px; border-radius: 10px; border: 2px solid; cursor: pointer; text-align: center; transition: all 0.2s;"
-                                :style="paymentSplitMode === 'full' ? 'border-color: #10b981; background-color: #fff; color: #065f46; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);' : 'border-color: transparent; background-color: rgba(255,255,255,0.6); color: #64748b;'"
-                            >
+                                :style="paymentSplitMode === 'full' ? 'border-color: #10b981; background-color: #fff; color: #065f46; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);' : 'border-color: transparent; background-color: rgba(255,255,255,0.6); color: #64748b;'">
                                 <div style="font-size: 11px; font-weight: 600;">
                                     <i class="bi bi-building"></i> Toàn bộ phòng
                                 </div>
-                                <div style="font-size: 13px; font-weight: 800; color: #059669; margin-top: 2px;">{{ formatMoney(activeInvoice.total_amount) }}</div>
+                                <div style="font-size: 13px; font-weight: 800; color: #059669; margin-top: 2px;">{{
+                                    formatMoney(activeInvoice.total_amount) }}</div>
                             </button>
-                            <button 
-                                type="button" 
-                                @click="paymentSplitMode = 'split'"
+                            <button type="button" @click="paymentSplitMode = 'split'"
                                 style="padding: 10px; border-radius: 10px; border: 2px solid; cursor: pointer; text-align: center; transition: all 0.2s;"
-                                :style="paymentSplitMode === 'split' ? 'border-color: #4f46e5; background-color: #fff; color: #3730a3; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);' : 'border-color: transparent; background-color: rgba(255,255,255,0.6); color: #64748b;'"
-                            >
+                                :style="paymentSplitMode === 'split' ? 'border-color: #4f46e5; background-color: #fff; color: #3730a3; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);' : 'border-color: transparent; background-color: rgba(255,255,255,0.6); color: #64748b;'">
                                 <div style="font-size: 11px; font-weight: 600;">
                                     <i class="bi bi-person-fill"></i> Phần của tôi (1/{{ roomOccupantsCount }})
                                 </div>
-                                <div style="font-size: 13px; font-weight: 800; color: #4f46e5; margin-top: 2px;">{{ formatMoney(perPersonAmount) }}</div>
+                                <div style="font-size: 13px; font-weight: 800; color: #4f46e5; margin-top: 2px;">{{
+                                    formatMoney(perPersonAmount) }}</div>
                             </button>
                         </div>
                     </div>
@@ -772,25 +747,34 @@ const submitReport = () => {
                     </div>
 
                     <!-- Bảng thông tin tài khoản thụ hưởng & thanh toán (Được thụt lề rộng rãi) -->
-                    <div style="margin-top: 14px; text-align: left; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 8px;">
-                        
+                    <div
+                        style="margin-top: 14px; text-align: left; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 8px;">
+
                         <!-- Ngân hàng -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
                             <span style="font-size: 12px; font-weight: 600; color: #64748b;">Ngân hàng:</span>
-                            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">{{ landlordBankInfo.bankName }}</span>
+                            <span style="font-size: 13px; font-weight: 800; color: #0f172a;">{{
+                                landlordBankInfo.bankName }}</span>
                         </div>
 
                         <!-- Chủ tài khoản -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
                             <span style="font-size: 12px; font-weight: 600; color: #64748b;">Chủ tài khoản:</span>
-                            <span style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">{{ landlordBankInfo.bankAccName }}</span>
+                            <span
+                                style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">{{
+                                landlordBankInfo.bankAccName }}</span>
                         </div>
 
                         <!-- Số tài khoản -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;">
                             <span style="font-size: 12px; font-weight: 600; color: #64748b;">Số tài khoản:</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-family: monospace; font-size: 14px; font-weight: 900; color: #2563eb; letter-spacing: 0.8px;">{{ landlordBankInfo.bankAcc }}</span>
+                                <span
+                                    style="font-family: monospace; font-size: 14px; font-weight: 900; color: #2563eb; letter-spacing: 0.8px;">{{
+                                    landlordBankInfo.bankAcc }}</span>
                                 <button type="button" @click="copyToClipboard(landlordBankInfo.bankAcc, 'Số tài khoản')"
                                     style="padding: 4px 10px; background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;">
                                     <i class="bi bi-copy"></i> Chép
@@ -799,7 +783,8 @@ const submitReport = () => {
                         </div>
 
                         <!-- Số tiền -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 10px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 10px;">
                             <span style="font-size: 12px; font-weight: 700; color: #065f46;">Số tiền:</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 15px; font-weight: 900; color: #059669;">
@@ -813,12 +798,16 @@ const submitReport = () => {
                         </div>
 
                         <!-- Nội dung chuyển khoản -->
-                        <div style="margin-top: 2px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;">
-                            <div style="font-size: 11px; font-weight: 700; color: #92400e; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+                        <div
+                            style="margin-top: 2px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;">
+                            <div
+                                style="font-size: 11px; font-weight: 700; color: #92400e; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
                                 <i class="bi bi-chat-left-text-fill" style="color: #f59e0b;"></i> Nội dung chuyển khoản:
                             </div>
-                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; background: #ffffff; border: 1px dashed #fcd34d; border-radius: 8px;">
-                                <span style="font-family: monospace; font-size: 12px; font-weight: 800; color: #1e293b; letter-spacing: 0.5px; user-select: all; word-break: break-all;">
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; background: #ffffff; border: 1px dashed #fcd34d; border-radius: 8px;">
+                                <span
+                                    style="font-family: monospace; font-size: 12px; font-weight: 800; color: #1e293b; letter-spacing: 0.5px; user-select: all; word-break: break-all;">
                                     {{ transferMemo }}
                                 </span>
                                 <button type="button" @click="copyToClipboard(transferMemo, 'Nội dung chuyển khoản')"
@@ -858,20 +847,28 @@ const submitReport = () => {
     </div>
 
     <!-- POPUP XEM CHI TIẾT ẢNH MINH CHỨNG CÔNG TƠ -->
-    <div v-if="showMeterProofModal" class="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" @click="showMeterProofModal = false">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden animate-fade-in border border-slate-100" @click.stop>
+    <div v-if="showMeterProofModal"
+        class="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+        @click="showMeterProofModal = false">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden animate-fade-in border border-slate-100"
+            @click.stop>
             <!-- Head -->
-            <div class="px-5 py-4 sm:px-6 sm:py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+            <div
+                class="px-5 py-4 sm:px-6 sm:py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
                 <div class="flex items-center gap-2.5 min-w-0">
-                    <div class="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-sm flex-shrink-0">
+                    <div
+                        class="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-sm flex-shrink-0">
                         <i class="bi bi-camera-fill"></i>
                     </div>
                     <div class="min-w-0">
-                        <h3 class="font-black text-slate-800 text-xs sm:text-sm uppercase tracking-wide truncate">Ảnh minh chứng công tơ</h3>
-                        <p class="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">Đối soát ảnh chụp chỉ số điện và nước thực tế</p>
+                        <h3 class="font-black text-slate-800 text-xs sm:text-sm uppercase tracking-wide truncate">Ảnh
+                            minh chứng công tơ</h3>
+                        <p class="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">Đối soát ảnh chụp chỉ số
+                            điện và nước thực tế</p>
                     </div>
                 </div>
-                <button @click="showMeterProofModal = false" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 ml-2">
+                <button @click="showMeterProofModal = false"
+                    class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 ml-2">
                     <i class="bi bi-x-lg text-xs"></i>
                 </button>
             </div>
@@ -880,58 +877,86 @@ const submitReport = () => {
             <div class="p-4 sm:p-6 overflow-y-auto max-h-[75vh] space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <!-- Khung điện -->
-                    <div v-if="elecDetail && (elecDetail.meter_image_path || elecDetail.old_meter_image_path)" 
-                         class="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5 space-y-3">
-                        <div class="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200/60 pb-2">
+                    <div v-if="elecDetail && (elecDetail.meter_image_path || elecDetail.old_meter_image_path)"
+                        class="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5 space-y-3">
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200/60 pb-2">
                             <div class="flex items-center gap-1.5 min-w-0">
-                                <div class="w-6 h-6 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                <div
+                                    class="w-6 h-6 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
                                     <i class="bi bi-lightning-charge-fill"></i>
                                 </div>
                                 <span class="text-xs font-black text-slate-800 truncate">Chỉ số Điện</span>
                             </div>
-                            <span class="text-[10px] text-slate-600 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200/60 flex-shrink-0">Tiêu thụ: {{ elecDetail.quantity }} kWh</span>
+                            <span
+                                class="text-[10px] text-slate-600 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200/60 flex-shrink-0">Tiêu
+                                thụ: {{ elecDetail.quantity }} kWh</span>
                         </div>
 
                         <div class="grid grid-cols-2 gap-2">
                             <div v-if="elecDetail.old_meter_image_path" class="space-y-1">
-                                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số cũ ({{ elecDetail.old_index }})</span>
-                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs" @click="zoomImage(elecDetail.old_meter_image_path, `Ảnh điện số cũ: ${elecDetail.old_index}`)">
-                                    <img :src="getMeterImgUrl(elecDetail.old_meter_image_path)" class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" alt="Ảnh điện cũ">
+                                <span
+                                    class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số
+                                    cũ ({{ elecDetail.old_index }})</span>
+                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs"
+                                    @click="zoomImage(elecDetail.old_meter_image_path, `Ảnh điện số cũ: ${elecDetail.old_index}`)">
+                                    <img :src="getMeterImgUrl(elecDetail.old_meter_image_path)"
+                                        class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
+                                        alt="Ảnh điện cũ">
                                 </div>
                             </div>
                             <div v-if="elecDetail.meter_image_path" class="space-y-1">
-                                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số mới ({{ elecDetail.new_index }})</span>
-                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs" @click="zoomImage(elecDetail.meter_image_path, `Ảnh điện số mới: ${elecDetail.new_index}`)">
-                                    <img :src="getMeterImgUrl(elecDetail.meter_image_path)" class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" alt="Ảnh điện mới">
+                                <span
+                                    class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số
+                                    mới ({{ elecDetail.new_index }})</span>
+                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs"
+                                    @click="zoomImage(elecDetail.meter_image_path, `Ảnh điện số mới: ${elecDetail.new_index}`)">
+                                    <img :src="getMeterImgUrl(elecDetail.meter_image_path)"
+                                        class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
+                                        alt="Ảnh điện mới">
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Khung nước -->
-                    <div v-if="waterDetail && (waterDetail.meter_image_path || waterDetail.old_meter_image_path)" 
-                         class="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5 space-y-3">
-                        <div class="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200/60 pb-2">
+                    <div v-if="waterDetail && (waterDetail.meter_image_path || waterDetail.old_meter_image_path)"
+                        class="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5 space-y-3">
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200/60 pb-2">
                             <div class="flex items-center gap-1.5 min-w-0">
-                                <div class="w-6 h-6 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                <div
+                                    class="w-6 h-6 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
                                     <i class="bi bi-droplet-fill"></i>
                                 </div>
                                 <span class="text-xs font-black text-slate-800 truncate">Chỉ số Nước</span>
                             </div>
-                            <span class="text-[10px] text-slate-600 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200/60 flex-shrink-0">Tiêu thụ: {{ waterDetail.quantity }} m³</span>
+                            <span
+                                class="text-[10px] text-slate-600 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200/60 flex-shrink-0">Tiêu
+                                thụ: {{ waterDetail.quantity }} m³</span>
                         </div>
 
                         <div class="grid grid-cols-2 gap-2">
                             <div v-if="waterDetail.old_meter_image_path" class="space-y-1">
-                                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số cũ ({{ waterDetail.old_index }})</span>
-                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs" @click="zoomImage(waterDetail.old_meter_image_path, `Ảnh nước số cũ: ${waterDetail.old_index}`)">
-                                    <img :src="getMeterImgUrl(waterDetail.old_meter_image_path)" class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" alt="Ảnh nước cũ">
+                                <span
+                                    class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số
+                                    cũ ({{ waterDetail.old_index }})</span>
+                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs"
+                                    @click="zoomImage(waterDetail.old_meter_image_path, `Ảnh nước số cũ: ${waterDetail.old_index}`)">
+                                    <img :src="getMeterImgUrl(waterDetail.old_meter_image_path)"
+                                        class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
+                                        alt="Ảnh nước cũ">
                                 </div>
                             </div>
                             <div v-if="waterDetail.meter_image_path" class="space-y-1">
-                                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số mới ({{ waterDetail.new_index }})</span>
-                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs" @click="zoomImage(waterDetail.meter_image_path, `Ảnh nước số mới: ${waterDetail.new_index}`)">
-                                    <img :src="getMeterImgUrl(waterDetail.meter_image_path)" class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" alt="Ảnh nước mới">
+                                <span
+                                    class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block text-center truncate">Số
+                                    mới ({{ waterDetail.new_index }})</span>
+                                <div class="relative w-full h-28 sm:h-24 bg-white border border-slate-200 rounded-xl overflow-hidden group/img cursor-zoom-in shadow-xs"
+                                    @click="zoomImage(waterDetail.meter_image_path, `Ảnh nước số mới: ${waterDetail.new_index}`)">
+                                    <img :src="getMeterImgUrl(waterDetail.meter_image_path)"
+                                        class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
+                                        alt="Ảnh nước mới">
                                 </div>
                             </div>
                         </div>
@@ -941,7 +966,8 @@ const submitReport = () => {
 
             <!-- Foot -->
             <div class="px-5 py-3.5 sm:px-6 border-t border-slate-100 flex items-center justify-end bg-slate-50/50">
-                <button @click="showMeterProofModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                <button @click="showMeterProofModal = false"
+                    class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
                     Đóng
                 </button>
             </div>
@@ -949,17 +975,23 @@ const submitReport = () => {
     </div>
 
     <!-- LIGHTBOX IMAGE ZOOM MODAL -->
-    <div v-if="zoomedImgUrl" class="fixed inset-0 z-[10050] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4" @click="zoomedImgUrl = null">
+    <div v-if="zoomedImgUrl"
+        class="fixed inset-0 z-[10050] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4"
+        @click="zoomedImgUrl = null">
         <div class="relative max-w-3xl w-full max-h-[85vh] flex flex-col items-center" @click.stop>
             <div class="absolute top-2 right-2 z-10 flex gap-2">
-                <button @click="zoomedImgUrl = null" class="w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/75 cursor-pointer">
+                <button @click="zoomedImgUrl = null"
+                    class="w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/75 cursor-pointer">
                     <i class="bi bi-x-lg text-lg"></i>
                 </button>
             </div>
-            <p class="text-white text-xs font-bold bg-black/60 px-4 py-1.5 rounded-full mb-3 shadow-md">{{ zoomedImgTitle }}</p>
-            <img :src="zoomedImgUrl" class="max-w-full max-h-[75vh] object-contain rounded-2xl border border-white/10 shadow-2xl" />
+            <p class="text-white text-xs font-bold bg-black/60 px-4 py-1.5 rounded-full mb-3 shadow-md">{{
+                zoomedImgTitle }}</p>
+            <img :src="zoomedImgUrl"
+                class="max-w-full max-h-[75vh] object-contain rounded-2xl border border-white/10 shadow-2xl" />
         </div>
     </div>
+    <Pagination :links="invoices.links" />
 </template>
 
 <style scoped>

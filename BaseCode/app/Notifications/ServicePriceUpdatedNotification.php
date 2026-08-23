@@ -5,6 +5,8 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use App\Models\Service;
+use App\Channels\FcmChannel;
+
 
 class ServicePriceUpdatedNotification extends Notification
 {
@@ -25,7 +27,7 @@ class ServicePriceUpdatedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
     }
 
     public function toArray(object $notifiable): array

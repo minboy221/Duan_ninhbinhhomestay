@@ -45,6 +45,7 @@ class BoardingHouseController extends Controller
 
     public function store(StoreBoardingHouseRequest $request)
     {
+        $user = Auth::user();
         $currentCount = \App\Models\BoardingHouse::where('user_id', $user->id)->count();
         if (!$user->canCreateResource('max_boarding_houses', $currentCount)) {
             $limit = $user->getFeatureValue('max_boarding_houses');

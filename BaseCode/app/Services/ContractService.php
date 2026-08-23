@@ -154,7 +154,8 @@ class ContractService
             if (!empty($fileList)) {
                 $htmlPages = [];
                 foreach ($fileList as $f) {
-                    if (!$f) continue;
+                    if (!$f)
+                        continue;
                     $extension = strtolower($f->getClientOriginalExtension());
                     if (in_array($extension, ['jpg', 'png', 'jpeg'])) {
                         $imageData = base64_encode(file_get_contents($f->getRealPath()));
@@ -232,19 +233,21 @@ class ContractService
             ]);
 
             RoomPost::where('room_id', $room->id)->update(['status' => 'hidden']);
-            
+
             // Cập nhật trạng thái lịch hẹn:
             // - Nếu là Cư dân ở ghép lên làm Chủ hợp đồng -> became_main_tenant (Đã đứng tên Hợp đồng)
             // - Nếu là Thuê mới -> success_matched (Đã ký Hợp đồng & Đóng cọc)
             $newApptStatus = $isAlreadyResident ? 'became_main_tenant' : 'success_matched';
-            \App\Models\Appointment::where('room_id', $room->id)
+            //cập nhật chính xác lịch hẹn được chọn tạo HĐ
+            if($appointment){
+                $appointment->update(['status' => $newApptStatus]);
+            }
+            //cập nhật trạng thái lịch hẹn
+            if($tenant){
+                \App\Models\Appointment::where('room_id',$room->id)
                 ->where('user_id', $tenant->id)
                 ->update(['status' => $newApptStatus]);
-            //phát event cập nhật trạng thái phòng
-            event(new \App\Events\RoomStatusUpdated($room->id, 'rented'));
-            //gửi thông báo tới khách thuê
-            $tenant->notify(new \App\Notifications\ContractCreatedNotification($contract));
-            return $contract;
+            }
         });
     }
 
@@ -278,6 +281,10 @@ class ContractService
                 'deposit_refund_amount' => $data['deposit_refund_amount'] ?? 0,
                 'cancellation_reason' => $data['notes'] ?? 'Chủ trọ thanh lý hợp đồng.',
             ]);
+            //reset giá đóng băng dịch vụ của phòng về null để áp dụng giá mới cho khách sau
+            \DB::table('room_service')
+                ->where('room_id', $contract->room_id)
+                ->update(['price' => null]);
             //gửi thông báo tới clien
             $tenant = $contract->tenant;
             if ($tenant) {

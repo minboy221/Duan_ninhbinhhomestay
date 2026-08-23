@@ -12,7 +12,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
-use function Laravel\Prompts\alert;
 
 class PublicListingController extends Controller
 {

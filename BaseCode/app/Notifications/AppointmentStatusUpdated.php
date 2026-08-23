@@ -5,6 +5,7 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use App\Models\Appointment;
+use App\Channels\FcmChannel;
 
 class AppointmentStatusUpdated extends Notification
 {
@@ -25,7 +26,7 @@ class AppointmentStatusUpdated extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
     }
 
     /**

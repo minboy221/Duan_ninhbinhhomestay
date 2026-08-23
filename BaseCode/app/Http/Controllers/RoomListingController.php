@@ -2,11 +2,7 @@
 
 namespace App\Http\Controllers;
 use App\Models\RoomPost;
-use App\Models\Amenity;
-use App\Models\Area;
-use App\Models\Appointment;
 use App\Notifications\NewAppointment;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Controller;
 use Inertia\Inertia;
@@ -66,7 +62,13 @@ class RoomListingController extends Controller
     public function store(StoreRoomPostRequest $request)
     {
         $user = auth()->user();
-        $room = \App\Models\Room::findOrFail($request->room_id);
+        $room = Room::where('id', $request->room_id)
+        ->whereHas('boardingHouse', function($q){
+            $q->where('user_id', auth()->id());
+        })->first();
+        if(!$room){
+            return redirect()->back()->with('error','Phòng trọ được chọn không hợp lệ hoặc không thuộc quyền sở hữu của bạn!');
+        }
         // Check phòng có bị đóng băng không
         if ($user->isRoomFrozen($room)) {
             return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để đăng tin cho thuê!');
@@ -101,6 +103,11 @@ class RoomListingController extends Controller
         $post = RoomPost::findOrFail($id);
         if ($post->landlord_id !== auth()->id()) {
             abort(403);
+        }
+        //chặn check nếu phòng đã đẩy người
+        if($post->room && $post->room->capacity > 0 && $post->room->current_people >= $post->room->capacity){
+            return redirect()->route('landlord.listings.index')
+            ->with('error','Phòng này hiện đã đủ số lượng người ở hệ thống từ chối cập nhật tin đăng!');
         }
 
         $status = $request->input('action') === 'draft' ? 'draft' : 'pending';
@@ -142,6 +149,11 @@ class RoomListingController extends Controller
         $post = RoomPost::with(['room.floor', 'room.boardingHouse'])->findOrFail($id);
         if ($post->landlord_id !== auth()->id()) {
             abort(403, 'Bạn không có quyền sửa bài đăng này');
+        }
+        //chặn nếu phòng đã đủ số lượng người ở
+        if ($post->room && $post->room->capacity > 0 && $post->room->current_people >= $post->room->capacity) {
+            return redirect()->route('landlord.listings.index')
+                ->with('error', 'Phòng trọ này hiện đã đủ người ở (đã lấp đầy). Bạn không thể chỉnh sửa tin đăng!');
         }
         $boardingHouses = BoardingHouse::where('user_id', auth()->id())
             ->where('id', $post->room->boarding_house_id)
@@ -192,74 +204,6 @@ class RoomListingController extends Controller
         $post->update(['status' => 'hidden']);
         return redirect()->route('landlord.listings.index')
             ->with('success', 'Đã đóng tin đăng thành công! tin đăng đã được gỡ bỏ');
-    }
-
-
-    public function getFilteredListings(Request $request)
-    {
-        $query = RoomPost::with(['room.boardingHouse', 'landlord'])
-            ->where('status', 'approved');
-
-        // Tìm kiếm theo tiêu đề
-        if ($request->filled('search')) {
-            $query->where('title', 'like', '%' . $request->search . '%');
-        }
-
-        // Lọc theo khu vực
-        if ($request->filled('area_id')) {
-            $area = Area::find($request->input('area_id'));
-            if ($area) {
-                $query->whereHas('room.boardingHouse', function ($q) use ($area) {
-                    $q->where('address_detail', 'like', "%{$area->name}%"); // Đã sửa lỗi address_detaill
-                });
-            }
-        }
-
-        // Lọc theo khoảng giá
-        if ($request->filled('price')) {
-            $priceRange = $request->input('price');
-            $query->whereHas('room', function ($q) use ($priceRange) {
-                if ($priceRange === 'duoi-1-trieu') {
-                    $q->where('price', '<', 1000000);
-                } elseif ($priceRange === '1-2-trieu') {
-                    $q->whereBetween('price', [1000000, 2000000]);
-                } elseif ($priceRange === '2-3-trieu') {
-                    $q->whereBetween('price', [2000000, 3000000]);
-                } elseif ($priceRange === 'tren-3-trieu') {
-                    $q->where('price', '>', 3000000);
-                }
-            });
-        }
-
-        // Lọc theo diện tích
-        if ($request->filled('dientich')) {
-            $sizeRange = $request->input('dientich');
-            $query->whereHas('room', function ($q) use ($sizeRange) {
-                if ($sizeRange === 'duoi-20') {
-                    $q->where('area', '<', 20);
-                } elseif ($sizeRange === '20-30') {
-                    $q->whereBetween('area', [20, 30]);
-                } elseif ($sizeRange === '30-50') {
-                    $q->whereBetween('area', [30, 50]);
-                } elseif ($sizeRange === 'tren-50') {
-                    $q->where('area', '>', 50);
-                }
-            });
-        }
-
-        // Lọc theo mảng tiện ích
-        if ($request->filled('amenities') && is_array($request->input('amenities'))) {
-            $amenityIds = $request->input('amenities');
-            $amenityNames = Amenity::whereIn('id', $amenityIds)->pluck('name')->toArray();
-
-            $query->whereHas('room', function ($q) use ($amenityNames) {
-                foreach ($amenityNames as $name) {
-                    $q->where('amenities', 'like', "%{$name}%");
-                }
-            });
-        }
-
-        return $query->latest()->paginate(10)->withQueryString();
     }
 
     /**

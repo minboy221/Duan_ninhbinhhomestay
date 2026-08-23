@@ -94,9 +94,14 @@ class HandleInertiaRequests extends Middleware
                 } else {
                     //nếu là tài khoản phụ -> lấy mảng permissions từ bảng PropertyManager
                     $manager = \App\Models\PropertyManager::where('boarding_house_id', $selectedBoardingHouseId)
-                        ->where('user_id', $user->id)
-                        ->first();
-                    $managerPermissions = $manager ? ($manager->permissions ?? []) : [];
+                    ->where('user_id', $user->idi)
+                    ->first();
+                    if($manager){
+                        $perms = $manager->permissions;
+                        $managerPermissions = is_array($perms) ? $perms : (is_string($perms) ? json_decode($perms, true) ?: explode(',', $perms) : []);
+                    }else{
+                        $managerPermissions = [];
+                    }
                 }
             }
         }

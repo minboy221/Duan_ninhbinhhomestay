@@ -16,6 +16,14 @@ class RegisterRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void{
+        if($this->has('email')){
+            $this->merge([
+                'email' => strtolower(trim((string)$this->email)),
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

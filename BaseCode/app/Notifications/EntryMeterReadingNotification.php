@@ -5,6 +5,7 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use App\Models\Contract;
+use App\Channels\FcmChannel;
 
 class EntryMeterReadingNotification extends Notification
 {
@@ -27,7 +28,7 @@ class EntryMeterReadingNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
     }
 
     /**

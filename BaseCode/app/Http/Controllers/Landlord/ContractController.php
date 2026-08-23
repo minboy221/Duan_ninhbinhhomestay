@@ -80,15 +80,9 @@ class ContractController extends Controller
             return redirect()->back()->withErrors(['error' => 'Không tìm thấy thông tin phòng trọ để tạo hợp đồng.']);
         }
 
-<<<<<<< HEAD
         //check xem phòng có bị đóng băng không
         if($user->isRoomFrozen($room)){
             return redirect()->back()->withErrors(['error' => 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để làm hợp đồng cho thuê mới!']);
-=======
-        // Check xem phòng có bị đóng băng không
-        if ($user->isRoomFrozen($room)) {
-            return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để làm hợp đồng cho thuê mới!');
->>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
         }
         try {
             $files = $request->file('contract_files') ?: ($request->file('contract_file') ? [$request->file('contract_file')] : []);

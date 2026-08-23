@@ -443,6 +443,7 @@ Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function
     Route::post('/', [ReportController::class, 'store'])->name('store');
     Route::post('/{id}/self-resolve', [ReportController::class, 'resolveSelf'])->name('self-resolve');
 });
+Route::get('/profile/listbaocao', [ReportController::class, 'index'])->middleware('auth');
 
 // Phần dành cho PWA 
 Route::get('/sw.js', function () {

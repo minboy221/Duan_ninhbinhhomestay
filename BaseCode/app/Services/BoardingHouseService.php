@@ -132,7 +132,7 @@ class BoardingHouseService
         $house->update($data);
 
         //đồng bộ hoá địa chỉ và toạ độ mới xuống phòng và tầng của cơ sở
-        $fullAddress = $house->address_detail . ($house->district ? ',' .$house->distinct : '');
+        $fullAddress = $house->address_detail . ($house->district  ? ',' .$house->district  : '');
         //cập nhật phòng
         \App\Models\Room::where('boarding_house_id',$house->id)->update([
             'address' => $fullAddress,

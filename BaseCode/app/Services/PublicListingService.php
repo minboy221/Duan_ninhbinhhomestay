@@ -235,7 +235,10 @@ class PublicListingService
             });
         }
 
-        return $query->latest()->paginate(5)->withQueryString();
+        return [
+            'listings' => $query->latest()->paginate(10)->withQueryString(),
+            'ai_parsed' => $aiParsed,
+        ];
     }
 
     /**
