@@ -9,6 +9,7 @@ import {
 } from "vue";
 
 import * as faceapi from "face-api.js";
+import { showError } from "@/Utils/swal";
 
 const props = defineProps({
     form: Object,
@@ -210,7 +211,7 @@ const startScanning = () => {
                 //nếu sai 5 lần trở lên
                 if (failedMatchCount.value >= 5) {
                     clearInterval(scanInterval);
-                    alert("Xác minih khuôn mặt không trùng khớp quá 5 lần! vui lòng quay lại các bước để kiểm tra lại thông tin.");
+                    showError("Lỗi xác minh khuôn mặt", "Xác minh khuôn mặt không trùng khớp quá 5 lần! Vui lòng quay lại các bước để kiểm tra lại thông tin.");
                     stopCamera();
                     emit('goToStep1');
                 }

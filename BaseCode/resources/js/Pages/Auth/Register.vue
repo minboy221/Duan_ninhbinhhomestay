@@ -85,7 +85,7 @@ const submitForgot = () => {
                         Ninh Bình HomeStay
                     </span>
                     <h1 class="text-5xl md:text-7xl font-bold tracking-tight text-[#2c2f31] mb-6 leading-[1.1]"
-                        style="font-family: 'Plus Jakarta Sans', sans-serif">
+                        style="font-family: Arial, sans-serif">
                         <span v-if="activeTab === 'login'">Welcome Back To</span>
                         <span v-else-if="activeTab === 'signup'">Tạo Tài Khoản</span>
                         <span v-else>Quên Mật Khẩu?</span>

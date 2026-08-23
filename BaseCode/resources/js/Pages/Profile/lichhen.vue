@@ -11,6 +11,7 @@ const props = defineProps({
 
 const favoritedRoomIds = ref([...props.favoriteRoomIds]);
 import { router } from "@inertiajs/vue3";
+import { showWarning } from "@/Utils/swal";
 
 const isRoomFavorited = (roomId) => {
     return favoritedRoomIds.value.includes(roomId);
@@ -246,7 +247,7 @@ function executeInterest() {
     let finalReason = null;
     if (confirmAction.value === "not_interested") {
         if (!selectedReason.value) {
-            alert("Vui lòng chọn hoặc nhập lý do không ưng!");
+            showWarning("Chú ý", "Vui lòng chọn hoặc nhập lý do không ưng!");
             return;
         }
         finalReason = selectedReason.value === "Lý do khác"
@@ -254,7 +255,7 @@ function executeInterest() {
             : selectedReason.value;
 
         if (!finalReason) {
-            alert("Vui lòng nhập chi tiết lý do!");
+            showWarning("Chú ý", "Vui lòng nhập chi tiết lý do!");
             return;
         }
 
@@ -678,6 +679,7 @@ const paginatedAppointments = computed(() => {
                                         </a>
                                     </span>
                                 </div>
+                            </div>
                             <div v-if="['approved', 'viewed'].includes(apt.status) && !apt.feedback_result"
                                 style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
                                 <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"

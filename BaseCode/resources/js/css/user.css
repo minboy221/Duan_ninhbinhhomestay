@@ -21,7 +21,7 @@
     margin-top: 0;
     width: 300px;
     flex-shrink: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: Arial, sans-serif !important;
 }
 
 .bao-user {
@@ -328,7 +328,7 @@
 }
 
 .form-group select option {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: Arial, sans-serif !important;
     padding: 12px;
     font-size: 14px;
     color: #1e293b;

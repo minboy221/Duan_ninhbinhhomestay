@@ -231,31 +231,43 @@ const formatDate = (dateStr) => {
                     </p>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
                     <div v-for="plan in plans" :key="plan.id"
-                        class="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col justify-between hover:shadow-2xl transition-all duration-300 relative group"
+                        class="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col justify-between hover:shadow-2xl transition-all duration-300 relative group h-full"
                         :class="{
                             'border-2 border-indigo-500 shadow-indigo-100 shadow-xl':
                                 plan.badge === 'Khuyên dùng' ||
-                                plan.badge === 'Đặc quyền VIP',
+                                plan.badge === 'Đặc quyền VIP' ||
+                                plan.badge === 'DÙNG THỬ VIP' ||
+                                plan.badge === 'PHỔ BIẾN' ||
+                                plan.badge === 'CƠ BẢN',
                         }">
-                        <div v-if="plan.badge" class="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                            <span
-                                class="px-4 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-full shadow-md">
+                        <!-- Dedicated Badge Row Container to ensure equal top offset -->
+                        <div class="min-h-[28px] flex items-center justify-center mb-3">
+                            <span v-if="plan.badge"
+                                class="px-4 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-full shadow-md uppercase tracking-wider">
                                 {{ plan.badge }}
                             </span>
                         </div>
 
-                        <div>
-                            <h3 class="text-xl font-bold text-slate-800 text-center mt-2">
-                                {{ plan.name }}
-                            </h3>
-                            <p class="text-xs text-slate-500 text-center mt-1 min-h-[32px]">
-                                {{ plan.description }}
-                            </p>
+                        <div class="flex-1 flex flex-col">
+                            <!-- Title Block (Fixed min-height 56px for 1 or 2 line titles) -->
+                            <div class="min-h-[56px] flex items-center justify-center px-1">
+                                <h3 class="text-lg font-extrabold text-slate-800 text-center leading-snug">
+                                    {{ plan.name }}
+                                </h3>
+                            </div>
 
-                            <div class="text-center my-6">
-                                <span class="text-3xl font-black text-indigo-600">
+                            <!-- Description Block (Fixed min-height 48px for descriptions) -->
+                            <div class="min-h-[48px] flex items-center justify-center px-1 mt-1">
+                                <p class="text-xs text-slate-500 text-center leading-relaxed">
+                                    {{ plan.description || 'Giải pháp quản lý phòng trọ tối ưu' }}
+                                </p>
+                            </div>
+
+                            <!-- Price Block (Fixed min-height 76px for price display) -->
+                            <div class="text-center my-4 min-h-[76px] flex flex-col items-center justify-center bg-slate-50/70 rounded-2xl p-3 border border-slate-100/80">
+                                <span class="text-2xl font-black text-indigo-600">
                                     {{
                                         plan.price == 0
                                             ? "Miễn phí"
@@ -265,21 +277,20 @@ const formatDate = (dateStr) => {
                                 <span v-if="
                                     plan.duration_days == -1 ||
                                     plan.duration_days == 3650
-                                " class="text-xs text-emerald-600 font-semibold block mt-1">
+                                " class="text-xs text-emerald-600 font-bold block mt-1">
                                     Sử dụng Vĩnh viễn (Miễn phí)
                                 </span>
                                 <span v-else-if="plan.price > 0" class="text-xs text-slate-400 block font-medium mt-1">/
                                     {{ plan.duration_days }} ngày</span>
-                                <span v-else class="text-xs text-emerald-600 font-semibold block mt-1">Miễn phí {{
-                                    plan.duration_days }} ngày
-                                    đầu</span>
+                                <span v-else class="text-xs text-emerald-600 font-bold block mt-1">Miễn phí {{
+                                    plan.duration_days }} ngày đầu</span>
                             </div>
 
-                            <!-- Features List -->
-                            <ul class="space-y-3 text-sm border-t border-slate-100 pt-6">
+                            <!-- Features List (Top aligned at exact same line) -->
+                            <ul class="space-y-3 text-xs border-t border-slate-100 pt-5 mt-auto">
                                 <li v-for="feat in plan.features" :key="feat.id"
                                     class="flex items-center gap-2 text-slate-700">
-                                    <i class="bi bi-check-circle-fill text-emerald-500 text-base"></i>
+                                    <i class="bi bi-check-circle-fill text-emerald-500 text-sm"></i>
                                     <span>{{ feat.name }}:
                                         <strong class="text-slate-900 font-bold">{{
                                             formatFeatureValue(

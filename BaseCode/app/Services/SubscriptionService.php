@@ -40,7 +40,7 @@ class SubscriptionService
         ]);
         // Gửi thông báo cho tài khoản chủ trọ mới
         $user->notify(new SubscriptionNotification(
-            "🎉 Chúc Mừng 60 ngày dùng thử VIP!",
+            "🎉 Chúc Mừng 30 ngày dùng thử VIP!",
             "Tài khoản của bạn được tự động tặng {$durationDays} ngày sử dụng Miễn Phí 100% gói Full VIP cao cấp!",
             route('landlord.subscriptions.index'),
             'success'

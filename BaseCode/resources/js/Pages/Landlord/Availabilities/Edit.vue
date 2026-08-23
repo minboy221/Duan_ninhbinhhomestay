@@ -189,7 +189,7 @@ watch(() => flash.value, (newFlash) => {
                         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                             Thời gian tự động hủy lịch (phút)
                         </label>
-                        <input type="number" v-model="form.cancel_after_minutes" min="5" max="1440" required
+                        <input type="number" v-model="form.cancel_after_minutes" min="5" max="1440"
                             class="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" />
                         <p class="text-[10px] text-rose-500 font-bold mt-1" v-if="form.errors.cancel_after_minutes">
                             {{ form.errors.cancel_after_minutes }}
@@ -261,14 +261,14 @@ watch(() => flash.value, (newFlash) => {
                                         <Transition name="fade">
                                             <div v-if="item.is_active" class="flex flex-wrap items-center gap-2">
                                                 <div class="relative">
-                                                    <input type="time" v-model="item.start_time" required
+                                                    <input type="time" v-model="item.start_time"
                                                         class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-250 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-all" />
                                                 </div>
 
                                                 <span class="text-xs font-semibold text-slate-400">đến</span>
 
                                                 <div class="relative">
-                                                    <input type="time" v-model="item.end_time" required
+                                                    <input type="time" v-model="item.end_time"
                                                         class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-250 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-all" />
                                                 </div>
 

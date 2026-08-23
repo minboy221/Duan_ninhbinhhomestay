@@ -52,15 +52,15 @@ class SubscriptionSeeder extends Seeder
             );
         }
 
-        // 2. Tạo Gói Miễn Phí 2 Tháng (Trial 60 ngày)
+        // 2. Tạo Gói Miễn Phí 1 Tháng (Trial 30 ngày)
         $trialPlan = SubscriptionPlan::updateOrCreate(
-            ['name' => 'Gói Dùng Thử (Free 60 ngày)'],
+            ['name' => 'Gói Dùng Thử 30 Ngày (Full VIP)'],
             [
                 'price' => 0,
-                'duration_days' => 60,
-                'badge' => 'Miễn phí 2 tháng',
+                'duration_days' => 30,
+                'badge' => 'DÙNG THỬ VIP',
                 'sort_order' => 1,
-                'description' => 'Dành cho chủ trọ mới gia nhập hệ thống. Trải nghiệm đầy đủ tính năng trong 60 ngày.',
+                'description' => 'Dành cho chủ trọ mới gia nhập hệ thống. Trải nghiệm đầy đủ tính năng trong 30 ngày.',
                 'is_active' => true,
             ]
         );

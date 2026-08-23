@@ -597,12 +597,13 @@ const updateInvoiceStatus = (inv, status) => {
     })
 }
 
-const archiveInvoice = (inv) => {
-    if (confirm(`Bạn có chắc chắn muốn chuyển hóa đơn mã #${inv.invoice_code} vào Kho lưu trữ?`)) {
+const archiveInvoice = async (inv) => {
+    const confirmed = await showConfirm('Xác nhận lưu trữ', `Bạn có chắc chắn muốn chuyển hóa đơn mã #${inv.invoice_code} vào Kho lưu trữ?`)
+    if (confirmed) {
         const form = useForm({})
         form.patch(route('landlord.invoices.archive', inv.id), {
             onSuccess: () => {
-                alert('Đã chuyển hóa đơn vào kho lưu trữ thành công!')
+                showSuccess('Thành công', 'Đã chuyển hóa đơn vào kho lưu trữ thành công!')
             }
         })
     }
@@ -612,17 +613,18 @@ const restoreInvoice = (inv) => {
     const form = useForm({})
     form.patch(route('landlord.invoices.restore', inv.id), {
         onSuccess: () => {
-            alert('Đã khôi phục hóa đơn từ kho lưu trữ!')
+            showSuccess('Thành công', 'Đã khôi phục hóa đơn từ kho lưu trữ!')
         }
     })
 }
 
-const deleteInvoice = (inv) => {
-    if (confirm('Bạn có chắc chắn muốn xóa hóa đơn này?')) {
+const deleteInvoice = async (inv) => {
+    const confirmed = await showConfirm('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa hóa đơn này?')
+    if (confirmed) {
         const deleteForm = useForm({})
         deleteForm.delete(route('landlord.invoices.delete', inv.id), {
             onSuccess: () => {
-                alert('Xóa hóa đơn thành công!')
+                showSuccess('Thành công', 'Xóa hóa đơn thành công!')
                 if (selectedInvoice.value && selectedInvoice.value.id === inv.id) {
                     closeViewModal()
                 }
@@ -665,7 +667,7 @@ const copyInvoiceToClipboard = (inv) => {
     text += `TỔNG CỘNG: ${formatMoney(inv.total_amount)}\n`;
     
     navigator.clipboard.writeText(text).then(() => {
-        alert('Đã sao chép nội dung hóa đơn để gửi Zalo/SMS!')
+        showToast('Đã sao chép nội dung hóa đơn để gửi Zalo/SMS!')
     })
 }
 

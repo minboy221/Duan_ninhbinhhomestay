@@ -238,7 +238,7 @@
 }
 
 .infor-left h2 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Arial, sans-serif !important;
     font-size: 48px;
     font-style: italic;
     background: linear-gradient(90deg, #102a6d, #3f7a9c);

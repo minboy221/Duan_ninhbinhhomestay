@@ -65,7 +65,7 @@ const handleKeydown = (index, event) => {
                         Ninh Bình HomeStay
                     </span>
                     <h1 class="text-5xl md:text-7xl font-bold tracking-tight text-[#2c2f31] mb-6 leading-[1.1]"
-                        style="font-family: 'Plus Jakarta Sans', sans-serif">
+                        style="font-family: Arial, sans-serif">
                         <span class="text-[#00628c]"> Ninh Bình Home stay.</span>
                     </h1>
                     <p class="text-lg text-[#595c5e] max-w-lg mx-auto lg:mx-0 mb-8 leading-relaxed">

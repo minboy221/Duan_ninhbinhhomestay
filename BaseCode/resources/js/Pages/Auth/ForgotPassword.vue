@@ -17,6 +17,11 @@ const form = useForm({
 });
 
 const submit = () => {
+    form.clearErrors();
+    if (!form.email.trim()) {
+        form.setError('email', 'Vui lòng nhập địa chỉ email.');
+        return;
+    }
     form.post(route('password.email'));
 };
 </script>
@@ -34,7 +39,7 @@ const submit = () => {
             {{ status }}
         </div>
 
-        <form @submit.prevent="submit">
+        <form @submit.prevent="submit" novalidate>
             <div>
                 <InputLabel for="email" value="Email" />
 
@@ -43,7 +48,6 @@ const submit = () => {
                     type="email"
                     class="mt-1 block w-full"
                     v-model="form.email"
-                    required
                     autofocus
                     autocomplete="username"
                 />

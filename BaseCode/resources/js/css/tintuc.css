@@ -54,7 +54,7 @@
     margin-top: -200px;
     width: 300px;
     flex-shrink: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: Arial, sans-serif !important;
 }
 
 /* phần danh mục của tin tức */
@@ -279,7 +279,7 @@
 }
 
 .title_tintuc {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: Arial, sans-serif !important;
     font-size: 20px;
     text-decoration: none;
     color: #000;

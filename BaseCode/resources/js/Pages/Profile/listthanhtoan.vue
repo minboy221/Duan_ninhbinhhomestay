@@ -2,7 +2,7 @@
 import { ref, computed, onUnmounted } from "vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import axios from "axios";
-import { showWarning, showSuccess } from "@/Utils/swal";
+import { showWarning, showSuccess, showError } from "@/Utils/swal";
 
 const props = defineProps({
     user: Object,
@@ -166,9 +166,9 @@ const triggerSimulatedPayment = async () => {
             stopPolling();
         }
     } catch (err) {
-        alert(
-            "Lỗi giả lập thanh toán: " +
-            (err.response?.data?.message || err.message),
+        showError(
+            "Lỗi giả lập thanh toán",
+            err.response?.data?.message || err.message,
         );
     } finally {
         isSimulating.value = false;

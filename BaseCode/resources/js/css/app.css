@@ -2,7 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sử dụng 100% font chữ Arial cho giao diện chủ trọ và admin */
+/* Thống nhất 100% font chữ Arial cho TOÀN BỘ HỆ THỐNG (Client, Landlord, Admin, Auth, Modals, Forms, Buttons, Inputs, Tables) */
+html,
+body,
+*,
+*::before,
+*::after,
+button,
+input,
+select,
+textarea,
+label,
+p,
+span,
+div,
+a,
+h1, h2, h3, h4, h5, h6,
+table, th, td,
 body.landlord-theme,
 body.landlord-theme *,
 .landlord-layout,
@@ -13,7 +29,7 @@ body.admin-theme *,
 .admin-shell *,
 .admin-layout,
 .admin-layout * {
-    font-family: Arial, sans-serif !important;
+    font-family: Arial, Helvetica, sans-serif !important;
 }
 
 body.landlord-theme .font-black,

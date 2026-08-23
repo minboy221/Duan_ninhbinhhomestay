@@ -2,6 +2,7 @@
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import { ref, onMounted, onUnmounted } from "vue";
+import { showError } from "@/Utils/swal";
 
 const props = defineProps({
     reports: Object,
@@ -122,7 +123,7 @@ function submitResolution() {
         onSuccess: (page) => {
             const flash = page.props.flash;
             if (flash && flash.error) {
-                alert(flash.error);
+                showError("Thông báo lỗi", flash.error);
                 return;
             }
             showResolveModal.value = false;
@@ -131,7 +132,7 @@ function submitResolution() {
 
         onError: (errors) => {
             const firstErr = Object.values(errors)[0];
-            alert(firstErr || "Vui lòng kiểm tra lại thông tin gửi đi.");
+            showError("Lỗi nhập liệu", firstErr || "Vui lòng kiểm tra lại thông tin gửi đi.");
         },
     });
 }

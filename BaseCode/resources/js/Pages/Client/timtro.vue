@@ -244,41 +244,6 @@ const getStatusClass = (status) => {
     return classes[status] || 'room-badge-rented';
 };
 
-function submitSearch() {
-    const params = {};
-    if (form.value.area_id) params.area_id = form.value.area_id;
-    if (form.value.price) params.price = form.value.price;
-    if (form.value.dientich) params.dientich = form.value.dientich;
-    if (form.value.categories && form.value.categories.length > 0) {
-        params.category_id = form.value.categories;
-    }
-    if (form.value.amenities && form.value.amenities.length > 0) {
-        params.amenities = form.value.amenities;
-    }
-    if (props.filters?.search) {
-        params.search = props.filters.search;
-    }
-
-    router.get(route('timtro'), params, {
-        preserveState: true,
-        preserveScroll: false,
-    });
-}
-
-function resetFilters() {
-    form.value = {
-        area_id: null,
-        price: null,
-        dientich: null,
-        categories: [],
-        amenities: []
-    };
-    selectedArea.value = null;
-    router.get(route('timtro'), {}, {
-        preserveState: true,
-        preserveScroll: false,
-    });
-}
 
 const formatPaginationLabel = (label) => {
     if (!label) return '';
@@ -579,7 +544,7 @@ const getRoomImageUrl = (images) => {
                 <!-- Header số lượng kết quả -->
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
                     <div class="text-sm text-slate-600 font-medium">
-                        Tìm thấy <strong class="text-blue-600 font-bold">{{ listings.total || listings.data.length
+                        Tìm thấy <strong class="text-blue-600 font-bold">{{ listings?.total || listings?.data?.length || 0
                         }}</strong> phòng trọ phù hợp
                     </div>
                 </div>
@@ -589,23 +554,23 @@ const getRoomImageUrl = (images) => {
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; width: 100%; padding: 0 4px;">
                         <div
-                            style="font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                            style="font-size: 15px; font-weight: 800; color: #1e293b; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                             <span
-                                style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #eff6ff; color: #2563eb; border-radius: 8px;">
+                                style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #eff6ff; color: #2563eb; border-radius: 8px; flex-shrink: 0;">
                                 <i class="bi bi-houses-fill"></i>
                             </span>
-                            <span>Danh sách phòng trọ</span>
+                            <span style="white-space: nowrap;">Danh sách phòng trọ</span>
                             <span
-                                style="font-size: 13px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 10px; border-radius: 20px;">{{
-                                    listings.total || 0 }} phòng</span>
+                                style="font-size: 13px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 3px 12px; border-radius: 20px; white-space: nowrap; margin-left: 4px; display: inline-block;">{{
+                                    listings?.total || 0 }} phòng</span>
                         </div>
-                        <div v-if="listings.last_page > 1"
+                        <div v-if="listings?.last_page > 1"
                             style="font-size: 12px; font-weight: 700; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 12px; border-radius: 20px;">
-                            Trang {{ listings.current_page }} / {{ listings.last_page }}
+                            Trang {{ listings?.current_page || 1 }} / {{ listings?.last_page || 1 }}
                         </div>
                     </div>
 
-                    <div v-if="listings.data.length === 0"
+                    <div v-if="!listings?.data || listings.data.length === 0"
                         style="text-align: center; padding: 60px 20px; width: 100%; color: #64748b;"
                         class="bg-white rounded-2xl border border-slate-200 shadow-sm">
                         <i class="bi bi-house-x text-5xl mb-3 text-slate-400 block"></i>
@@ -618,13 +583,13 @@ const getRoomImageUrl = (images) => {
                         </button>
                     </div>
 
-                    <div class="item_room" v-for="post in listings.data" :key="post.id">
+                    <div class="item_room" v-for="post in (listings?.data || [])" :key="post.id">
                         <div class="image_room">
                             <img :src="getRoomImageUrl(post.image)" alt="Ảnh phòng trọ" style="object-fit: cover;"
                                 @error="$event.target.src = '/anh/banner_tro.png'">
                         </div>
                         <div class="infor_room">
-                            <div class="title_room">
+                            <div class="title_room" style="min-height: 48px; display: flex; align-items: center;">
                                 <h2>{{ post.title }}</h2>
                             </div>
                             <div class="infor">
@@ -666,12 +631,7 @@ const getRoomImageUrl = (images) => {
                                         <span v-else class="room-badge-no-rating">Chưa có đánh giá</span>
                                     </div>
                                     <div class="about_room mt-2">
-                                        <p
-                                            v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'">
-                                            v-html="post.description ? (post.description.length > 90 ?
-                                            post.description.substring(0, 90) + '...' : post.description) : 'Không có mô
-                                            tả'">
-                                        </p>
+                                        <p v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'"></p>
                                     </div>
                                 </div>
                             </div>
@@ -720,7 +680,7 @@ const getRoomImageUrl = (images) => {
 
 .ai-hero-wrapper,
 .ai-hero-wrapper * {
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif !important;
+    font-family: Arial, sans-serif !important;
     letter-spacing: 0 !important;
 }
 </style>

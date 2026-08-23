@@ -57,6 +57,10 @@ const handleWaterImg = (e) => {
 };
 
 const submitEntryReadings = () => {
+    if (entryForm.entry_elec_index === "" || entryForm.entry_elec_index === null || entryForm.entry_water_index === "" || entryForm.entry_water_index === null) {
+        showError("Lỗi nhập liệu", "Vui lòng nhập đầy đủ chỉ số điện và chỉ số nước bàn giao!");
+        return;
+    }
     entryForm.post(
         route("profile.contract.submit-entry-readings", props.contract.hash_id),
         {
@@ -212,6 +216,10 @@ const submitStrangerRequest = async () => {
 
 //gửi yêu cầu giới thiệu người quen vào ở ghép
 const submitAcquaintanceRequest = () => {
+    if (!acquaintanceForm.new_resident_name.trim() || !acquaintanceForm.new_resident_phone.trim()) {
+        showError("Lỗi nhập liệu", "Vui lòng nhập đầy đủ tên và số điện thoại của người ở ghép!");
+        return;
+    }
     acquaintanceForm.post(route("profile.roommate.request_acquaintance"), {
         onSuccess: () => {
             showAcquaintanceModal.value = false;
@@ -310,6 +318,10 @@ const handleEvidenceImages = (e) => {
 };
 
 const submitReport = () => {
+    if (!reportForm.reason || !reportForm.description.trim()) {
+        showError("Lỗi nhập liệu", "Vui lòng chọn lý do và nhập mô tả chi tiết báo cáo!");
+        return;
+    }
     reportForm.post(route("reports.store"), {
         forceFormData: true,
         onSuccess: () => {
@@ -718,7 +730,7 @@ const submitReport = () => {
                             <i class="bi bi-lightning-charge-fill text-amber-500"></i>
                             <span>Chỉ số ĐIỆN ban đầu (kWh)</span>
                         </label>
-                        <input type="number" min="0" v-model="entryForm.entry_elec_index" required
+                        <input type="number" min="0" v-model="entryForm.entry_elec_index"
                             placeholder="Ví dụ: 1250"
                             class="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white" />
                         <div>
@@ -742,7 +754,7 @@ const submitReport = () => {
                             <i class="bi bi-droplet-fill text-blue-500"></i>
                             <span>Chỉ số NƯỚC ban đầu (m³)</span>
                         </label>
-                        <input type="number" min="0" v-model="entryForm.entry_water_index" required
+                        <input type="number" min="0" v-model="entryForm.entry_water_index"
                             placeholder="Ví dụ: 85"
                             class="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" />
                         <div>
@@ -906,25 +918,25 @@ const submitReport = () => {
                 <form @submit.prevent="submitAcquaintanceRequest">
                     <div class="form-field-group">
                         <label class="form-field-label">Họ và tên (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_name" required
+                        <input type="text" v-model="acquaintanceForm.new_resident_name"
                             placeholder="Nhập họ tên..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
                         <label class="form-field-label">Số điện thoại (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_phone" required
+                        <input type="text" v-model="acquaintanceForm.new_resident_phone"
                             placeholder="Ví dụ: 0987654321..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
                         <label class="form-field-label">Email liên hệ (*)</label>
-                        <input type="email" v-model="acquaintanceForm.new_resident_email" required
+                        <input type="email" v-model="acquaintanceForm.new_resident_email"
                             placeholder="Nhập địa chỉ email..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
                         <label class="form-field-label">Số CCCD/CMND (12 chữ số) (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" required
+                        <input type="text" v-model="acquaintanceForm.new_resident_cccd"
                             placeholder="Đúng 12 chữ số..." maxlength="12" class="form-field-input" />
                     </div>
 
@@ -955,7 +967,7 @@ const submitReport = () => {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitExtendRequest" class="space-y-4">
+                <form @submit.prevent="submitExtendRequest" novalidate class="space-y-4">
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">Số tháng muốn gia hạn thêm
                             <span class="text-rose-500">*</span></label>
@@ -1005,11 +1017,11 @@ const submitReport = () => {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitReport" class="space-y-4">
+                <form @submit.prevent="submitReport" novalidate class="space-y-4">
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-600">Loại báo cáo <span
                                 class="text-rose-500">*</span></label>
-                        <select v-model="reportForm.reason" required
+                        <select v-model="reportForm.reason"
                             class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-white">
                             <option value="" disabled>--Chọn phân loại báo cáo--</option>
                             <option v-for="(r, idx) in props.reasons" :key="r.id || idx" :value="typeof r === 'object' ? r.reason : r">
@@ -1024,7 +1036,7 @@ const submitReport = () => {
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-600">Mô tả chi tiết sự cố <span
                                 class="text-rose-500">*</span></label>
-                        <textarea v-model="reportForm.description" rows="4" required
+                        <textarea v-model="reportForm.description" rows="4"
                             placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề vi phạm cần xử lý..."
                             class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs outline-none resize-none"></textarea>
                     </div>

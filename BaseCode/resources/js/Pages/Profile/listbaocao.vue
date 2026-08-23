@@ -1,7 +1,7 @@
 <script setup>
-import UserLayout from "@/Layouts/UserLayout.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import { ref, onMounted, onUnmounted } from "vue";
+import { showConfirm, showSuccess, showError } from "@/Utils/swal";
 
 const props = defineProps({
     reports: {
@@ -65,18 +65,20 @@ function openDetail(report) {
     showDetailModal.value = true;
 }
 
-function handleSelfResolve(actionType) {
-    if (
-        actionType === "reporter_accept" &&
-        !confirm("Bạn đồng ý đóng báo cáo này vì đã giải quyết xong?")
-    ) {
-        return;
+async function handleSelfResolve(actionType) {
+    if (actionType === "reporter_accept") {
+        const confirmed = await showConfirm(
+            "Xác nhận đóng báo cáo",
+            "Bạn đồng ý đóng báo cáo này vì đã giải quyết xong?"
+        );
+        if (!confirmed) return;
     }
-    if (
-        actionType === "escalate_admin" &&
-        !confirm("Bạn muốn chuyển báo cáo này lên Admin giải quyết?")
-    ) {
-        return;
+    if (actionType === "escalate_admin") {
+        const confirmed = await showConfirm(
+            "Chuyển báo cáo",
+            "Bạn muốn chuyển báo cáo này lên Admin giải quyết?"
+        );
+        if (!confirmed) return;
     }
 
     resolveForm.action = actionType;
@@ -84,10 +86,10 @@ function handleSelfResolve(actionType) {
         preserveScroll: true,
         onSuccess: () => {
             showDetailModal.value = false;
-            // alert("Cập nhật trạng thái thành công!");
+            showSuccess("Thành công", "Đã cập nhật trạng thái báo cáo thành công!");
         },
         onError: (err) => {
-            alert(Object.values(err).join("\n"));
+            showError("Thông báo lỗi", Object.values(err).join("\n"));
         },
     });
 }

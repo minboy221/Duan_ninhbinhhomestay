@@ -34,6 +34,18 @@ watch(() => page.props.flash?.error, () => {
 
 // Hàm xử lý submit form
 const submit = () => {
+    form.clearErrors();
+    let hasError = false;
+    if (!form.email.trim()) {
+        form.setError("email", "Vui lòng nhập email admin.");
+        hasError = true;
+    }
+    if (!form.password) {
+        form.setError("password", "Vui lòng nhập mật khẩu.");
+        hasError = true;
+    }
+    if (hasError) return;
+
     form.post(route("admin.login.store"), {
         onFinish: () => form.reset("password"), // Xóa trống ô password nếu đăng nhập lỗi
     });
@@ -54,7 +66,7 @@ const submit = () => {
                 <p class="text-sm text-gray-500 mt-2">Dành riêng cho quản trị viên hệ thống</p>
             </div>
 
-            <form @submit.prevent="submit" class="space-y-6">
+            <form @submit.prevent="submit" novalidate class="space-y-6">
                 <!-- Nhập Email -->
                 <div class="form-group">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -63,7 +75,6 @@ const submit = () => {
                         v-model="form.email"
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                         placeholder="Nhập email admin..."
-                        required
                     />
                     <!-- Hiển thị lỗi từ Laravel validate trả về -->
                     <span class="error-msg text-red-500 text-xs mt-1 block font-medium" v-if="form.errors.email">
@@ -79,7 +90,6 @@ const submit = () => {
                         v-model="form.password"
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                         placeholder="Nhập mật khẩu..."
-                        required
                     />
                     <span class="error-msg text-red-500 text-xs mt-1 block font-medium" v-if="form.errors.password">
                         {{ form.errors.password }}

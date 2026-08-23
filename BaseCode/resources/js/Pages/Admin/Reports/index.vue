@@ -2,6 +2,7 @@
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, useForm } from "@inertiajs/vue3";
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { showSuccess, showError } from "@/Utils/swal";
 
 const search = ref("");
 const typeFilter = ref("all");
@@ -25,7 +26,7 @@ function saveSettings() {
     settingsForm.post(route("admin.reports.update-days"), {
         preserveScroll: true,
         onSuccess: () => {
-            alert("Cập nhật thời hạn thương lượng thành công!");
+            showSuccess("Thành công", "Cập nhật thời hạn thương lượng thành công!");
         },
     });
 }
@@ -107,10 +108,10 @@ function handleAction(act) {
         preserveScroll: true,
         onSuccess: () => {
             showModal.value = false;
-            alert("xử lý báo cáo thành công!");
+            showSuccess("Thành công", "Xử lý báo cáo thành công!");
         },
         onError: (errors) => {
-            alert(Object.values(errors).join("\n"));
+            showError("Lỗi xử lý", Object.values(errors).join("\n"));
         },
     });
 }

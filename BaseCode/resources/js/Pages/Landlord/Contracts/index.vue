@@ -2828,7 +2828,7 @@ const getDepositBadgeConfig = (c) => {
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">Ngày bắt đầu vào ở ghép
                             <span class="text-rose-500">*</span></label>
-                        <input v-model="residentForm.start_date" type="date" required
+                        <input v-model="residentForm.start_date" type="date"
                             class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none" />
                     </div>
 
@@ -2861,7 +2861,7 @@ const getDepositBadgeConfig = (c) => {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitLiquidationContract" class="space-y-4">
+                <form @submit.prevent="submitLiquidationContract" novalidate class="space-y-4">
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">Phương án xử lý tiền cọc</label>
                         <select v-model="liquidationForm.deposit_handling"
@@ -2885,7 +2885,7 @@ const getDepositBadgeConfig = (c) => {
                     " class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">Số tiền cọc hoàn lại (đ)</label>
                         <input v-model.number="liquidationForm.deposit_refund_amount
-                            " type="number" required
+                            " type="number"
                             class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none" />
                     </div>
 
@@ -2925,17 +2925,17 @@ const getDepositBadgeConfig = (c) => {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitExtendContract" class="space-y-4">
+                <form @submit.prevent="submitExtendContract" novalidate class="space-y-4">
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">Chọn ngày hết hạn mới
                             <span class="text-rose-500">*</span></label>
-                        <input v-model="extendForm.new_end_date" type="date" required
+                        <input v-model="extendForm.new_end_date" type="date"
                             class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none" />
                     </div>
 
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">Xác nhận số CCCD/CMND khách thuê (12 số)</label>
-                        <input v-model="extendForm.tenant_cccd" type="text" maxlength="12" required
+                        <input v-model="extendForm.tenant_cccd" type="text" maxlength="12"
                             placeholder="Nhập đúng 12 số CCCD để lưu gia hạn"
                             class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none" />
                     </div>
@@ -3064,7 +3064,6 @@ const getDepositBadgeConfig = (c) => {
                     </div>
                 </div>
             </div>
-        </div>
         </div>
 
         <!-- Modals -->

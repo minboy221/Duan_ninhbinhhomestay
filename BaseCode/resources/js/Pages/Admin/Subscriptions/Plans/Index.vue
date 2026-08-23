@@ -2,6 +2,7 @@
 import { ref, computed } from "vue";
 import { useForm, router } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
+import { showConfirm, showSuccess } from "@/Utils/swal";
 
 const props = defineProps({
     plans: Array,
@@ -172,9 +173,12 @@ const savePlan = () => {
     }
 };
 
-const deletePlan = (plan) => {
-    if (confirm(`Bạn có chắc muốn xóa gói "${plan.name}" không?`)) {
-        router.delete(route("admin.subscription-plans.destroy", plan.id));
+const deletePlan = async (plan) => {
+    const confirmed = await showConfirm("Xác nhận xóa", `Bạn có chắc muốn xóa gói "${plan.name}" không?`);
+    if (confirmed) {
+        router.delete(route("admin.subscription-plans.destroy", plan.id), {
+            onSuccess: () => showSuccess("Thành công", "Đã xóa gói dịch vụ thành công!"),
+        });
     }
 };
 
@@ -355,25 +359,37 @@ const displayPrice = computed({
             </div>
 
             <!-- Danh sách gói dạng Card -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
                 <div v-for="plan in plans" :key="plan.id"
-                    class="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col justify-between relative overflow-hidden">
-                    <!-- Badge -->
-                    <span v-if="plan.badge"
-                        class="absolute top-4 right-4 bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                        {{ plan.badge }}
-                    </span>
+                    class="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 p-6 flex flex-col justify-between relative overflow-hidden h-full">
+                    
+                    <div class="flex-1 flex flex-col">
+                        <!-- Badge row -->
+                        <div class="min-h-[28px] flex items-center justify-between mb-2">
+                            <span v-if="plan.badge"
+                                class="bg-indigo-50 text-indigo-600 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                                {{ plan.badge }}
+                            </span>
+                            <span v-else class="h-4"></span>
+                        </div>
 
-                    <div>
-                        <h3 class="text-lg font-bold text-slate-800 pr-16">
-                            {{ plan.name }}
-                        </h3>
-                        <p class="text-slate-500 text-xs mt-1 min-h-[32px]">
-                            {{ plan.description || "Chưa có mô tả" }}
-                        </p>
+                        <!-- Title block -->
+                        <div class="min-h-[56px] flex items-center">
+                            <h3 class="text-lg font-extrabold text-slate-800 leading-snug">
+                                {{ plan.name }}
+                            </h3>
+                        </div>
 
-                        <div class="my-4">
-                            <span class="text-3xl font-extrabold text-indigo-600">
+                        <!-- Description block -->
+                        <div class="min-h-[48px] flex items-center mt-1">
+                            <p class="text-slate-500 text-xs leading-relaxed">
+                                {{ plan.description || "Chưa có mô tả" }}
+                            </p>
+                        </div>
+
+                        <!-- Price block -->
+                        <div class="my-4 min-h-[76px] flex flex-col justify-center bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100/80">
+                            <span class="text-2xl font-black text-indigo-600">
                                 {{
                                     plan.price == 0
                                         ? "Miễn phí"
@@ -383,25 +399,25 @@ const displayPrice = computed({
                             <span v-if="
                                 plan.duration_days == -1 ||
                                 plan.duration_days == 3650
-                            " class="text-emerald-600 font-bold text-sm">
+                            " class="text-emerald-600 font-bold text-xs mt-0.5">
                                 / Vĩnh viễn (Miễn phí)</span>
-                            <span v-else-if="plan.price > 0" class="text-slate-400 text-sm">
+                            <span v-else-if="plan.price > 0" class="text-slate-400 text-xs font-medium mt-0.5">
                                 / {{ plan.duration_days }} ngày</span>
-                            <span v-else class="text-slate-400 text-sm">
+                            <span v-else class="text-slate-400 text-xs font-medium mt-0.5">
                                 / {{ plan.duration_days }} ngày dùng thử</span>
                         </div>
 
                         <!-- Danh sách tính năng của gói -->
-                        <div class="border-t border-slate-100 pt-4 space-y-2.5">
-                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        <div class="border-t border-slate-100 pt-4 space-y-2.5 mt-auto">
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">
                                 Tính năng đi kèm:
                             </p>
                             <div v-for="feature in features" :key="feature.id"
-                                class="flex justify-between items-center text-sm">
-                                <span class="text-slate-600">{{
+                                class="flex justify-between items-center text-xs py-0.5">
+                                <span class="text-slate-600 font-medium">{{
                                     feature.name
                                 }}</span>
-                                <span class="font-semibold text-slate-800">
+                                <span class="font-bold text-slate-800">
                                     {{ getFeatureValue(plan, feature.id) }}
                                 </span>
                             </div>

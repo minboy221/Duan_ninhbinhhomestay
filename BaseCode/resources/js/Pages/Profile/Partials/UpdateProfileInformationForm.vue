@@ -20,6 +20,21 @@ const form = useForm({
     name: user.name,
     email: user.email,
 });
+
+const submit = () => {
+    form.clearErrors();
+    let hasErr = false;
+    if (!form.name.trim()) {
+        form.setError('name', 'Vui lòng nhập tên.');
+        hasErr = true;
+    }
+    if (!form.email.trim()) {
+        form.setError('email', 'Vui lòng nhập địa chỉ email.');
+        hasErr = true;
+    }
+    if (hasErr) return;
+    form.patch(route('profile.update'));
+};
 </script>
 
 <template>
@@ -32,7 +47,7 @@ const form = useForm({
             </p>
         </header>
 
-        <form @submit.prevent="form.patch(route('profile.update'))" class="mt-6 space-y-6">
+        <form @submit.prevent="submit" novalidate class="mt-6 space-y-6">
             <div>
                 <InputLabel for="name" value="Name" />
 
@@ -41,7 +56,6 @@ const form = useForm({
                     type="text"
                     class="mt-1 block w-full"
                     v-model="form.name"
-                    required
                     autofocus
                     autocomplete="name"
                 />
@@ -57,7 +71,6 @@ const form = useForm({
                     type="email"
                     class="mt-1 block w-full"
                     v-model="form.email"
-                    required
                     autocomplete="username"
                 />
 

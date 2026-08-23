@@ -2,6 +2,7 @@
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import { ref } from 'vue'
+import { showSuccess, showError } from '@/Utils/swal'
 
 const form = useForm({
     title: '',
@@ -71,7 +72,18 @@ function insertTag(startTag, endTag = '') {
 }
 
 function submit() {
-    form.post(route('admin.posts.store'))
+    if (!form.title.trim() || !form.category.trim() || !form.content.trim()) {
+        showError("Lỗi nhập liệu", "Vui lòng điền đầy đủ tiêu đề, danh mục và nội dung bài viết!");
+        return;
+    }
+    form.post(route('admin.posts.store'), {
+        onSuccess: () => {
+            showSuccess("Thành công", "Tạo bài viết mới thành công!");
+        },
+        onError: (errs) => {
+            showError("Lỗi", Object.values(errs).join("\n"));
+        }
+    })
 }
 </script>
 
@@ -86,14 +98,14 @@ function submit() {
         </template>
 
         <div class="editor-container">
-            <form @submit.prevent="submit" class="editor-form">
+            <form @submit.prevent="submit" novalidate class="editor-form">
                 <div class="form-grid">
                     <!-- Left section: Form fields -->
                     <div class="form-left">
                         <div class="card">
                             <div class="form-group">
                                 <label for="title" class="form-label">Tiêu đề bài viết <span class="required">*</span></label>
-                                <input v-model="form.title" type="text" id="title" class="form-control" placeholder="Nhập tiêu đề hấp dẫn..." required />
+                                <input v-model="form.title" type="text" id="title" class="form-control" placeholder="Nhập tiêu đề hấp dẫn..." />
                                 <span v-if="form.errors.title" class="error-msg">{{ form.errors.title }}</span>
                             </div>
 

@@ -24,6 +24,18 @@ const showPassword = ref(false)
 const showPasswordConfirm = ref(false)
 
 const submit = () => {
+    form.clearErrors();
+    let hasError = false;
+    if (!form.password) {
+        form.setError('password', 'Vui lòng nhập mật khẩu mới.');
+        hasError = true;
+    }
+    if (!form.password_confirmation) {
+        form.setError('password_confirmation', 'Vui lòng xác nhận lại mật khẩu.');
+        hasError = true;
+    }
+    if (hasError) return;
+
     form.post(route('password.store'), {
         onFinish: () => form.reset('password', 'password_confirmation'),
     })
@@ -49,7 +61,7 @@ const submit = () => {
                         Ninh Bình HomeStay
                     </span>
                     <h1 class="text-5xl md:text-7xl font-bold tracking-tight text-[#2c2f31] mb-6 leading-[1.1]"
-                        style="font-family: 'Plus Jakarta Sans', sans-serif">
+                        style="font-family: Arial, sans-serif">
                         <span class="text-[#00628c]"> Khôi phục truy cập.</span>
                     </h1>
                     <p class="text-lg text-[#595c5e] max-w-lg mx-auto lg:mx-0 mb-8 leading-relaxed">
@@ -70,7 +82,7 @@ const submit = () => {
                                 </p>
                             </div>
 
-                            <form @submit.prevent="submit" class="space-y-6">
+                            <form @submit.prevent="submit" novalidate class="space-y-6">
                                 <!-- Email (Hidden) -->
                                 <input type="hidden" v-model="form.email" />
 
@@ -83,7 +95,7 @@ const submit = () => {
                                             lock
                                         </span>
                                         <input v-model="form.password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••"
-                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-12 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" required />
+                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-12 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" />
                                         <button type="button" @click="showPassword = !showPassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-[#747779] hover:text-[#00628c] focus:outline-none">
                                             <span class="material-symbols-outlined text-[20px]">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
                                         </button>
@@ -102,7 +114,7 @@ const submit = () => {
                                             verified_user
                                         </span>
                                         <input v-model="form.password_confirmation" :type="showPasswordConfirm ? 'text' : 'password'" placeholder="••••••••"
-                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-12 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" required />
+                                            class="w-full bg-white border-none rounded-xl py-4 pl-12 pr-12 focus:ring-4 focus:ring-[#57baf6]/30 transition-all text-[#2c2f31] outline-none" />
                                         <button type="button" @click="showPasswordConfirm = !showPasswordConfirm" class="absolute right-4 top-1/2 -translate-y-1/2 text-[#747779] hover:text-[#00628c] focus:outline-none">
                                             <span class="material-symbols-outlined text-[20px]">{{ showPasswordConfirm ? 'visibility_off' : 'visibility' }}</span>
                                         </button>
