@@ -276,8 +276,7 @@ const formatPaginationLabel = (label) => {
                 <!-- Tiêu đề nhỏ -->
                 <div class="ai-smart-search-label">
                     <i class="bi bi-stars"></i>
-                    <span>Tìm kiếm thông minh bằng AI</span>
-                    <span class="ai-powered-badge">Gemini AI</span>
+                    <span>Tìm kiếm thông minh</span>
                 </div>
 
                 <!-- Thanh input + nút tìm kiếm -->
@@ -299,7 +298,7 @@ const formatPaginationLabel = (label) => {
                     <button @click="handleAiSearch()" :disabled="isAiSearching || !aiPrompt.trim()"
                         class="ai-search-submit-btn" type="button">
                         <i :class="isAiSearching ? 'bi bi-arrow-repeat ai-spin' : 'bi bi-stars'"></i>
-                        {{ isAiSearching ? 'Đang tìm...' : 'Tìm AI' }}
+                        {{ isAiSearching ? 'Đang tìm...' : 'Tìm kiếm' }}
                     </button>
                 </div>
 
