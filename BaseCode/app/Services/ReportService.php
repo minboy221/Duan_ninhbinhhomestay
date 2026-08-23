@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Repositories\Contracts\ReportRepositoryInterface;
+use App\Traits\CompressesImages;
 use Illuminate\Support\Facades\Storage;
 use Exception;
 
 class ReportService
 {
+    //nén ảnh và giảm kích thước ảnh khi lưu trên cloudflare
+    use CompressesImages;
     protected $reportRepo;
 
     public function __construct(ReportRepositoryInterface $reportRepo)
@@ -30,10 +33,9 @@ class ReportService
         //phần upload ảnh bằng chứng
         $imagePaths = [];
         if (isset($data['evidence_images'])) {
-            foreach ($data['evidence_images'] as $image) {
-                $imagePaths[] = $image->store('reports/evidence', 'r2_private');
-            }
+            $imagePaths = $this->compressAndStoreMultipleImages($data['evidence_images'], 'reports/evidence', 'r2_private');
         }
+
         $settingDays = \App\Models\Setting::where('key', 'report_negotiation_days')
             ->value('value');
         $days = $settingDays ? (int) $settingDays : 2;
@@ -149,7 +151,7 @@ class ReportService
                     'Chủ trọ phản hồi giải trình báo cáo',
                     'Chủ trọ vừa gửi nội dung giải trình/khắc phục cho ' . $roomName . ' của bạn.',
                     'report_landlord_responded',
-                    '/profile/listbaocao'
+                    '/reports'
                 ));
             }
         }
@@ -205,7 +207,7 @@ class ReportService
                 ));
             }
         }
-        $updatedReport = $this->reportRepo->update($reportId,$updateData);
+        $updatedReport = $this->reportRepo->update($reportId, $updateData);
         event(new \App\Events\ReportUpdated($updatedReport));
         return $updatedReport;
     }

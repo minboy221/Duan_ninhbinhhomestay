@@ -3,6 +3,7 @@ import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import { ref, onMounted, onUnmounted } from "vue";
 import { showError } from "@/Utils/swal";
+import { compressMultipleImages } from "@/Utils/compressor";
 
 const props = defineProps({
     reports: Object,
@@ -17,12 +18,44 @@ const form = useForm({
     action: "target_resolve",
 });
 
-const statusText = {
-    pending: "Chờ bạn xử lý",
-    investigating: "Đang thương lượng",
-    resolved: "Đã giải quyết",
-    rejected: "Đã từ chối",
-    completed: "Hoàn thành",
+const getLandlordStatusText = (r) => {
+    if (!r) return '';
+    if (r.status === 'pending') {
+        return "Chờ Admin xử lý";
+    }
+    if (r.status === 'investigating') {
+        if (!r.target_resolved) {
+            return "Chờ bạn xử lý";
+        }
+        return "Đã phản hồi (Chờ khách duyệt)";
+    }
+    if (r.status === 'resolved') {
+        return "Đã giải quyết";
+    }
+    if (r.status === 'rejected' || r.status === 'ignored') {
+        return "Đã từ chối / Đóng";
+    }
+    return r.status;
+};
+
+const getLandlordStatusClass = (r) => {
+    if (!r) return 'bg-slate-100 text-slate-700';
+    if (r.status === 'pending') {
+        return 'bg-purple-100 text-purple-800 border border-purple-200';
+    }
+    if (r.status === 'investigating') {
+        if (!r.target_resolved) {
+            return 'bg-amber-100 text-amber-800 border border-amber-200';
+        }
+        return 'bg-sky-100 text-sky-800 border border-sky-200';
+    }
+    if (r.status === 'resolved') {
+        return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+    }
+    if (r.status === 'rejected' || r.status === 'ignored') {
+        return 'bg-rose-100 text-rose-800 border border-rose-200';
+    }
+    return 'bg-slate-100 text-slate-700';
 };
 
 const isViewOnly = ref(false);
@@ -97,13 +130,16 @@ function compressImage(
     });
 }
 
+const previewResponseUrls = ref([]);
+
 async function handleFileChange(event) {
     const files = Array.from(event.target.files);
-    const compressed = await Promise.all(
-        files.map((file) => compressImage(file)),
-    );
+    // Nén ảnh siêu tốc song song
+    const compressed = await compressMultipleImages(files);
     form.response_evidence = compressed;
+    previewResponseUrls.value = compressed.map((file) => URL.createObjectURL(file));
 }
+
 
 function submitResolution() {
     form.clearErrors();
@@ -281,30 +317,8 @@ onUnmounted(() => {
                         </td>
 
                         <td class="p-3 text-center">
-                            <span :class="[
-                                'px-2.5 py-1 rounded-full text-xs font-semibold',
-                                {
-                                    'bg-amber-100 text-amber-800':
-                                        r.status === 'pending',
-
-                                    'bg-sky-100 text-sky-800':
-                                        r.status === 'investigating',
-
-                                    'bg-green-100 text-green-800':
-                                        r.status === 'resolved',
-
-                                    'bg-red-100 text-red-800':
-                                        r.status === 'rejected',
-
-                                    'bg-slate-100 text-slate-700': ![
-                                        'pending',
-                                        'investigating',
-                                        'resolved',
-                                        'rejected',
-                                    ].includes(r.status),
-                                },
-                            ]">
-                                {{ statusText[r.status] ?? r.status }}
+                            <span :class="['px-2.5 py-1 rounded-full text-xs font-semibold', getLandlordStatusClass(r)]">
+                                {{ getLandlordStatusText(r) }}
                             </span>
                         </td>
                         <td class="p-3 text-center flex items-center justify-center gap-2">
@@ -315,12 +329,11 @@ onUnmounted(() => {
                             </button>
 
                             <!-- Nút phản hồi (Chỉ hiển thị khi chờ xử lý và chưa quá hạn) -->
-                            <button v-if="
-                                r.status === 'pending' &&
-                                !isExpired(r.negotiation_deadline)
-                            " @click="openResolveModal(r, false)"
+                            <button
+                                v-if="r.status === 'investigating' && !r.target_resolved && !isExpired(r.negotiation_deadline)"
+                                @click="openResolveModal(r, false)"
                                 class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold transition flex items-center gap-1">
-                                <i class="bi bi-chat-dots"></i> Giải trình
+                                <i class="bi bi-reply-fill"></i> Phản hồi
                             </button>
                         </td>
                     </tr>
@@ -434,32 +447,43 @@ img, idx
                         </p>
                     </div>
                     <!-- Chọn ảnh chứng minh của chủ trọ -->
-                    <div v-if="!isViewOnly">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                            Ảnh chứng minh khắc phục (nếu có):
+                    <div v-if="!isViewOnly" class="mt-3">
+                        <label class="block text-xs font-bold text-slate-600 mb-2">
+                            Ảnh bằng chứng khắc phục (nếu có):
                         </label>
-                        <input type="file" multiple accept="image/*" @change="handleFileChange"
-                            class="w-full text-xs" />
+
+                        <div class="grid grid-cols-2 gap-3 mb-2">
+                            <!-- Nút 1: Chụp ảnh trực tiếp từ Camera điện thoại -->
+                            <label
+                                class="flex flex-col items-center justify-center p-3 border-2 border-dashed border-indigo-300 bg-indigo-50/60 rounded-xl cursor-pointer hover:bg-indigo-100/60 transition-colors text-center">
+                                <i class="bi bi-camera-fill text-xl text-indigo-600 mb-1"></i>
+                                <span class="text-xs font-bold text-indigo-700">Chụp camera</span>
+                                <span class="text-[10px] text-indigo-500">Mở camera chụp ngay</span>
+                                <input type="file" accept="image/*" capture="environment" style="display: none"
+                                    @change="handleFileChange" />
+                            </label>
+
+                            <!-- Nút 2: Chọn từ Bộ sưu tập -->
+                            <label
+                                class="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-200 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors text-center">
+                                <i class="bi bi-images text-xl text-slate-500 mb-1"></i>
+                                <span class="text-xs font-bold text-slate-700">Bộ sưu tập</span>
+                                <span class="text-[10px] text-slate-400">Chọn ảnh có sẵn</span>
+                                <input type="file" multiple accept="image/*,.heic,.heif" style="display: none"
+                                    @change="handleFileChange" />
+                            </label>
+                        </div>
+
+                        <!-- Xem trước ảnh vừa chụp/chọn -->
+                        <div v-if="previewResponseUrls.length > 0" class="flex flex-wrap gap-2 pt-2">
+                            <img v-for="(url, idx) in previewResponseUrls" :key="idx" :src="url"
+                                class="w-16 h-16 object-cover rounded-lg border border-slate-200" />
+                        </div>
+
                         <p v-if="form.errors.response_evidence" class="text-rose-500 text-[11px] font-semibold mt-1">
                             {{ form.errors.response_evidence }}
                         </p>
-                    </div>
-                    <!-- Ảnh chứng minh cũ đã đăng tải -->
-                    <div v-if="
-                        isViewOnly &&
-                        selectedReport.response_evidence &&
-                        selectedReport.response_evidence.length
-                    ">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Ảnh khắc phục đã
-                            gửi:</label>
-                        <div class="flex flex-wrap gap-2">
-                            <img v-for="(
-img, idx
-                                ) in selectedReport.response_evidence" :key="idx" :src="'/storage/' + img"
-                                class="w-16 h-16 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-90"
-                                style="cursor: zoom-in" @click="zoomImage('/storage/' + img)" />
-                        </div>
-                    </div>
+                    </div>        
                     <!-- Ghi chú của Admin (nếu có) -->
                     <div v-if="selectedReport.admin_note"
                         class="bg-indigo-50/50 p-3 rounded-lg border border-indigo-100 text-xs">

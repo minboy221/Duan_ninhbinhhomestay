@@ -2,6 +2,10 @@
 import MainLayout from '@/Layouts/MainLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { formatMoney,timeAgo } from '@/Utils/formatters';
+import { getAvatarUrl, getRoomImageUrl } from "@/Utils/media";
+import { getStatusLabel, getStatusClass } from "@/Utils/statusHelper";
+import Pagination from "@/Components/Pagination.vue";
 
 // Props nhận dữ liệu từ Server (DB → Repository → Service → Controller → Inertia)
 const props = defineProps({
@@ -13,15 +17,6 @@ const props = defineProps({
     ai_parsed: { type: Object, default: () => null },
 });
 
-const timeAgo = (date) => {
-    if (!date) return '';
-    const diff = Math.floor((new Date() - new Date(date)) / 1000);
-    if (diff < 60) return `${diff} giây trước`;
-    if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
-    return `${Math.floor(diff / 86400)} ngày trước`;
-};
-
 // Trạng thái AI Search
 const aiPrompt = ref(props.filters?.ai_prompt || '');
 const isAiSearching = ref(false);
@@ -32,16 +27,29 @@ const isFilterCollapsed = ref(false);
 const areaDropdownRef = ref(null);
 
 const promptSuggestions = [
-    { label: '🏢 Tầng 1 Hoa Lư < 2.5tr', text: 'Tìm phòng tầng 1 quanh khu Hoa Lư, dưới 2.5 triệu' },
-    { label: '🌿 Studio gác xép nuôi pet', text: 'Phòng studio có gác xép, cho nuôi thú cưng' },
-    { label: '❄️ Có điều hòa & máy giặt', text: 'Phòng trọ có điều hòa, máy giặt, nóng lạnh dưới 3 triệu' },
-    { label: '👥 Phòng ghép sinh viên', text: 'Phòng ghép sinh viên giá rẻ dưới 1.5 triệu' },
+    { label: 'Tầng 1 Hoa Lư < 2.5tr', text: 'Tìm phòng tầng 1 quanh khu Hoa Lư, dưới 2.5 triệu' },
+    { label: 'Studio gác xép nuôi pet', text: 'Phòng studio có gác xép, cho nuôi thú cưng' },
+    { label: 'Có điều hòa & máy giặt', text: 'Phòng trọ có điều hòa, máy giặt, nóng lạnh dưới 3 triệu' },
+    { label: 'Phòng ghép sinh viên', text: 'Phòng ghép sinh viên giá rẻ dưới 1.5 triệu' },
 ];
 
 const filteredAreas = computed(() => {
     if (!areaSearchQuery.value.trim()) return props.areas || [];
     const q = areaSearchQuery.value.toLowerCase().trim();
     return (props.areas || []).filter(area => area.name.toLowerCase().includes(q));
+});
+
+const safeListings = computed(() => {
+    if (!props.listings) {
+        return { data: [], links: [], total: 0, current_page: 1, last_page: 1 };
+    }
+    return {
+        data: props.listings.data || [],
+        links: props.listings.links || [],
+        total: props.listings.total ?? (props.listings.data ? props.listings.data.length : 0),
+        current_page: props.listings.current_page || 1,
+        last_page: props.listings.last_page || 1,
+    };
 });
 
 // Đối tượng lưu trữ các giá trị lọc thủ công
@@ -129,21 +137,6 @@ onUnmounted(() => {
     window.removeEventListener('click', handleClickOutside);
 });
 
-// Thực thi lọc thủ công
-function submitSearch() {
-    const queryParams = {};
-    if (form.value.area_id) queryParams.area_id = form.value.area_id;
-    if (form.value.price) queryParams.price = form.value.price;
-    if (form.value.dientich) queryParams.dientich = form.value.dientich;
-    if (form.value.categories && form.value.categories.length) queryParams.categories = form.value.categories;
-    if (form.value.amenities && form.value.amenities.length) queryParams.amenities = form.value.amenities;
-    if (form.value.search && form.value.search.trim()) queryParams.search = form.value.search.trim();
-
-    router.get('/timtro', queryParams, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-}
 
 // Thực thi AI Search
 function handleAiSearch(promptText = null) {
@@ -215,35 +208,41 @@ function removeAiCriteria(type) {
     });
 }
 
-// Hiển thị trạng thái của phòng trọ
-const getStatusLabel = (status) => {
-    const labels = {
-        available: 'Còn phòng',
-        rented: 'Đã thuê',
-        maintenance: 'Bảo trì',
-        deposited: 'Đã cọc',
-        expiring_soon: 'Sắp hết hạn',
-        pending_renewal: 'Chờ gia hạn',
-        suspended: 'Tạm ngưng',
-        under_construction: 'Đang xây'
-    };
-    return labels[status] || status;
-};
+function submitSearch() {
+    const params = {};
+    if (form.value.area_id) params.area_id = form.value.area_id;
+    if (form.value.price) params.price = form.value.price;
+    if (form.value.dientich) params.dientich = form.value.dientich;
+    if (form.value.categories && form.value.categories.length > 0) {
+        params.category_id = form.value.categories;
+    }
+    if (form.value.amenities && form.value.amenities.length > 0) {
+        params.amenities = form.value.amenities;
+    }
+    if (props.filters?.search) {
+        params.search = props.filters.search;
+    }
 
-const getStatusClass = (status) => {
-    const classes = {
-        available: 'room-badge-available',
-        rented: 'room-badge-rented',
-        maintenance: 'room-badge-maintenance',
-        deposited: 'room-badge-deposited',
-        expiring_soon: 'room-badge-expiring',
-        pending_renewal: 'room-badge-renewal',
-        suspended: 'room-badge-suspended',
-        under_construction: 'room-badge-construction'
-    };
-    return classes[status] || 'room-badge-rented';
-};
+    router.get(route('timtro'), params, {
+        preserveState: true,
+        preserveScroll: false,
+    });
+}
 
+function resetFilters() {
+    form.value = {
+        area_id: null,
+        price: null,
+        dientich: null,
+        categories: [],
+        amenities: []
+    };
+    selectedArea.value = null;
+    router.get(route('timtro'), {}, {
+        preserveState: true,
+        preserveScroll: false,
+    });
+}
 
 const formatPaginationLabel = (label) => {
     if (!label) return '';
@@ -254,36 +253,6 @@ const formatPaginationLabel = (label) => {
         return 'Sau <i class="bi bi-chevron-right" style="margin-left: 4px;"></i>';
     }
     return label;
-};
-
-const getAvatarUrl = (avatar) => {
-    if (!avatar || typeof avatar !== 'string' || !avatar.trim()) return '/anh/banner.png';
-    const trimmed = avatar.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
-        return trimmed;
-    }
-    if (trimmed.startsWith('/storage/')) return trimmed;
-    if (trimmed.startsWith('storage/')) return '/' + trimmed;
-    if (trimmed.startsWith('/')) return trimmed;
-    return '/storage/' + trimmed;
-};
-
-const getRoomImageUrl = (images) => {
-    if (!images) return '/anh/banner_tro.png';
-    let firstImg = images;
-    if (Array.isArray(images)) {
-        if (images.length === 0) return '/anh/banner_tro.png';
-        firstImg = images[0];
-    }
-    if (typeof firstImg !== 'string' || !firstImg.trim()) return '/anh/banner_tro.png';
-    const trimmed = firstImg.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
-        return trimmed;
-    }
-    if (trimmed.startsWith('/storage/')) return trimmed;
-    if (trimmed.startsWith('storage/')) return '/' + trimmed;
-    if (trimmed.startsWith('/')) return trimmed;
-    return '/storage/' + trimmed;
 };
 </script>
 
@@ -544,8 +513,8 @@ const getRoomImageUrl = (images) => {
                 <!-- Header số lượng kết quả -->
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
                     <div class="text-sm text-slate-600 font-medium">
-                        Tìm thấy <strong class="text-blue-600 font-bold">{{ listings?.total || listings?.data?.length || 0
-                        }}</strong> phòng trọ phù hợp
+                        Tìm thấy <strong class="text-blue-600 font-bold">{{ safeListings.total }}</strong> phòng trọ phù
+                        hợp
                     </div>
                 </div>
 
@@ -561,16 +530,16 @@ const getRoomImageUrl = (images) => {
                             </span>
                             <span style="white-space: nowrap;">Danh sách phòng trọ</span>
                             <span
-                                style="font-size: 13px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 3px 12px; border-radius: 20px; white-space: nowrap; margin-left: 4px; display: inline-block;">{{
-                                    listings?.total || 0 }} phòng</span>
+                                style="font-size: 13px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 10px; border-radius: 20px;">{{
+                                    safeListings.total }} phòng</span>
                         </div>
-                        <div v-if="listings?.last_page > 1"
+                        <div v-if="safeListings.last_page > 1"
                             style="font-size: 12px; font-weight: 700; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 12px; border-radius: 20px;">
-                            Trang {{ listings?.current_page || 1 }} / {{ listings?.last_page || 1 }}
+                            Trang {{ safeListings.current_page }} / {{ safeListings.last_page }}
                         </div>
                     </div>
 
-                    <div v-if="!listings?.data || listings.data.length === 0"
+                    <div v-if="safeListings.data.length === 0"
                         style="text-align: center; padding: 60px 20px; width: 100%; color: #64748b;"
                         class="bg-white rounded-2xl border border-slate-200 shadow-sm">
                         <i class="bi bi-house-x text-5xl mb-3 text-slate-400 block"></i>
@@ -583,7 +552,7 @@ const getRoomImageUrl = (images) => {
                         </button>
                     </div>
 
-                    <div class="item_room" v-for="post in (listings?.data || [])" :key="post.id">
+                    <div class="item_room" v-for="post in safeListings.data" :key="post.id">
                         <div class="image_room">
                             <img :src="getRoomImageUrl(post.image)" alt="Ảnh phòng trọ" style="object-fit: cover;"
                                 @error="$event.target.src = '/anh/banner_tro.png'">
@@ -612,11 +581,11 @@ const getRoomImageUrl = (images) => {
                                 <!-- BADGE TRẠNG THÁI & THÔNG TIN PHÒNG -->
                                 <div v-if="post.room?.status" class="mt-2.5">
                                     <div class="room-badge-list">
-                                        <span class="room-badge" :class="getStatusClass(post.room.status)">
-                                            {{ getStatusLabel(post.room.status) }}
+                                        <span class="room-badge" :class="getStatusClass(post.room?.status)">
+                                            {{ getStatusLabel(post.room?.status) }}
                                         </span>
                                         <span v-if="post.room?.floor?.name" class="room-badge room-badge-floor">
-                                            <i class="bi bi-layers-fill"></i> {{ post.room.floor.name }}
+                                            <i class="bi bi-layers-fill"></i> {{ post.room?.floor?.name }}
                                         </span>
                                         <span v-if="post.room?.current_people > 0 || post.room?.status === 'rented'"
                                             class="room-badge room-badge-residents">
@@ -625,13 +594,15 @@ const getRoomImageUrl = (images) => {
                                         </span>
                                         <span v-if="post.room?.boarding_house?.average_rating > 0"
                                             class="room-badge-rating">
-                                            <i class="bi bi-star-fill"></i> {{ post.room.boarding_house.average_rating
+                                            <i class="bi bi-star-fill"></i> {{ post.room?.boarding_house?.average_rating
                                             }}
                                         </span>
                                         <span v-else class="room-badge-no-rating">Chưa có đánh giá</span>
                                     </div>
                                     <div class="about_room mt-2">
-                                        <p v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'"></p>
+                                        <p
+                                            v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'">
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -657,19 +628,7 @@ const getRoomImageUrl = (images) => {
         </div>
 
         <!-- Phân trang nằm chính giữa toàn bộ trang -->
-        <div class="phantrang" v-if="listings.links && listings.links.length > 3"
-            style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 25px auto 80px auto; position: relative; z-index: 10;">
-            <div class="baophantrang"
-                style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
-                <template v-for="(link, index) in listings.links" :key="index">
-                    <div class="so_trang" :class="{ 'active': link.active, 'disabled': !link.url }">
-                        <Link v-if="link.url" :href="link.url" v-html="formatPaginationLabel(link.label)"
-                            preserve-scroll></Link>
-                        <span v-else v-html="formatPaginationLabel(link.label)"></span>
-                    </div>
-                </template>
-            </div>
-        </div>
+        <Pagination :links="listings.links" />
     </MainLayout>
 </template>
 

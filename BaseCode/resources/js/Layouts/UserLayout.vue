@@ -2,6 +2,7 @@
 import { Link, usePage, useForm } from "@inertiajs/vue3";
 import { computed } from "vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
+import { getAvatarUrl, getRoomImageUrl } from "@/Utils/media";
 
 const { props } = usePage();
 const user = computed(() => props.auth.user);
@@ -28,17 +29,6 @@ const uploadAvatar = (e) => {
             preserveScroll: true,
         });
     }
-};
-const getAvatarUrl = (avatar) => {
-    if (!avatar) return "/anh/banner.png";
-    if (
-        avatar.startsWith("http") ||
-        avatar.startsWith("/") ||
-        avatar.startsWith("data:")
-    ) {
-        return avatar;
-    }
-    return "/storage/" + avatar;
 };
 </script>
 

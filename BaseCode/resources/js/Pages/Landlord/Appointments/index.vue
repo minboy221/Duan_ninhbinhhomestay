@@ -80,12 +80,12 @@ const statusMap = {
         dot: "bg-rose-500",
     },
     success_matched: {
-        label: "Đã thuê trọ",
+        label: "Đã chốt thuê",
         cls: "bg-teal-50 text-teal-600 border-teal-100",
         dot: "bg-teal-500",
     },
     false_matched: {
-        label: "Không thuê",
+        label: "Không chốt thuê",
         cls: "bg-gray-50 text-gray-500 border-gray-100",
         dot: "bg-gray-400",
     },
@@ -99,6 +99,27 @@ const statusMap = {
         cls: "bg-rose-50 text-rose-600 border-rose-200",
         dot: "bg-rose-500",
     },
+    joined_roommate: {
+        label: "Đã tham gia ở ghép",
+        cls: "bg-indigo-50 text-indigo-600 border-indigo-200",
+        dot: "bg-indigo-500",
+    },
+    became_main_tenant: {
+        label: "Đã thành khách chính",
+        cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        dot: "bg-emerald-600",
+    },
+    terminated: {
+        label: "Đã kết thúc",
+        cls: "bg-slate-100 text-slate-600 border-slate-200",
+        dot: "bg-slate-400",
+    },
+        roommate_removed: {
+        label: "Đã rời phòng ở ghép",
+        cls: "bg-rose-50 text-rose-700 border-rose-200 font-bold",
+        dot: "bg-rose-500",
+    },
+
 };
 
 const approveApt = (apt) => {

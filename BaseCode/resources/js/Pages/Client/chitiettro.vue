@@ -4,6 +4,7 @@ import { Head, Link, router, useForm, usePage } from "@inertiajs/vue3";
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import { showSuccess, showWarning, showConfirm } from "@/Utils/swal";
+import {compressMultipleImages} from "@/Utils/compressor";
 
 const props = defineProps({
     reportable_type: "Room",
@@ -403,79 +404,17 @@ function reportListing() {
     reportForm.evidence_images = [];
     showReportModal.value = true;
 }
-// Hàm nén ảnh bằng HTML5 Canvas trực tiếp ở trình duyệt
-function compressImage(
-    file,
-    { maxWidth = 1200, maxHeight = 1200, quality = 0.7 } = {},
-) {
-    return new Promise((resolve, reject) => {
-        if (!file.type.startsWith("image/")) {
-            return resolve(file);
-        }
-
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const canvas = document.createElement("canvas");
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height = Math.round((height * maxWidth) / width);
-                        width = maxWidth;
-                    }
-                } else {
-                    if (height > maxHeight) {
-                        width = Math.round((width * maxHeight) / height);
-                        height = maxHeight;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob) {
-                            const compressedFile = new File([blob], file.name, {
-                                type: file.type,
-                                lastModified: Date.now(),
-                            });
-                            resolve(compressedFile);
-                        } else {
-                            resolve(file);
-                        }
-                    },
-                    file.type,
-                    quality,
-                );
-            };
-        };
-        reader.onerror = (error) => reject(error);
-    });
-}
 
 //khi chọn ảnh minh chứng
 const previewUrls = ref([]);
 
 const handleEvidenceChange = async (e) => {
     const files = Array.from(e.target.files);
-
-    // Nén song song toàn bộ ảnh bằng chứng
-    const compressed = await Promise.all(
-        files.map((file) => compressImage(file)),
-    );
-
+    const compressed = await compressMultipleImages(files);
     reportForm.evidence_images = compressed;
     previewUrls.value = compressed.map((file) => URL.createObjectURL(file));
 };
+
 
 const removeEvidenceImage = (index) => {
     reportForm.evidence_images.splice(index, 1);
@@ -521,6 +460,13 @@ onMounted(() => {
 onUnmounted(() => {
     window.Echo.leaveChannel("rooms");
 });
+
+const handleEvidenceImages = async (e) => {
+    const files = Array.from(e.target.files);
+    const compressedFiles = await compressMultipleImages(files);
+    reportForm.evidence_images = compressedFiles;
+    previewEvidenceImages.value = compressedFiles.map(file => URL.createObjectURL(file));
+};
 </script>
 
 <template>
@@ -542,7 +488,7 @@ onUnmounted(() => {
                 <i class="bi bi-check-circle-fill"></i>
                 <span class="flash-message">{{
                     $page.props.flash.success
-                    }}</span>
+                }}</span>
                 <button type="button" @click="showSuccessAlert = false" class="flash-close-btn">
                     &times;
                 </button>
@@ -593,7 +539,8 @@ onUnmounted(() => {
                                     : "ĐÃ ĐƯỢC KIỂM CHỨNG"
                             }}</span>
                         </div>
-                        <div v-if="room.current_people > 0 || room.status === 'rented'" class="theloai" style="background: #ecfdf5; color: #059669; border-color: #a7f3d0; margin-left: 6px;">
+                        <div v-if="room.current_people > 0 || room.status === 'rented'" class="theloai"
+                            style="background: #ecfdf5; color: #059669; border-color: #a7f3d0; margin-left: 6px;">
                             <i class="bi bi-person-check-fill"></i>
                             <span>ĐÃ CÓ {{ room.current_people || 1 }} NGƯỜI Ở</span>
                         </div>
@@ -818,50 +765,64 @@ onUnmounted(() => {
         <!-- Phần Bình Luận / Đánh giá -->
         <section class="reviews-section" style="max-width: 1200px; margin: 40px auto; padding: 0 20px;">
             <div style="background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+                <h3
+                    style="font-size: 20px; font-weight: 700; margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
                     <i class="bi bi-chat-right-quote-fill" style="color: #7c3aed;"></i> Đánh giá từ người thuê
                 </h3>
-                
+
                 <!-- Danh sách bình luận -->
-                <div v-if="room.reviews && room.reviews.length > 0" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px;">
-                    <div v-for="rev in room.reviews" :key="rev.id" 
-                         :style="rev.is_notice ? 'padding: 16px; background: #fef2f2; border-radius: 8px; border: 1px solid #fee2e2; border-left: 4px solid #ef4444;' : 'padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;'">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <div v-if="room.reviews && room.reviews.length > 0"
+                    style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px;">
+                    <div v-for="rev in room.reviews" :key="rev.id"
+                        :style="rev.is_notice ? 'padding: 16px; background: #fef2f2; border-radius: 8px; border: 1px solid #fee2e2; border-left: 4px solid #ef4444;' : 'padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;'">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #64748b;">
-                                    <img v-if="rev.tenant_avatar" :src="rev.tenant_avatar.startsWith('http') || rev.tenant_avatar.startsWith('/') ? rev.tenant_avatar : `/storage/${rev.tenant_avatar}`" style="width:100%; height:100%; object-fit:cover;" />
+                                <div
+                                    style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #64748b;">
+                                    <img v-if="rev.tenant_avatar"
+                                        :src="rev.tenant_avatar.startsWith('http') || rev.tenant_avatar.startsWith('/') ? rev.tenant_avatar : `/storage/${rev.tenant_avatar}`"
+                                        style="width:100%; height:100%; object-fit:cover;" />
                                     <span v-else>{{ rev.tenant_name ? rev.tenant_name[0].toUpperCase() : 'U' }}</span>
                                 </div>
                                 <div>
                                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
-                                        <p style="margin: 0; font-weight: 600;" :style="rev.is_notice ? 'color: #b91c1c;' : 'color: #0f172a;'">
+                                        <p style="margin: 0; font-weight: 600;"
+                                            :style="rev.is_notice ? 'color: #b91c1c;' : 'color: #0f172a;'">
                                             {{ rev.tenant_name || 'Khách hàng' }}
                                         </p>
-                                        <span v-if="rev.is_notice" style="background: rgba(239,68,68,0.15); color: #ef4444; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
+                                        <span v-if="rev.is_notice"
+                                            style="background: rgba(239,68,68,0.15); color: #ef4444; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
                                             <i class="bi bi-megaphone-fill"></i> Tin quan trọng
                                         </span>
-                                        <span v-if="rev.is_admin" style="background: #ef4444; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 12px; font-weight: 700;">
+                                        <span v-if="rev.is_admin"
+                                            style="background: #ef4444; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 12px; font-weight: 700;">
                                             <i class="bi bi-star-fill"></i> Boss
                                         </span>
-                                        <span v-else-if="rev.is_owner" style="background: #ef4444; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 12px; font-weight: 700;">
+                                        <span v-else-if="rev.is_owner"
+                                            style="background: #ef4444; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 12px; font-weight: 700;">
                                             <i class="bi bi-house-fill"></i> Chủ trọ
                                         </span>
                                     </div>
-                                    <p style="margin: 0; font-size: 12px;" :style="rev.is_notice ? 'color: #94a3b8;' : 'color: #64748b;'">
+                                    <p style="margin: 0; font-size: 12px;"
+                                        :style="rev.is_notice ? 'color: #94a3b8;' : 'color: #64748b;'">
                                         {{ rev.created_at }}
                                     </p>
                                 </div>
                             </div>
                             <div v-if="!rev.is_notice" style="color: #fbbf24; font-size: 14px;">
-                                <i v-for="s in 5" :key="s" :class="s <= rev.rating ? 'bi bi-star-fill' : 'bi bi-star'" style="margin-left: 2px;"></i>
+                                <i v-for="s in 5" :key="s" :class="s <= rev.rating ? 'bi bi-star-fill' : 'bi bi-star'"
+                                    style="margin-left: 2px;"></i>
                             </div>
                         </div>
-                        <p style="margin: 0; font-size: 14px; line-height: 1.5;" :style="rev.is_notice ? 'color: #1e293b; font-weight: 500;' : 'color: #334155;'">
+                        <p style="margin: 0; font-size: 14px; line-height: 1.5;"
+                            :style="rev.is_notice ? 'color: #1e293b; font-weight: 500;' : 'color: #334155;'">
                             {{ rev.comment }}
                         </p>
                     </div>
                 </div>
-                <div v-else style="text-align: center; padding: 30px; color: #94a3b8; background: #f8fafc; border-radius: 8px; margin-bottom: 30px;">
+                <div v-else
+                    style="text-align: center; padding: 30px; color: #94a3b8; background: #f8fafc; border-radius: 8px; margin-bottom: 30px;">
                     <i class="bi bi-chat-square-dots" style="font-size: 32px; display: block; margin-bottom: 10px;"></i>
                     Chưa có đánh giá nào cho phòng này.
                 </div>
@@ -873,28 +834,29 @@ onUnmounted(() => {
                     </h4>
                     <form @submit.prevent="submitDirectReview">
                         <div v-if="!isNoticeSender" style="margin-bottom: 16px;">
-                            <label style="display: block; font-size: 14px; color: #475569; margin-bottom: 8px;">Đánh giá (Sao)</label>
+                            <label style="display: block; font-size: 14px; color: #475569; margin-bottom: 8px;">Đánh giá
+                                (Sao)</label>
                             <div style="display: flex; gap: 8px; font-size: 24px; cursor: pointer; color: #cbd5e1;">
-                                <i v-for="s in 5" :key="s" 
-                                   :class="s <= reviewForm.rating ? 'bi bi-star-fill text-yellow-400' : 'bi bi-star'"
-                                   @click="reviewForm.rating = s"
-                                   style="transition: color 0.2s;"
-                                ></i>
+                                <i v-for="s in 5" :key="s"
+                                    :class="s <= reviewForm.rating ? 'bi bi-star-fill text-yellow-400' : 'bi bi-star'"
+                                    @click="reviewForm.rating = s" style="transition: color 0.2s;"></i>
                             </div>
                         </div>
                         <div style="margin-bottom: 16px;">
                             <label style="display: block; font-size: 14px; color: #475569; margin-bottom: 8px;">
                                 {{ isNoticeSender ? 'Nội dung thông báo' : 'Bình luận' }}
                             </label>
-                            <textarea v-model="reviewForm.comment" rows="3" 
-                                      :placeholder="isNoticeSender ? 'Nhập nội dung thông báo (sẽ được ghim lên đầu)...' : 'Chia sẻ trải nghiệm của bạn khi ở phòng này...'" 
-                                      style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 14px; resize: vertical;"></textarea>
-                            <span v-if="reviewForm.errors.comment" style="color: #ef4444; font-size: 12px; margin-top: 4px; display: block;">{{ reviewForm.errors.comment }}</span>
+                            <textarea v-model="reviewForm.comment" rows="3"
+                                :placeholder="isNoticeSender ? 'Nhập nội dung thông báo (sẽ được ghim lên đầu)...' : 'Chia sẻ trải nghiệm của bạn khi ở phòng này...'"
+                                style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 14px; resize: vertical;"></textarea>
+                            <span v-if="reviewForm.errors.comment"
+                                style="color: #ef4444; font-size: 12px; margin-top: 4px; display: block;">{{
+                                    reviewForm.errors.comment }}</span>
                         </div>
-                        <button type="submit" :disabled="reviewForm.processing" 
-                                :style="isNoticeSender 
-                                    ? 'background: #ef4444; color: #fff; padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 8px;' 
-                                    : 'background: #7c3aed; color: #fff; padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 8px;'">
+                        <button type="submit" :disabled="reviewForm.processing"
+                            :style="isNoticeSender
+                                ? 'background: #ef4444; color: #fff; padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 8px;'
+                                : 'background: #7c3aed; color: #fff; padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 8px;'">
                             <span v-if="reviewForm.processing" class="spinner-border spinner-border-sm"></span>
                             <i v-else :class="isNoticeSender ? 'bi bi-megaphone-fill' : 'bi bi-send-fill'"></i>
                             {{ isNoticeSender ? 'Đăng thông báo' : 'Gửi đánh giá' }}
@@ -924,7 +886,8 @@ onUnmounted(() => {
                 <div v-for="sim in similarRooms" :key="sim.id" class="item_tindang">
                     <Link :href="route('chitiettro', sim.slug_with_hash)" class="similar-card-link">
                         <div class="img">
-                            <img :src="formatImgUrl(sim.images && sim.images[0])" alt="Phòng tương tự" @error="$event.target.src = '/anh/banner_tro.png'" />
+                            <img :src="formatImgUrl(sim.images && sim.images[0])" alt="Phòng tương tự"
+                                @error="$event.target.src = '/anh/banner_tro.png'" />
                             <span class="count"><i class="bi bi-camera"></i>
                                 {{ sim.images ? sim.images.length : 1 }}</span>
                         </div>
@@ -991,7 +954,7 @@ onUnmounted(() => {
                         </div>
                         <span v-if="form.errors.date" class="modal-error">{{
                             form.errors.date
-                            }}</span>
+                        }}</span>
                     </div>
 
                     <!-- 3. Chọn giờ (Liên kết động với khung giờ rảnh của chủ trọ) -->
@@ -1035,7 +998,7 @@ onUnmounted(() => {
 
                         <span v-if="form.errors.time" class="modal-error">{{
                             form.errors.time
-                            }}</span>
+                        }}</span>
                     </div>
 
                     <!-- 4. Ghi chú -->
@@ -1045,7 +1008,7 @@ onUnmounted(() => {
                             placeholder="Nhập ghi chú thêm cho chủ nhà biết nhu cầu của bạn..." rows="3"></textarea>
                         <span v-if="form.errors.note" class="modal-error">{{
                             form.errors.note
-                            }}</span>
+                        }}</span>
                     </div>
 
                     <!-- 5. Nút gửi -->
@@ -1161,17 +1124,33 @@ onUnmounted(() => {
 
                     <!-- Upload (Chỉ hiển thị khi báo cáo hệ thống) -->
                     <div v-if="reportForm.resolve_type === 'system'" class="form-group">
-                        <label class="form-label">
-                            <i class="bi bi-images"></i>
-                            Hình ảnh bằng chứng
+                        <label class="block text-xs font-bold text-slate-600 mb-2 flex items-center gap-1">
+                            <i class="bi bi-images"></i> Hình ảnh bằng chứng
                         </label>
-                        <label class="upload-box">
-                            <i class="bi bi-cloud-upload"></i>
-                            <p>Nhấn để chọn ảnh</p>
-                            <span>PNG, JPG, JPEG • Tối đa 5 ảnh</span>
-                            <input type="file" class="hidden" multiple accept="image/*" style="display: none"
-                                @change="handleEvidenceChange" />
-                        </label>
+
+                        <!-- Cụm 2 nút: Chụp ảnh trực tiếp & Chọn từ bộ sưu tập -->
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <!-- Nút 1: Chụp ảnh bằng Camera điện thoại -->
+                            <label
+                                class="upload-box flex flex-col items-center justify-center p-3 border-2 border-dashed border-blue-400 bg-blue-50/60 rounded-xl cursor-pointer hover:bg-blue-100/60 transition-colors">
+                                <i class="bi bi-camera-fill text-2xl text-blue-600 mb-1"></i>
+                                <p class="text-xs font-bold text-blue-700">Chụp ảnh mới</p>
+                                <span class="text-[10px] text-blue-500">Mở camera trực tiếp</span>
+                                <!-- capture="environment" sẽ tự động mở Camera sau của điện thoại -->
+                                <input type="file" class="hidden" accept="image/*" capture="environment"
+                                    style="display: none" @change="handleEvidenceChange" />
+                            </label>
+
+                            <!-- Nút 2: Chọn ảnh có sẵn từ Bộ sưu tập -->
+                            <label
+                                class="upload-box flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                <i class="bi bi-images text-2xl text-slate-500 mb-1"></i>
+                                <p class="text-xs font-bold text-slate-700">Bộ sưu tập</p>
+                                <span class="text-[10px] text-slate-400">Chọn ảnh có sẵn</span>
+                                <input type="file" class="hidden" multiple accept="image/*,.heic,.heif"
+                                    style="display: none" @change="handleEvidenceChange" />
+                            </label>
+                        </div>
 
                         <!-- Hiển thị danh sách ảnh xem trước (Preview) -->
                         <div v-if="previewUrls.length > 0" class="preview-grid">

@@ -10,9 +10,12 @@ use PharIo\Manifest\License;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Repositories\Interfaces\RoomPostRepositoryInterface;
 use App\Repositories\Interfaces\ReviewRepositoryInterface;
+use App\Traits\HandlesStorageFiles;
 
 class RoomListingService
 {
+    use HandlesStorageFiles;
+
     protected $roomPostRepository;
     protected $reviewRepository;
 
@@ -80,37 +83,6 @@ class RoomListingService
             ->paginate(10); //phân trang
     }
 
-    //phần sử lý upload ảnh bài đăng
-    public function uploadImages(array $files): array
-    {
-        $uploadedImages = [];
-        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
-        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
-
-        foreach ($files as $file) {
-            if ($file && $file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
-                if ($useR2) {
-                    try {
-                        $path = $file->store('room_posts_images', 'r2_public');
-                        if (!empty($r2Url) && !str_starts_with($path, 'http')) {
-                            $uploadedImages[] = $r2Url . '/' . ltrim($path, '/');
-                        } else {
-                            $uploadedImages[] = str_starts_with($path, 'http') ? $path : '/storage/' . ltrim($path, '/');
-                        }
-                        continue;
-                    } catch (\Throwable $e) {
-                        // Fallback sang public disk
-                    }
-                }
-
-                try {
-                    $path = $file->store('room_posts_images', 'public');
-                    $uploadedImages[] = '/storage/' . ltrim($path, '/');
-                } catch (\Throwable $ex) {}
-            }
-        }
-        return $uploadedImages;
-    }
 
     // Phần thêm mới bài đăng của chủ trọ dưới dạng nháp hoặc chờ duyệt
     public function createPost(array $data, array $files, string $status): RoomPost
@@ -192,8 +164,7 @@ class RoomListingService
             $oldImages = $post->image ?? [];
             $deletedImages = array_diff($oldImages, $imageUrls);
             foreach ($deletedImages as $url) {
-                $path = str_replace('/storage/', '', $url);
-                Storage::disk('public')->delete($path);
+                $this->deleteSingleImage($url);                
             }
             //nếu user đăng tải thêm ảnh mới
             if ($newFiles) {
@@ -227,8 +198,7 @@ class RoomListingService
             if (!empty($post->image) && is_array($post->image)) {
                 foreach ($post->image as $url) {
                     //chuyển đổi từ link public về đường dẫn gốc để xoá
-                    $path = str_replace('/storage/', '', $url);
-                    Storage::disk('public')->delete($path);
+                   $this->deleteSingleImage($url);
                 }
             }
             //xoá dữ liệu đó trong bảng room_posts của db
@@ -259,8 +229,8 @@ class RoomListingService
     {
         return DB::transaction(function () use ($post, $reason) {
             $updated = $post->update([
-                'status' => 'rejected',       // Chuyển trạng thái sang từ chối
-                'reject_reason' => $reason,          // Ghi nhận lý do gõ từ popup admin vào trường reject_reason của bạn
+                'status' => 'rejected',     
+                'reject_reason' => $reason,  
                 'published_at' => null,
             ]);
 
@@ -270,6 +240,27 @@ class RoomListingService
             }
             return $updated;
         });
+    }
+
+    //hàm xoá ảnh nếu tin đăng bị xoá
+    protected function deleteSingleImage(?string $url): void{
+        if(empty($url)) return;
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+        //check nếu url là ảnh lưu trên cloudflare R2
+        if(!empty($r2Url) && str_starts_with($url, $r2Url)){
+            $r2Path = ltrim(substr($url, strlen($r2Url)),'/');
+            try{
+                Storage::disk('r2_public')->delete($r2Path);
+                return;
+            }catch(\Throwable $e){
+            }
+        }
+        //nếu là ảnh lưu local
+        $localPath = str_replace('/storage/', '', parse_url($url,PHP_URL_PATH) ?? $url);
+        try{
+            Storage::disk('public')->delete(ltrim($localPath, '/'));
+        }catch (\Throwable $e){
+        }
     }
 }
 ?>

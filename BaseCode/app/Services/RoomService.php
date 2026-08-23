@@ -10,9 +10,11 @@ use App\Repositories\RoomRepository;
 use App\Repositories\PropertyRepository;
 use App\Repositories\FloorRepository;
 use Illuminate\Support\Facades\Storage;
+use App\Traits\HandlesStorageFiles;
 
 class RoomService
 {
+    use HandlesStorageFiles;
     protected RoomRepository $roomRepo;
     protected PropertyRepository $propertyRepo;
     protected FloorRepository $floorRepo;
@@ -175,19 +177,19 @@ class RoomService
             $hasActivePost = \App\Models\RoomPost::where('room_id', $room->id)
                 ->whereIn('status', ['published', 'approved', 'pending'])
                 ->exists();
-                if($hasActivePost){
-                    throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang có bài đăng tin trên hệ thống. Vui lòng gỡ hoặc ẩn tin đăng trước!");
-                }
+            if ($hasActivePost) {
+                throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang có bài đăng tin trên hệ thống. Vui lòng gỡ hoặc ẩn tin đăng trước!");
+            }
             //chặn nếu trong phòng, tầng/dãy có hợp đồng thuê còn hiệu lực
-            $hasActiveContract = \App\Models\Contract::where('room_id',$room->id)
-            ->whereIn('status',['active','signed','awaiting_upload','pending_renewal'])
-            ->exists();
-            if($hasActiveContract){
+            $hasActiveContract = \App\Models\Contract::where('room_id', $room->id)
+                ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'pending_renewal'])
+                ->exists();
+            if ($hasActiveContract) {
                 throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang có Hợp Đồng thuê còn hiệu lực!");
             }
             //chặn nếu phòng đang ở trạng thái đã thuê hoặc đặt cọc
-            $restrictedStatuses = ['rented','deposited','expiring_soon','pending_renewal'];
-            if(in_array($room->status, $restrictedStatuses)){
+            $restrictedStatuses = ['rented', 'deposited', 'expiring_soon', 'pending_renewal'];
+            if (in_array($room->status, $restrictedStatuses)) {
                 throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang trong trạng thái Đã thuê hoặc Đặt cọc!");
             }
         }
@@ -234,8 +236,6 @@ class RoomService
             return null;
         }
 
-        $imagePaths = $this->uploadImages($imageFiles);
-
         $boardingHouse = null;
         if ($boardingHouseId) {
             $boardingHouse = \App\Models\BoardingHouse::find($boardingHouseId);
@@ -250,6 +250,9 @@ class RoomService
             $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first()
                 ?: \App\Models\BoardingHouse::first();
         }
+        if (!$boardingHouse) {
+            throw new \Exception("Vui lòng khởi tạo ít nhất 1 cơ  sở nhà trọ trước khi thêm phòng!");
+        }
 
         // Kiểm tra trùng số phòng trong cùng tầng và cùng cơ sở
         $query = Room::where('floor_id', $data['floor_id'])
@@ -259,20 +262,23 @@ class RoomService
         }
         $exists = $query->exists();
 
-        if ($exists)
+        if ($exists) {
             return null;
+        }
+
+        $imagePaths = !empty($imageFiles) ? $this->uploadImages($imageFiles) : [];
 
         $roomInsertData = [
             'boarding_house_id' => $boardingHouse ? $boardingHouse->id : null,
-            'floor_id'        => $data['floor_id'],
-            'room_number'     => $data['room_number'],
-            'address'         => $data['address'] ?? null,
-            'price'           => (float) ($data['price'] ?? 0),
-            'area'            => (float) ($data['area'] ?? 0),
-            'capacity'        => (int) ($data['capacity'] ?? 2),
-            'status'          => $data['status'] ?? 'available',
-            'amenities'       => $data['amenities'] ?? null,
-            'images'          => $imagePaths ?: null,
+            'floor_id' => $data['floor_id'],
+            'room_number' => $data['room_number'],
+            'address' => $data['address'] ?? null,
+            'price' => (float) ($data['price'] ?? 0),
+            'area' => (float) ($data['area'] ?? 0),
+            'capacity' => (int) ($data['capacity'] ?? 2),
+            'status' => $data['status'] ?? 'available',
+            'amenities' => $data['amenities'] ?? null,
+            'images' => $imagePaths ?: null,
         ];
 
         if (\Illuminate\Support\Facades\Schema::hasColumn('rooms', 'property_id')) {
@@ -306,9 +312,13 @@ class RoomService
     public function updateRoom(int $landlordId, int $roomId, array $data, array $newImageFiles = [], array $removedImages = []): bool
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->property->landlord_id !== $landlordId)
+        if (!$room)
             return false;
-
+        //check an toàn 
+        $ownerId = $room->boardingHouse->user_id ?? $room->floor->property->landlord_id ?? null;
+        if ($ownerId && $ownerId !== $landlordId) {
+            return false;
+        }
         //chặn người dùng chỉnh sửa nếu phòng đó đã có tin đăngg được hiển thị ở clien
         if ($room->roomPosts()->where('status', 'approved')->exists()) {
             throw new \Exception('Không thể chỉnh sửa thông tin phòng vì phòng này đã có tin được hiển thị');
@@ -336,7 +346,7 @@ class RoomService
         $currentImages = $room->images ?? [];
         // Xóa ảnh được đánh dấu remove
         foreach ($removedImages as $img) {
-            Storage::disk('public')->delete($img);
+            Storage::disk('r2_public')->delete($img);
             $currentImages = array_filter($currentImages, fn($i) => $i !== $img);
         }
         // Upload ảnh mới
@@ -366,11 +376,24 @@ class RoomService
         $updated = $this->roomRepo->update($room, $updateData);
 
         if ($updated && isset($data['service_ids']) && is_array($data['service_ids'])) {
-            $room->services()->sync($data['service_ids']);
+            //lưu lại giá đóng băng hiện tại trong bảng pivot để tránh bị reset về null
+            $existingPivots = \DB::table('room_service')
+                ->where('room_id', $room->id)
+                ->pluck('price', 'service_id')
+                ->toArray();
+            $syncData = [];
+            foreach ($data['service_ids'] as $sId) {
+                $sId = (int) $sId;
+                if (isset($existingPivots[$sId]) && !is_null($existingPivots[$sId])) {
+                    $syncData[$sId] = ['price' => $existingPivots[$sId]];
+                } else {
+                    $syncData[$sId] = [];
+                }
+            }
+            $room->services()->sync($syncData);
             $serviceNames = $room->services()->pluck('name')->toArray();
-            $room->update(['amenities' => implode(', ', $serviceNames)]);
+            $room->update(['amenities' => implode(',', $serviceNames)]);
         }
-
         return $updated;
     }
 
@@ -561,6 +584,17 @@ class RoomService
         if ($room->roomPosts()->where('status', 'approved')->exists()) {
             throw new \Exception('Không thể xoá phòng vì phòng này đã có tin được hiển thị');
         }
+        //chặn xoá phòng nếu phòng đang có hợp đồng hiệu lực
+        $hasActiveContract = \App\Models\Contract::where('room_id', $room->id)
+            ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'pending_renewal'])
+            ->exists();
+        if ($hasActiveContract) {
+            throw new \Exception("không thể xoá phòng này vì đang có hợp đồng thuê còn hiệu lực!");
+        }
+        //chặn xoá nếu phòng đang trong trạng thái đã thuê hoặc đặt cọc
+        if (in_array($room->status, ['rented', 'deposited', 'expiring_soon', 'pending_renewal'])) {
+            throw new \Exception("Không thể xoá phòng này vì phìng đang ở trạng thái Đã thuê hoặc Đặt cọc!");
+        }
         $this->deleteRoomImages($room);
         return $this->roomRepo->delete($room);
     }
@@ -608,10 +642,10 @@ class RoomService
             'current_people' => $currentPeople,
             'amenities' => $room->amenities,
             'images' => $room->images ?? [],
-            'services' => $room->relationLoaded('services') ? $room->services->map(function($service) {
+            'services' => $room->relationLoaded('services') ? $room->services->map(function ($service) {
                 $srv = $service->toArray();
                 if ($service->pivot && !is_null($service->pivot->price)) {
-                    $srv['price'] = (float)$service->pivot->price;
+                    $srv['price'] = (float) $service->pivot->price;
                 }
                 return $srv;
             })->toArray() : [],
@@ -629,47 +663,12 @@ class RoomService
         ];
     }
 
-    private function uploadImages(array $files): array
-    {
-        $paths = [];
-        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
-        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
-
-        foreach ($files as $file) {
-            if ($file && $file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
-                if ($useR2) {
-                    try {
-                        $stored = $file->store('rooms', 'r2_public');
-                        if (!empty($r2Url) && !str_starts_with($stored, 'http')) {
-                            $paths[] = $r2Url . '/' . ltrim($stored, '/');
-                        } else {
-                            $paths[] = str_starts_with($stored, 'http') ? $stored : '/storage/' . ltrim($stored, '/');
-                        }
-                        continue;
-                    } catch (\Throwable $e) {
-                        // Fallback sang local public disk nếu R2 gặp sự cố
-                    }
-                }
-
-                try {
-                    $stored = $file->store('rooms', 'public');
-                    $paths[] = '/storage/' . ltrim($stored, '/');
-                } catch (\Throwable $ex) {}
-            }
-        }
-        return $paths;
-    }
-
     private function deleteRoomImages($room): void
     {
         if (!empty($room->images) && is_array($room->images)) {
             foreach ($room->images as $img) {
-                try {
-                    $relativePath = str_replace('/storage/', '', $img);
-                    \Illuminate\Support\Facades\Storage::disk('public')->delete($relativePath);
-                } catch (\Exception $e) {
-                    // Ignore exception on delete
-                }
+                $this->deleteSingleImage($img);
+                Storage::disk('r2_public')->delete($img);
             }
         }
     }

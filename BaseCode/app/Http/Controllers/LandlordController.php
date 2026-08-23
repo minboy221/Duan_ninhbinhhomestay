@@ -68,8 +68,8 @@ class LandlordController extends Controller
                 }
                 $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
                 $path = $request->file('avatar')->store('avatars', $disk);
-                $data['avatar'] = (str_starts_with($path, 'http') || str_starts_with($path, '/storage/')) 
-                    ? $path 
+                $data['avatar'] = (str_starts_with($path, 'http') || str_starts_with($path, '/storage/'))
+                    ? $path
                     : '/storage/' . ltrim($path, '/');
             } catch (\Throwable $e) {
                 $path = $request->file('avatar')->store('avatars', 'public');
@@ -539,8 +539,18 @@ class LandlordController extends Controller
 
         $tenants = $tenantService->getFormattedTenants($landlordId, $boardingHouseId);
 
+        // Lấy danh sách tầng của chủ trọ / cơ sở đang chọn để phục vụ Bộ lọc Tầng
+        $floorsQuery = \App\Models\Floor::whereHas('property', function ($q) use ($landlordId) {
+            $q->where('landlord_id', $landlordId);
+        });
+        if ($boardingHouseId) {
+            $floorsQuery->where('property_id', $boardingHouseId);
+        }
+        $floors = $floorsQuery->select('id', 'name')->get();
+
         return Inertia::render('Landlord/Tenants/index', [
-            'tenants' => $tenants
+            'tenants' => $tenants,
+            'floors' => $floors,
         ]);
     }
 
@@ -568,7 +578,7 @@ class LandlordController extends Controller
             });
         }
 
-        $contracts = $query->with(['room.residents.user', 'tenant'])
+        $contracts = $query->with(['room.residents.user', 'tenant','extensions'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -576,7 +586,7 @@ class LandlordController extends Controller
         $existingContractRoomIds = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHousesId) {
             $q->where('boarding_house_id', $boardingHousesId);
         })
-            ->whereIn('status', ['awaiting_upload', 'active', 'signed'])
+            ->whereIn('status', ['awaiting_upload', 'active', 'signed', 'expiring', 'termination_requested'])
             ->pluck('room_id')
             ->toArray();
 
@@ -1011,29 +1021,35 @@ class LandlordController extends Controller
             $elecOldImgPath = null;
             $elecFileKey = "readings.{$index}.elec_image";
             if ($request->hasFile($elecFileKey)) {
-                $elecImgPath = $request->file('elec_meter_image')->store('meter_readings', 'r2_public');
+                $elecImgPath = '/storage/' . $request->file($elecFileKey)->store('meter_readings', 'r2_public');
             }
 
             $waterImgPath = null;
             $waterOldImgPath = null;
             $waterFileKey = "readings.{$index}.water_image";
             if ($request->hasFile($waterFileKey)) {
-                $waterImgPath = $request->file('water_meter_image')->store('meter_readings', 'r2_public');
+                $waterImgPath = '/storage/' . $request->file($waterFileKey)->store('meter_readings', 'public');
             }
+
 
             // Default rates
             $roomPrice = $contract->room ? (float) $contract->room->price : 0;
             $elecPrice = 3000;
             $waterPrice = 15000;
 
-            // Override with room services
+            // Override với room services (ưu tiên giá đóng băng trong room_service pivot)
             if ($contract->room) {
                 foreach ($contract->room->services as $service) {
-                    if (str_contains(strtolower($service->name), 'điện') || $service->type === 'per_kwh') {
-                        $elecPrice = (float) $service->price;
+                    $pivotPrice = \DB::table('room_service')
+                        ->where('room_id', $contract->room_id)
+                        ->where('service_id', $service->id)
+                        ->value('price');
+                    $effectivePrice = (!is_null($pivotPrice) && $pivotPrice !== '') ? (float) $pivotPrice : (float) $service->price;
+                    if ($service->type === 'per_kwh' || str_contains(mb_strtolower($service->name), 'điện')) {
+                        $elecPrice = $effectivePrice;
                     }
-                    if (str_contains(strtolower($service->name), 'nước') || $service->type === 'per_m3') {
-                        $waterPrice = (float) $service->price;
+                    if ($service->type === 'per_m3' || str_contains(mb_strtolower($service->name), 'nước')) {
+                        $waterPrice = $effectivePrice;
                     }
                 }
             }
@@ -1116,6 +1132,11 @@ class LandlordController extends Controller
             // 4. Fixed & Person services from room services
             if ($contract->room) {
                 foreach ($contract->room->services as $service) {
+                    $pivotPrice = \DB::table('room_service')
+                        ->where('room_id', $contract->room_id)
+                        ->where('service_id', $service->id)
+                        ->value('price');
+                    $effectivePrice = (!is_null($pivotPrice) && $pivotPrice !== '') ? (float) $pivotPrice : (float) $service->price;
                     if ($service->type === 'fixed') {
                         $processedDetails[] = [
                             'service_id' => $service->id,
@@ -1125,8 +1146,8 @@ class LandlordController extends Controller
                             'meter_image_path' => null,
                             'old_meter_image_path' => null,
                             'quantity' => 1,
-                            'price' => (float) $service->price,
-                            'subtotal' => (float) $service->price,
+                            'price' => $effectivePrice,
+                            'subtotal' => $effectivePrice,
                         ];
                     } elseif ($service->type === 'per_person') {
                         $ppl = $contract->room->current_people ?: 1;
@@ -1138,8 +1159,8 @@ class LandlordController extends Controller
                             'meter_image_path' => null,
                             'old_meter_image_path' => null,
                             'quantity' => $ppl,
-                            'price' => (float) $service->price,
-                            'subtotal' => (float) $service->price * $ppl,
+                            'price' => $effectivePrice,
+                            'subtotal' => $effectivePrice * $ppl,
                         ];
                     }
                 }
@@ -1321,9 +1342,13 @@ class LandlordController extends Controller
         ]);
 
         // 2. Thực hiện cập nhật đơn giá dịch vụ
-        $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
-        if (!$result) {
-            return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
+        try {
+            $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
+            if (!$result) {
+                return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
+            }
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
 
         // 3. Kiểm tra nếu giá tăng bất thường hoặc vượt ngưỡng Admin cấu hình

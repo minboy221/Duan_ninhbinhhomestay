@@ -8,12 +8,68 @@ const props = defineProps({
 
 const emit = defineEmits(["next"]);
 
-const handleFile = (e, field) => {
+// Hàm nén ảnh tự động trên điện thoại trước khi upload (giúp nén ảnh 10-15MB xuống ~500KB)
+const compressImage = (file, maxWidth = 1920, maxHeight = 1920, quality = 0.8) => {
+    return new Promise((resolve) => {
+        if (!file || !file.type.startsWith('image/') || file.size < 500 * 1024) {
+            return resolve(file);
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth || height > maxHeight) {
+                    if (width > height) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    } else {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                                type: 'image/jpeg',
+                                lastModified: Date.now(),
+                            });
+                            resolve(compressedFile);
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    'image/jpeg',
+                    quality
+                );
+            };
+            img.onerror = () => resolve(file);
+        };
+        reader.onerror = () => resolve(file);
+    });
+};
+
+const handleFile = async (e, field) => {
     const file = e.target.files[0];
 
     if (file) {
-        props.form[field] = file;
-        props.form[`${field}_preview`] = URL.createObjectURL(file);
+        const compressedFile = await compressImage(file);
+        props.form[field] = compressedFile;
+        props.form[`${field}_preview`] = URL.createObjectURL(compressedFile);
     }
 };
 
@@ -119,10 +175,7 @@ const nextStep = () => {
                                 <span class="absolute bottom-3 left-3 bg-white/90 px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-700">Mặt trước CCCD</span>
                             </template>
                             <template v-else>
-                                <img alt="Mặt trước CCCD"
-                                    class="absolute inset-0 w-full h-full object-cover opacity-20 grayscale group-hover:opacity-40 transition-opacity"
-                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuZ7RH4Turfqy8ynC3jD4q142yyHzpl-hNo0eMUiPEeV3alukUnN2Ne3V_rPn-JL8h2nRXHUgrPlIlo3IrzxulnJYCJfywuGdaPlnz0wLgi2ypIc0tUkPppY29qnVQ3RzVCi8zNt7XgBOMDOjinkRySdC7Nnzs-rRfQGb4RYMR3MGrAQPsA1h2icBL7ZxvfxcupGsFnIBe67Om-gxyOHrQbScoA1s958L4As9MNbSiXRRPRD2SRlqBnjcYsMM9kvHU74H061j6UIjO" />
-                                <span class="material-symbols-outlined text-3xl text-primary">add_a_photo</span>
+                                <span class="material-symbols-outlined text-4xl text-primary">add_a_photo</span>
                                 <span class="text-sm font-semibold text-on-surface-variant">Mặt trước CCCD</span>
                             </template>
                             <input type="file" accept="image/*" class="hidden" @change="(e) => handleFile(e, 'id_card_front')" />
@@ -138,10 +191,7 @@ const nextStep = () => {
                                 <span class="absolute bottom-3 left-3 bg-white/90 px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-700">Mặt sau CCCD</span>
                             </template>
                             <template v-else>
-                                <img alt="Mặt sau CCCD"
-                                    class="absolute inset-0 w-full h-full object-cover opacity-20 grayscale group-hover:opacity-40 transition-opacity"
-                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZdP_qQf6ViGw1Un7VN9Er_efiEjrv6CkifLXyGSiDPn6_YonFJvA0wGD-qBowzr0SiAtJze-FyrIMQxzdGHe_JoN9T86C6SNPpzpULiHgRK4pZosur8pT5O4Ht_Vm7vs0_iIxtHQrPhNjimgPJV760nLZYr_Y6nbOLjHcBgOjX8TcOGd0-yN30EByM3HEqkOC5uP9WcP5zt4eYDeg9vV6ZCbo-ajCFOuiCUCGxab4MSVjiM3vAwl0iuizCQRsYQApZnws6vWJoaBc" />
-                                <span class="material-symbols-outlined text-3xl text-primary">add_a_photo</span>
+                                <span class="material-symbols-outlined text-4xl text-primary">add_a_photo</span>
                                 <span class="text-sm font-semibold text-on-surface-variant">Mặt sau CCCD</span>
                             </template>
                             <input type="file" accept="image/*" class="hidden" @change="(e) => handleFile(e, 'id_card_back')" />

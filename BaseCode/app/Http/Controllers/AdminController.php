@@ -239,12 +239,27 @@ class AdminController extends Controller
     //phương thức cập nhật trạng thái báo cáo cho admin
     public function updateReport(Request $request, $id)
     {
+        $landlord = null;
         $request->validate([
             'status' => 'required|in:resolved,ignored,rejected',
-            'admin_note' => 'nullable|string|max:1000',
+            'admin_note' => 'required|string|min:5|max:1000',
+        ], [
+            'status.required' => 'Vui lòng chọn trạng thái xử lý.',
+            'status.in' => 'Trạng thái xử lý không hợp lệ.',
+            'admin_note.required' => 'Vui lòng nhập lý do / ghi chú xử lý của Admin.',
+            'admin_note.min' => 'Lý do / ghi chú xử lý phải dài tối thiểu 5 ký tự.',
+            'admin_note.max' => 'Lý do / ghi chú xử lý không được vượt quá 1000 ký tự.',
         ]);
 
-        $report = Report::with('reportable.boardingHouse.user', 'reporter')->findOrFail($id);
+        $report = Report::findOrFail($id);
+        //nạp quan hệ động tuỳ theo báo cái hay hoá đơn
+        if($report->reportable_type === \App\Models\Room::class){
+            $report ->load(['reportable.boardingHouse.user', 'reporter']);
+        }elseif($report->reportable_type === \App\Models\Invoice::class){
+            $report->load(['reportable.contract.room.boardingHouse.user', 'reporter']);
+        }else{
+            $report->load(['reporter']);
+        }
 
         $report->update([
             'status' => $request->status,
@@ -275,21 +290,23 @@ class AdminController extends Controller
                 'Admin đã xử lý khiếu nại của bạn',
                 'Báo cáo #' . $report->id . ' của bạn đã được Admin xử lý: ' . $statusLabel,
                 'report_admin_action',
-                '/profile/listbaocao'
+                '/reports'
             ));
         }
 
         // 2. Thông báo cho Chủ trọ của phòng
         if ($report->reportable_type === \App\Models\Room::class) {
             $landlord = $report->reportable->boardingHouse->user ?? null;
-            if ($landlord) {
-                $landlord->notify(new \App\Notifications\AdminNotification(
-                    'Kết quả xử lý khiếu nại từ Admin',
-                    'Khiếu nại #' . $report->id . ' tại phòng ' . ($report->reportable->room_number ?? '') . ' ' . $statusLabel,
-                    'report_admin_action_landlord',
-                    '/landlord/reports'
-                ));
-            }
+        }elseif($report->reportable_type === \App\Models\Invoice::class){
+            $landlord = $report->reportable->contract->room->boardingHouse->user ?? null;
+        }
+        if($landlord){
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'kết quả xử lý khiếu nại từ Admin',
+                'Khiếu nại #'. $report->id. '' . $statusLabel,
+                'report_admin_action_landlord',
+                '/landlord/reports'
+            ));
         }
         //phát sự kiện realtime với khách thuê & chủ trọ
         event(new \App\Events\ReportUpdated($report));

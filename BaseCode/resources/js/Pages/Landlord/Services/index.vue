@@ -14,7 +14,7 @@ const props = defineProps({
     }
 })
 
-const fmtMoney = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ'
+const fmtMoney = (n) => new Intl.NumberFormat('en-US').format(n || 0) + 'đ'
 
 // View mode state: 'grid' | 'compact' | 'list'
 const viewMode = ref('grid')

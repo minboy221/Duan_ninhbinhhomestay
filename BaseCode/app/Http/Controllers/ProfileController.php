@@ -272,6 +272,11 @@ class ProfileController extends Controller
                 ->where('status', 'active')
                 ->exists();
 
+            $pastResident = \App\Models\RoomResident::where('room_id', $roomId)
+                ->where('user_id', $userId)
+                ->where('status', 'inactive')
+                ->exists();
+
             if ($activeContract) {
                 // Nếu người này đứng tên chính hợp đồng active -> 'success_matched' hoặc 'became_main_tenant'
                 $apt->status = 'success_matched';
@@ -281,6 +286,8 @@ class ProfileController extends Controller
             } else if ($isResident) {
                 // Nếu đang là thành viên ở ghép trong phòng -> 'joined_roommate'
                 $apt->status = 'joined_roommate';
+            } else if ($pastResident) {
+                $apt->status = 'roommate_removed';
             }
         }
 
@@ -471,8 +478,8 @@ class ProfileController extends Controller
 
         //gửi thông báo cho chủ trọ
         $appointment->load(['user', 'room', 'landlord']);
-        $landlord =  $appointment->landlord ?? $appointment->room?->boardingHouse?->user ?? null;
-        if($landlord){
+        $landlord = $appointment->landlord ?? $appointment->room?->boardingHouse?->user ?? null;
+        if ($landlord) {
             $landlord->notify(new \App\Notifications\TenantCancelledNotification($appointment));
         }
 
@@ -705,10 +712,11 @@ class ProfileController extends Controller
     }
 
     //hàm nhận token từ điện thoại
-    public function updateFcmToken(Request $request){
+    public function updateFcmToken(Request $request)
+    {
         $request->validate(['fcm_token' => 'required|string',]);
         $user = auth()->user();
-        if($user){
+        if ($user) {
             $user->update(['fcm_token' => $request->fcm_token]);
         }
         return response()->json(['messeage' => 'Cập nhật FCM Token thành công!']);

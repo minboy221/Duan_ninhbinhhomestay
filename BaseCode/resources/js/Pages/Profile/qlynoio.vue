@@ -4,6 +4,7 @@ import { Head, Link, useForm, usePage, router } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 import { showSuccess, showError, showConfirm } from "@/Utils/swal";
 import axios from "axios";
+import { compressMultipleImages } from "@/Utils/compressor";
 
 const props = defineProps({
     user: Object,
@@ -310,12 +311,13 @@ const openReportModal = () => {
     previewEvidenceImages.value = [];
     showReportModal.value = true;
 };
-
-const handleEvidenceImages = (e) => {
+const handleEvidenceImages = async (e) => {
     const files = Array.from(e.target.files);
-    reportForm.evidence_images = files;
-    previewEvidenceImages.value = files.map((file) => URL.createObjectURL(file));
+    const compressedFiles = await compressMultipleImages(files);
+    reportForm.evidence_images = compressedFiles;
+    previewEvidenceImages.value = compressedFiles.map((file) => URL.createObjectURL(file));
 };
+
 
 const submitReport = () => {
     if (!reportForm.reason || !reportForm.description.trim()) {
@@ -328,8 +330,7 @@ const submitReport = () => {
             showReportModal.value = false;
             showSuccess("Thành công", "Đã gửi báo cáo thành công! Hệ thống sẽ hỗ trợ bạn xử lý.");
         },
-        onError: (errs) => {
-            showError("Lỗi", Object.values(errs).join("\n"));
+        onError: () => {
         },
     });
 };
@@ -730,8 +731,7 @@ const submitReport = () => {
                             <i class="bi bi-lightning-charge-fill text-amber-500"></i>
                             <span>Chỉ số ĐIỆN ban đầu (kWh)</span>
                         </label>
-                        <input type="number" min="0" v-model="entryForm.entry_elec_index"
-                            placeholder="Ví dụ: 1250"
+                        <input type="number" min="0" v-model="entryForm.entry_elec_index" placeholder="Ví dụ: 1250"
                             class="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white" />
                         <div>
                             <span class="text-[11px] text-slate-500 font-semibold block mb-1">Ảnh chụp công tơ điện lúc
@@ -754,8 +754,7 @@ const submitReport = () => {
                             <i class="bi bi-droplet-fill text-blue-500"></i>
                             <span>Chỉ số NƯỚC ban đầu (m³)</span>
                         </label>
-                        <input type="number" min="0" v-model="entryForm.entry_water_index"
-                            placeholder="Ví dụ: 85"
+                        <input type="number" min="0" v-model="entryForm.entry_water_index" placeholder="Ví dụ: 85"
                             class="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" />
                         <div>
                             <span class="text-[11px] text-slate-500 font-semibold block mb-1">Ảnh chụp công tơ nước lúc
@@ -918,8 +917,8 @@ const submitReport = () => {
                 <form @submit.prevent="submitAcquaintanceRequest">
                     <div class="form-field-group">
                         <label class="form-field-label">Họ và tên (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_name"
-                            placeholder="Nhập họ tên..." class="form-field-input" />
+                        <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
+                            class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
@@ -936,8 +935,8 @@ const submitReport = () => {
 
                     <div class="form-field-group">
                         <label class="form-field-label">Số CCCD/CMND (12 chữ số) (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_cccd"
-                            placeholder="Đúng 12 chữ số..." maxlength="12" class="form-field-input" />
+                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" placeholder="Đúng 12 chữ số..."
+                            maxlength="12" class="form-field-input" />
                     </div>
 
                     <div class="modal-footer">
@@ -1000,73 +999,176 @@ const submitReport = () => {
                 </form>
             </div>
         </div>
-
         <!-- MODAL BÁO CÁO SỰ CỐ VÀ VI PHẠM -->
-        <div v-if="showReportModal"
-            class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    </UserLayout>
+    <div v-if="showReportModal"
+        class="fixed inset-0 z-[99] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+        <div
+            class="bg-white rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+
+            <!-- HEADER -->
             <div
-                class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5 border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 class="text-base font-extrabold text-rose-600 flex items-center gap-2">
-                        <i class="bi bi-exclamation-triangle-fill text-rose-500"></i>
-                        <span>Gửi Báo Cáo Sự Cố / Vi Phạm</span>
-                    </h3>
-                    <button @click="showReportModal = false"
-                        class="text-slate-400 hover:text-slate-600 text-2xl font-bold">
-                        &times;
-                    </button>
+                class="sticky top-0 z-10 bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
+                        <i class="bi bi-exclamation-triangle-fill text-rose-500 text-sm"></i>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-extrabold text-slate-800">
+                            Báo cáo sự cố / vi phạm
+                        </h3>
+                        <p class="text-[10px] text-slate-400 mt-0.5">
+                            Vui lòng cung cấp thông tin cần thiết
+                        </p>
+                    </div>
                 </div>
 
-                <form @submit.prevent="submitReport" novalidate class="space-y-4">
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-600">Loại báo cáo <span
-                                class="text-rose-500">*</span></label>
-                        <select v-model="reportForm.reason"
-                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                            <option value="" disabled>--Chọn phân loại báo cáo--</option>
-                            <option v-for="(r, idx) in props.reasons" :key="r.id || idx" :value="typeof r === 'object' ? r.reason : r">
-                                {{ typeof r === 'object' ? r.reason : r }}
-                            </option>
-                            <option v-if="!props.reasons || props.reasons.length === 0" value="Khác">
-                                Lý do khác
-                            </option>
-                        </select>
+                <button type="button" @click="showReportModal = false"
+                    class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+                    <i class="bi bi-x-lg text-sm"></i>
+                </button>
+            </div>
+
+            <!-- BODY -->
+            <form @submit.prevent="submitReport" class="p-5 space-y-4">
+
+                <!-- LOẠI BÁO CÁO -->
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-600 mb-1.5">
+                        Loại báo cáo
+                        <span class="text-rose-500">*</span>
+                    </label>
+
+                    <select v-model="reportForm.reason"
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 outline-none transition focus:bg-white focus:border-rose-400 focus:ring-2 focus:ring-rose-100">
+                        <option value="" disabled>
+                            -- Chọn phân loại báo cáo --
+                        </option>
+
+                        <option v-for="(r, idx) in props.reasons" :key="r.id || idx"
+                            :value="typeof r === 'object' ? r.reason : r">
+                            {{ typeof r === 'object' ? r.reason : r }}
+                        </option>
+
+                        <option v-if="!props.reasons || props.reasons.length === 0" value="Khác">
+                            Lý do khác
+                        </option>
+                    </select>
+                    <p v-if="reportForm.errors.reason" class="text-rose-500 text-[11px] font-medium mt-1">
+                        {{ reportForm.errors.reason }}
+                    </p>
+                </div>
+
+                <!-- MÔ TẢ -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-[11px] font-bold text-slate-600">
+                            Mô tả chi tiết
+                            <span class="text-rose-500">*</span>
+                        </label>
+
+                        <span class="text-[9px] text-slate-400">
+                            Bắt buộc
+                        </span>
                     </div>
 
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-600">Mô tả chi tiết sự cố <span
-                                class="text-rose-500">*</span></label>
-                        <textarea v-model="reportForm.description" rows="4"
-                            placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề vi phạm cần xử lý..."
-                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-rose-500 rounded-xl text-xs outline-none resize-none"></textarea>
+                    <textarea v-model="reportForm.description" rows="4"
+                        placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề vi phạm cần xử lý..."
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none resize-none transition focus:bg-white focus:border-rose-400 focus:ring-2 focus:ring-rose-100 placeholder:text-slate-400"></textarea>
+                    <p v-if="reportForm.errors.description" class="text-rose-500 text-[11px] font-medium mt-1">
+                        {{ reportForm.errors.description }}
+                    </p>
+                </div>
+
+                <!-- HÌNH ẢNH -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-[11px] font-bold text-slate-600">
+                            Hình ảnh minh chứng
+                        </label>
+
+                        <span class="text-[9px] text-slate-400">
+                            Bắt buộc
+                        </span>
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="text-xs font-bold text-slate-600">Hình ảnh minh chứng (nếu có)</label>
-                        <input type="file" multiple accept="image/*" @change="handleEvidenceImages"
-                            class="block w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer" />
-                        <div v-if="previewEvidenceImages.length > 0" class="flex flex-wrap gap-2 pt-2">
-                            <img v-for="(img, idx) in previewEvidenceImages" :key="idx" :src="img"
-                                class="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs" />
+                    <div class="grid grid-cols-2 gap-2.5">
+
+                        <!-- CAMERA -->
+                        <label
+                            class="group flex items-center gap-2.5 p-3 border border-dashed border-rose-200 bg-rose-50/50 rounded-xl cursor-pointer hover:bg-rose-50 hover:border-rose-300 transition-all">
+                            <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                <i class="bi bi-camera-fill text-rose-500"></i>
+                            </div>
+
+                            <div class="min-w-0">
+                                <span class="block text-[11px] font-bold text-rose-700">
+                                    Chụp ảnh
+                                </span>
+
+                                <span class="block text-[9px] text-rose-400 mt-0.5">
+                                    Mở camera
+                                </span>
+                            </div>
+
+                            <input type="file" accept="image/*" capture="environment" class="hidden"
+                                @change="handleEvidenceImages" />
+                        </label>
+
+                        <!-- BỘ SƯU TẬP -->
+                        <label
+                            class="group flex items-center gap-2.5 p-3 border border-dashed border-slate-200 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 hover:border-slate-300 transition-all">
+                            <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                <i class="bi bi-images text-slate-500"></i>
+                            </div>
+
+                            <div class="min-w-0">
+                                <span class="block text-[11px] font-bold text-slate-700">
+                                    Bộ sưu tập
+                                </span>
+
+                                <span class="block text-[9px] text-slate-400 mt-0.5">
+                                    Chọn ảnh có sẵn
+                                </span>
+                            </div>
+
+                            <input type="file" multiple accept="image/*,.heic,.heif" class="hidden"
+                                @change="handleEvidenceImages" />
+                        </label>
+
+                    </div>
+
+                    <!-- PREVIEW -->
+                    <div v-if="previewEvidenceImages.length > 0" class="mt-3 flex flex-wrap gap-2">
+                        <div v-for="(img, idx) in previewEvidenceImages" :key="idx" class="relative">
+                            <img :src="img"
+                                class="w-14 h-14 object-cover rounded-lg border border-slate-200 shadow-sm" />
                         </div>
                     </div>
+                </div>
 
-                    <div class="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
-                        <button type="button" @click="showReportModal = false"
-                            class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
-                            Hủy
-                        </button>
-                        <button type="submit" :disabled="reportForm.processing"
-                            class="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
-                            <i v-if="reportForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
-                            <i v-else class="bi bi-send-fill"></i>
-                            <span>Gửi Báo Cáo</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
+                <!-- FOOTER -->
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" @click="showReportModal = false"
+                        class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold rounded-lg transition-all">
+                        Hủy
+                    </button>
+
+                    <button type="submit" :disabled="reportForm.processing"
+                        class="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1.5">
+                        <i v-if="reportForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
+
+                        <i v-else class="bi bi-send-fill"></i>
+
+                        <span>
+                            {{ reportForm.processing ? 'Đang gửi...' : 'Gửi báo cáo' }}
+                        </span>
+                    </button>
+                </div>
+            </form>
         </div>
-    </UserLayout>
+    </div>
 </template>
 
 <style scoped>

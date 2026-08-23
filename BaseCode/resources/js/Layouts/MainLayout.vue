@@ -6,6 +6,7 @@ import axios from 'axios'
 import AppointmentCountdown from '@/Components/AppointmentCountdown.vue';
 import AiChatAssistant from '@/Components/AiChatAssistant.vue';
 import { useFcm } from '@/composables/useFcm';
+import { getAvatarUrl, getRoomImageUrl } from "@/Utils/media";
 
 const page = usePage()
 const auth = computed(() => page.props.auth)
@@ -143,13 +144,6 @@ const formatDateTime = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - ' + date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
-const getAvatarUrl = (avatar) => {
-    if (!avatar) return '/anh/banner.png';
-    if (avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:')) {
-        return avatar;
-    }
-    return '/storage/' + avatar;
-};
 </script>
 <template>
     <button id="backToTop" v-show="showBtn" @click="scrollToTop">

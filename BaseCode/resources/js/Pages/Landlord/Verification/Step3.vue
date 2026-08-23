@@ -8,8 +8,14 @@ import {
     watch,
 } from "vue";
 
-import * as faceapi from "face-api.js";
-import { showError } from "@/Utils/swal";
+let faceapi = null;
+const getFaceApi = async () => {
+    if (!faceapi) {
+        const mod = await import("face-api.js");
+        faceapi = mod.default || mod;
+    }
+    return faceapi;
+};
 
 const props = defineProps({
     form: Object,
@@ -65,9 +71,9 @@ const stopCamera = () => {
     if (scanInterval) {
         clearInterval(scanInterval);
     }
-
     if (videoRef.value?.srcObject) {
         videoRef.value.srcObject.getTracks().forEach((track) => track.stop());
+        videoRef.value.srcObject = null;
     }
 };
 
@@ -78,21 +84,37 @@ const captureAndSubmit = () => {
     if (!videoRef.value) return;
 
     const canvas = document.createElement("canvas");
-    canvas.width = videoRef.value.videoWidth;
-    canvas.height = videoRef.value.videoHeight;
-    canvas.getContext("2d").drawImage(videoRef.value, 0, 0);
+    const width = videoRef.value.videoWidth || 640;
+    const height = videoRef.value.videoHeight || 480;
+    canvas.width = width;
+    canvas.height = height;
 
-    canvas.toBlob((blob) => {
-        const file = new File([blob], "face_capture.jpg", {
-            type: "image/jpeg",
-        });
+    const ctx = canvas.getContext("2d");
+    // Lật ngược khung vẽ canvas để ảnh selfie lưu lại đúng chiều gương
+    ctx.translate(width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(videoRef.value, 0, 0, width, height);
 
-        props.form.face_auth_image = file;
-        props.form.is_face_matched = true;
-        stopCamera();
-        emit("submit");
-    }, "image/jpeg");
+    canvas.toBlob(
+        (blob) => {
+            if (!blob) return;
+            const file = new File([blob], "face_capture.jpg", {
+                type: "image/jpeg",
+            });
+
+            // Gán file ảnh và đánh dấu đã khớp
+            props.form.face_auth_image = file;
+            props.form.is_face_matched = true;
+            stopCamera();
+
+            // Phát sự kiện để Index.vue tiến hành Submit
+            emit("submit");
+        },
+        "image/jpeg",
+        0.85
+    );
 };
+
 
 // Biến giữ faceMatcher
 let faceMatcher = null;
@@ -118,6 +140,7 @@ const onVideoPlay = async () => {
     statusColor.value = "bg-amber-500 text-white";
 
     try {
+        const faceapi = await getFaceApi();
         const idImg = await faceapi.bufferToImage(props.form.id_card_front);
         const idDetection = await faceapi
             .detectSingleFace(
@@ -160,11 +183,10 @@ const startScanning = () => {
     if (scanInterval) clearInterval(scanInterval);
 
     scanInterval = setInterval(async () => {
-        if (isMatched.value || !videoRef.value || !faceMatcher) {
-            return;
-        }
+        if (isMatched.value || !videoRef.value || !faceMatcher) return;
 
         try {
+            const faceapi = await getFaceApi();
             const detections = await faceapi
                 .detectAllFaces(
                     videoRef.value,
@@ -184,20 +206,21 @@ const startScanning = () => {
             }
 
             if (resized.length === 0) {
-                statusMsg.value = "Không tìm thấy khuôn mặt";
+                statusMsg.value = "Đưa khuôn mặt vào giữa khung hình";
                 statusColor.value = "bg-amber-500 text-white";
                 return;
             }
 
-            let foundMatch = false;
+            // Kiểm tra độ khớp
             for (const detection of resized) {
                 const match = faceMatcher.findBestMatch(detection.descriptor);
                 if (match.label !== "unknown") {
-                    foundMatch = true;
                     isMatched.value = true;
                     statusMsg.value = "Xác minh thành công!";
                     statusColor.value = "bg-emerald-600 text-white";
                     clearInterval(scanInterval);
+
+                    // Thực hiện chụp ảnh và gửi dữ liệu
                     captureAndSubmit();
                     break;
                 }
@@ -217,10 +240,11 @@ const startScanning = () => {
                 }
             }
         } catch (err) {
-            console.error("Lỗi quét camera:", err);
+            console.error("Lỗi khi quét:", err);
         }
-    }, 1000);
+    }, 800);
 };
+
 
 // Chụp ảnh thủ công (kích hoạt quét lập tức)
 const handleCaptureManual = async () => {
@@ -234,6 +258,7 @@ const handleCaptureManual = async () => {
     statusColor.value = "bg-blue-600 text-white";
 
     try {
+        const faceapi = await getFaceApi();
         const detection = await faceapi
             .detectSingleFace(
                 videoRef.value,
@@ -308,19 +333,29 @@ onUnmounted(() => {
     <div class="max-w-4xl mx-auto space-y-6 relative z-10">
         <!-- Main Verification Canvas -->
         <div
-            class="glass-panel w-full max-w-4xl rounded-xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[650px] p-6 md:p-8 gap-6 md:gap-8">
-
+            class="glass-panel w-full max-w-4xl rounded-xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[650px] p-6 md:p-8 gap-6 md:gap-8"
+        >
             <!-- Left Side: Camera Box & Status Bar -->
             <div class="flex-1 flex flex-col items-center justify-center gap-4">
                 <!-- Camera Container -->
                 <div
-                    class="relative w-full aspect-[4/5] max-w-[340px] md:max-w-[400px] bg-black rounded-3xl overflow-hidden shadow-2xl">
+                    class="relative w-full aspect-[4/5] max-w-[340px] md:max-w-[400px] bg-black rounded-3xl overflow-hidden shadow-2xl"
+                >
                     <!-- Camera Video Stream -->
-                    <video ref="videoRef" @play="onVideoPlay" autoplay muted playsinline
-                        class="w-full h-full object-cover" />
+                    <video
+                        ref="videoRef"
+                        @play="onVideoPlay"
+                        autoplay
+                        muted
+                        playsinline
+                        class="w-full h-full object-cover"
+                    />
 
                     <!-- Face-api Canvas overlay -->
-                    <canvas ref="canvasRef" class="absolute inset-0 w-full h-full pointer-events-none z-10" />
+                    <canvas
+                        ref="canvasRef"
+                        class="absolute inset-0 w-full h-full pointer-events-none z-10"
+                    />
 
                     <!-- Biometric Guide Overlay -->
                     <div class="biometric-guide">
@@ -328,49 +363,74 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Corner Accents -->
-                    <div class="absolute top-6 left-6 w-6 h-6 border-t-2 border-l-2 border-emerald-500 rounded-tl-md">
-                    </div>
-                    <div class="absolute top-6 right-6 w-6 h-6 border-t-2 border-r-2 border-emerald-500 rounded-tr-md">
-                    </div>
                     <div
-                        class="absolute bottom-6 left-6 w-6 h-6 border-b-2 border-l-2 border-emerald-500 rounded-bl-md">
-                    </div>
+                        class="absolute top-6 left-6 w-6 h-6 border-t-2 border-l-2 border-emerald-500 rounded-tl-md"
+                    ></div>
                     <div
-                        class="absolute bottom-6 right-6 w-6 h-6 border-b-2 border-r-2 border-emerald-500 rounded-br-md">
-                    </div>
+                        class="absolute top-6 right-6 w-6 h-6 border-t-2 border-r-2 border-emerald-500 rounded-tr-md"
+                    ></div>
+                    <div
+                        class="absolute bottom-6 left-6 w-6 h-6 border-b-2 border-l-2 border-emerald-500 rounded-bl-md"
+                    ></div>
+                    <div
+                        class="absolute bottom-6 right-6 w-6 h-6 border-b-2 border-r-2 border-emerald-500 rounded-br-md"
+                    ></div>
                 </div>
 
                 <!-- Status Notifier Bar (Below Video Box) -->
                 <div class="w-full max-w-[340px] md:max-w-[400px]">
-                    <div :class="[
-                        statusColor,
-                        'h-12 rounded-xl font-semibold text-sm flex items-center justify-center px-4 transition-all duration-300 shadow-sm text-center',
-                    ]">
+                    <div
+                        :class="[
+                            statusColor,
+                            'h-12 rounded-xl font-semibold text-sm flex items-center justify-center px-4 transition-all duration-300 shadow-sm text-center',
+                        ]"
+                    >
                         {{ statusMsg }}
                     </div>
                 </div>
             </div>
 
             <!-- Right Side: Instructions & Action Buttons -->
-            <div class="w-full md:w-80 flex flex-col justify-between py-2 gap-8">
+            <div
+                class="w-full md:w-80 flex flex-col justify-between py-2 gap-8"
+            >
                 <!-- Instructions Section -->
                 <div class="space-y-6">
-                    <div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
-                        <span class="material-symbols-outlined text-lg">info</span>
+                    <div
+                        class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider"
+                    >
+                        <span class="material-symbols-outlined text-lg"
+                            >info</span
+                        >
                         Lưu ý quan trọng
                     </div>
 
                     <ul class="space-y-4">
-                        <li class="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                            <span class="material-symbols-outlined text-emerald-500 text-lg">check_circle</span>
+                        <li
+                            class="flex items-center gap-3 text-sm font-semibold text-slate-700"
+                        >
+                            <span
+                                class="material-symbols-outlined text-emerald-500 text-lg"
+                                >check_circle</span
+                            >
                             Không đeo kính, khẩu trang
                         </li>
-                        <li class="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                            <span class="material-symbols-outlined text-emerald-500 text-lg">check_circle</span>
+                        <li
+                            class="flex items-center gap-3 text-sm font-semibold text-slate-700"
+                        >
+                            <span
+                                class="material-symbols-outlined text-emerald-500 text-lg"
+                                >check_circle</span
+                            >
                             Đảm bảo môi trường đủ sáng
                         </li>
-                        <li class="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                            <span class="material-symbols-outlined text-emerald-500 text-lg">check_circle</span>
+                        <li
+                            class="flex items-center gap-3 text-sm font-semibold text-slate-700"
+                        >
+                            <span
+                                class="material-symbols-outlined text-emerald-500 text-lg"
+                                >check_circle</span
+                            >
                             Giữ điện thoại cố định
                         </li>
                     </ul>
@@ -379,16 +439,25 @@ onUnmounted(() => {
                 <!-- Action Buttons (Stacked) -->
                 <div class="space-y-3 w-full">
                     <!-- Quay lại Button -->
-                    <button type="button" @click="emit('prev')"
-                        class="w-full h-12 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2 text-sm shadow-sm">
-                        <span class="material-symbols-outlined text-base">arrow_back</span>
+                    <button
+                        type="button"
+                        @click="emit('prev')"
+                        class="w-full h-12 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
+                    >
+                        <span class="material-symbols-outlined text-base"
+                            >arrow_back</span
+                        >
                         Quay lại
                     </button>
 
                     <!-- Auto-submit / Manual capture Button -->
-                    <button disabled
-                        class="w-full h-12 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-2 border border-slate-200 shadow-sm">
-                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span>
+                    <button
+                        disabled
+                        class="w-full h-12 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-2 border border-slate-200 shadow-sm"
+                    >
+                        <span
+                            class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"
+                        ></span>
                         Tự động nộp hồ sơ khi khớp ảnh
                     </button>
                 </div>

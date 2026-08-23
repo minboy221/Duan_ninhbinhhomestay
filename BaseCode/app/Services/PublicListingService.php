@@ -236,7 +236,7 @@ class PublicListingService
         }
 
         return [
-            'listings' => $query->latest()->paginate(5)->withQueryString(),
+            'listings' => $query->latest()->paginate(10)->withQueryString(),
             'ai_parsed' => $aiParsed,
         ];
     }

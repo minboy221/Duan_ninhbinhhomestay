@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use App\Channels\FcmChannel;
 
 class TenantCancelledNotification extends Notification
 {
@@ -28,7 +29,7 @@ class TenantCancelledNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
     }
 
     /**

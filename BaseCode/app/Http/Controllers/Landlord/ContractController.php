@@ -82,7 +82,7 @@ class ContractController extends Controller
 
         // Check xem phòng có bị đóng băng không
         if ($user->isRoomFrozen($room)) {
-            return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để làm hợp đồng cho thuê mới!');
+            return redirect()->back()->withErrors(['error' => 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để làm hợp đồng cho thuê mới!']);
         }
         try {
             $files = $request->file('contract_files') ?: ($request->file('contract_file') ? [$request->file('contract_file')] : []);

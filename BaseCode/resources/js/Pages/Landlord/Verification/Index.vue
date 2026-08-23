@@ -14,6 +14,7 @@ const isModelsLoaded = ref(false);
 
 onMounted(async () => {
     try {
+        const faceapi = await import("face-api.js");
         await Promise.all([
             faceapi.nets.ssdMobilenetv1.loadFromUri("/models"),
             faceapi.nets.faceLandmark68Net.loadFromUri("/models"),

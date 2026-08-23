@@ -33,27 +33,25 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-</head>
-
-<script id="tailwind-config">
-    tailwind.config = {
-        darkMode: "class",
-        theme: {
-            extend: {
-                "fontFamily": {
-                    "sans": ["Arial", "Helvetica", "sans-serif"],
-                    "serif": ["Arial", "Helvetica", "sans-serif"],
-                    "headline": ["Arial", "Helvetica", "sans-serif"],
-                    "body": ["Arial", "Helvetica", "sans-serif"],
-                    "label": ["Arial", "Helvetica", "sans-serif"]
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "fontFamily": {
+                        "sans": ["Arial", "Helvetica", "sans-serif"],
+                        "serif": ["Arial", "Helvetica", "sans-serif"],
+                        "headline": ["Arial", "Helvetica", "sans-serif"],
+                        "body": ["Arial", "Helvetica", "sans-serif"],
+                        "label": ["Arial", "Helvetica", "sans-serif"]
+                    }
                 }
             }
         }
-    }
-</script>
+    </script>
+</head>
 
+<body class="bg-[#f5f7f9] text-[#2c2f31] antialiased">
 <style>
     *,
     *::before,

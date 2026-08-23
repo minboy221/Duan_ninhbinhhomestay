@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Models\BoardingHouse;
 use App\Repositories\UserRepository;
 use App\Repositories\BoardingHouseRepository;
 use Illuminate\Support\Facades\DB;
@@ -70,9 +71,11 @@ class VerificationService
                 'id_card_back' => $backPath,
                 'face_auth_image' => $facePath,
                 'kyc_status' => $kycStatus,
+                'kyc_notes' => null,
             ];
             // 3. Gọi repository để cập nhật db mới
             $this->userRepository->updateOrCreateVerification($userId, $verificationData);
+            BoardingHouse::where('user_id', $userId)->update(['status' => 'pending']);
 
             // PHẦN XỬ LÝ BƯỚC 2: Lưu thông tin trọ
             $contractPaths = [];

@@ -5,7 +5,9 @@ import { messaging, VAPID_KEY } from '@/firebase';
 import { getToken } from "firebase/messaging";
 import { useFcm } from "@/composables/useFcm";
 import { showError, showSuccess } from "@/Utils/swal";
+import { getAvatarUrl, getRoomImageUrl } from "@/Utils/media";
 import axios from "axios";
+
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 const sidebarOpen = ref(true);
@@ -92,17 +94,6 @@ const handleNavClick = (e, item) => {
     }
 };
 
-const getAvatarUrl = (avatar) => {
-    if (!avatar) return null;
-    if (
-        avatar.startsWith("http") ||
-        avatar.startsWith("/") ||
-        avatar.startsWith("data:")
-    ) {
-        return avatar;
-    }
-    return "/storage/" + avatar;
-};
 
 const properties = computed(() => usePage().props.auth.boarding_houses || []);
 const selectedPropertyId = computed(
@@ -235,6 +226,7 @@ const navGroups = [
             {
                 label: "Cài Đặt & Tài Khoản",
                 icon: "bi-person-gear",
+                ownerOnly: true,
                 children: [
                     {
                         label: "Thông Tin CĐT",
@@ -392,7 +384,7 @@ const requestAndSaveFcmToken = async () => {
             const token = await getToken(messaging, { vapidKey: VAPID_KEY });
             if (token) {
                 //gửi token lên laravel để lưu vào db của user
-                await axios.post('/api/save-fcm-token', { fcm_token: token });
+                await axios.post(route('user.update-fcm-token'), { fcm_token: token });
             }
         }
     } catch (err) {
