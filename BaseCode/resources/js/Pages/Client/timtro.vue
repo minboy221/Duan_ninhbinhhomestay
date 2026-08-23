@@ -314,63 +314,7 @@ const formatPaginationLabel = (label) => {
             </div>
         </div>
 
-        <!-- AI INSIGHT SUMMARY BANNER (HIỂN THỊ KHI TRUY CẬP TỪ CHATBOX AI) -->
-        <div v-if="ai_parsed && ai_parsed.success" class="ai-active-filter-container">
-            <div class="ai-insight-card">
-                <div class="ai-insight-header">
-                    <div class="ai-insight-info">
-                        <div class="ai-insight-avatar">
-                            <img src="/anh/popup_character.png" alt="AI Avatar"
-                                class="w-full h-full object-cover rounded-full" />
-                        </div>
-                        <div class="ai-insight-text-col">
-                            <div class="ai-insight-title-row">
-                                <h4 class="ai-insight-title">Đang lọc theo gợi ý Trợ lý AI:</h4>
-                                <span v-if="ai_parsed.engine === 'gemini'"
-                                    class="ai-insight-engine-badge ai-insight-engine-gemini">Gemini Flash AI</span>
-                                <span v-else class="ai-insight-engine-badge ai-insight-engine-smart">Smart
-                                    Matcher</span>
-                            </div>
-                            <p class="ai-insight-explanation">{{ ai_parsed.explanation }}</p>
-                        </div>
-                    </div>
-                    <button @click="clearAllFilters()" type="button" class="ai-insight-reset-btn">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                        <span>Đặt lại tất cả</span>
-                    </button>
-                </div>
 
-                <!-- Detected Badges -->
-                <div class="ai-insight-badges-section">
-                    <span class="ai-insight-badges-label">Tiêu chí đã lọc:</span>
-                    <span v-if="ai_parsed.area_name"
-                        class="ai-badge-item bg-blue-50 border border-blue-200 text-[#102a6d]">
-                        <i class="bi bi-geo-alt-fill text-blue-600"></i> {{ ai_parsed.area_name }}
-                    </span>
-                    <span v-if="ai_parsed.price_max"
-                        class="ai-badge-item bg-emerald-50 border border-emerald-200 text-emerald-700">
-                        <i class="bi bi-tag-fill text-emerald-600"></i> ≤ {{ new
-                            Intl.NumberFormat('vi-VN').format(ai_parsed.price_max) }} đ
-                    </span>
-                    <span v-if="ai_parsed.floor_number"
-                        class="ai-badge-item bg-indigo-50 border border-indigo-200 text-indigo-700">
-                        <i class="bi bi-layers-fill text-indigo-600"></i> Tầng {{ ai_parsed.floor_number }}
-                    </span>
-                    <span v-if="ai_parsed.category_name"
-                        class="ai-badge-item bg-purple-50 border border-purple-200 text-purple-700">
-                        <i class="bi bi-house-door-fill text-purple-600"></i> {{ ai_parsed.category_name }}
-                    </span>
-                    <span v-for="(amName, amIdx) in ai_parsed.amenity_names" :key="amIdx"
-                        class="ai-badge-item bg-teal-50 border border-teal-200 text-teal-700">
-                        <i class="bi bi-check-circle-fill text-teal-600"></i> {{ amName }}
-                    </span>
-                    <span v-if="ai_parsed.keyword"
-                        class="ai-badge-item bg-amber-50 border border-amber-200 text-amber-800">
-                        <i class="bi bi-search text-amber-600"></i> "{{ ai_parsed.keyword }}"
-                    </span>
-                </div>
-            </div>
-        </div>
 
         <!-- PHẦN CHIA LAYOUT BỘ LỌC + DANH SÁCH PHÒNG -->
         <div class="layout">
