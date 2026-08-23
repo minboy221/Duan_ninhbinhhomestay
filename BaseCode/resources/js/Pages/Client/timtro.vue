@@ -332,7 +332,7 @@ const formatPaginationLabel = (label) => {
         <div class="layout">
             <!-- CỘT TRÁI: BỘ LỌC TÌM KIẾM -->
             <section class="filter">
-                <div class="baofilter bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="baofilter">
                     <div class="filter-title-wrapper flex items-center justify-between cursor-pointer pb-3 border-b border-slate-100"
                         @click="isFilterCollapsed = !isFilterCollapsed">
                         <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
@@ -381,8 +381,6 @@ const formatPaginationLabel = (label) => {
                                         <span class="flex items-center gap-2">
                                             <i :class="['bi', area.icon || 'bi-geo-alt']"></i> {{ area.name }}
                                         </span>
-                                        <i v-if="selectedArea?.id === area.id"
-                                            class="bi bi-check2 text-blue-600 font-bold"></i>
                                     </li>
                                     <li v-if="filteredAreas.length === 0"
                                         class="px-3 py-4 text-center text-xs text-slate-400">
@@ -486,23 +484,15 @@ const formatPaginationLabel = (label) => {
                                 v-html="selectedArea.map_embed"></div>
                         </div>
 
-                        <div class="bao_btn" style="display: flex; gap: 8px; margin-top: 15px;">
-                            <button class="btn_filter" @click="submitSearch" style="flex: 2;">Tìm kiếm</button>
-                            <button type="button" @click="resetFilters"
-                                style="flex: 1; padding: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.2s;">
-                                Đặt lại
+                        <div class="bao_btn space-y-2 mt-4 pt-3 border-t border-slate-200/60">
+                            <button type="button" class="btn-apply-filter" @click="submitSearch">
+                                <i class="bi bi-funnel-fill text-base"></i>
+                                <span>Áp Dụng Bộ Lọc</span>
                             </button>
-                            <!-- Nút Lọc và Đặt lại -->
-                            <div class="bao_btn">
-                                <button type="button" class="btn-apply-filter" @click="submitSearch">
-                                    <i class="bi bi-funnel-fill text-base"></i>
-                                    <span>Áp Dụng Bộ Lọc</span>
-                                </button>
-                                <button type="button" class="btn-reset-filter" @click="clearAllFilters">
-                                    <i class="bi bi-arrow-counterclockwise text-base"></i>
-                                    <span>Xóa Bộ Lọc</span>
-                                </button>
-                            </div>
+                            <button type="button" class="btn-reset-filter" @click="resetFilters">
+                                <i class="bi bi-arrow-counterclockwise text-base"></i>
+                                <span>Đặt Lại</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -510,34 +500,7 @@ const formatPaginationLabel = (label) => {
 
             <!-- PHẦN HIỂN THỊ PHÒNG -->
             <section class="room">
-                <!-- Header số lượng kết quả -->
-                <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
-                    <div class="text-sm text-slate-600 font-medium">
-                        Tìm thấy <strong class="text-blue-600 font-bold">{{ safeListings.total }}</strong> phòng trọ phù
-                        hợp
-                    </div>
-                </div>
-
                 <div class="baoroom">
-                    <!-- Tiêu đề tổng quan số lượng phòng -->
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; width: 100%; padding: 0 4px;">
-                        <div
-                            style="font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px;">
-                            <span
-                                style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #eff6ff; color: #2563eb; border-radius: 8px;">
-                                <i class="bi bi-houses-fill"></i>
-                            </span>
-                            <span>Danh sách phòng trọ</span>
-                            <span
-                                style="font-size: 13px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 10px; border-radius: 20px;">{{
-                                    safeListings.total }} phòng</span>
-                        </div>
-                        <div v-if="safeListings.last_page > 1"
-                            style="font-size: 12px; font-weight: 700; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 12px; border-radius: 20px;">
-                            Trang {{ safeListings.current_page }} / {{ safeListings.last_page }}
-                        </div>
-                    </div>
 
                     <div v-if="safeListings.data.length === 0"
                         style="text-align: center; padding: 60px 20px; width: 100%; color: #64748b;"

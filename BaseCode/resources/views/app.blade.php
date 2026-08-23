@@ -44,15 +44,39 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:ital,wght@0,500;0,700;0,800;1,500&amp;display=swap"
         rel="stylesheet" />
     <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 </head>
 
 <body class="bg-[#f5f7f9] text-[#2c2f31] antialiased">
 <style>
-    body,
-    * {
+    body {
         font-family: 'Poppins', sans-serif;
+    }
+
+    .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined' !important;
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .material-icons,
+    .material-icons-outlined {
+        font-family: 'Material Icons' !important;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .bi, [class^="bi-"], [class*=" bi-"] {
+        font-family: 'bootstrap-icons' !important;
     }
 
     .title span,
@@ -82,10 +106,6 @@
         background: rgba(255, 255, 255, 0.7);
         backdrop-filter: blur(24px);
         border: 1.5px solid rgba(255, 255, 255, 0.4);
-    }
-
-    .material-symbols-outlined {
-        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }
 
     .ghost-border {

@@ -2,19 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Thống nhất 100% font chữ Arial cho TOÀN BỘ HỆ THỐNG (Client, Landlord, Admin, Auth, Modals, Forms, Buttons, Inputs, Tables) */
 html,
 body,
-*,
+*:not(.material-symbols-outlined):not(.material-icons):not(.bi):not([class^="bi-"]):not([class*=" bi-"]),
 *::before,
 *::after,
-button,
+button:not(.material-symbols-outlined):not(.material-icons):not(.bi),
 input,
 select,
 textarea,
 label,
 p,
-span,
+span:not(.material-symbols-outlined):not(.material-icons):not(.bi):not([class^="bi-"]):not([class*=" bi-"]),
 div,
 a,
 h1, h2, h3, h4, h5, h6,
@@ -29,7 +28,45 @@ body.admin-theme *,
 .admin-shell *,
 .admin-layout,
 .admin-layout * {
-    font-family: Arial, Helvetica, sans-serif !important;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Bảo vệ 100% cho các lớp Icon Fonts */
+.material-symbols-outlined,
+.material-symbols-outlined * {
+    font-family: 'Material Symbols Outlined' !important;
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+}
+
+.material-icons,
+.material-icons-outlined,
+.material-icons * {
+    font-family: 'Material Icons' !important;
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+}
+
+.bi,
+[class^="bi-"],
+[class*=" bi-"] {
+    font-family: 'bootstrap-icons' !important;
 }
 
 body.landlord-theme .font-black,
