@@ -523,12 +523,12 @@ const formatPaginationLabel = (label) => {
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; width: 100%; padding: 0 4px;">
                         <div
-                            style="font-size: 15px; font-weight: 800; color: #1e293b; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            style="font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px;">
                             <span
-                                style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #eff6ff; color: #2563eb; border-radius: 8px; flex-shrink: 0;">
+                                style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #eff6ff; color: #2563eb; border-radius: 8px;">
                                 <i class="bi bi-houses-fill"></i>
                             </span>
-                            <span style="white-space: nowrap;">Danh sách phòng trọ</span>
+                            <span>Danh sách phòng trọ</span>
                             <span
                                 style="font-size: 13px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 10px; border-radius: 20px;">{{
                                     safeListings.total }} phòng</span>
@@ -558,7 +558,7 @@ const formatPaginationLabel = (label) => {
                                 @error="$event.target.src = '/anh/banner_tro.png'">
                         </div>
                         <div class="infor_room">
-                            <div class="title_room" style="min-height: 48px; display: flex; align-items: center;">
+                            <div class="title_room">
                                 <h2>{{ post.title }}</h2>
                             </div>
                             <div class="infor">
@@ -639,7 +639,7 @@ const formatPaginationLabel = (label) => {
 
 .ai-hero-wrapper,
 .ai-hero-wrapper * {
-    font-family: Arial, sans-serif !important;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif !important;
     letter-spacing: 0 !important;
 }
 </style>

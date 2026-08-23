@@ -2,10 +2,11 @@
 import { ref, computed, onUnmounted } from "vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import axios from "axios";
-import { showWarning, showSuccess, showError } from "@/Utils/swal";
+import { showWarning, showSuccess } from "@/Utils/swal";
 import { compressMultipleImages } from "@/Utils/compressor";
 import { formatMoney, timeAgo } from "@/Utils/formatters";
 import Pagination from "@/Components/Pagination.vue";
+
 
 const props = defineProps({
     user: Object,
@@ -118,9 +119,9 @@ const triggerSimulatedPayment = async () => {
             stopPolling();
         }
     } catch (err) {
-        showError(
-            "Lỗi giả lập thanh toán",
-            err.response?.data?.message || err.message,
+        alert(
+            "Lỗi giả lập thanh toán: " +
+            (err.response?.data?.message || err.message),
         );
     } finally {
         isSimulating.value = false;

@@ -58,10 +58,6 @@ const handleWaterImg = (e) => {
 };
 
 const submitEntryReadings = () => {
-    if (entryForm.entry_elec_index === "" || entryForm.entry_elec_index === null || entryForm.entry_water_index === "" || entryForm.entry_water_index === null) {
-        showError("Lỗi nhập liệu", "Vui lòng nhập đầy đủ chỉ số điện và chỉ số nước bàn giao!");
-        return;
-    }
     entryForm.post(
         route("profile.contract.submit-entry-readings", props.contract.hash_id),
         {
@@ -217,10 +213,6 @@ const submitStrangerRequest = async () => {
 
 //gửi yêu cầu giới thiệu người quen vào ở ghép
 const submitAcquaintanceRequest = () => {
-    if (!acquaintanceForm.new_resident_name.trim() || !acquaintanceForm.new_resident_phone.trim()) {
-        showError("Lỗi nhập liệu", "Vui lòng nhập đầy đủ tên và số điện thoại của người ở ghép!");
-        return;
-    }
     acquaintanceForm.post(route("profile.roommate.request_acquaintance"), {
         onSuccess: () => {
             showAcquaintanceModal.value = false;
@@ -320,10 +312,6 @@ const handleEvidenceImages = async (e) => {
 
 
 const submitReport = () => {
-    if (!reportForm.reason || !reportForm.description.trim()) {
-        showError("Lỗi nhập liệu", "Vui lòng chọn lý do và nhập mô tả chi tiết báo cáo!");
-        return;
-    }
     reportForm.post(route("reports.store"), {
         forceFormData: true,
         onSuccess: () => {
@@ -966,7 +954,7 @@ const submitReport = () => {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitExtendRequest" novalidate class="space-y-4">
+                <form @submit.prevent="submitExtendRequest" class="space-y-4">
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">Số tháng muốn gia hạn thêm
                             <span class="text-rose-500">*</span></label>

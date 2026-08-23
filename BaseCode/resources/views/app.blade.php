@@ -12,6 +12,14 @@
 
     <link rel="icon" type="image/png" href="{{ asset('anh/logo_icon.png') }}">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,600;1,700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     @routes
@@ -30,48 +38,46 @@
         }
     @endphp
     @inertiaHead
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:ital,wght@0,500;0,700;0,800;1,500&amp;display=swap"
+        rel="stylesheet" />
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "fontFamily": {
-                        "sans": ["Arial", "Helvetica", "sans-serif"],
-                        "serif": ["Arial", "Helvetica", "sans-serif"],
-                        "headline": ["Arial", "Helvetica", "sans-serif"],
-                        "body": ["Arial", "Helvetica", "sans-serif"],
-                        "label": ["Arial", "Helvetica", "sans-serif"]
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 
 <body class="bg-[#f5f7f9] text-[#2c2f31] antialiased">
 <style>
-    *,
-    *::before,
-    *::after,
-    html,
     body,
-    div,
-    span,
-    p,
-    a,
-    h1, h2, h3, h4, h5, h6,
-    input,
-    select,
-    textarea,
-    button,
-    label,
-    table, th, td,
-    ul, ol, li,
-    header, nav, section, article, aside, footer {
-        font-family: Arial, Helvetica, sans-serif !important;
+    * {
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .title span,
+    .title1 span,
+    .item_thongso h2,
+    .pt-header h2 span {
+        font-family: 'Cormorant Garamond', serif !important;
+    }
+
+    .navbar,
+    .btn,
+    .btn_xem,
+    .dropdown,
+    .title1 h2 {
+        font-family: 'Inter', sans-serif !important;
+    }
+
+    .banner-text {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    }
+
+    .infor_dangky h2 {
+        font-family: 'Roboto', sans-serif !important;
+    }
+
     .glass-card {
         background: rgba(255, 255, 255, 0.7);
         backdrop-filter: blur(24px);

@@ -11,7 +11,6 @@ const props = defineProps({
 
 const favoritedRoomIds = ref([...props.favoriteRoomIds]);
 import { router } from "@inertiajs/vue3";
-import { showWarning } from "@/Utils/swal";
 
 const isRoomFavorited = (roomId) => {
     return favoritedRoomIds.value.includes(roomId);
@@ -265,7 +264,7 @@ function executeInterest() {
     let finalReason = null;
     if (confirmAction.value === "not_interested") {
         if (!selectedReason.value) {
-            showWarning("Chú ý", "Vui lòng chọn hoặc nhập lý do không ưng!");
+            alert("Vui lòng chọn hoặc nhập lý do không ưng!");
             return;
         }
         finalReason =
@@ -274,7 +273,7 @@ function executeInterest() {
                 : selectedReason.value;
 
         if (!finalReason) {
-            showWarning("Chú ý", "Vui lòng nhập chi tiết lý do!");
+            alert("Vui lòng nhập chi tiết lý do!");
             return;
         }
 
@@ -928,13 +927,111 @@ const paginatedAppointments = computed(() => {
                                         </a>
                                     </span>
                                 </div>
-                                        {{ expandedMapAptId === apt.id
-                                            ? 'Ẩn bản đồ'
-                                            : 'Bản đồ & Đường đi'
-                                        }}
+                                <div v-if="
+                                    ['approved', 'viewed'].includes(
+                                        apt.status,
+                                    ) && !apt.feedback_result
+                                " style="
+                                        display: flex;
+                                        gap: 8px;
+                                        justify-content: center;
+                                        margin-top: 8px;
+                                    ">
+                                    <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"
+                                        title="Ưng thuê" style="
+                                            background-color: #ecfdf5;
+                                            color: #10b981;
+                                            border: 1px solid #a7f3d0;
+                                            width: auto;
+                                            padding: 0 10px;
+                                            font-size: 12px;
+                                            font-weight: bold;
+                                            cursor: pointer;
+                                        ">
+                                        <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px"></i>
+                                        Ưng
+                                    </button>
+                                    <button @click="openConfirmInterest(apt, false)" class="btn-action btn-not-interest"
+                                        title="Không ưng" style="
+                                            background-color: #fef2f2;
+                                            color: #ef4444;
+                                            border: 1px solid #fecaca;
+                                            width: auto;
+                                            padding: 0 10px;
+                                            font-size: 12px;
+                                            font-weight: bold;
+                                            cursor: pointer;
+                                        ">
+                                        <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px"></i>
+                                        Không ưng
+                                    </button>
+                                </div>
+                                <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px"
+                                    class="space-y-1">
+                                    <span v-if="
+                                        ['interested', 'like'].includes(
+                                            apt.feedback_result,
+                                        )
+                                    " style="
+                                            background-color: #ecfdf5;
+                                            color: #10b981;
+                                            border: 1px solid #a7f3d0;
+                                            padding: 2px 8px;
+                                            border-radius: 4px;
+                                            font-size: 10.5px;
+                                            font-weight: bold;
+                                            display: inline-block;
+                                        ">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                        Đã chốt: Ưng
                                     </span>
-                                </button>
-                            </div>
+                                    <span v-else-if="
+                                        apt.feedback_result ===
+                                        'cancel_requested'
+                                    " style="
+                                            background-color: #fffbeb;
+                                            color: #d97706;
+                                            border: 1px solid #fde68a;
+                                            padding: 3px 8px;
+                                            border-radius: 6px;
+                                            font-size: 10.5px;
+                                            font-weight: bold;
+                                            display: inline-block;
+                                        ">
+                                        <i class="bi bi-clock-history"></i> Đã
+                                        gửi yêu cầu hủy HĐ (Chờ duyệt)
+                                    </span>
+                                    <span v-else-if="
+                                        [
+                                            'not_interested',
+                                            'dislike',
+                                        ].includes(apt.feedback_result)
+                                    " style="
+                                            background-color: #fef2f2;
+                                            color: #ef4444;
+                                            border: 1px solid #fecaca;
+                                            padding: 2px 8px;
+                                            border-radius: 4px;
+                                            font-size: 10.5px;
+                                            font-weight: bold;
+                                        ">
+                                        <i class="bi bi-x-circle-fill"></i> Đã
+                                        chốt: Không ưng
+                                    </span>
+                                    <a v-if="
+                                        apt.room?.boardingHouse?.landlord
+                                            ?.phone ||
+                                        apt.room?.boarding_house?.landlord
+                                            ?.phone
+                                    "
+                                        :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
+                                        class="mobile-call-btn">
+                                        <i class="bi bi-telephone-fill"></i> Gọi
+                                        {{
+                                            apt.room?.boardingHouse?.landlord
+                                                ?.phone ||
+                                            apt.room?.boarding_house?.landlord
+                                                ?.phone
                                         }}
                                     </a>
                                 </div>

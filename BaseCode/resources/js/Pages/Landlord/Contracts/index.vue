@@ -1967,65 +1967,6 @@ const getDepositBadgeConfig = (c) => {
                     </button>
                 </div>
             </div>
-                        </button>
-                    </div>
-                    <div v-if="
-                        !props.pendingRoommateRequests ||
-                        props.pendingRoommateRequests.length === 0
-                    " class="text-center p-8 text-slate-400 font-bold text-sm">
-                        Không có yêu cầu ở ghép nào đang chờ tạo hợp đồng.
-                    </div>
-                </div>
-
-                <!-- Thanh phân trang Yêu cầu ở ghép -->
-                <div v-if="roommateTotalPages > 1"
-                    class="flex items-center justify-between border-t border-slate-100 pt-3 mt-2">
-                    <span class="text-[11px] text-slate-400 font-semibold">
-                        Hiển thị
-                        {{ (roommatePage - 1) * roommatePageSize + 1 }} -
-                        {{
-                            Math.min(
-                                roommatePage * roommatePageSize,
-                                props.pendingRoommateRequests.length,
-                            )
-                        }}
-                        trên tổng {{ props.pendingRoommateRequests.length }}
-                    </span>
-                    <div class="flex items-center gap-1">
-                        <button @click="
-                            roommatePage = Math.max(1, roommatePage - 1)
-                            " :disabled="roommatePage === 1"
-                            class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-all">
-                            <i class="bi bi-chevron-left text-[9px]"></i>
-                        </button>
-                        <button v-for="p in getVisiblePages(
-                            roommatePage,
-                            roommateTotalPages,
-                        )" :key="p" @click="
-                            typeof p === 'number'
-                                ? (roommatePage = p)
-                                : null
-                            " :class="[
-                                'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
-                                roommatePage === p
-                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
-                                    : p === '...'
-                                        ? 'border-transparent text-slate-400 cursor-default'
-                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50',
-                            ]">
-                            {{ p }}
-                        </button>
-                        <button @click="
-                            roommatePage = Math.min(
-                                roommateTotalPages,
-                                roommatePage + 1,
-                            )
-                            " :disabled="roommatePage === roommateTotalPages"
-                            class="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-all">
-                            <i class="bi bi-chevron-right text-[9px]"></i>
-                        </button>
-                    </div>
-                </div>
         </div>
 
         <!-- Modals -->

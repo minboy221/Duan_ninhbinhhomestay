@@ -55,7 +55,6 @@ const convertHeicToJpeg = async (file) => {
     }
 };
 
-
 // Xử lý tải ảnh/file cho hồ sơ pháp lý (contract_images) và không gian (room_images)
 // Không lấy GPS ở frontend nữa: GPS sẽ được trích xuất từ ảnh ở backend/admin để đảm bảo dữ liệu chuẩn nhất.
 const handleMultipleFiles = async (e, field) => {
@@ -74,6 +73,7 @@ const handleMultipleFiles = async (e, field) => {
         if (file.name.toLowerCase().endsWith(".heic")) {
             file = await convertHeicToJpeg(file);
         }
+
 
         props.form[field].push(file);
 
