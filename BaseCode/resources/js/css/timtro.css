@@ -709,7 +709,7 @@ input[type="radio"]:checked::after {
     transform: none !important;
     margin-bottom: 20px;
     display: flex;
-    height: 220px;
+    height: 230px;
     background: #ffffff;
     border-radius: 16px;
     border: 1px solid #e2e8f0;
@@ -729,7 +729,7 @@ input[type="radio"]:checked::after {
 .image_room {
     width: 280px;
     min-width: 280px;
-    height: 100%;
+    height: 230px;
     overflow: hidden;
     position: relative;
     display: flex;
@@ -749,10 +749,10 @@ input[type="radio"]:checked::after {
 
 /* Nội dung */
 .infor_room {
-    padding: 16px 22px;
+    padding: 14px 20px;
     flex: 1;
     min-width: 0;
-    height: 100%;
+    height: 230px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -760,11 +760,11 @@ input[type="radio"]:checked::after {
 }
 
 .title_room h2 {
-    font-size: 16px;
+    font-size: 15.5px;
     font-weight: 700;
     color: #0f172a;
     line-height: 1.3;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -773,8 +773,8 @@ input[type="radio"]:checked::after {
 .infor {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 6px;
+    margin-bottom: 6px;
 }
 
 .infor-row {
@@ -799,18 +799,19 @@ input[type="radio"]:checked::after {
 
 .about_room {
     width: 100%;
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
 .about_room p {
     margin: 0;
     color: #64748b;
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: 12.5px;
+    line-height: 1.4;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* =============================================
