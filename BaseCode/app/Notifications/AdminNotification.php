@@ -5,6 +5,8 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\BroadcastMessage;
+use App\Channels\FcmChannel;
+
 class AdminNotification extends Notification
 {
     use Queueable;
@@ -24,7 +26,7 @@ class AdminNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database','broadcast'];
+        return ['database','broadcast', FcmChannel::class];
     }
 
     public function toArray(object $notifiable): array

@@ -35,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Repositories\Interfaces\ReviewRepositoryInterface::class,
             \App\Repositories\ReviewRepository::class
         );
+        
+        $this->app->bind(
+            \App\Repositories\Interfaces\TenantRepositoryInterface::class,
+            \App\Repositories\TenantRepository::class
+        );
     }
 
     /**
@@ -42,6 +47,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (is_dir(base_path('../public_html')) && file_exists(base_path('../public_html/build/manifest.json'))) {
+            $this->app->usePublicPath(base_path('../public_html'));
+        }
     }
 }

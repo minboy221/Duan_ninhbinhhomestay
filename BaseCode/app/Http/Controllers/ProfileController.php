@@ -77,39 +77,76 @@ class ProfileController extends Controller
         //tự động kiểm tra và đồng bộ số người ở hiện tại của phòng
         if ($contract && $contract->room) {
             $room = $contract->room;
-            $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
-                ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
-                ->count();
-            $activeContractsCount = \App\Models\RoomResident::where('room_id', $room->id)
+            $hasActiveContract = \App\Models\Contract::where('room_id', $room->id)
+                ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'termination_requested', 'expiring'])
+                ->exists();
+            $activeResidentsCount = \App\Models\RoomResident::where('room_id', $room->id)
                 ->where('status', 'active')
                 ->count();
-            $realCurrentPeople = max($activeContractsCount, $activeContractsCount);
+            $realCurrentPeople = max(1, ($hasActiveContract ? 1 : 0) + $activeResidentsCount);
             if ((int) $room->current_people !== $realCurrentPeople) {
                 $room->update(['current_people' => $realCurrentPeople]);
                 $room->current_people = $realCurrentPeople;
             }
         }
+        $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+        if ($reasons->isEmpty()) {
+            $defaults = [
+                'Hỏng hóc thiết bị / Sự cố điện nước',
+                'Thành viên khác vi phạm nội quy / Ồn ào',
+                'Sự cố về Hợp đồng / Tiền trọ',
+                'Không minh bạch về chi phí dịch vụ',
+                'Khác'
+            ];
+            foreach ($defaults as $item) {
+                \App\Models\ReportReason::firstOrCreate(['reason' => $item], ['is_active' => true]);
+            }
+            $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+        }
         return Inertia::render('Profile/qlynoio', [
             'user' => $request->user(),
             'contract' => $contract,
             'isPrimaryTenant' => $isPrimaryTenant,
+            'reasons' => $reasons,
         ]);
     }
 
     //trang thanh toán
     public function lichsuthanhtoan(Request $request): Response
     {
-        $invoices = \App\Models\Invoice::whereHas('contract', function ($q) use ($request) {
-            $q->where('tenant_id', $request->user()->id);
+        $user = $request->user();
+        $residentRoomIds = \App\Models\RoomResident::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->pluck('room_id')
+            ->toArray();
+
+        $invoices = \App\Models\Invoice::whereHas('contract', function ($q) use ($user, $residentRoomIds) {
+            $q->where('tenant_id', $user->id);
+            if (!empty($residentRoomIds)) {
+                $q->orWhereIn('room_id', $residentRoomIds);
+            }
         })
-            ->with(['details.service', 'contract.room.boardingHouse.user'])
+            ->with(['details.service', 'contract.tenant', 'contract.room.boardingHouse.user', 'contract.room.residents.user'])
             ->orderBy('created_at', 'desc')
             ->get();
 
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+        if ($reasons->isEmpty()) {
+            $defaults = [
+                'Hỏng hóc thiết bị / Sự cố điện nước',
+                'Thành viên khác vi phạm nội quy / Ồn ào',
+                'Sự cố về Hợp đồng / Tiền trọ',
+                'Không minh bạch về chi phí dịch vụ',
+                'Khác'
+            ];
+            foreach ($defaults as $item) {
+                \App\Models\ReportReason::firstOrCreate(['reason' => $item], ['is_active' => true]);
+            }
+            $reasons = \App\Models\ReportReason::where('is_active', true)->get();
+        }
 
         return Inertia::render('Profile/listthanhtoan', [
-            'user' => $request->user(),
+            'user' => $user,
             'invoices' => $invoices,
             'reasons' => $reasons,
         ]);
@@ -209,6 +246,50 @@ class ProfileController extends Controller
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')
             ->get();
+
+        // Tự động đồng bộ trạng thái thực tế với Hợp đồng & Cư dân ở ghép
+        foreach ($appointments as $apt) {
+            $userId = $request->user()->id;
+            $roomId = $apt->room_id;
+
+            // Check xem có hợp đồng đang có hiệu lực / đã ký đứng tên người này không
+            $activeContract = \App\Models\Contract::where('room_id', $roomId)
+                ->where('tenant_id', $userId)
+                ->whereIn('status', ['active', 'signed'])
+                ->latest()
+                ->first();
+
+            // Check xem có hợp đồng đã thanh lý đứng tên người này không
+            $terminatedContract = \App\Models\Contract::where('room_id', $roomId)
+                ->where('tenant_id', $userId)
+                ->where('status', 'terminated')
+                ->latest()
+                ->first();
+
+            // Check xem người này có đang ở ghép trong phòng không
+            $isResident = \App\Models\RoomResident::where('room_id', $roomId)
+                ->where('user_id', $userId)
+                ->where('status', 'active')
+                ->exists();
+
+            $pastResident = \App\Models\RoomResident::where('room_id', $roomId)
+                ->where('user_id', $userId)
+                ->where('status', 'inactive')
+                ->exists();
+
+            if ($activeContract) {
+                // Nếu người này đứng tên chính hợp đồng active -> 'success_matched' hoặc 'became_main_tenant'
+                $apt->status = 'success_matched';
+            } else if ($terminatedContract && !$isResident) {
+                // Nếu hợp đồng đã thanh lý và không còn ở trong phòng -> 'terminated'
+                $apt->status = 'terminated';
+            } else if ($isResident) {
+                // Nếu đang là thành viên ở ghép trong phòng -> 'joined_roommate'
+                $apt->status = 'joined_roommate';
+            } else if ($pastResident) {
+                $apt->status = 'roommate_removed';
+            }
+        }
 
         $favoriteRoomIds = $request->user()->favoriteRooms()->pluck('rooms.id')->toArray();
 
@@ -331,14 +412,45 @@ class ProfileController extends Controller
             $user->update(['cccd_number' => $request->cccd]);
         }
 
-        if ($request->result === 'interested') {
-            $landlord = $appointment->room->boardingHouse->user ?? null;
-            if ($landlord) {
-                $landlord->notify(new \App\Notifications\TenantInterestedNotification($appointment));
-            }
+        $aiData = null;
+        if ($request->result === 'not_interested') {
+            $publicListingService = app(\App\Services\PublicListingService::class);
+            $aiData = $publicListingService->getAiAlternativeRecommendationsForAppointment($appointment, $request->reason);
         }
 
-        return Redirect::back()->with('success', 'Đã ghi nhận lựa chọn của bạn!');
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã ghi nhận lựa chọn của bạn!',
+                'status' => $status,
+                'ai_recommendations' => $aiData
+            ]);
+        }
+
+        return Redirect::back()->with([
+            'success' => 'Đã ghi nhận lựa chọn của bạn!',
+            'ai_recommendations' => $aiData
+        ]);
+    }
+
+    /**
+     * Lấy 3 phòng trọ tương tự từ Trợ lý AI cho lịch hẹn đã xem
+     */
+    public function getAiRecommendations(\App\Models\Appointment $appointment): \Illuminate\Http\JsonResponse
+    {
+        $user = auth()->user();
+        if ($appointment->user_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền truy cập thông tin này.',
+                'rooms' => []
+            ], 403);
+        }
+
+        $publicListingService = app(\App\Services\PublicListingService::class);
+        $result = $publicListingService->getAiAlternativeRecommendationsForAppointment($appointment, $appointment->feedback_reason);
+
+        return response()->json($result);
     }
 
     /**
@@ -360,11 +472,20 @@ class ProfileController extends Controller
             'feedback_result' => 'cancel_requested',
             'cancellation_reason' => $request->reason,
             'feedback_reason' => $request->reason,
-            'feedback_time' => now()
+            'feedback_time' => now(),
+            'status' => 'cancel_requested',
         ]);
 
+        //gửi thông báo cho chủ trọ
+        $appointment->load(['user', 'room', 'landlord']);
+        $landlord = $appointment->landlord ?? $appointment->room?->boardingHouse?->user ?? null;
+        if ($landlord) {
+            $landlord->notify(new \App\Notifications\TenantCancelledNotification($appointment));
+        }
+
         // Nếu có hợp đồng liên quan chưa chính thức ký, cập nhật trạng thái hủy
-        $contract = \App\Models\Contract::where('appointment_id', $appointment->id)
+        $contract = \App\Models\Contract::where('room_id', $appointment->room_id)
+            ->where('tenant_id', $appointment->user_id)
             ->whereIn('status', ['draft', 'awaiting_upload', 'pending', 'signed', 'active', 'termination_requested'])
             ->first();
 
@@ -378,7 +499,7 @@ class ProfileController extends Controller
             \App\Models\Contract::$allowImmutableUpdate = false;
         }
 
-        return Redirect::back()->with('success', 'Đã gửi yêu cầu hủy đăng ký hợp đồng tới Chủ trọ thành công!');
+        return redirect()->back()->with('success', 'Đã gửi yêu cầu hủy đăng ký hợp đồng tới Chủ trọ thành công!');
     }
 
     /**
@@ -390,9 +511,18 @@ class ProfileController extends Controller
             'payment_method' => 'required|string|in:qr,cash'
         ]);
 
+        $user = $request->user();
+        $residentRoomIds = \App\Models\RoomResident::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->pluck('room_id')
+            ->toArray();
+
         $invoice = \App\Models\Invoice::where('id', $id)
-            ->whereHas('contract', function ($q) use ($request) {
-                $q->where('tenant_id', $request->user()->id);
+            ->whereHas('contract', function ($q) use ($user, $residentRoomIds) {
+                $q->where('tenant_id', $user->id);
+                if (!empty($residentRoomIds)) {
+                    $q->orWhereIn('room_id', $residentRoomIds);
+                }
             })
             ->with(['contract.room.boardingHouse.user'])
             ->firstOrFail();
@@ -405,7 +535,7 @@ class ProfileController extends Controller
             $landlord->notify(new \App\Notifications\TenantPaidInvoiceNotification($invoice, $methodLabel));
         }
 
-        return Redirect::back()->with('success', 'Đã gửi thông báo đã chuyển khoản thành công tới Chủ trọ!');
+        return Redirect::back()->with('success', 'Đã gửi báo cáo thanh toán tới Chủ trọ! Hóa đơn sẽ CHỈ tự động đổi sang "Đã thanh toán" khi Ngân hàng xác nhận tiền đã về tài khoản hoặc Chủ trọ duyệt.');
     }
 
     /**
@@ -431,9 +561,19 @@ class ProfileController extends Controller
         ]);
         \App\Models\Contract::$allowImmutableUpdate = false;
 
+        // Gửi thông báo đến Chủ trọ
+        $landlord = $contract->room?->boardingHouse?->landlord;
+        if ($landlord) {
+            $roomNum = $contract->room?->room_number ?: '';
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'Yêu cầu chấm dứt hợp đồng mới',
+                "Khách thuê {$user->name} vừa gửi yêu cầu chấm dứt hợp đồng phòng {$roomNum}. Lý do: {$request->input('reason')}",
+                'warning',
+                route('landlord.contracts')
+            ));
+        }
+
         return Redirect::back()->with('success', 'Đã gửi yêu cầu chấm dứt hợp đồng thành công. Vui lòng chờ chủ trọ xác nhận thanh lý.');
-        /* Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
-         */
     }
 
     // Phần gia hạn hợp đồng từ client
@@ -452,7 +592,7 @@ class ProfileController extends Controller
             'note' => 'nullable|string|max:1000',
         ], [
             'desired_months.required' => 'Vui lòng chọn số tháng muốn gia hạn.',
-            'desired_month.min' => 'Số tháng gia hạn tối thiểu là 1 tháng.',
+            'desired_months.min' => 'Số tháng gia hạn tối thiểu là 1 tháng.',
         ]);
         $months = (int) $request->input('desired_months');
         $note = trim($request->input('note', ''));
@@ -474,12 +614,16 @@ class ProfileController extends Controller
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Yêu cầu gia hạn hợp đồng mới',
                 "Khách thuê tại phòng {$roomNum} ({$user->name}) gửi yêu cầu gia hạn {$months} tháng. {$requestedInfor}",
+                'info',
                 route('landlord.contracts')
             ));
         }
         return redirect()->route('quanlynoio')->with('success', "Đã gửi yêu cầu gia hạn hợp đồng ({$months} tháng) thành công tới chủ trọ!");
     }
 
+    /**
+     * Cập nhật chỉ số điện/nước ban đầu khi nhận phòng
+     */
     public function submitEntryReadings(Request $request, $contractId)
     {
         $request->validate([
@@ -519,6 +663,7 @@ class ProfileController extends Controller
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Khách đã cập nhật chỉ số nhận phòng',
                 "Khách thuê tại phòng {$roomNum} đã tải lên chỉ số điện/nước ban đầu lúc nhận phòng.",
+                'info',
                 route('landlord.contracts')
             ));
         }
@@ -560,8 +705,21 @@ class ProfileController extends Controller
             ]));
             return redirect()->back()->with('success', 'Gửi thông báo giới thiệu thành viên mới thành công! Vui lòng chờ chủ trọ duyệt.');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', $e->getMessage());
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'new_resident_email' => $e->getMessage(),
+            ]);
         }
+    }
+
+    //hàm nhận token từ điện thoại
+    public function updateFcmToken(Request $request)
+    {
+        $request->validate(['fcm_token' => 'required|string',]);
+        $user = auth()->user();
+        if ($user) {
+            $user->update(['fcm_token' => $request->fcm_token]);
+        }
+        return response()->json(['messeage' => 'Cập nhật FCM Token thành công!']);
     }
 }
 

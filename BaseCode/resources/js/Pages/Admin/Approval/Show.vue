@@ -3,6 +3,7 @@ import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref } from "vue";
 import { showConfirm } from "@/Utils/swal"; 
+import { getStatusLabel, getStatusClass } from "@/Utils/statusHelper";
 
 const props = defineProps({
     post: Object,
@@ -12,35 +13,6 @@ const props = defineProps({
 const rejectForm = useForm({
     reject_reason: props.post.reject_reason || "",
 });
-
-//Phần hiển thị trạng thái của phòng mà chủ trọ đăng tin
-const getStatusLabel = (status) => {
-    const labels = {
-        available: "Còn phòng",
-        rented: "Đã thuê",
-        maintenance: "Bảo trì",
-        deposited: "Đã đặt cọc",
-        expiring_soon: "Sắp hết hạn hợp đồng",
-        pending_renewal: "Chờ gia hạn",
-        suspended: "Tạm ngưng",
-        under_construction: "Đang xây dựng",
-    };
-    return labels[status] || "Không xác định";
-};
-
-const getStatusClass = (status) => {
-    const classes = {
-        available: "bg-green-50 text-green-700 border-green-200",
-        rented: "bg-gray-50 text-gray-500 border-gray-200",
-        maintenance: "bg-yellow-50 text-yellow-700 border-yellow-200",
-        deposited: "bg-blue-50 text-blue-700 border-blue-200",
-        expiring_soon: "bg-orange-50 text-orange-700 border-orange-200",
-        pending_renewal: "bg-purple-50 text-purple-700 border-purple-200",
-        suspended: "bg-red-50 text-red-700 border-red-200",
-        under_construction: "bg-teal-50 text-teal-700 border-teal-200",
-    };
-    return classes[status] || "bg-gray-50 text-gray-500 border-gray-200";
-};
 
 // Hàm gọi lệnh Phê duyệt bài viết
 async function approvePost() {

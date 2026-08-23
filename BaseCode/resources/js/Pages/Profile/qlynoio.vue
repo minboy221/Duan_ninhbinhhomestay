@@ -4,16 +4,28 @@ import { Head, Link, useForm, usePage, router } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 import { showSuccess, showError, showConfirm } from "@/Utils/swal";
 import axios from "axios";
+import { compressMultipleImages } from "@/Utils/compressor";
 
 const props = defineProps({
     user: Object,
     contract: Object,
-    isPrimaryTenant:Boolean,
+    isPrimaryTenant: Boolean,
+    reasons: Array,
 });
 
 const showPdfModal = ref(false);
 const showEntryModal = ref(false);
 const showTerminateModal = ref(false);
+
+// Bộ lọc danh sách người ở ghép (Loại trừ Chủ hợp đồng chính)
+const filteredRoommates = computed(() => {
+    const list = props.contract?.room?.residents;
+    if (!Array.isArray(list)) return [];
+    const primaryTenantId = props.contract?.tenant_id;
+    return list.filter(
+        (res) => String(res.user_id) !== String(primaryTenantId)
+    );
+});
 
 const entryForm = useForm({
     entry_elec_index: props.contract?.entry_elec_index || "",
@@ -265,6 +277,51 @@ const handleViewPdf = () => {
     }
     showPdfModal.value = true;
 };
+
+//state & form cho modal báo cáo
+const showReportModal = ref(false);
+const previewEvidenceImages = ref([]);
+
+const reportForm = useForm({
+    reportable_type: "Room",
+    reportable_id: null,
+    resolve_type: "direct",
+    reason: "",
+    description: "",
+    evidence_images: [],
+});
+
+// Hàm mở Modal Báo cáo
+const openReportModal = () => {
+    if (!props.contract || !props.contract.room_id) {
+        showError("Lỗi", "Không tìm thấy thông tin phòng trọ để báo cáo.");
+        return;
+    }
+    reportForm.reset();
+    reportForm.reportable_type = "Room";
+    reportForm.reportable_id = props.contract.room_id;
+    previewEvidenceImages.value = [];
+    showReportModal.value = true;
+};
+const handleEvidenceImages = async (e) => {
+    const files = Array.from(e.target.files);
+    const compressedFiles = await compressMultipleImages(files);
+    reportForm.evidence_images = compressedFiles;
+    previewEvidenceImages.value = compressedFiles.map((file) => URL.createObjectURL(file));
+};
+
+
+const submitReport = () => {
+    reportForm.post(route("reports.store"), {
+        forceFormData: true,
+        onSuccess: () => {
+            showReportModal.value = false;
+            showSuccess("Thành công", "Đã gửi báo cáo thành công! Hệ thống sẽ hỗ trợ bạn xử lý.");
+        },
+        onError: () => {
+        },
+    });
+};
 </script>
 
 <template>
@@ -380,12 +437,12 @@ const handleViewPdf = () => {
                                     Điện:
                                     <strong style="color: #059669">{{
                                         contract.entry_elec_index
-                                    }}
+                                        }}
                                         kWh</strong>
                                     | Nước:
                                     <strong style="color: #2563eb">{{
                                         contract.entry_water_index
-                                    }}
+                                        }}
                                         m³</strong>
                                     <span style="
                                             font-size: 11px;
@@ -489,15 +546,15 @@ const handleViewPdf = () => {
                         </div>
                     </div>
                     <!-- KHỐI HIỂN THỊ DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG -->
-                    <div v-if="contract && contract.room && contract.room.residents && contract.room.residents.length > 0"
+                    <div v-if="filteredRoommates && filteredRoommates.length > 0"
                         style="margin: 20px 0; padding: 16px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px;">
                         <h3
                             style="font-size: 14px; font-weight: 800; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                             <i class="bi bi-people-fill" style="color: #10b981; font-size: 16px;"></i>
-                            DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG ({{ contract.room.residents.length }} người)
+                            DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG ({{ filteredRoommates?.length || 0 }} người)
                         </h3>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div v-for="res in contract.room.residents" :key="res.id"
+                            <div v-for="res in filteredRoommates" :key="res.id"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px;">
                                 <div>
                                     <strong style="font-size: 13px; color: #0f172a;">{{ res.user?.name || 'Thành viên'
@@ -520,32 +577,22 @@ const handleViewPdf = () => {
                         )
                     " class="roommate-actions-container">
                         <!-- Nút Tìm người ở ghép: Chỉ hiện khi là Chủ hợp đồng, phòng > 1 người và chưa đầy -->
-                        <button 
+                        <button
                             v-if="props.isPrimaryTenant && (contract.room?.capacity > 1) && ((contract.room?.current_people || 1) < contract.room?.capacity)"
-                            type="button" 
-                            @click="submitStrangerRequest" 
-                            class="btn-roommate-stranger"
-                        >
+                            type="button" @click="submitStrangerRequest" class="btn-roommate-stranger">
                             <i class="bi bi-people-fill"></i> Tìm người ở ghép
                         </button>
 
                         <!-- Nút Giới thiệu bạn bè: Chỉ hiện khi là Chủ hợp đồng, phòng > 1 người và chưa đầy -->
-                        <button 
+                        <button
                             v-if="props.isPrimaryTenant && (contract.room?.capacity > 1) && ((contract.room?.current_people || 1) < contract.room?.capacity)"
-                            type="button" 
-                            @click="showAcquaintanceModal = true" 
-                            class="btn-roommate-acquaintance"
-                        >
+                            type="button" @click="showAcquaintanceModal = true" class="btn-roommate-acquaintance">
                             <i class="bi bi-person-plus-fill"></i> Giới thiệu người vào ở
                         </button>
 
                         <!-- Nút Chấm dứt HĐ: Chỉ hiện dành cho Chủ hợp đồng -->
-                        <button 
-                            v-if="props.isPrimaryTenant"
-                            type="button" 
-                            @click="showTerminateModal = true" 
-                            class="btn-terminate"
-                        >
+                        <button v-if="props.isPrimaryTenant" type="button" @click="showTerminateModal = true"
+                            class="btn-terminate">
                             <i class="bi bi-x-circle-fill"></i>
                             {{ terminateButtonText }}
                         </button>
@@ -562,12 +609,9 @@ const handleViewPdf = () => {
                     <h2>HỢP ĐỒNG THUÊ TRỌ</h2>
                     <div style="display: flex; gap: 10px; align-items: center">
                         <!-- Nút Yêu cầu gia hạn HĐ: CHỈ HIỆN DÀNH CHO CHỦ HỢP ĐỒNG -->
-                        <button 
-                            v-if="props.isPrimaryTenant && !hasRequestedExtension" 
-                            @click="showExtendRequestModal = true" 
-                            class="btn-hopdong"
-                            style="background: #10b981; color: #fff; cursor: pointer;"
-                        >
+                        <button v-if="props.isPrimaryTenant && !hasRequestedExtension"
+                            @click="showExtendRequestModal = true" class="btn-hopdong"
+                            style="background: #10b981; color: #fff; cursor: pointer;">
                             <i class="bi bi-arrow-repeat"></i> Yêu cầu gia hạn HĐ
                         </button>
                         <span v-else-if="props.isPrimaryTenant && hasRequestedExtension" style="
@@ -592,6 +636,11 @@ const handleViewPdf = () => {
                     <h2>LỊCH SỬ HOÁ ĐƠN</h2>
                     <Link :href="route('lichsuthanhtoan')" class="btn-hopdong">Xem trực tiếp lịch sử thanh toán</Link>
                 </div>
+                <!-- Nút Báo cáo sự cố / vi phạm -->
+                <button @click="openReportModal" class="btn-bao-cao">
+                    <i class="bi bi-flag-fill"></i>
+                    Báo cáo sự cố / vi phạm
+                </button>
             </div>
         </div>
 
@@ -670,8 +719,7 @@ const handleViewPdf = () => {
                             <i class="bi bi-lightning-charge-fill text-amber-500"></i>
                             <span>Chỉ số ĐIỆN ban đầu (kWh)</span>
                         </label>
-                        <input type="number" min="0" v-model="entryForm.entry_elec_index" required
-                            placeholder="Ví dụ: 1250"
+                        <input type="number" min="0" v-model="entryForm.entry_elec_index" placeholder="Ví dụ: 1250"
                             class="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white" />
                         <div>
                             <span class="text-[11px] text-slate-500 font-semibold block mb-1">Ảnh chụp công tơ điện lúc
@@ -694,8 +742,7 @@ const handleViewPdf = () => {
                             <i class="bi bi-droplet-fill text-blue-500"></i>
                             <span>Chỉ số NƯỚC ban đầu (m³)</span>
                         </label>
-                        <input type="number" min="0" v-model="entryForm.entry_water_index" required
-                            placeholder="Ví dụ: 85"
+                        <input type="number" min="0" v-model="entryForm.entry_water_index" placeholder="Ví dụ: 85"
                             class="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" />
                         <div>
                             <span class="text-[11px] text-slate-500 font-semibold block mb-1">Ảnh chụp công tơ nước lúc
@@ -858,26 +905,26 @@ const handleViewPdf = () => {
                 <form @submit.prevent="submitAcquaintanceRequest">
                     <div class="form-field-group">
                         <label class="form-field-label">Họ và tên (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_name" required
-                            placeholder="Nhập họ tên..." class="form-field-input" />
+                        <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
+                            class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
                         <label class="form-field-label">Số điện thoại (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_phone" required
+                        <input type="text" v-model="acquaintanceForm.new_resident_phone"
                             placeholder="Ví dụ: 0987654321..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
                         <label class="form-field-label">Email liên hệ (*)</label>
-                        <input type="email" v-model="acquaintanceForm.new_resident_email" required
+                        <input type="email" v-model="acquaintanceForm.new_resident_email"
                             placeholder="Nhập địa chỉ email..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
                         <label class="form-field-label">Số CCCD/CMND (12 chữ số) (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" required
-                            placeholder="Đúng 12 chữ số..." maxlength="12" class="form-field-input" />
+                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" placeholder="Đúng 12 chữ số..."
+                            maxlength="12" class="form-field-input" />
                     </div>
 
                     <div class="modal-footer">
@@ -940,7 +987,176 @@ const handleViewPdf = () => {
                 </form>
             </div>
         </div>
+        <!-- MODAL BÁO CÁO SỰ CỐ VÀ VI PHẠM -->
     </UserLayout>
+    <div v-if="showReportModal"
+        class="fixed inset-0 z-[99] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+        <div
+            class="bg-white rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+
+            <!-- HEADER -->
+            <div
+                class="sticky top-0 z-10 bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
+                        <i class="bi bi-exclamation-triangle-fill text-rose-500 text-sm"></i>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-extrabold text-slate-800">
+                            Báo cáo sự cố / vi phạm
+                        </h3>
+                        <p class="text-[10px] text-slate-400 mt-0.5">
+                            Vui lòng cung cấp thông tin cần thiết
+                        </p>
+                    </div>
+                </div>
+
+                <button type="button" @click="showReportModal = false"
+                    class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+                    <i class="bi bi-x-lg text-sm"></i>
+                </button>
+            </div>
+
+            <!-- BODY -->
+            <form @submit.prevent="submitReport" class="p-5 space-y-4">
+
+                <!-- LOẠI BÁO CÁO -->
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-600 mb-1.5">
+                        Loại báo cáo
+                        <span class="text-rose-500">*</span>
+                    </label>
+
+                    <select v-model="reportForm.reason"
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 outline-none transition focus:bg-white focus:border-rose-400 focus:ring-2 focus:ring-rose-100">
+                        <option value="" disabled>
+                            -- Chọn phân loại báo cáo --
+                        </option>
+
+                        <option v-for="(r, idx) in props.reasons" :key="r.id || idx"
+                            :value="typeof r === 'object' ? r.reason : r">
+                            {{ typeof r === 'object' ? r.reason : r }}
+                        </option>
+
+                        <option v-if="!props.reasons || props.reasons.length === 0" value="Khác">
+                            Lý do khác
+                        </option>
+                    </select>
+                    <p v-if="reportForm.errors.reason" class="text-rose-500 text-[11px] font-medium mt-1">
+                        {{ reportForm.errors.reason }}
+                    </p>
+                </div>
+
+                <!-- MÔ TẢ -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-[11px] font-bold text-slate-600">
+                            Mô tả chi tiết
+                            <span class="text-rose-500">*</span>
+                        </label>
+
+                        <span class="text-[9px] text-slate-400">
+                            Bắt buộc
+                        </span>
+                    </div>
+
+                    <textarea v-model="reportForm.description" rows="4"
+                        placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề vi phạm cần xử lý..."
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none resize-none transition focus:bg-white focus:border-rose-400 focus:ring-2 focus:ring-rose-100 placeholder:text-slate-400"></textarea>
+                    <p v-if="reportForm.errors.description" class="text-rose-500 text-[11px] font-medium mt-1">
+                        {{ reportForm.errors.description }}
+                    </p>
+                </div>
+
+                <!-- HÌNH ẢNH -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-[11px] font-bold text-slate-600">
+                            Hình ảnh minh chứng
+                        </label>
+
+                        <span class="text-[9px] text-slate-400">
+                            Bắt buộc
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5">
+
+                        <!-- CAMERA -->
+                        <label
+                            class="group flex items-center gap-2.5 p-3 border border-dashed border-rose-200 bg-rose-50/50 rounded-xl cursor-pointer hover:bg-rose-50 hover:border-rose-300 transition-all">
+                            <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                <i class="bi bi-camera-fill text-rose-500"></i>
+                            </div>
+
+                            <div class="min-w-0">
+                                <span class="block text-[11px] font-bold text-rose-700">
+                                    Chụp ảnh
+                                </span>
+
+                                <span class="block text-[9px] text-rose-400 mt-0.5">
+                                    Mở camera
+                                </span>
+                            </div>
+
+                            <input type="file" accept="image/*" capture="environment" class="hidden"
+                                @change="handleEvidenceImages" />
+                        </label>
+
+                        <!-- BỘ SƯU TẬP -->
+                        <label
+                            class="group flex items-center gap-2.5 p-3 border border-dashed border-slate-200 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 hover:border-slate-300 transition-all">
+                            <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                <i class="bi bi-images text-slate-500"></i>
+                            </div>
+
+                            <div class="min-w-0">
+                                <span class="block text-[11px] font-bold text-slate-700">
+                                    Bộ sưu tập
+                                </span>
+
+                                <span class="block text-[9px] text-slate-400 mt-0.5">
+                                    Chọn ảnh có sẵn
+                                </span>
+                            </div>
+
+                            <input type="file" multiple accept="image/*,.heic,.heif" class="hidden"
+                                @change="handleEvidenceImages" />
+                        </label>
+
+                    </div>
+
+                    <!-- PREVIEW -->
+                    <div v-if="previewEvidenceImages.length > 0" class="mt-3 flex flex-wrap gap-2">
+                        <div v-for="(img, idx) in previewEvidenceImages" :key="idx" class="relative">
+                            <img :src="img"
+                                class="w-14 h-14 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" @click="showReportModal = false"
+                        class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold rounded-lg transition-all">
+                        Hủy
+                    </button>
+
+                    <button type="submit" :disabled="reportForm.processing"
+                        class="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1.5">
+                        <i v-if="reportForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
+
+                        <i v-else class="bi bi-send-fill"></i>
+
+                        <span>
+                            {{ reportForm.processing ? 'Đang gửi...' : 'Gửi báo cáo' }}
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </template>
 
 <style scoped>

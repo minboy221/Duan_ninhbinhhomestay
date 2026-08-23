@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Appointment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use App\Channels\FcmChannel;
 
 class TenantInterestedNotification extends Notification
 {
@@ -19,7 +20,7 @@ class TenantInterestedNotification extends Notification
 
     public function via($notifiable)
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
     }
 
     public function toDatabase($notifiable)

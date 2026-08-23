@@ -10,9 +10,12 @@ use PharIo\Manifest\License;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Repositories\Interfaces\RoomPostRepositoryInterface;
 use App\Repositories\Interfaces\ReviewRepositoryInterface;
+use App\Traits\HandlesStorageFiles;
 
 class RoomListingService
 {
+    use HandlesStorageFiles;
+
     protected $roomPostRepository;
     protected $reviewRepository;
 
@@ -62,6 +65,15 @@ class RoomListingService
                 session(['selected_boarding_house_id' => $boardingHouseId]);
             }
         }
+
+        // Tự động quét và chuyển sang trạng thái 'hidden' (Đóng tin) cho bài đăng của các phòng đã đủ người
+        RoomPost::where('landlord_id', $landlordId)
+            ->where('status', 'approved')
+            ->whereHas('room', function ($q) {
+                $q->whereColumn('current_people', '>=', 'capacity');
+            })
+            ->update(['status' => 'hidden']);
+
         return RoomPost::where('landlord_id', $landlordId)
             ->whereHas('room',function($q) use ($boardingHouseId){
                 $q->where('boarding_house_id',$boardingHouseId);
@@ -71,18 +83,6 @@ class RoomListingService
             ->paginate(10); //phân trang
     }
 
-    //phần sử lý upload ảnh bài đăng
-    public function uploadImages(array $files): array
-    {
-
-        // Phần sử lý upload danh sách hình ảnh bài đăng
-        $uploadedImages = [];
-        foreach ($files as $file) {
-            $path = $file->store('room_posts_images', 'public');
-            $uploadedImages[] = '/storage/' . $path;
-        }
-        return $uploadedImages;
-    }
 
     // Phần thêm mới bài đăng của chủ trọ dưới dạng nháp hoặc chờ duyệt
     public function createPost(array $data, array $files, string $status): RoomPost
@@ -164,8 +164,7 @@ class RoomListingService
             $oldImages = $post->image ?? [];
             $deletedImages = array_diff($oldImages, $imageUrls);
             foreach ($deletedImages as $url) {
-                $path = str_replace('/storage/', '', $url);
-                Storage::disk('public')->delete($path);
+                $this->deleteSingleImage($url);                
             }
             //nếu user đăng tải thêm ảnh mới
             if ($newFiles) {
@@ -199,8 +198,7 @@ class RoomListingService
             if (!empty($post->image) && is_array($post->image)) {
                 foreach ($post->image as $url) {
                     //chuyển đổi từ link public về đường dẫn gốc để xoá
-                    $path = str_replace('/storage/', '', $url);
-                    Storage::disk('public')->delete($path);
+                   $this->deleteSingleImage($url);
                 }
             }
             //xoá dữ liệu đó trong bảng room_posts của db
@@ -231,8 +229,8 @@ class RoomListingService
     {
         return DB::transaction(function () use ($post, $reason) {
             $updated = $post->update([
-                'status' => 'rejected',       // Chuyển trạng thái sang từ chối
-                'reject_reason' => $reason,          // Ghi nhận lý do gõ từ popup admin vào trường reject_reason của bạn
+                'status' => 'rejected',     
+                'reject_reason' => $reason,  
                 'published_at' => null,
             ]);
 
@@ -242,6 +240,27 @@ class RoomListingService
             }
             return $updated;
         });
+    }
+
+    //hàm xoá ảnh nếu tin đăng bị xoá
+    protected function deleteSingleImage(?string $url): void{
+        if(empty($url)) return;
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+        //check nếu url là ảnh lưu trên cloudflare R2
+        if(!empty($r2Url) && str_starts_with($url, $r2Url)){
+            $r2Path = ltrim(substr($url, strlen($r2Url)),'/');
+            try{
+                Storage::disk('r2_public')->delete($r2Path);
+                return;
+            }catch(\Throwable $e){
+            }
+        }
+        //nếu là ảnh lưu local
+        $localPath = str_replace('/storage/', '', parse_url($url,PHP_URL_PATH) ?? $url);
+        try{
+            Storage::disk('public')->delete(ltrim($localPath, '/'));
+        }catch (\Throwable $e){
+        }
     }
 }
 ?>

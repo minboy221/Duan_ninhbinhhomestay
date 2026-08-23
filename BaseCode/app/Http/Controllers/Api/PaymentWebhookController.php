@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\LandlordSubscription;
+use App\Services\SubscriptionService;
 use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,13 +16,13 @@ class PaymentWebhookController extends Controller
      */
     public function handleWebhook(Request $request)
     {
-        $content = $request->input('content') 
-            ?? $request->input('description') 
-            ?? $request->input('data.description') 
+        $content = $request->input('content')
+            ?? $request->input('description')
+            ?? $request->input('data.description')
             ?? $request->input('memo', '');
-            
-        $amount = floatval($request->input('transferAmount') 
-            ?? $request->input('amount') 
+
+        $amount = floatval($request->input('transferAmount')
+            ?? $request->input('amount')
             ?? $request->input('data.amount', 0));
 
         if (empty($content)) {
@@ -29,6 +31,34 @@ class PaymentWebhookController extends Controller
 
         Log::info("Webhook Payment Received:", ['content' => $content, 'amount' => $amount]);
 
+        // 1. Kiểm tra nếu là thanh toán mua gói dịch vụ chủ trọ (chứa mã SUB)
+        if (preg_match('/SUB\d+/', $content, $matches)) {
+            $subCode = $matches[0];
+            $subscription = LandlordSubscription::where('payment_code', $subCode)
+                ->where('status', 'pending')
+                ->first();
+            if ($subscription) {
+                // Kích hoạt gói dịch vụ
+                $subscriptionService = app(SubscriptionService::class);
+                $subscriptionService->activateSubscription($subscription);
+                Log::info("Tự động kích hoạt gói thành công qua Webhook:", [
+                    'payment_code' => $subCode,
+                    'user_id' => $subscription->user_id,
+                    'plan_id' => $subscription->plan_id
+                ]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Thanh toán & Tự động kích hoạt gói dịch vụ thành công cho mã ' . $subCode,
+                    'subscription_id' => $subscription->id,
+                    'user_id' => $subscription->user_id,
+                    'plan_name' => $subscription->plan->name ?? '',
+                    'start_date' => $subscription->start_date ? $subscription->start_date->toDateString() : null,
+                    'end_date' => $subscription->end_date ? $subscription->end_date->toDateString() : null,
+                ]);
+            }
+        }
+
+        // 2. Nếu không phải mua gói -> kiểm tra hoá đơn tiền trọ
         $invoice = $this->findInvoiceFromContent($content);
 
         if (!$invoice) {
@@ -104,48 +134,102 @@ class PaymentWebhookController extends Controller
     }
 
     /**
-     * Tìm hóa đơn theo mã HĐ hoặc theo Mẫu 1 (P101... 06-2026)
+     * Tìm hóa đơn từ nội dung chuyển khoản ngân hàng
      */
     private function findInvoiceFromContent($content)
     {
-        // 1. Tìm theo Mã hóa đơn trực tiếp (HD...)
-        if (preg_match('/HD[-\w\d]+/', $content, $matches)) {
-            $code = $matches[0];
-            $inv = Invoice::where('invoice_code', $code)->orWhere('invoice_code', '#' . $code)->first();
+        Log::info("Parsing webhook content: " . $content);
+
+        // 1. Chuẩn hóa chuỗi content (Bỏ dấu, ký tự đặc biệt, chuyển in hoa)
+        $cleanContent = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $content));
+
+        // 2. Tìm theo Mã hóa đơn trực tiếp (VD: HD202608464 hoặc HD-202608-464)
+        if (preg_match('/(HD|INV)[-\w\d]+/i', $content, $matches)) {
+            $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $matches[0]));
+            $inv = Invoice::where('status', 'unpaid')
+                ->get()
+                ->first(function ($i) use ($code) {
+                    $cleanInvCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $i->invoice_code));
+                    return !empty($cleanInvCode) && (str_contains($cleanInvCode, $code) || str_contains($code, $cleanInvCode));
+                });
             if ($inv) return $inv;
         }
 
-        // 2. Tìm theo Mẫu 1: P[Số phòng] ... TT thang [Tháng]
-        // Ví dụ: P101 Tran Thi Nguoi Thue TT thang 06-2026
-        if (preg_match('/P(\w+)\s+.*?\s*TT\s+thang\s+([\d]{2}[-\/][\d]{4})/i', $content, $matches)) {
-            $roomNum = $matches[1];
-            $rawMonth = str_replace('-', '/', $matches[2]);
+        // 3. Quét danh sách hóa đơn chưa thanh toán
+        $unpaidInvoices = Invoice::where('status', 'unpaid')
+            ->with(['contract.room', 'contract.tenant'])
+            ->get();
 
-            $parts = explode('/', $rawMonth);
-            $billingMonth = count($parts) === 2 ? $parts[1] . '-' . sprintf('%02d', $parts[0]) : $rawMonth;
-
-            $inv = Invoice::whereHas('contract.room', function ($q) use ($roomNum) {
-                $q->where('room_number', 'LIKE', '%' . $roomNum . '%');
-            })
-            ->where(function ($q) use ($rawMonth, $billingMonth) {
-                $q->where('billing_month', $rawMonth)->orWhere('billing_month', $billingMonth);
-            })
-            ->where('status', 'unpaid')
-            ->first();
-
-            if ($inv) return $inv;
-        }
-
-        // 3. Fallback: Tìm bất kỳ hóa đơn nào chưa thanh toán mà invoice_code xuất hiện trong content
-        $unpaidInvoices = Invoice::where('status', 'unpaid')->get();
+        // 3a. So sánh mã hóa đơn hoặc chuỗi số hóa đơn
         foreach ($unpaidInvoices as $inv) {
-            $cleanCode = str_replace(['#', '-'], '', $inv->invoice_code);
-            $cleanContent = str_replace(['#', '-'], '', $content);
-            if (stripos($cleanContent, $cleanCode) !== false) {
+            $cleanCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $inv->invoice_code));
+            if (!empty($cleanCode) && str_contains($cleanContent, $cleanCode)) {
+                return $inv;
+            }
+
+            $codeNumbersOnly = preg_replace('/[^0-9]/', '', $inv->invoice_code);
+            if (!empty($codeNumbersOnly) && strlen($codeNumbersOnly) >= 5 && str_contains($cleanContent, $codeNumbersOnly)) {
+                return $inv;
+            }
+        }
+
+        // 3b. Phân tích cấu trúc Phòng + Tháng thanh toán (Ví dụ: P101 ... TT thang 06-2026)
+        preg_match('/P(\w+)/i', $content, $roomMatches);
+        $roomNum = $roomMatches[1] ?? null;
+
+        $billingMonthFound = null;
+        if (preg_match('/([\d]{4})[-\/]?([\d]{2})/', $content, $m)) {
+            $billingMonthFound = $m[1] . '-' . sprintf('%02d', $m[2]);
+        } elseif (preg_match('/([\d]{2})[-\/]([\d]{4})/', $content, $m)) {
+            $billingMonthFound = $m[2] . '-' . sprintf('%02d', $m[1]);
+        }
+
+        if ($roomNum || $billingMonthFound) {
+            foreach ($unpaidInvoices as $inv) {
+                $invMonth = str_replace('/', '-', $inv->billing_month);
+                $invRoomName = $inv->contract->room->room_number ?? $inv->contract->room->name ?? '';
+                $cleanRoomName = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $invRoomName));
+
+                $monthMatches = !$billingMonthFound || $invMonth === $billingMonthFound || str_contains($invMonth, $billingMonthFound);
+                $roomMatches = !$roomNum || ($cleanRoomName && str_contains($cleanRoomName, strtoupper($roomNum)));
+
+                if ($monthMatches && $roomMatches && ($roomNum || $billingMonthFound)) {
+                    return $inv;
+                }
+            }
+        }
+
+        // 3c. Tìm theo Tên khách thuê trong nội dung chuyển khoản
+        foreach ($unpaidInvoices as $inv) {
+            $tenantName = $inv->contract->tenant->name ?? '';
+            $cleanTenantName = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $tenantName));
+            if (!empty($cleanTenantName) && strlen($cleanTenantName) >= 5 && str_contains($cleanContent, $cleanTenantName)) {
                 return $inv;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Endpoint Giả lập thanh toán mua gói dịch vụ cho nút Test Local
+     */
+    public function simulateSubscriptionPayment(Request $request)
+    {
+        $subscriptionId = $request->input('subscription_id');
+        $subscription = LandlordSubscription::find($subscriptionId);
+        if (!$subscription) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Đơn đăng ký gói không tồn tại'
+            ], 404);
+        }
+        $subscriptionService = app(SubscriptionService::class);
+        $subscriptionService->activateSubscription($subscription);
+        return response()->json([
+            'success' => true,
+            'message' => 'Giả lập thanh toán ngân hàng cho gói dịch vụ thành công!',
+            'subscription' => $subscription->load('plan')
+        ]);
     }
 }

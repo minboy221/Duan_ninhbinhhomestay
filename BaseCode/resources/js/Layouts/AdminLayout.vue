@@ -1,11 +1,43 @@
 <script setup>
 import { Link, usePage, router } from "@inertiajs/vue3";
-import { computed, ref, watchEffect, onUnmounted, onMounted } from "vue";
+import { computed, ref, watchEffect, onUnmounted, onMounted, watch } from "vue";
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 const sidebarOpen = ref(true);
+const mobileMenuOpen = ref(false);
 const notifOpen = ref(false);
+//phần hiển thị thông báo
+const showToast = ref(false);
+const toastMessage = ref("");
+const toastType = ref("success");
+
+watch(
+    () => page.props.flash,
+    (flash) => {
+        if (flash?.success) {
+            toastMessage.value = flash.success;
+            toastType.value = "success";
+            showToast.value = true;
+            setTimeout(() => {
+                showToast.value = false;
+            }, 3500);
+        } else if (flash?.error) {
+            toastMessage.value = flash.error;
+            toastType.value = "error";
+            showToast.value = true;
+            setTimeout(() => {
+                showToast.value = false;
+            }, 3500);
+        }
+    },
+    { deep: true, immediate: true }
+);
+watchEffect(() => {
+    if (page.url) {
+        mobileMenuOpen.value = false;
+    }
+});
 
 const logout = () => router.post(route("logout"));
 
@@ -81,26 +113,28 @@ const navGroups = [
                 ],
             },
             { label: "Đánh Giá", path: "/admin/reviews", icon: "bi-star-fill" },
+            { label: "Liên Hệ", path: "/admin/contacts", icon: "bi-envelope-fill" },
         ],
     },
     {
-        label: "Tài Chính",
+        label: "Gói Dịch Vụ",
         items: [
             {
-                label: "Nguồn Thu",
-                path: "/admin/revenue",
-                icon: "bi-cash-stack",
+                label: "Cấu Hình Gói",
+                path: "/admin/subscription-plans",
+                icon: "bi-box-seam",
+            },
+            {
+                label: "Duyệt Đơn Mua Gói",
+                path: "/admin/landlord-subscriptions",
+                icon: "bi-card-checklist",
             },
         ],
     },
+
     {
         label: "Hệ Thống",
         items: [
-            {
-                label: "Phân Quyền",
-                path: "/admin/roles",
-                icon: "bi-shield-lock-fill",
-            },
             {
                 label: "Audit Log",
                 path: "/admin/auditlog",
@@ -110,11 +144,6 @@ const navGroups = [
                 label: "Chỉnh Website",
                 path: "/admin/website",
                 icon: "bi-brush-fill",
-            },
-            {
-                label: "Quảng Cáo",
-                path: "/admin/ads",
-                icon: "bi-megaphone-fill",
             },
         ],
     },
@@ -202,11 +231,13 @@ onMounted(() => {
                     });
                 }
                 //âm thanh thông báo
-                try{
-                    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav");
+                try {
+                    const audio = new Audio(
+                        "https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav",
+                    );
                     audio.volume = 0.5;
                     audio.play();
-                }catch(e){
+                } catch (e) {
                     console.log("Autoplay audio blogked");
                 }
             },
@@ -215,7 +246,7 @@ onMounted(() => {
 });
 onUnmounted(() => {
     const userId = page.props.auth?.user?.id;
-    if(userId){
+    if (userId) {
         window.Echo.leave(`App.Models.User.${userId}`);
     }
 });
@@ -237,9 +268,31 @@ const getMenuBadge = (item) => {
 </script>
 
 <template>
+    <!-- Khung Thông Báo Toast Nổi Đẹp Mắt Ở Góc Trên Bên Phải -->
+    <transition enter-active-class="transform cubic-bezier(0.34, 1.56, 0.64, 1) duration-300"
+        enter-from-class="translate-x-full opacity-0" enter-to-class="translate-x-0 opacity-100"
+        leave-active-class="transition ease-in duration-200" leave-from-class="translate-x-0 opacity-100"
+        leave-to-class="translate-x-full opacity-0">
+        <div v-if="showToast"
+            class="fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-bold backdrop-blur-md"
+            :class="toastType === 'success'
+                ? 'bg-emerald-900/90 text-emerald-100 border-emerald-500/50 shadow-emerald-900/20'
+                : 'bg-rose-900/90 text-rose-100 border-rose-500/50 shadow-rose-900/20'">
+            <i
+                :class="toastType === 'success' ? 'bi bi-check-circle-fill text-emerald-400 text-lg' : 'bi bi-exclamation-octagon-fill text-rose-400 text-lg'"></i>
+            <span>{{ toastMessage }}</span>
+            <button @click="showToast = false" class="ml-2 text-white/60 hover:text-white transition-colors">
+                <i class="bi bi-x-lg text-xs"></i>
+            </button>
+        </div>
+    </transition>
+
     <div class="admin-shell">
+        <!-- Mobile Overlay -->
+        <div v-if="mobileMenuOpen" class="mobile-overlay" @click="mobileMenuOpen = false"></div>
+
         <!-- Sidebar -->
-        <aside :class="sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'" class="admin-sidebar">
+        <aside :class="[sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed', mobileMenuOpen ? 'mobile-show' : '']" class="admin-sidebar">
             <!-- Brand -->
             <div class="sidebar-brand">
                 <div class="brand-icon">
@@ -273,9 +326,9 @@ const getMenuBadge = (item) => {
                                 ? 'bg-white/5 text-slate-200'
                                 : '',
                         ]" :style="item.children && sidebarOpen
-                                    ? 'padding-right: 36px;'
-                                    : ''
-                                " :title="!sidebarOpen ? item.label : ''">
+                            ? 'padding-right: 36px;'
+                            : ''
+                            " :title="!sidebarOpen ? item.label : ''">
                             <div class="relative" style="
                                     position: relative;
                                     display: inline-flex;
@@ -285,8 +338,7 @@ const getMenuBadge = (item) => {
                                 <i :class="['bi', item.icon, 'nav-icon']"></i>
                                 <span v-if="
                                     !sidebarOpen && getMenuBadge(item) > 0
-                                "
-                                    class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-[#071828]"
+                                " class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-[#071828]"
                                     style="
                                         position: absolute;
                                         top: -2px;
@@ -300,7 +352,7 @@ const getMenuBadge = (item) => {
                             </div>
                             <span v-if="sidebarOpen" class="nav-label">{{
                                 item.label
-                                }}</span>
+                            }}</span>
                             <span v-if="sidebarOpen && getMenuBadge(item) > 0" class="w-2 h-2 bg-red-500 rounded-full"
                                 style="
                                     background-color: #ef4444;
@@ -358,8 +410,8 @@ const getMenuBadge = (item) => {
                                     align-items: center;
                                     gap: 6px;
                                 " :style="isActive(sub.path)
-                                        ? 'color: #3b82f6; border-left-color: #3b82f6;'
-                                        : 'color: #94a3b8;'
+                                    ? 'color: #3b82f6; border-left-color: #3b82f6;'
+                                    : 'color: #94a3b8;'
                                     ">
                                 <span>{{ sub.label }}</span>
                                 <span v-if="getBadgeCount(sub.path) > 0" class="w-1.5 h-1.5 bg-red-500 rounded-full"
@@ -399,7 +451,10 @@ const getMenuBadge = (item) => {
         <div class="admin-main">
             <!-- Header -->
             <header class="admin-header">
-                <div class="header-left">
+                <div class="header-left flex items-center">
+                    <button class="mobile-toggle-btn" @click="mobileMenuOpen = !mobileMenuOpen" title="Danh mục Menu">
+                        <i class="bi bi-list"></i>
+                    </button>
                     <slot name="header-title">
                         <h1 class="header-title">Dashboard</h1>
                     </slot>
@@ -444,12 +499,12 @@ const getMenuBadge = (item) => {
                                         page.props.auth?.notifications
                                             ?.length > 0
                                     " @click.stop="
-                                            router.post(
-                                                route('notifications.read-all'),
-                                                {},
-                                                { preserveScroll: true },
-                                            )
-                                            "
+                                        router.post(
+                                            route('notifications.read-all'),
+                                            {},
+                                            { preserveScroll: true },
+                                        )
+                                        "
                                         class="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors">
                                         Đọc tất cả
                                     </button>
@@ -826,5 +881,93 @@ const getMenuBadge = (item) => {
     flex: 1;
     overflow-y: auto;
     padding: 24px;
+}
+
+/* ── Responsive CSS ── */
+.mobile-toggle-btn {
+    display: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    align-items: center;
+    justify-content: center;
+    color: #334155;
+    font-size: 20px;
+    cursor: pointer;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.mobile-overlay {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-toggle-btn {
+        display: flex;
+    }
+
+    .mobile-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(2px);
+        z-index: 40;
+    }
+
+    .admin-shell {
+        flex-direction: column;
+    }
+
+    .admin-sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 50;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .admin-sidebar.mobile-show {
+        transform: translateX(0);
+        width: 260px !important;
+    }
+
+    .admin-sidebar.mobile-show .brand-text,
+    .admin-sidebar.mobile-show .nav-label,
+    .admin-sidebar.mobile-show .nav-group-label {
+        display: block !important;
+    }
+
+    .admin-sidebar.mobile-show .nav-item {
+        justify-content: flex-start !important;
+        padding: 9px 12px !important;
+    }
+
+    .admin-header {
+        padding: 10px 14px;
+    }
+
+    .header-title {
+        font-size: 15px;
+    }
+
+    .admin-info {
+        display: none;
+    }
+
+    .header-admin {
+        padding-left: 0;
+        border-left: none;
+    }
+
+    .admin-content {
+        padding: 12px;
+    }
 }
 </style>

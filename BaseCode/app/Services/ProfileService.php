@@ -22,30 +22,28 @@ class ProfileService
      */
     public function getProfileData(User $user): array
     {
-        $isRenting = $this->userRepository->isUserRenting($user->id);
+        $hasContract = \Illuminate\Support\Facades\DB::table('contracts')
+            ->where('tenant_id', $user->id)
+            ->whereIn('status', ['signed', 'active'])
+            ->exists();
 
-        // Kiểm tra xem người dùng có bị giới hạn 15 ngày đổi thông tin không
-        $canUpdateProfile = true;
-        $daysUntilNextUpdate = 0;
+        $isResident = \Illuminate\Support\Facades\DB::table('room_residents')
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
 
-        if ($user->last_profile_update_at) {
-            $lastUpdate = \Carbon\Carbon::parse($user->last_profile_update_at);
-            $now = \Carbon\Carbon::now();
-            $diffInSeconds = $now->diffInSeconds($lastUpdate);
-            $fifteenDaysInSeconds = 15 * 24 * 60 * 60; // 15 ngày tính bằng giây
-
-            if ($diffInSeconds < $fifteenDaysInSeconds) {
-                $canUpdateProfile = false;
-                $secondsRemaining = $fifteenDaysInSeconds - $diffInSeconds;
-                $daysUntilNextUpdate = (int) ceil($secondsRemaining / (24 * 60 * 60)); // Làm tròn lên số ngày còn lại
-            }
+        $rentalStatus = 'Chưa thuê trọ';
+        if ($hasContract) {
+            $rentalStatus = 'Đang thuê trọ';
+        } else if ($isResident) {
+            $rentalStatus = 'Đang ở ghép';
         }
 
         return [
-            'rentalStatus' => $isRenting ? 'Đang thuê' : 'Chưa thuê trọ',
+            'rentalStatus' => $rentalStatus,
             'accountStatus' => $user->status === 'active' ? 'Đang hoạt động' : 'Bị khóa',
-            'canUpdateProfile' => $canUpdateProfile,
-            'daysUntilNextUpdate' => $daysUntilNextUpdate,
+            'canUpdateProfile' => true,
+            'daysUntilNextUpdate' => 0,
         ];
     }
 
@@ -54,26 +52,14 @@ class ProfileService
      */
     public function updateProfile(User $user, array $data): ?User
     {
-        // Chỉ cho phép lưu số điện thoại nếu dữ liệu hiện tại của user đang trống
+        // 1. Số điện thoại: Chỉ cho phép nhập 1 lần duy nhất khi đang trống
         if (!empty($user->phone)) {
             unset($data['phone']);
         }
 
-        // Kiểm tra xem đã đủ 15 ngày kể từ lần cập nhật gần nhất chưa
-        if ($user->last_profile_update_at) {
-            $lastUpdate = \Carbon\Carbon::parse($user->last_profile_update_at);
-            $now = \Carbon\Carbon::now();
-            $diffInSeconds = $now->diffInSeconds($lastUpdate);
-            $fifteenDaysInSeconds = 15 * 24 * 60 * 60;
-
-            if ($diffInSeconds < $fifteenDaysInSeconds) {
-                $secondsRemaining = $fifteenDaysInSeconds - $diffInSeconds;
-                $daysRemaining = (int) ceil($secondsRemaining / (24 * 60 * 60));
-
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'profile' => "Bạn chỉ có thể cập nhật thông tin cá nhân 1 lần mỗi 15 ngày. Lần cập nhật tiếp theo khả dụng sau {$daysRemaining} ngày."
-                ]);
-            }
+        // 2. Số CCCD: Chỉ cho phép nhập 1 lần duy nhất khi đang trống
+        if (!empty($user->cccd_number) && strlen(trim($user->cccd_number)) === 12) {
+            unset($data['cccd_number']);
         }
 
         // Lưu thông tin cũ để so sánh
@@ -125,19 +111,34 @@ class ProfileService
      */
     public function updateAvatar(User $user, $avatarFile): string
     {
+        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+        $urlPath = '';
+
         // Xóa ảnh cũ nếu có
         if ($user->avatar) {
-            Storage::disk('r2_public')->delete($user->avatar);
+            try {
+                $oldPath = str_replace('/storage/', '', parse_url($user->avatar, PHP_URL_PATH));
+                Storage::disk('public')->delete($oldPath);
+            } catch (\Throwable $e) {}
         }
 
-        // Lưu ảnh mới
-        $ext = $avatarFile->getClientOriginalExtension();
-        $path = $avatarFile->storeAs('avatars', "avatar_user_{$user->id}.{$ext}", 'r2_public');
+        if ($useR2 && !empty($r2Url)) {
+            try {
+                $path = $avatarFile->store('avatars', 'r2_public');
+                $urlPath = str_starts_with($path, 'http') ? $path : $r2Url . '/' . ltrim($path, '/');
+            } catch (\Throwable $e) {}
+        }
+
+        if (empty($urlPath)) {
+            $path = $avatarFile->store('avatars', 'public');
+            $urlPath = '/storage/' . ltrim($path, '/');
+        }
 
         // Cập nhật database
-        $this->userRepository->updateUser($user->id, ['avatar' => $path]);
+        $this->userRepository->updateUser($user->id, ['avatar' => $urlPath]);
 
-        return $path;
+        return $urlPath;
     }
 
     /**
@@ -183,6 +184,7 @@ class ProfileService
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Yêu cầu tìm người ở ghép mới',
                 "Khách thuê tại phòng {$roomNum} gửi yêu cầu đăng tin tìm người ở ghép.",
+                'info',
                 route('landlord.roommate-requests')
             ));
         }
@@ -219,6 +221,43 @@ class ProfileService
         if ($exists) {
             throw new \Exception('Bạn đang có một yêu cầu giới thiệu người quen chờ chủ trọ duyệt.');
         }
+        //tìm tài khoản trong hệ thống nếu có
+        $userB = \App\Models\User::where('email', $data['new_resident_email'])
+            ->orWhere('phone', $data['new_resident_phone'])
+            ->first();
+        if ($userB) {
+            //check B đã đứng tên chủ hợp đồng ở phòng khác chưa
+            $isOwnerElsewhere = \App\Models\Contract::where('tenant_id', $userB->id)
+                ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'expiring'])
+                ->exists();
+            if ($isOwnerElsewhere) {
+                throw new \Exception('Thành viên này hiện đang là chủ hợp đồng thuê trọ tại một phòng khác!');
+            }
+            //check B đã là thành viên ở ghép phòng khác chưa
+            $isOwnerElsewhere = \App\Models\RoomResident::where('user_id', $userB->id)
+                ->where('status', 'active')
+                ->where('room_id', '!=', $contract->room_id)
+                ->exists();
+            if ($isOwnerElsewhere) {
+                throw new \Exception('Thành viên này hiện đang ở ghép tại một phòng trọ khác!');
+            }
+        }
+        // Kiểm tra xem thành viên này đã ở ghép trong phòng chưa
+        $alreadyResident = RoomResident::where('room_id', $contract->room_id)
+            ->whereHas('user', function ($q) use ($data) {
+                $q->where('email', $data['new_resident_email'])
+                    ->orWhere('phone', $data['new_resident_phone']);
+                if (!empty($data['new_resident_cccd'])) {
+                    $q->orWhere('cccd_number', $data['new_resident_cccd']);
+                }
+            })
+            ->where('status', 'active')
+            ->exists();
+
+        if ($alreadyResident) {
+            throw new \Exception('Thành viên này hiện đã đang có tên trong danh sách ở ghép của phòng!');
+        }
+
         RoommateRequest::create([
             'room_id' => $contract->room_id,
             'tenant_id' => $user->id,
@@ -237,6 +276,15 @@ class ProfileService
             ->orWhere('phone', $data['new_resident_phone'])
             ->first();
         if ($existsUserB) {
+            $roomNum = $contract->room->room_number ?? '';
+            $houseName = $contract->room->boardingHouse->name ?? 'Nhà trọ';
+            $existsUserB->notify(new \App\Notifications\AdminNotification(
+                'Lời mời ở ghép mới',
+                "Bạn {$user->name} đã gửi thông tin giới thiệu bạn vào ở ghép tại phòng {$roomNum}
+            ({$houseName}). Vui lòng chờ chủ trọ phê duyệt.",
+                'info',
+                route('quanlynoio')
+            ));
             $userDataToUpdate = [];
             if (empty($existsUserB->phone) && !empty($data['new_resident_phone'])) {
                 $userDataToUpdate['phone'] = $data['new_resident_phone'];
@@ -255,6 +303,7 @@ class ProfileService
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'Giới thiệu thành viên ở ghép mới',
                 "Khách thuê tại phòng {$roomNum} giới thiệu thành viên mới: {$data['new_resident_name']} vào ở ghép.",
+                'info',
                 route('landlord.roommate-requests')
             ));
         }

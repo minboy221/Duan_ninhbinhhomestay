@@ -2,16 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sử dụng 100% font chữ Arial cho giao diện chủ trọ */
+/* Sử dụng 100% font chữ Arial cho giao diện chủ trọ và admin */
 body.landlord-theme,
 body.landlord-theme *,
 .landlord-layout,
-.landlord-layout * {
+.landlord-layout *,
+body.admin-theme,
+body.admin-theme *,
+.admin-shell,
+.admin-shell *,
+.admin-layout,
+.admin-layout * {
     font-family: Arial, sans-serif !important;
 }
 
 body.landlord-theme .font-black,
-body.landlord-theme .font-extrabold {
+body.landlord-theme .font-extrabold,
+body.admin-theme .font-black,
+body.admin-theme .font-extrabold,
+.admin-shell .font-black,
+.admin-shell .font-extrabold {
     font-weight: 700 !important;
 }
+
+/* ── Custom CSS Responsive cho Giao Diện Admin ── */
+.admin-shell .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.admin-shell .table-card,
+.admin-shell .data-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+    .admin-shell .stat-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .admin-shell .filter-bar,
+    .admin-shell .action-bar,
+    .admin-shell .search-filter-row {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px;
+    }
+
+    .admin-shell .search-box,
+    .admin-shell .filter-input,
+    .admin-shell .btn-action {
+        width: 100% !important;
+    }
+
+    .admin-shell .modal-card {
+        width: 95vw !important;
+        max-width: 100% !important;
+        margin: 10px auto;
+    }
+}
+
+
 

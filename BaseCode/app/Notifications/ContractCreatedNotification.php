@@ -7,6 +7,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use App\Models\Contract;
+use App\Channels\FcmChannel;
+
 
 class ContractCreatedNotification extends Notification
 {
@@ -29,7 +31,7 @@ class ContractCreatedNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
     }
 
     /**

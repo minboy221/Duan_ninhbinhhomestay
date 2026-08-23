@@ -10,9 +10,11 @@ use App\Repositories\RoomRepository;
 use App\Repositories\PropertyRepository;
 use App\Repositories\FloorRepository;
 use Illuminate\Support\Facades\Storage;
+use App\Traits\HandlesStorageFiles;
 
 class RoomService
 {
+    use HandlesStorageFiles;
     protected RoomRepository $roomRepo;
     protected PropertyRepository $propertyRepo;
     protected FloorRepository $floorRepo;
@@ -167,13 +169,28 @@ class RoomService
     public function deleteFloor(int $landlordId, int $floorId): bool
     {
         $floor = $this->floorRepo->findById($floorId);
-        if (!$floor || $floor->property->landlord_id !== $landlordId)
+        if (!$floor || $floor->property->landlord_id !== $landlordId) {
             return false;
-
-        $restrictedStatuses = ['rented', 'deposited', 'expiring_soon', 'pending_renewal'];
+        }
         foreach ($floor->rooms as $room) {
+            //chặn nếu phòng trong tầng/dãy đang có bài đăng tin công khai trên hệ thống
+            $hasActivePost = \App\Models\RoomPost::where('room_id', $room->id)
+                ->whereIn('status', ['published', 'approved', 'pending'])
+                ->exists();
+            if ($hasActivePost) {
+                throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang có bài đăng tin trên hệ thống. Vui lòng gỡ hoặc ẩn tin đăng trước!");
+            }
+            //chặn nếu trong phòng, tầng/dãy có hợp đồng thuê còn hiệu lực
+            $hasActiveContract = \App\Models\Contract::where('room_id', $room->id)
+                ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'pending_renewal'])
+                ->exists();
+            if ($hasActiveContract) {
+                throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang có Hợp Đồng thuê còn hiệu lực!");
+            }
+            //chặn nếu phòng đang ở trạng thái đã thuê hoặc đặt cọc
+            $restrictedStatuses = ['rented', 'deposited', 'expiring_soon', 'pending_renewal'];
             if (in_array($room->status, $restrictedStatuses)) {
-                throw new \Exception('Tầng này có phòng đang trong trạng thái Đã thuê, Đã đặt cọc, Sắp hết hạn HĐ hoặc Chờ gia hạn. Không thể xóa!');
+                throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang trong trạng thái Đã thuê hoặc Đặt cọc!");
             }
         }
 
@@ -197,8 +214,12 @@ class RoomService
             $counts = $this->roomRepo->countByStatusForLandlord($landlordId);
         }
 
+        $statuses = defined('\App\Models\Room::STATUSES')
+            ? \App\Models\Room::STATUSES
+            : ['available', 'rented', 'maintenance', 'deposited', 'expiring_soon', 'pending_renewal', 'suspended', 'under_construction'];
+
         $result = [];
-        foreach (Room::STATUSES as $status) {
+        foreach ($statuses as $status) {
             $result[$status] = $counts[$status] ?? 0;
         }
         return $result;
@@ -209,17 +230,28 @@ class RoomService
      */
     public function createRoom(int $landlordId, array $data, array $imageFiles = [], ?int $boardingHouseId = null): ?Room
     {
-        // Kiểm tra floor thuộc về landlord
+        // Kiểm tra floor
         $floor = $this->floorRepo->findById($data['floor_id']);
-        if (!$floor || $floor->property->landlord_id !== $landlordId)
+        if (!$floor) {
             return null;
+        }
 
-        $imagePaths = $this->uploadImages($imageFiles);
-
+        $boardingHouse = null;
         if ($boardingHouseId) {
-            $boardingHouse = \App\Models\BoardingHouse::where('id', $boardingHouseId)->where('user_id', $landlordId)->first();
-        } else {
-            $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first();
+            $boardingHouse = \App\Models\BoardingHouse::find($boardingHouseId);
+        }
+        if (!$boardingHouse && !empty($floor->boarding_house_id)) {
+            $boardingHouse = \App\Models\BoardingHouse::find($floor->boarding_house_id);
+        }
+        if (!$boardingHouse && !empty($floor->property_id)) {
+            $boardingHouse = \App\Models\BoardingHouse::find($floor->property_id);
+        }
+        if (!$boardingHouse) {
+            $boardingHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)->first()
+                ?: \App\Models\BoardingHouse::first();
+        }
+        if (!$boardingHouse) {
+            throw new \Exception("Vui lòng khởi tạo ít nhất 1 cơ  sở nhà trọ trước khi thêm phòng!");
         }
 
         // Kiểm tra trùng số phòng trong cùng tầng và cùng cơ sở
@@ -230,36 +262,45 @@ class RoomService
         }
         $exists = $query->exists();
 
-        if ($exists)
+        if ($exists) {
             return null;
-
-        if (!$boardingHouse) {
-            $boardingHouse = \App\Models\BoardingHouse::create([
-                'user_id' => $landlordId,
-                'name' => ($floor && $floor->property) ? $floor->property->name : 'Nhà trọ chính',
-                'district' => 'Chưa cập nhật',
-                'address_detail' => ($floor && $floor->property) ? $floor->property->address : 'Chưa cập nhật',
-                'status' => 'approved',
-            ]);
         }
 
-        $room = $this->roomRepo->create([
-            'boarding_house_id' => $boardingHouse->id,
+        $imagePaths = !empty($imageFiles) ? $this->uploadImages($imageFiles) : [];
+
+        $roomInsertData = [
+            'boarding_house_id' => $boardingHouse ? $boardingHouse->id : null,
             'floor_id' => $data['floor_id'],
             'room_number' => $data['room_number'],
             'address' => $data['address'] ?? null,
-            'latitude' => $data['latitude'] ?? null,
-            'longitude' => $data['longitude'] ?? null,
-            'price' => $data['price'],
-            'area' => $data['area'],
-            'capacity' => $data['capacity'] ?? 2,
+            'price' => (float) ($data['price'] ?? 0),
+            'area' => (float) ($data['area'] ?? 0),
+            'capacity' => (int) ($data['capacity'] ?? 2),
             'status' => $data['status'] ?? 'available',
             'amenities' => $data['amenities'] ?? null,
             'images' => $imagePaths ?: null,
-        ]);
+        ];
 
-        if (isset($data['service_ids']) && is_array($data['service_ids'])) {
-            $room->services()->sync($data['service_ids']);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('rooms', 'property_id')) {
+            $roomInsertData['property_id'] = $floor->property_id ?? null;
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('rooms', 'latitude')) {
+            $roomInsertData['latitude'] = $data['latitude'] ?? null;
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('rooms', 'longitude')) {
+            $roomInsertData['longitude'] = $data['longitude'] ?? null;
+        }
+
+        $room = $this->roomRepo->create($roomInsertData);
+
+        if (isset($data['service_ids'])) {
+            $serviceIds = is_array($data['service_ids']) ? $data['service_ids'] : explode(',', (string) $data['service_ids']);
+            $serviceIds = array_filter(array_map('intval', $serviceIds));
+            if (!empty($serviceIds)) {
+                $room->services()->sync($serviceIds);
+                $serviceNames = $room->services()->pluck('name')->toArray();
+                $room->update(['amenities' => implode(', ', $serviceNames)]);
+            }
         }
 
         return $room;
@@ -271,9 +312,13 @@ class RoomService
     public function updateRoom(int $landlordId, int $roomId, array $data, array $newImageFiles = [], array $removedImages = []): bool
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room)
             return false;
-
+        //check an toàn 
+        $ownerId = $room->boardingHouse->user_id ?? $room->floor->property->landlord_id ?? null;
+        if ($ownerId && $ownerId !== $landlordId) {
+            return false;
+        }
         //chặn người dùng chỉnh sửa nếu phòng đó đã có tin đăngg được hiển thị ở clien
         if ($room->roomPosts()->where('status', 'approved')->exists()) {
             throw new \Exception('Không thể chỉnh sửa thông tin phòng vì phòng này đã có tin được hiển thị');
@@ -331,9 +376,24 @@ class RoomService
         $updated = $this->roomRepo->update($room, $updateData);
 
         if ($updated && isset($data['service_ids']) && is_array($data['service_ids'])) {
-            $room->services()->sync($data['service_ids']);
+            //lưu lại giá đóng băng hiện tại trong bảng pivot để tránh bị reset về null
+            $existingPivots = \DB::table('room_service')
+                ->where('room_id', $room->id)
+                ->pluck('price', 'service_id')
+                ->toArray();
+            $syncData = [];
+            foreach ($data['service_ids'] as $sId) {
+                $sId = (int) $sId;
+                if (isset($existingPivots[$sId]) && !is_null($existingPivots[$sId])) {
+                    $syncData[$sId] = ['price' => $existingPivots[$sId]];
+                } else {
+                    $syncData[$sId] = [];
+                }
+            }
+            $room->services()->sync($syncData);
+            $serviceNames = $room->services()->pluck('name')->toArray();
+            $room->update(['amenities' => implode(',', $serviceNames)]);
         }
-
         return $updated;
     }
 
@@ -345,7 +405,7 @@ class RoomService
         if (!in_array($status, Room::STATUSES))
             return false;
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
 
         if (in_array($room->status, ['pending_renewal', 'deposited']) && $status === 'rented' && $room->current_people <= 0) {
@@ -372,7 +432,7 @@ class RoomService
     public function addPerson(int $landlordId, int $roomId)
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
 
         $allowedStatuses = ['deposited', 'rented', 'expiring_soon', 'pending_renewal'];
@@ -393,7 +453,7 @@ class RoomService
     public function removePerson(int $landlordId, int $roomId)
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
 
         if (!in_array($room->status, ['rented', 'deposited', 'pending_renewal', 'expiring_soon'])) {
@@ -449,11 +509,30 @@ class RoomService
             'start_date' => $startDate,
             'status' => 'active',
         ]);
-
-        // Tăng số người ở thực tế
+        // tăng số lượng người ở hiện tại của phòng
         $room->increment('current_people');
+        $room->refresh();
 
-        return $user;
+        // 1. Chuyển trạng thái lịch hẹn của người dùng này sang 'joined_roommate' (Đã tham gia ở ghép)
+        \App\Models\Appointment::where('room_id', $roomId)
+            ->where('user_id', $user->id)
+            ->update(['status' => 'joined_roommate']);
+
+        // 2. Nếu số lượng người đã ĐẠT HOẶC VƯỢT quá sức chứa (current_people >= capacity) -> TỰ ĐỘNG ẨN TIN ĐĂNG
+        if ($room->current_people >= $room->capacity) {
+            // Đổi trạng thái tin đăng sang 'hidden' để ẩn bài đăng (Đóng tin đăng)
+            \App\Models\RoomPost::where('room_id', $roomId)->update(['status' => 'hidden']);
+
+            // Đóng tất cả các lịch hẹn còn đang chờ khác của phòng này
+            \App\Models\Appointment::where('room_id', $roomId)
+                ->whereIn('status', ['approved', 'viewed', 'waiting_contract', 'pending'])
+                ->update(['status' => 'completed']);
+        }
+
+        // 3. Tự động chuyển các yêu cầu ở ghép đang chờ (pending) của phòng này sang 'approved'
+        \App\Models\RoommateRequest::where('room_id', $roomId)
+            ->where('status', 'pending')
+            ->update(['status' => 'approved']);
     }
 
     // Xoá thành viên ở ghép khỏi phòng
@@ -499,11 +578,22 @@ class RoomService
     public function deleteRoom(int $landlordId, int $roomId): bool
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->boardingHouse->user_id !== $landlordId)
+        if (!$room || $room->property->landlord_id !== $landlordId)
             return false;
         //chặn xoá phòng nếu tin đó đã được hiển thị ở clien
         if ($room->roomPosts()->where('status', 'approved')->exists()) {
             throw new \Exception('Không thể xoá phòng vì phòng này đã có tin được hiển thị');
+        }
+        //chặn xoá phòng nếu phòng đang có hợp đồng hiệu lực
+        $hasActiveContract = \App\Models\Contract::where('room_id', $room->id)
+            ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'pending_renewal'])
+            ->exists();
+        if ($hasActiveContract) {
+            throw new \Exception("không thể xoá phòng này vì đang có hợp đồng thuê còn hiệu lực!");
+        }
+        //chặn xoá nếu phòng đang trong trạng thái đã thuê hoặc đặt cọc
+        if (in_array($room->status, ['rented', 'deposited', 'expiring_soon', 'pending_renewal'])) {
+            throw new \Exception("Không thể xoá phòng này vì phìng đang ở trạng thái Đã thuê hoặc Đặt cọc!");
         }
         $this->deleteRoomImages($room);
         return $this->roomRepo->delete($room);
@@ -515,19 +605,24 @@ class RoomService
     {
         $currentPeople = (int) ($room->current_people ?? 0);
 
-        //Đếm số hợp đồng đang hoạt động/ký cho phòng này
-        $activeContractsCount = \App\Models\Contract::where('room_id', $room->id)
-            ->whereIn('status', ['active', 'signed', 'pending', 'awiting_upload', 'termination_requested', 'expiring'])
-            ->count();
+        // Đếm xem phòng có Hợp đồng đang hoạt động không (1 chủ hợp đồng)
+        $hasActiveContract = \App\Models\Contract::where('room_id', $room->id)
+            ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'termination_requested', 'expiring'])
+            ->exists();
 
-        //số người thực tế là giá trị lớn nhất giữa số hợp đồng active và số cư dân active
+        // Đếm số lượng cư dân ở ghép active trong phòng
         $activeResidentsCount = \App\Models\RoomResident::where('room_id', $room->id)
             ->where('status', 'active')
             ->count();
-        //số người thực tế là giá trị lớn nhất giữa hợp đồng active và cư dân active
-        $currentPeople = max($activeContractsCount, $activeResidentsCount);
-        //tự động đồng bộ lại số người ở vào db
-        if((int) $room->current_people !== $currentPeople){
+
+        // Số người thực tế = (1 nếu có chủ hợp đồng + số người ở ghép)
+        $currentPeople = ($hasActiveContract ? 1 : 0) + $activeResidentsCount;
+        if ($room->status === 'rented' && $currentPeople === 0) {
+            $currentPeople = 1;
+        }
+
+        // Tự động đồng bộ lại số người ở vào db
+        if ((int) $room->current_people !== $currentPeople) {
             $room->update([
                 'current_people' => $currentPeople
             ]);
@@ -539,6 +634,7 @@ class RoomService
             'latitude' => $room->latitude,
             'longitude' => $room->longitude,
             'status' => $room->status,
+            'is_frozen' => $room->is_frozen,
             'maintenance_reason' => $room->maintenance_reason,
             'price' => (float) $room->price,
             'area' => (float) $room->area,
@@ -546,7 +642,13 @@ class RoomService
             'current_people' => $currentPeople,
             'amenities' => $room->amenities,
             'images' => $room->images ?? [],
-            'services' => $room->relationLoaded('services') ? $room->services->toArray() : [],
+            'services' => $room->relationLoaded('services') ? $room->services->map(function ($service) {
+                $srv = $service->toArray();
+                if ($service->pivot && !is_null($service->pivot->price)) {
+                    $srv['price'] = (float) $service->pivot->price;
+                }
+                return $srv;
+            })->toArray() : [],
             'has_approved_post' => $room->roomPosts()->where('status', 'approved')->exists(),
             'residents' => $room->residents()->with('user')->get()->map(function ($r) {
                 return [
@@ -561,19 +663,11 @@ class RoomService
         ];
     }
 
-    private function uploadImages(array $files): array
-    {
-        $paths = [];
-        foreach ($files as $file) {
-            $paths[] = $file->store('rooms', 'public');
-        }
-        return $paths;
-    }
-
     private function deleteRoomImages($room): void
     {
-        if (!empty($room->images)) {
+        if (!empty($room->images) && is_array($room->images)) {
             foreach ($room->images as $img) {
+                $this->deleteSingleImage($img);
                 Storage::disk('r2_public')->delete($img);
             }
         }

@@ -32,11 +32,8 @@ const profile = reactive({
     name: props.userData?.name || "",
     phone: props.userData?.phone || "",
     email: props.userData?.email || "",
-    address: props.userData?.boardingHouse?.address_detail || "",
-    bio: "",
-    bank_name: props.userData?.bank_name || "",
-    bank_account_no: props.userData?.bank_account_no || "",
-    bank_account_name: props.userData?.bank_account_name || "",
+    address: props.userData?.boardingHouse?.address_detail || props.userData?.boarding_house?.address_detail || "",
+    invoice_billing_day: props.userData?.boardingHouse?.invoice_billing_day || props.userData?.boarding_house?.invoice_billing_day || 25,
     cccdFront: getFileUrl(props.userData?.verification?.id_card_front),
     cccdBack: getFileUrl(props.userData?.verification?.id_card_back),
     faceAuthImage: getFileUrl(props.userData?.verification?.face_auth_image),
@@ -64,22 +61,18 @@ const form = useForm({
     name: '',
     phone: '',
     email: '',
-    bank_name: '',
-    bank_account_no: '',
-    bank_account_name: '',
+    invoice_billing_day: 25,
 })
 
 const saveInfo = () => {
     form.name = profile.name
     form.phone = profile.phone
     form.email = profile.email
-    form.bank_name = profile.bank_name
-    form.bank_account_no = profile.bank_account_no
-    form.bank_account_name = profile.bank_account_name
+    form.invoice_billing_day = profile.invoice_billing_day
     
     form.post(route('landlord.profile.update'), {
         onSuccess: () => {
-            alert('Lưu thông tin chủ trọ thành công!')
+            showSuccess('Lưu thông tin chủ trọ thành công!')
         }
     })
 }
@@ -161,22 +154,14 @@ const statusConfig = {
                             <label class="form-label">Địa chỉ nhà trọ</label>
                             <input v-model="profile.address" class="form-input" />
                         </div>
+
                         <div class="form-group">
-                            <label class="form-label">Tên ngân hàng (ví dụ: MBBank, Vietcombank...)</label>
-                            <input v-model="profile.bank_name" class="form-input" placeholder="MBBank, Vietcombank, Techcombank..." />
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Số tài khoản ngân hàng</label>
-                            <input v-model="profile.bank_account_no" class="form-input" placeholder="0912345678" />
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Tên chủ tài khoản ngân hàng (viết hoa không dấu)</label>
-                            <input v-model="profile.bank_account_name" class="form-input" placeholder="NGUYEN VAN A" />
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Giới thiệu bản thân</label>
-                            <textarea v-model="profile.bio" class="form-input form-textarea" rows="3"
-                                placeholder="Mô tả ngắn về bạn và nhà trọ..."></textarea>
+                            <label class="form-label">Ngày chốt hóa đơn hàng tháng</label>
+                            <select v-model="profile.invoice_billing_day" class="form-input">
+                                <option v-for="day in 31" :key="day" :value="day">
+                                    Ngày {{ day }} hàng tháng
+                                </option>
+                            </select>
                         </div>
                         <button @click="saveInfo" class="btn-save-info" :disabled="form.processing">
                             {{

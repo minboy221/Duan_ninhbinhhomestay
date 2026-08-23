@@ -59,8 +59,8 @@ class StoreRoomPostRequest extends FormRequest
             'title.min' => 'Tiêu đề tin đăng phải có ít nhất 10 ký tự.',
             'description.required' => 'Bạn phải nhập nội dung mô tả phòng trọ mới được phép Đăng tin.',
             'description.min' => 'Nội dung mô tả quá ngắn (Tối thiểu phải 20 ký tự).',
-            'images.required' => 'Bạn bắt buộc phải đăng tải ít nhất 1 hình ảnh thực tế của căn phòng.',
-            'images.min' => 'Vui lòng chọn ít nhất 1 hình ảnh chụp phòng.',
+            'images.required' => 'Bạn bắt buộc phải đăng tải ít nhất 3 hình ảnh thực tế của căn phòng.',
+            'images.min' => 'Vui lòng chọn ít nhất 3 hình ảnh chụp phòng.',
             'images.*.image' => 'File tải lên phải là định dạng hình ảnh.',
             'images.*.max' => 'Dung lượng ảnh quá lớn (Tối đa 2MB mỗi file).'
         ];

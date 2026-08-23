@@ -149,6 +149,33 @@ form {
     transform: scale(0.90);
 }
 
+.btn-bao-cao {
+    background: linear-gradient(90deg, #dc2626, #f87171);
+    color: #fff;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.3s;
+}
+
+.btn-bao-cao:hover {
+    background: linear-gradient(90deg, #b91c1c, #ef4444);
+}
+
+.btn-bao-cao:active {
+    transform: scale(0.90);
+}
+
+.btn-bao-cao i {
+    font-size: 13px;
+}
+
 /* phần hiển thị lịch sử thanh toán trọ */
 .history_thanhtoan {
     margin-top: 25px;

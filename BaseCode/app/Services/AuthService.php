@@ -18,14 +18,22 @@ class AuthService
 
     public function registerAccount(array $data)
     {
+        $cleanEmail = strtolower(trim($data['email']));
+        // Kiểm tra bảo vệ tầng 2
+        if (User::where('email', $cleanEmail)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => 'Địa chỉ email này đã được đăng ký sử dụng trên hệ thống.',
+            ]);
+        }
+        $data['email'] = $cleanEmail;
         $data['password'] = Hash::make($data['password']);
-        $user = $this->userRepository->create($data); //  Tạo user từ $data đăng ký thường
 
+        $user = $this->userRepository->create($data);
         // Tự động khớp vào phòng trọ khi đăng ký tài khoản
         $this->autoClaimRoommateRequests($user);
-
         event(new \Illuminate\Auth\Events\Registered($user));
         Auth::login($user);
+
         return $user;
     }
 
@@ -158,7 +166,7 @@ class AuthService
                 if ($req->room->current_people < $req->room->capacity) {
                     $req->room->increment('current_people');
                 }
-                
+
                 // Nếu phòng đã đầy -> Tự động ẩn tin đăng
                 if ($req->room->current_people >= $req->room->capacity) {
                     \App\Models\RoomPost::where('room_id', $req->room_id)->update(['status' => 'rented']);

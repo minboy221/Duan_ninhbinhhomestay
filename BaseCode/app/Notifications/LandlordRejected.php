@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use App\Channels\FcmChannel;
 
 class LandlordRejected extends Notification
 {
@@ -18,7 +19,7 @@ class LandlordRejected extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
     }
 
     public function toArray(object $notifiable): array

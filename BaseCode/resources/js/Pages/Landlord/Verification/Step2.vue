@@ -1,12 +1,6 @@
 <script setup>
-import {
-    defineProps,
-    defineEmits,
-    ref,
-    onMounted,
-    onUnmounted,
-    computed,
-} from "vue";
+import { defineProps, defineEmits, ref, onMounted, onUnmounted } from "vue";
+import heic2any from "heic2any";
 import { HA_NAM_COMMUNES } from "@/constants/locations.js";
 
 const props = defineProps({
@@ -61,7 +55,8 @@ const convertHeicToJpeg = async (file) => {
     }
 };
 
-// Hàm trích xuất tọa độ GPS từ ảnh bằng thư viện exifr (nạp động)
+<<<<<<< HEAD
+// Hàm trích xuất tọa độ GPS từ Ảnh hoặc Video bằng exifr (có fallback Geolocation trình duyệt)
 const extractGPSMetadata = async (file) => {
     try {
         const exifrModule = await import("exifr");
@@ -70,83 +65,34 @@ const extractGPSMetadata = async (file) => {
         if (gps && gps.latitude && gps.longitude) {
             props.form.latitude = gps.latitude;
             props.form.longitude = gps.longitude;
-            console.log("Đã trích xuất GPS:", gps.latitude, gps.longitude);
-            await reverseGeocodeFromPhotoGps(gps.latitude, gps.longitude);
+            console.log("Đã trích xuất GPS từ file:", gps.latitude, gps.longitude);
+            return;
         }
     } catch (error) {
-        console.error("Lỗi đọc GPS ảnh:", error);
+        console.warn("Không đọc được EXIF GPS từ file:", error);
+    }
+
+    // Nếu file ảnh/video không có sẵn dữ liệu GPS EXIF, dùng Geolocation API của trình duyệt làm fallback
+    if (!props.form.latitude && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                props.form.latitude = pos.coords.latitude;
+                props.form.longitude = pos.coords.longitude;
+                console.log("Đã lấy GPS vị trí hiện tại:", pos.coords.latitude, pos.coords.longitude);
+            },
+            (err) => {
+                console.warn("Không lấy được Geolocation trình duyệt:", err);
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
     }
 };
 
-// Hàm nén ảnh tự động trên điện thoại trước khi upload (giúp nén ảnh 10-15MB xuống ~500KB)
-const compressImage = (
-    file,
-    maxWidth = 1920,
-    maxHeight = 1920,
-    quality = 0.8,
-) => {
-    return new Promise((resolve) => {
-        if (
-            !file ||
-            !file.type.startsWith("image/") ||
-            file.size < 500 * 1024
-        ) {
-            return resolve(file);
-        }
-
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                let width = img.width;
-                let height = img.height;
-
-                if (width > maxWidth || height > maxHeight) {
-                    if (width > height) {
-                        height = Math.round((height * maxWidth) / width);
-                        width = maxWidth;
-                    } else {
-                        width = Math.round((width * maxHeight) / height);
-                        height = maxHeight;
-                    }
-                }
-
-                const canvas = document.createElement("canvas");
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob) {
-                            const compressedFile = new File(
-                                [blob],
-                                file.name.replace(/\.[^/.]+$/, ".jpg"),
-                                {
-                                    type: "image/jpeg",
-                                    lastModified: Date.now(),
-                                },
-                            );
-                            resolve(compressedFile);
-                        } else {
-                            resolve(file);
-                        }
-                    },
-                    "image/jpeg",
-                    quality,
-                );
-            };
-            img.onerror = () => resolve(file);
-        };
-        reader.onerror = () => resolve(file);
-    });
-};
-
+// Xử lý tải ảnh/video cho hồ sơ pháp lý (contract_images) và không gian (room_images)
+=======
 // Xử lý tải ảnh/file cho hồ sơ pháp lý (contract_images) và không gian (room_images)
+// Không lấy GPS ở frontend nữa: GPS sẽ được trích xuất từ ảnh ở backend/admin để đảm bảo dữ liệu chuẩn nhất.
+>>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
 const handleMultipleFiles = async (e, field) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -164,17 +110,15 @@ const handleMultipleFiles = async (e, field) => {
             file = await convertHeicToJpeg(file);
         }
 
-        //lấy toạ độ từ ảnh trước khi nén ảnh
-        if (
-            field === "room_images" &&
-            (!props.form.latitude || !props.form.longitude)
-        ) {
-            await extractGPSMetadata(file); //đọc gps từ file gốc
+<<<<<<< HEAD
+        // Nếu tải ảnh/video phòng và chưa có tọa độ GPS, trích xuất GPS từ file này
+        if (field === "room_images" && !props.form.latitude) {
+            await extractGPSMetadata(file);
         }
 
-        //thực hiện nén ảnh để upload
-        const compressedFile = await compressImage(file);
-        props.form[field].push(compressedFile);
+=======
+>>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
+        props.form[field].push(file);
 
         //tạo preview hiển thị
         const reader = new FileReader();
@@ -510,22 +454,19 @@ file, index
                     <div>
                         <h2 class="text-xl font-bold text-on-surface mb-6 flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary">collections</span>
-                            Hình ảnh không gian
-                            <span class="text-error font-bold">*</span>
+                            Hình ảnh & Video không gian <span class="text-error font-bold">*</span>
                         </h2>
 
-                        <!-- Drag Drop Area for Room Images -->
+                        <!-- Drag Drop Area for Room Images & Videos -->
                         <label class="relative block group mb-6">
                             <div
                                 class="border-2 border-dashed border-outline-variant/40 rounded-xl p-6 text-center hover:border-primary transition-colors cursor-pointer bg-surface-container-low/30">
-                                <span class="material-symbols-outlined text-2xl text-outline mb-2">add_a_photo</span>
-                                <p class="text-sm font-medium">
-                                    Tải lên ảnh Homestay
-                                </p>
+                                <span class="material-symbols-outlined text-2xl text-outline mb-2">video_camera_back</span>
+                                <p class="text-sm font-medium">Tải lên Ảnh / Video Homestay</p>
+                                <p class="text-xs text-outline font-normal mt-1">(Hỗ trợ JPG, PNG, HEIC, MP4, MOV - Tối đa 20MB)</p>
                             </div>
-                            <input type="file" multiple accept="image/*" class="hidden" @change="
-                                (e) => handleMultipleFiles(e, 'room_images')
-                            " />
+                            <input type="file" multiple accept="image/*,video/*" class="hidden"
+                                @change="(e) => handleMultipleFiles(e, 'room_images')" />
                         </label>
 
                         <p v-if="errors.room_images" class="text-error text-xs font-bold mb-4">
@@ -628,10 +569,7 @@ file, index
                         </div>
                     </div>
 
-                    <p class="text-xs text-on-surface-variant italic mt-4">
-                        * Hình ảnh chất lượng cao giúp tăng tỉ lệ đặt phòng lên
-                        40%.
-                    </p>
+                    <p class="text-xs text-on-surface-variant italic mt-3">* Tọa độ sẽ được trích xuất từ dữ liệu GPS nằm trong ảnh đã tải lên để hiển thị chính xác trong admin.</p>
                 </section>
             </div>
         </div>

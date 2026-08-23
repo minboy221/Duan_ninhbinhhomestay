@@ -3,6 +3,7 @@ import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { ref, computed } from "vue";
 import { Link, usePage, router } from "@inertiajs/vue3";
 import { showConfirm } from "@/Utils/swal";
+import { getStatusLabel, getStatusClass } from "@/Utils/statusHelper";
 
 const props = defineProps({
     listings: Object,
@@ -76,6 +77,14 @@ const handleDeletePost = async (id) => {
     if (confirmed) {
         router.delete(route("landlord.listings.destroy", id));
     }
+};
+
+//hàm kiểm tra phòng đã lấp đầy
+const isRoomFull = (ls) => {
+    if (!ls || !ls.room) return false;
+    const capacity = ls.room.capacity || 1;
+    const currentPeople = ls.room.current_people || 0;
+    return currentPeople >= capacity;
 };
 </script>
 
@@ -203,7 +212,9 @@ const handleDeletePost = async (id) => {
                                     {{ ls.room?.area }} m²</span>
                                 <span class="flex items-center gap-1"><i class="bi bi-geo-alt text-emerald-600"></i>
                                     {{ ls.room?.boarding_house?.name }}</span>
-                                <span class="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-bold border border-blue-100"><i class="bi bi-person-fill text-blue-600"></i>
+                                <span
+                                    class="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-bold border border-blue-100"><i
+                                        class="bi bi-person-fill text-blue-600"></i>
                                     Đã có {{ ls.room?.current_people || 0 }}/{{ ls.room?.capacity || 1 }} người ở</span>
                             </div>
                         </div>
@@ -214,26 +225,6 @@ const handleDeletePost = async (id) => {
                                 {{ formatMoney(ls.room?.price || 0)
                                 }}<span class="text-[10px] text-slate-400 font-bold">/tháng</span>
                             </div>
-
-                            <!-- AI Pricing Suggestion -->
-                            <!-- <div
-                                class="px-2.5 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-bold flex items-center gap-1.5">
-                                <i class="bi bi-stars text-emerald-500"></i>
-                                <span>Giá AI gợi ý:
-                                    <strong>{{
-                                        formatMoney(ls.aiPrice)
-                                    }}</strong></span>
-                                <span :class="ls.aiPrice > ls.price
-                                    ? 'text-blue-600'
-                                    : 'text-emerald-700'
-                                    ">
-                                    {{
-                                        ls.aiPrice > ls.price
-                                            ? "(Có thể tăng giá)"
-                                            : "(Giá tốt)"
-                                    }}
-                                </span>
-                            </div> -->
                         </div>
 
                         <!-- View Stats -->
@@ -252,7 +243,7 @@ const handleDeletePost = async (id) => {
                     <!-- Right Action Bar -->
                     <div
                         class="p-6 md:border-l border-slate-50 flex flex-row md:flex-col justify-center gap-2 bg-slate-50/35">
-                        
+
                         <!-- Nút Chi tiết -->
                         <Link :href="route('landlord.listings.show', ls.id)"
                             class="flex-1 md:flex-none px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-blue-200/40">
@@ -261,11 +252,16 @@ const handleDeletePost = async (id) => {
                         </Link>
 
                         <!-- 1. Nút Chỉnh sửa: Luôn luôn hiển thị -->
-                        <Link :href="route('landlord.listings.edit', ls.id)"
+                        <Link v-if="!isRoomFull(ls)" :href="route('landlord.listings.edit', ls.id)"
                             class="flex-1 md:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1">
                             <i class="bi bi-pencil-square"></i>
                             Chỉnh sửa
                         </Link>
+                        <span v-else
+                            class="flex-1 md:flex-none px-3 py-2 bg-slate-100 text-slate-400 font-semibold text-[11px] rounded-xl flex items-center justify-center gap-1 border border-slate-200/60 cursor-not-allowed"
+                            title="Phòng đã đủ số lượng người ở, không thể chỉnh sửa tin đăng">
+                            <i class="bi bi-lock-fill"></i> Đã đủ người
+                        </span>
 
                         <button v-if="ls.status === 'approved'" type="button" @click="closeListing(ls.id, ls.title)"
                             class="flex-1 md:flex-none px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-amber-200/40">
@@ -285,12 +281,12 @@ const handleDeletePost = async (id) => {
         <!-- PHÂN TRANG -->
         <div v-if="listings.links && listings.links.length > 3" class="flex justify-center gap-2 pt-6">
             <Component :is="link.url ? Link : 'span'" v-for="(link, index) in listings.links" :key="index"
-                :href="link.url" v-html="link.label" :class="[
-                    'px-3 py-2 rounded-lg text-xs border',
+                :href="link.url" v-html="link.label" preserve-scroll :class="[
+                    'px-3 py-2 rounded-lg text-xs border transition-colors',
                     link.active
-                        ? 'bg-emerald-500 text-white border-emerald-500'
-                        : 'bg-white text-slate-500 border-slate-200',
-                    !link.url && 'opacity-50',
+                        ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
+                    !link.url && 'opacity-50 cursor-not-allowed',
                 ]" />
         </div>
     </LandlordLayout>

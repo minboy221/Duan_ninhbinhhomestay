@@ -91,6 +91,7 @@ class AdminController extends Controller
 
                 return [
                     'id' => $user->id,
+                    'avatar' => $user->avatar,
                     'name' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone ?? 'Chưa cập nhật',
@@ -146,6 +147,16 @@ class AdminController extends Controller
         //Eager load đầy đủ thông tin phòng, tầng, khu nhà trọ và thông tin của chủ trọ
         $post = RoomPost::with(['room.floor', 'room.boardingHouse', 'landlord', 'room.services'])
             ->findOrFail($id);
+
+        if ($post->room && $post->room->services) {
+            $post->room->services->map(function ($service) {
+                if ($service->pivot && !is_null($service->pivot->price)) {
+                    $service->price = $service->pivot->price;
+                }
+                return $service;
+            });
+        }
+
         //trả dữ liệu ra đúng file Show.vue
         return Inertia::render('Admin/Approval/Show', [
             'post' => $post
@@ -228,12 +239,27 @@ class AdminController extends Controller
     //phương thức cập nhật trạng thái báo cáo cho admin
     public function updateReport(Request $request, $id)
     {
+        $landlord = null;
         $request->validate([
             'status' => 'required|in:resolved,ignored,rejected',
-            'admin_note' => 'nullable|string|max:1000',
+            'admin_note' => 'required|string|min:5|max:1000',
+        ], [
+            'status.required' => 'Vui lòng chọn trạng thái xử lý.',
+            'status.in' => 'Trạng thái xử lý không hợp lệ.',
+            'admin_note.required' => 'Vui lòng nhập lý do / ghi chú xử lý của Admin.',
+            'admin_note.min' => 'Lý do / ghi chú xử lý phải dài tối thiểu 5 ký tự.',
+            'admin_note.max' => 'Lý do / ghi chú xử lý không được vượt quá 1000 ký tự.',
         ]);
 
-        $report = Report::with('reportable.boardingHouse.user', 'reporter')->findOrFail($id);
+        $report = Report::findOrFail($id);
+        //nạp quan hệ động tuỳ theo báo cái hay hoá đơn
+        if($report->reportable_type === \App\Models\Room::class){
+            $report ->load(['reportable.boardingHouse.user', 'reporter']);
+        }elseif($report->reportable_type === \App\Models\Invoice::class){
+            $report->load(['reportable.contract.room.boardingHouse.user', 'reporter']);
+        }else{
+            $report->load(['reporter']);
+        }
 
         $report->update([
             'status' => $request->status,
@@ -264,21 +290,23 @@ class AdminController extends Controller
                 'Admin đã xử lý khiếu nại của bạn',
                 'Báo cáo #' . $report->id . ' của bạn đã được Admin xử lý: ' . $statusLabel,
                 'report_admin_action',
-                '/profile/listbaocao'
+                '/reports'
             ));
         }
 
         // 2. Thông báo cho Chủ trọ của phòng
         if ($report->reportable_type === \App\Models\Room::class) {
             $landlord = $report->reportable->boardingHouse->user ?? null;
-            if ($landlord) {
-                $landlord->notify(new \App\Notifications\AdminNotification(
-                    'Kết quả xử lý khiếu nại từ Admin',
-                    'Khiếu nại #' . $report->id . ' tại phòng ' . ($report->reportable->room_number ?? '') . ' ' . $statusLabel,
-                    'report_admin_action_landlord',
-                    '/landlord/reports'
-                ));
-            }
+        }elseif($report->reportable_type === \App\Models\Invoice::class){
+            $landlord = $report->reportable->contract->room->boardingHouse->user ?? null;
+        }
+        if($landlord){
+            $landlord->notify(new \App\Notifications\AdminNotification(
+                'kết quả xử lý khiếu nại từ Admin',
+                'Khiếu nại #'. $report->id. '' . $statusLabel,
+                'report_admin_action_landlord',
+                '/landlord/reports'
+            ));
         }
         //phát sự kiện realtime với khách thuê & chủ trọ
         event(new \App\Events\ReportUpdated($report));
@@ -303,6 +331,19 @@ class AdminController extends Controller
     public function reportReasons()
     {
         $reasons = \App\Models\ReportReason::orderBy('created_at', 'desc')->get();
+        if ($reasons->isEmpty()) {
+            $defaults = [
+                'Hỏng hóc thiết bị / Sự cố điện nước',
+                'Thành viên khác vi phạm nội quy / Ồn ào',
+                'Sự cố về Hợp đồng / Tiền trọ',
+                'Không minh bạch về chi phí dịch vụ',
+                'Khác'
+            ];
+            foreach ($defaults as $item) {
+                \App\Models\ReportReason::firstOrCreate(['reason' => $item], ['is_active' => true]);
+            }
+            $reasons = \App\Models\ReportReason::orderBy('created_at', 'desc')->get();
+        }
         return Inertia::render('Admin/ReportReasons/Index', [
             'reasons' => $reasons
         ]);
@@ -396,7 +437,7 @@ class AdminController extends Controller
     {
         $settings = \App\Models\Setting::pluck('value', 'key')->map(function ($val) {
             $decoded = json_decode($val, true);
-            return is_array($decoded) ? $decoded : $val;
+            return is_array($decoded) ? array_values($decoded) : $val;
         });
 
         return Inertia::render('Admin/WebEditor/index', [
@@ -455,7 +496,11 @@ class AdminController extends Controller
         \App\Models\Setting::updateOrCreate(['key' => 'warning_water_price'], ['value' => $request->warning_water_price]);
         \App\Models\Setting::updateOrCreate(['key' => 'warning_invoice_amount'], ['value' => $request->warning_invoice_amount]);
         \App\Models\Setting::updateOrCreate(['key' => 'warning_monthly_rent'], ['value' => $request->warning_monthly_rent]);
-        \App\Models\Setting::updateOrCreate(['key' => 'not_interested_reasons'], ['value' => json_encode($request->input('not_interested_reasons', []), JSON_UNESCAPED_UNICODE)]);
+        $rawReasons = $request->input('not_interested_reasons', []);
+        $reasonsArray = array_values(array_filter((array) $rawReasons, function($r) {
+            return !is_null($r) && trim($r) !== '';
+        }));
+        \App\Models\Setting::updateOrCreate(['key' => 'not_interested_reasons'], ['value' => json_encode($reasonsArray, JSON_UNESCAPED_UNICODE)]);
         $banners = $request->input('banners', []);
         $files = $request->file('banners');
 

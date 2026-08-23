@@ -23,7 +23,20 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     @routes
-    @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
+    @php
+        try {
+            if (!file_exists(public_path('build/manifest.json'))) {
+                if (file_exists(base_path('../public_html/build/manifest.json'))) {
+                    app()->usePublicPath(base_path('../public_html'));
+                } elseif (file_exists(base_path('public/build/manifest.json'))) {
+                    app()->usePublicPath(base_path('public'));
+                }
+            }
+            echo app(\Illuminate\Foundation\Vite::class)(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])->toHtml();
+        } catch (\Throwable $e) {
+            // Chống crash 500 khi Vite manifest chưa được tìm thấy
+        }
+    @endphp
     @inertiaHead
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />

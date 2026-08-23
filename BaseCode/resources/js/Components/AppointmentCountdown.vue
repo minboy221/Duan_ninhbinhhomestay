@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { usePage, Link } from "@inertiajs/vue3";
 import axios from "axios";
-import { showSuccess, showWarning } from "@/Utils/swal";
+import { showSuccess, showError, showWarning } from "@/Utils/swal";
 
 const page = usePage();
 const todayApt = ref(null);
@@ -10,11 +10,14 @@ const countdownText = ref("");
 let countdownInterval = null;
 let apiCheckInterval = null;
 
-//phần phục vụ cho khảo sát
+// Phần phục vụ cho khảo sát & gợi ý AI
 const showFeedbackModal = ref(false);
 const feedbackStep = ref(1);
 const selectedReason = ref("");
-const recommendedRooms = ref("");
+const recommendedRooms = ref([]);
+const aiMessage = ref("");
+const viewedRoomData = ref(null);
+const loadingDislike = ref(false);
 
 const dislikeReasons = computed(() => {
     const configuredReasons = page.props.settings?.not_interested_reasons;
@@ -94,13 +97,14 @@ const handleFeedbackResult = async (result) => {
     }
 };
 
-// Hàm gửi lý do từ chối lên và nhận danh sách phòng gợi ý từ Backend "AI cơm"
+// Hàm gửi lý do từ chối lên và nhận danh sách phòng gợi ý từ Trợ lý AI
 const submitDislikeReason = async () => {
     if (!selectedReason.value) {
-        showWarning("Thông báo", "Vui lòng chọn một lý do để hệ thống tìm phòng tốt hơn.");
+        showWarning("Thông báo", "Vui lòng chọn một lý do để Trợ lý AI tìm phòng tốt hơn cho bạn.");
         return;
     }
 
+    loadingDislike.value = true;
     try {
         const response = await axios.post(
             `/api/appointments/${todayApt.value.id}/feedback`,
@@ -110,17 +114,29 @@ const submitDislikeReason = async () => {
             },
         );
 
-        // Nhận mảng phòng gợi ý dựa trên lý do chê từ Backend trả về
-        recommendedRooms.value = response.data.recommendations;
+        recommendedRooms.value = response.data.recommendations || [];
+        aiMessage.value = response.data.ai_message || "";
+        viewedRoomData.value = response.data.viewed_room || null;
         feedbackStep.value = 3; // Chuyển sang bước 3: Hiển thị phòng thay thế
+
+        showSuccess(
+            "Trợ lý AI đã tìm thấy phòng!",
+            "Đã tự động chọn 3 phòng trọ tương tự và phù hợp nhất dành cho bạn."
+        );
     } catch (error) {
         console.error(error);
+        showError("Lỗi", "Không thể gửi phản hồi. Vui lòng thử lại!");
+    } finally {
+        loadingDislike.value = false;
     }
 };
 
 const closeFeedback = () => {
     showFeedbackModal.value = false;
     todayApt.value = null; // Hoàn thành quy trình đóng vòng lặp
+    feedbackStep.value = 1;
+    selectedReason.value = "";
+    recommendedRooms.value = [];
 };
 
 onMounted(() => {
@@ -190,7 +206,7 @@ onUnmounted(() => {
     </Link>
 
     <div v-if="showFeedbackModal && todayApt" class="feedback-modal-overlay" @click.self="closeFeedback">
-        <div class="feedback-modal-container">
+        <div class="feedback-modal-container" :class="{ 'step-3-container': feedbackStep === 3 }">
             <!-- Image positioned absolutely on the left -->
             <div class="popup-image-wrapper">
                 <img src="/anh/popup_character.png" alt="Feedback Character" class="popup-character-img" />
@@ -230,10 +246,9 @@ onUnmounted(() => {
                 <!-- Bước 2: Hỏi lý do -->
                 <div v-if="feedbackStep === 2" class="step-content step-2">
                     <div class="step-header text-left">
-                        <h3>Home Stay rất tiếc...</h3>
+                        <h3>HomeStay rất tiếc...</h3>
                         <p>
-                            Bạn có thể chia sẻ lý do không ưng để hệ thống cải
-                            thiện không?
+                            Bạn có thể chia sẻ lý do không ưng để Trợ lý AI tìm phòng phù hợp hơn cho bạn nhé:
                         </p>
                     </div>
 
@@ -245,45 +260,66 @@ onUnmounted(() => {
                         </label>
                     </div>
 
-                    <button @click="submitDislikeReason" class="feedback-btn btn-submit w-full mt-4">
-                        Gửi phản hồi và tìm phòng mới
+                    <button @click="submitDislikeReason" :disabled="loadingDislike" class="feedback-btn btn-submit w-full mt-4">
+                        <span v-if="loadingDislike"><i class="bi bi-arrow-repeat animate-spin"></i> Đang tìm phòng...</span>
+                        <span v-else><i class="bi bi-stars"></i> Gửi phản hồi & Nhận gợi ý phòng từ AI</span>
                     </button>
                 </div>
 
-                <!-- Bước 3: Gợi ý phòng thay thế -->
+                <!-- Bước 3: Gợi ý phòng thay thế chuẩn từ AI -->
                 <div v-if="feedbackStep === 3" class="step-content step-3">
                     <div class="step-header text-left">
-                        <h3>HomeStay tìm cho bạn phòng tốt hơn nè!</h3>
-                        <p>
-                            Dựa vào lý do "<span class="reason-highlight">{{
-                                selectedReason
-                            }}</span>", xem thử các phòng này nhé:
+                        <div class="ai-popup-top-badge">
+                            <i class="bi bi-robot"></i> Trợ Lý AI Ninh Bình
+                        </div>
+                        <h3>AI Đã Chọn Cho Bạn 3 Phòng Sát Nhất!</h3>
+                        <p class="ai-popup-sub">
+                            Dựa vào lý do "<span class="reason-highlight">{{ selectedReason }}</span>", xem thử các phòng này nhé:
                         </p>
                     </div>
 
                     <div class="recommendations-list">
                         <div v-if="recommendedRooms.length === 0" class="no-recommendations">
-                            Hiện tại chưa tìm thấy phòng nào phù hợp hơn lý do
-                            này.
+                            <i class="bi bi-emoji-smile text-2xl text-slate-400"></i>
+                            <p style="margin: 6px 0 0 0;">Hiện tại chưa tìm thấy phòng nào khác phù hợp hơn tiêu chí này.</p>
                         </div>
+
                         <a v-else v-for="post in recommendedRooms" :key="post.id"
-                            :href="'/chitiettro/' + post.slug_with_hash" class="recommend-item">
-                            <img :src="post.thumbnail || '/images/default-room.jpg'
-                                " class="recommend-img" />
+                            :href="post.url || ('/chitiettro/' + post.slug)" target="_blank" class="recommend-item">
+                            <div class="recommend-img-box">
+                                <img :src="post.image || '/anh/phong1.jpg'" class="recommend-img" :alt="post.title"
+                                    @error="$event.target.src = '/anh/phong1.jpg'" />
+                                <span v-if="post.status_label" class="recommend-occupancy-pill"
+                                    :class="post.has_residents ? 'has-people' : 'empty'">
+                                    {{ post.status_label }}
+                                </span>
+                            </div>
+
                             <div class="recommend-info">
                                 <h4>{{ post.title }}</h4>
-                                <p class="recommend-price">
-                                    {{ Number(post.price).toLocaleString() }}
-                                    đ/tháng
-                                </p>
+                                <div class="recommend-price-row">
+                                    <span class="recommend-price">{{ post.price_formatted || (Number(post.price || 0).toLocaleString() + ' đ/tháng') }}</span>
+                                </div>
+                                <div class="recommend-tags">
+                                    <span v-if="post.floor" class="tag-meta"><i class="bi bi-layers-fill"></i> {{ post.floor }}</span>
+                                    <span v-if="post.area" class="tag-meta"><i class="bi bi-aspect-ratio-fill"></i> {{ post.area }} m²</span>
+                                    <span v-if="post.address" class="tag-meta address-tag"><i class="bi bi-geo-alt-fill text-blue-500"></i> {{ post.address }}</span>
+                                </div>
                             </div>
-                            <i class="bi bi-chevron-right recommend-arrow"></i>
+                            <div class="recommend-action">
+                                <span class="btn-action-view">Xem <i class="bi bi-arrow-right-short"></i></span>
+                            </div>
                         </a>
                     </div>
 
-                    <button @click="closeFeedback" class="feedback-btn btn-close-bottom w-full mt-4">
-                        Đóng lại & tự tìm tiếp
-                    </button>
+                    <div class="feedback-footer-actions">
+                        <Link :href="route('timtro')" class="feedback-btn btn-explore-more">
+                            <i class="bi bi-search"></i> Khám phá thêm trên bản đồ
+                        </Link>
+                        <button @click="closeFeedback" class="feedback-btn btn-close-bottom">
+                            Đóng lại
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -515,6 +551,27 @@ onUnmounted(() => {
 }
 
 /* Step 3 recommendations */
+.ai-popup-top-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: linear-gradient(135deg, #eff6ff 0%, #ede9fe 100%);
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 750;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.1);
+}
+
+.ai-popup-sub {
+    font-size: 13.5px;
+    color: #64748b;
+    margin: 2px 0 0 0;
+}
+
 .reason-highlight {
     color: #2563eb;
     font-weight: 700;
@@ -524,14 +581,19 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-top: 16px;
-    max-height: 220px;
+    margin-top: 14px;
+    max-height: 260px;
     overflow-y: auto;
     padding-right: 6px;
 }
 
 .recommendations-list::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
+}
+
+.recommendations-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 6px;
 }
 
 .recommendations-list::-webkit-scrollbar-thumb {
@@ -541,7 +603,7 @@ onUnmounted(() => {
 
 .no-recommendations {
     text-align: center;
-    padding: 20px 0;
+    padding: 24px 0;
     font-size: 13.5px;
     font-weight: 600;
     color: #94a3b8;
@@ -550,59 +612,174 @@ onUnmounted(() => {
 .recommend-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px;
+    gap: 14px;
+    padding: 10px 14px;
     border: 1px solid #e2e8f0;
     border-radius: 16px;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
     text-decoration: none;
-    background: white;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
 .recommend-item:hover {
     border-color: #3b82f6;
     background: #f8fafc;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.15);
+}
+
+.recommend-img-box {
+    position: relative;
+    width: 68px;
+    height: 68px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f1f5f9;
 }
 
 .recommend-img {
-    width: 52px;
-    height: 52px;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border-radius: 12px;
+}
+
+.recommend-occupancy-pill {
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    right: 2px;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 3px;
+    border-radius: 4px;
+    text-align: center;
+    backdrop-filter: blur(4px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recommend-occupancy-pill.empty {
+    background: rgba(16, 185, 129, 0.9);
+    color: #ffffff;
+}
+
+.recommend-occupancy-pill.has-people {
+    background: rgba(37, 99, 235, 0.9);
+    color: #ffffff;
 }
 
 .recommend-info {
     flex: 1;
+    min-width: 0;
 }
 
 .recommend-info h4 {
-    font-size: 14px;
-    font-weight: 700;
-    color: #1e293b;
+    font-size: 13.5px;
+    font-weight: 750;
+    color: #0f172a;
     margin: 0 0 2px 0;
-    line-clamp: 1;
+    line-height: 1.35;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
     overflow: hidden;
 }
 
+.recommend-price-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .recommend-price {
-    font-size: 13px;
-    font-weight: 750;
-    color: #ef4444;
+    font-size: 14px;
+    font-weight: 800;
+    color: #dc2626;
     margin: 0;
 }
 
-.recommend-arrow {
-    color: #94a3b8;
-    font-size: 14px;
+.recommend-tags {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+}
+
+.tag-meta {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.address-tag {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
+}
+
+.recommend-action {
+    flex-shrink: 0;
+}
+
+.btn-action-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.recommend-item:hover .btn-action-view {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+}
+
+.feedback-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.btn-explore-more {
+    flex: 1;
+    background: #f8fafc;
+    color: #2563eb;
+    border: 1px solid #cbd5e1;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.btn-explore-more:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
 }
 
 .btn-close-bottom {
     background: #f1f5f9;
     color: #475569;
+    font-size: 13px;
+    padding: 12px 18px;
 }
 
 .btn-close-bottom:hover {
@@ -613,7 +790,7 @@ onUnmounted(() => {
 /* RESPONSIVE */
 @media (max-width: 860px) {
     .feedback-modal-container {
-        max-width: 480px;
+        max-width: 520px;
         min-height: auto;
     }
 

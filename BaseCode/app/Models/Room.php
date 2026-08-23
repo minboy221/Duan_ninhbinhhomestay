@@ -8,10 +8,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Room extends Model
 {
-    use HasFactory;
+    public const STATUSES = [
+        'available',
+        'rented',
+        'maintenance',
+        'deposited',
+        'expiring_soon',
+        'pending_renewal',
+        'suspended',
+        'under_construction',
+    ];
 
     protected $fillable = [
         'boarding_house_id',
+        'property_id',
         'floor_id',
         'room_number',
         'address',
@@ -29,7 +39,15 @@ class Room extends Model
 
     protected $appends = [
         'current_people',
+        'is_frozen',
     ];
+
+    // hàn tự động tính toán trạng thái đóng băng của phòng
+    public function getIsFrozenAttribute(): bool{
+        $user = auth()->user();
+        if(!$user) return false;
+        return $user->isRoomFrozen($this);
+    }
 
     public function contracts()
     {
@@ -57,22 +75,13 @@ class Room extends Model
         return $base;
     }
 
-    /**
-     * Danh sách trạng thái hợp lệ
-     */
-    public const STATUSES = [
-        'available',
-        'rented',
-        'maintenance',
-        'deposited',
-        'expiring_soon',
-        'pending_renewal',
-        'suspended',
-        'under_construction',
-    ];
 
+    // quan hệ phòng thuộc về một boarding house / property
+    public function property()
+    {
+        return $this->belongsTo(BoardingHouse::class, 'boarding_house_id');
+    }
 
-    // quan hệ phòng thuộc về một nhà trọ
     public function boardingHouse()
     {
         return $this->belongsTo(BoardingHouse::class, 'boarding_house_id');
@@ -87,7 +96,7 @@ class Room extends Model
     //quan hệ một phòng có nhiều dịch vụ
     public function services()
     {
-        return $this->belongsToMany(Service::class);
+        return $this->belongsToMany(Service::class)->withPivot('price');
     }
 
     //quan hệ một phòng có nhiều bài đăng tiếp thị

@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted } from "vue";
-import { useForm, router } from "@inertiajs/vue3";
+import { useForm, router, Head } from "@inertiajs/vue3";
+import UserLayout from "@/Layouts/UserLayout.vue";
+import * as faceapi from "face-api.js";
 
 //hiển thị 3 phần giao diện xác minh các bước cho chủ trọ
 import Step1 from "./Step1.vue";
@@ -108,7 +110,9 @@ const submitVerification = () => {
 </script>
 
 <template>
-    <div class="max-w-4xl mx-auto px-4 pt-12 pb-24 relative z-10">
+
+    <Head title="Xác minh tài khoản Chủ trọ" />
+    <div class="max-w-4xl mx-auto px-4 pt-6 pb-24 relative z-10">
         <!-- Step Progress Bar -->
         <div class="mb-12">
             <div class="flex items-center justify-between mb-4">
@@ -116,56 +120,56 @@ const submitVerification = () => {
                 <div class="flex flex-col items-center gap-2 group cursor-pointer" @click="currentStep = 1">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300"
                         :class="currentStep === 1
-                                ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                                 : currentStep > 1
-                                    ? 'bg-primary/20 text-primary'
-                                    : 'bg-surface-container-high text-on-surface-variant'
+                                    ? 'bg-blue-100 text-blue-600'
+                                    : 'bg-slate-200 text-slate-600'
                             ">
                         <span v-if="currentStep > 1" class="material-symbols-outlined text-sm font-bold">check</span>
                         <span v-else>1</span>
                     </div>
-                    <span class="text-sm transition-all duration-300"
-                        :class="currentStep >= 1 ? 'font-semibold text-primary' : 'font-medium text-on-surface-variant'">
+                    <span class="text-xs sm:text-sm transition-all duration-300"
+                        :class="currentStep >= 1 ? 'font-semibold text-blue-600' : 'font-medium text-slate-500'">
                         Xác minh
                     </span>
                 </div>
 
-                <div class="flex-grow h-[2px] mx-4 mb-6 transition-all duration-300"
-                    :class="currentStep > 1 ? 'bg-primary' : 'bg-surface-container-highest'"></div>
+                <div class="flex-grow h-[2px] mx-2 sm:mx-4 mb-6 transition-all duration-300"
+                    :class="currentStep > 1 ? 'bg-blue-600' : 'bg-slate-200'"></div>
 
                 <!-- Step 2 -->
                 <div class="flex flex-col items-center gap-2 group cursor-pointer"
                     @click="currentStep > 1 ? currentStep = 2 : null">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300"
                         :class="currentStep === 2
-                                ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                                 : currentStep > 2
-                                    ? 'bg-primary/20 text-primary'
-                                    : 'bg-surface-container-high text-on-surface-variant'
+                                    ? 'bg-blue-100 text-blue-600'
+                                    : 'bg-slate-200 text-slate-600'
                             ">
                         <span v-if="currentStep > 2" class="material-symbols-outlined text-sm font-bold">check</span>
                         <span v-else>2</span>
                     </div>
-                    <span class="text-sm transition-all duration-300"
-                        :class="currentStep >= 2 ? 'font-semibold text-primary' : 'font-medium text-on-surface-variant'">
+                    <span class="text-xs sm:text-sm transition-all duration-300"
+                        :class="currentStep >= 2 ? 'font-semibold text-blue-600' : 'font-medium text-slate-500'">
                         Thông tin chỗ ở
                     </span>
                 </div>
 
-                <div class="flex-grow h-[2px] mx-4 mb-6 transition-all duration-300"
-                    :class="currentStep > 2 ? 'bg-primary' : 'bg-surface-container-highest'"></div>
+                <div class="flex-grow h-[2px] mx-2 sm:mx-4 mb-6 transition-all duration-300"
+                    :class="currentStep > 2 ? 'bg-blue-600' : 'bg-slate-200'"></div>
 
                 <!-- Step 3 -->
                 <div class="flex flex-col items-center gap-2">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300"
                         :class="currentStep === 3
-                                ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
-                                : 'bg-surface-container-high text-on-surface-variant'
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                                : 'bg-slate-200 text-slate-600'
                             ">
                         3
                     </div>
-                    <span class="text-sm transition-all duration-300"
-                        :class="currentStep === 3 ? 'font-semibold text-primary' : 'font-medium text-on-surface-variant'">
+                    <span class="text-xs sm:text-sm transition-all duration-300"
+                        :class="currentStep === 3 ? 'font-semibold text-blue-600' : 'font-medium text-slate-500'">
                         Hoàn tất
                     </span>
                 </div>
@@ -188,23 +192,23 @@ const submitVerification = () => {
                 class="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center backdrop-blur-md transition-all duration-300"
                 @click.self="closePopup">
                 <div
-                    class="bg-white rounded-2xl p-10 max-w-[420px] w-[90%] text-center shadow-2xl scale-100 animate-popupIn border border-slate-100">
+                    class="bg-white rounded-2xl p-8 max-w-[420px] w-[90%] text-center shadow-2xl scale-100 animate-popupIn border border-slate-100">
                     <!-- Icon Trạng Thái -->
                     <div :class="popup.type === 'error' ? 'bg-gradient-to-br from-red-500 to-red-600 shadow-red-500/20' : 'bg-gradient-to-br from-green-500 to-green-600 shadow-green-500/20'"
-                        class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
+                        class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl">
                         <i :class="popup.type === 'error' ? 'bi bi-x-circle' : 'bi bi-check2-circle'"
-                            class="text-white text-4xl"></i>
+                            class="text-white text-3xl"></i>
                     </div>
 
                     <!-- Tiêu đề & Nội dung -->
-                    <h3 class="text-2xl font-extrabold text-slate-800 mb-3">{{ popup.title }}</h3>
-                    <p class="text-sm font-medium text-slate-500 mb-8 leading-relaxed">{{ popup.message }}</p>
+                    <h3 class="text-xl font-extrabold text-slate-800 mb-2">{{ popup.title }}</h3>
+                    <p class="text-xs font-medium text-slate-500 mb-6 leading-relaxed">{{ popup.message }}</p>
 
                     <!-- Nút Đóng -->
                     <div class="flex gap-4 justify-center">
                         <button @click="closePopup"
-                            :class="popup.type === 'error' ? 'bg-gradient-to-br from-red-500 to-red-600 hover:scale-[1.02] active:scale-[0.98] shadow-red-500/10' : 'bg-gradient-to-br from-primary to-primary-container hover:scale-[1.02] active:scale-[0.98] shadow-primary/10'"
-                            class="flex-1 py-4 rounded-xl text-white font-bold transition-all shadow-lg text-sm">
+                            :class="popup.type === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'"
+                            class="flex-1 py-3 rounded-xl text-white font-bold transition-all shadow-lg text-xs">
                             Đóng Lại
                         </button>
                     </div>

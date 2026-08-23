@@ -388,20 +388,18 @@ body {
 
 /* Modal box nâng cấp - Premium Liquid Glass */
 .modal-box {
-    width: 500px;
+    width: 540px;
     max-width: 95%;
     max-height: 90vh;
     overflow-y: auto;
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(30px) saturate(180%);
-    -webkit-backdrop-filter: blur(30px) saturate(180%);
-    border-radius: 10px;
-    padding: 30px;
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 26px;
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(226, 232, 240, 0.9);
     box-shadow: 
-        0 25px 50px rgba(0, 0, 0, 0.15),
-        inset 0 0 20px rgba(255, 255, 255, 0.5);
+        0 25px 50px -12px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(0, 0, 0, 0.05);
     animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
@@ -629,11 +627,12 @@ body {
 }
 
 .qr-box img {
-    width: 200px;
-    border-radius: 8px;
-    padding: 10px;
+    width: 240px;
+    max-width: 100%;
+    border-radius: 12px;
+    padding: 8px;
     background: white;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
 /* Nút xác nhận */

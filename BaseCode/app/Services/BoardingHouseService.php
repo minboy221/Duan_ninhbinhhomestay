@@ -33,8 +33,8 @@ class BoardingHouseService
         }
 
         $data['user_id'] = $userId;
-        $data['contract_images'] = json_encode($contractImagesPath);
-        $data['room_images'] = json_encode($roomImagesPath);
+        $data['contract_images'] = $contractImagesPath;
+        $data['room_images'] = $roomImagesPath;
         $data['status'] = 'pending';
 
         $house = $this->boardingHouseRepository->createBoardingHouse($data);
@@ -118,7 +118,7 @@ class BoardingHouseService
             foreach($contractImages as $file){
                 $contractImagesPath[] = $file->store('boarding_houses/contracts','public');
             }
-            $data['contract_images'] = json_encode($contractImagesPath);
+            $data['contract_images'] = $contractImagesPath;
         }
         //xử lý ảnh cơ sở nếu có ảnh tải lên mới
         if($roomImages){
@@ -126,13 +126,13 @@ class BoardingHouseService
             foreach($roomImages as $file){
                 $roomImagesPath[] = $file->store('boarding_houses/rooms','public');
             }
-            $data['room_images'] = json_encode($roomImagesPath);
+            $data['room_images'] = $roomImagesPath;
         }
         //cập nhật thông tin cơ sở trọ
         $house->update($data);
 
         //đồng bộ hoá địa chỉ và toạ độ mới xuống phòng và tầng của cơ sở
-        $fullAddress = $house->address_detail . ($house->district ? ',' .$house->distinct : '');
+        $fullAddress = $house->address_detail . ($house->district  ? ',' .$house->district  : '');
         //cập nhật phòng
         \App\Models\Room::where('boarding_house_id',$house->id)->update([
             'address' => $fullAddress,
@@ -153,11 +153,25 @@ class BoardingHouseService
         return $house;
     }
     public function deleteBoardingHouse(int $id, int $userId){
-        $house = \App\Models\BoardingHouse::where('id',$id)->where('user_id',$userId)->firstOrFail();
-        //check phòng nào của cơ sở này đang có hợp đồng hiệu lực
+        $house = \App\Models\BoardingHouse::where('id', $id)->where('user_id', $userId)->firstOrFail();
+        // Ràng buộc chặn nếu cơ sở này đang có phòng có khách ở
+        $occupiedRoomsCount = \App\Models\Room::where('boarding_house_id', $id)
+            ->where('status', 'occupied')
+            ->count();
+        if ($occupiedRoomsCount > 0) {
+            throw new \Exception("Không thể xoá Cơ sở trọ này vì đang có {$occupiedRoomsCount} phòng đang có người ở. Vui lòng làm thủ tục trả phòng trước khi xoá!");
+        }
+        //chặn nếu cơ sở trọ này đang có bài đăng tin rao phòng public trên hệ thống
+        $hasActivePosts = \App\Models\RoomPost::whereHas('room',function ($q) use ($id){
+            $q->where('boarding_house_id',$id);
+        })->whereIn('status',['published','approved','pending'])->exists();
+        if($hasActivePosts){
+            throw new \Exception('Không thể xoá cơ sở này vì đang có Bài đăng tin rao phòng công khai trên hệ thống. Vui lòng gỡ tin đăng trước!');
+        }
+        //Chặn nếu cơ sở trọ này đang có hợp đồng thuê trọ còn hiệu lực
         $hasActiveContracts = \App\Models\Contract::whereHas('room', function($q) use ($id){
             $q->where('boarding_house_id',$id);
-        })->whereIn('status',['active','signed','awaiting_upload'])->exists();
+        })->whereIn('status',['active', 'signed', 'awaiting_upload', 'pending_renewal'])->exists();
         if($hasActiveContracts){
             throw new \Exception('Không thể xoá cơ sở này vì vẫn còn hợp đồng đang có hiệu lực!');
         }

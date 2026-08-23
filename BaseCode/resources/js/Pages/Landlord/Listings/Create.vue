@@ -393,6 +393,13 @@ function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 
     });
 }
 
+const formatPrice = (val) => {
+    if (val === null || val === undefined || val === '') return '0 đ';
+    const num = typeof val === 'number' ? val : parseFloat(val);
+    if (isNaN(num)) return '0 đ';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(num)) + ' đ';
+};
+
 onMounted(()=>{
     if(props.boardingHouses && props.boardingHouses.length === 1){
         selectedHouse.value = props.boardingHouses[0];
@@ -609,11 +616,7 @@ onMounted(()=>{
                                     "chấm", "phẩy".
                                 </div>
 
-                                <QuillEditor v-model:content="form.description" contentType="html" theme="snow" @blur="
-                                    form.description = formatHtmlContent(
-                                        form.description,
-                                    )
-                                    "
+                                <QuillEditor v-model:content="form.description" contentType="html" theme="snow"
                                     placeholder="Ví dụ: Phòng rộng 25m², có điều hòa, giường tủ, giờ giấc tự do, không chung chủ..." />
                             </div>
 
@@ -634,11 +637,10 @@ onMounted(()=>{
                         </h3>
                         <div class="form-row-3">
                             <div class="form-group">
-                                <label class="form-label">Giá thuê (đ/tháng) *</label>
-                                <input type="number" :value="roomDetails?.price || ''" disabled class="form-input"
-                                    placeholder="3000000" />
-                                <span class="form-hint" v-if="roomDetails?.price">
-                                    {{ formatMoney(roomDetails.price) }}
+                                <label class="form-label font-bold text-gray-700">Giá thuê (đ/tháng) *</label>
+                                <input type="text" :value="formatPrice(roomDetails?.price)" disabled readonly class="form-input bg-emerald-50/60 text-emerald-700 font-bold border-emerald-200 text-base" />
+                                <span class="form-hint text-emerald-600 font-semibold mt-1 flex items-center gap-1" v-if="roomDetails?.price">
+                                    <i class="bi bi-check-circle-fill"></i> Giá thuê phòng: {{ formatPrice(roomDetails.price) }}/tháng
                                 </span>
                             </div>
                         </div>
@@ -725,8 +727,8 @@ onMounted(()=>{
                         <div class="prev-title">
                             {{ form.title || "Tiêu đề bài đăng..." }}
                         </div>
-                        <div class="prev-price">
-                            {{ roomDetails?.price?.toLocaleString() || 0 }}đ
+                        <div class="prev-price font-extrabold text-emerald-600 text-xl">
+                            {{ formatPrice(roomDetails?.price) }} <span class="text-xs font-normal text-slate-500">/tháng</span>
                         </div>
                         <div class="prev-meta">
                             <span> {{ roomDetails?.area || 0 }} m² </span>

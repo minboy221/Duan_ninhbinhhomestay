@@ -66,6 +66,9 @@ export default defineConfig({
                 ]
             },
             workbox: {
+                cleanupOutdatedCaches: true,
+                skipWaiting: true,
+                clientsClaim: true,
                 navigateFallback: null,
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
                 globIgnores: ['**/storage/**'],
