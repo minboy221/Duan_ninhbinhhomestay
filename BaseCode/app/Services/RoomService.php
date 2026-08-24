@@ -105,18 +105,7 @@ class RoomService
             ->where('name', $data['name'])
             ->first();
         if ($floor) {
-            $floor->update(array_filter([
-                'address' => $data['address'] ?? null,
-                'latitude' => $data['latitude'] ?? null,
-                'longitude' => $data['longitude'] ?? null,
-            ]));
-            return [
-                'id' => $floor->id,
-                'name' => $floor->name,
-                'address' => $floor->address,
-                'latitude' => $floor->latitude,
-                'longitude' => $floor->longitude,
-            ];
+            throw new \Exception("Tầng/Dãy tên '{$data['name']}' đã tồn tại dưới tài khoản của bạn!");
         }
 
         $newFloor = Floor::create([
@@ -375,18 +364,18 @@ class RoomService
 
         $updated = $this->roomRepo->update($room, $updateData);
 
-        if($updated && isset($data['service_ids']) && is_array($data['service_ids'])){
+        if ($updated && isset($data['service_ids']) && is_array($data['service_ids'])) {
             //lưu lại giá đóng băng hiện tại trong bảng pivot để tránh bị reset về null
             $existingPivots = \DB::table('room_service')
-            ->where('room_id', $room->id)
-            ->pluck('price', 'service_id')
-            ->toArray();
+                ->where('room_id', $room->id)
+                ->pluck('price', 'service_id')
+                ->toArray();
             $syncData = [];
-            foreach ($data['service_ids'] as $sId){
+            foreach ($data['service_ids'] as $sId) {
                 $sId = (int) $sId;
-                if(isset($existingPivots[$sId]) && !is_null($existingPivots[$sId])){
+                if (isset($existingPivots[$sId]) && !is_null($existingPivots[$sId])) {
                     $syncData[$sId] = ['price' => $existingPivots[$sId]];
-                }else{
+                } else {
                     $syncData[$sId] = [];
                 }
             }
@@ -405,8 +394,10 @@ class RoomService
         if (!in_array($status, Room::STATUSES))
             return false;
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->property->landlord_id !== $landlordId)
+        $ownerId = $room->boardingHouse->user_id ?? $room->floor->property->landlord_id ?? null;
+        if (!$room || !$ownerId || $ownerId !== $landlordId) {
             return false;
+        }
 
         if (in_array($room->status, ['pending_renewal', 'deposited']) && $status === 'rented' && $room->current_people <= 0) {
             return 'empty_people';
@@ -432,8 +423,10 @@ class RoomService
     public function addPerson(int $landlordId, int $roomId)
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->property->landlord_id !== $landlordId)
+        $ownerId = $room->boardingHouse->user_id ?? $room->floor->property->landlord_id ?? null;
+        if (!$room || !$ownerId || $ownerId !== $landlordId) {
             return false;
+        }
 
         $allowedStatuses = ['deposited', 'rented', 'expiring_soon', 'pending_renewal'];
         if (!in_array($room->status, $allowedStatuses)) {
@@ -453,8 +446,10 @@ class RoomService
     public function removePerson(int $landlordId, int $roomId)
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->property->landlord_id !== $landlordId)
+        $ownerId = $room->boardingHouse->user_id ?? $room->floor->property->landlord_id ?? null;
+        if (!$room || !$ownerId || $ownerId !== $landlordId) {
             return false;
+        }
 
         if (!in_array($room->status, ['rented', 'deposited', 'pending_renewal', 'expiring_soon'])) {
             return 'invalid_status';
@@ -578,8 +573,10 @@ class RoomService
     public function deleteRoom(int $landlordId, int $roomId): bool
     {
         $room = $this->roomRepo->findById($roomId);
-        if (!$room || $room->property->landlord_id !== $landlordId)
+        $ownerId = $room->boardingHouse->user_id ?? $room->floor->property->landlord_id ?? null;
+        if (!$room || !$ownerId || $ownerId !== $landlordId) {
             return false;
+        }
         //chặn xoá phòng nếu tin đó đã được hiển thị ở clien
         if ($room->roomPosts()->where('status', 'approved')->exists()) {
             throw new \Exception('Không thể xoá phòng vì phòng này đã có tin được hiển thị');

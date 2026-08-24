@@ -355,13 +355,7 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
 
     //Nhóm 3: Quản lý hoá đơn(chỉ cho phép ai có quyền)
     Route::middleware('check_manager_permissions:manage_invoices')->group(function () {
-        Route::get('/invoices', [LandlordController::class, 'invoices'])->name('landlord.invoices');
-        Route::post('/invoices', [LandlordController::class, 'storeInvoice'])->name('landlord.invoices.store');
-        Route::put('/invoices/{id}', [LandlordController::class, 'updateInvoice'])->name('landlord.invoices.update');
-        Route::patch('/invoices/{id}/status', [LandlordController::class, 'updateInvoiceStatus'])->name('landlord.invoices.status');
-        Route::patch('/invoices/{id}/archive', [LandlordController::class, 'archiveInvoice'])->name('landlord.invoices.archive');
-        Route::patch('/invoices/{id}/restore', [LandlordController::class, 'restoreInvoice'])->name('landlord.invoices.restore');
-        Route::delete('/invoices/{id}', [LandlordController::class, 'deleteInvoice'])->name('landlord.invoices.delete');
+
     });
 
     //Nhóm 4: Xem & xử lý khiếu nại (chỉ cho phép ai có quyền)

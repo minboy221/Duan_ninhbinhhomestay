@@ -76,20 +76,42 @@ class PaymentWebhookController extends Controller
             ]);
         }
 
-        // Cập nhật trạng thái sang Đã thanh toán
-        $invoice->update([
-            'status' => 'paid',
-            'paid_at' => now(),
-        ]);
+        // Cập nhật số tiền đã thanh toán tích lũy
+        $newPaidAmount = floatval($invoice->paid_amount) + $amount;
+        $totalAmount = floatval($invoice->total_amount);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Thanh toán tự động thành công cho hóa đơn #' . $invoice->invoice_code,
-            'invoice_id' => $invoice->id,
-            'invoice_code' => $invoice->invoice_code,
-            'total_amount' => $invoice->total_amount,
-            'paid_at' => $invoice->paid_at->toDateTimeString()
-        ]);
+        if ($newPaidAmount >= $totalAmount - 1) { // Trừ hao tròn tiền 1đ
+            $invoice->update([
+                'status' => 'paid',
+                'paid_amount' => $totalAmount,
+                'paid_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Thanh toán hoàn tất 100% cho hóa đơn #' . $invoice->invoice_code,
+                'invoice_id' => $invoice->id,
+                'invoice_code' => $invoice->invoice_code,
+                'total_amount' => $invoice->total_amount,
+                'paid_amount' => $invoice->paid_amount,
+                'paid_at' => $invoice->paid_at->toDateTimeString()
+            ]);
+        } else {
+            $invoice->update([
+                'status' => 'partially_paid',
+                'paid_amount' => $newPaidAmount,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ghi nhận thanh toán 1 phần cho hóa đơn #' . $invoice->invoice_code . ' (Đã nhận ' . number_format($newPaidAmount) . ' / ' . number_format($totalAmount) . ' đ)',
+                'invoice_id' => $invoice->id,
+                'invoice_code' => $invoice->invoice_code,
+                'total_amount' => $invoice->total_amount,
+                'paid_amount' => $invoice->paid_amount,
+                'status' => 'partially_paid'
+            ]);
+        }
     }
 
     /**
@@ -115,20 +137,42 @@ class PaymentWebhookController extends Controller
     public function simulatePayment(Request $request)
     {
         $invoiceId = $request->input('invoice_id');
+        $amount = floatval($request->input('amount', 0));
         $invoice = Invoice::find($invoiceId);
 
         if (!$invoice) {
             return response()->json(['success' => false, 'message' => 'Hóa đơn không tồn tại'], 404);
         }
 
-        $invoice->update([
-            'status' => 'paid',
-            'paid_at' => now()
-        ]);
+        $totalAmount = floatval($invoice->total_amount);
+
+        if ($amount > 0) {
+            $newPaidAmount = floatval($invoice->paid_amount) + $amount;
+            if ($newPaidAmount >= $totalAmount - 1) {
+                $invoice->update([
+                    'status' => 'paid',
+                    'paid_amount' => $totalAmount,
+                    'paid_at' => now()
+                ]);
+            } else {
+                $invoice->update([
+                    'status' => 'partially_paid',
+                    'paid_amount' => $newPaidAmount
+                ]);
+            }
+        } else {
+            $invoice->update([
+                'status' => 'paid',
+                'paid_amount' => $totalAmount,
+                'paid_at' => now()
+            ]);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Giả lập thanh toán ngân hàng thành công!',
+            'status' => $invoice->status,
+            'paid_amount' => $invoice->paid_amount,
             'invoice' => $invoice
         ]);
     }
@@ -146,7 +190,7 @@ class PaymentWebhookController extends Controller
         // 2. Tìm theo Mã hóa đơn trực tiếp (VD: HD202608464 hoặc HD-202608-464)
         if (preg_match('/(HD|INV)[-\w\d]+/i', $content, $matches)) {
             $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $matches[0]));
-            $inv = Invoice::where('status', 'unpaid')
+            $inv = Invoice::whereIn('status', ['unpaid', 'partially_paid'])
                 ->get()
                 ->first(function ($i) use ($code) {
                     $cleanInvCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $i->invoice_code));
@@ -155,8 +199,8 @@ class PaymentWebhookController extends Controller
             if ($inv) return $inv;
         }
 
-        // 3. Quét danh sách hóa đơn chưa thanh toán
-        $unpaidInvoices = Invoice::where('status', 'unpaid')
+        // 3. Quét danh sách hóa đơn chưa thanh toán hoặc thanh toán 1 phần
+        $unpaidInvoices = Invoice::whereIn('status', ['unpaid', 'partially_paid'])
             ->with(['contract.room', 'contract.tenant'])
             ->get();
 
