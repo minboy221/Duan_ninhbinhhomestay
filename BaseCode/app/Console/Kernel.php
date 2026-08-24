@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('contracts:scan')->daily();
         $schedule->command('reports:check-expired')->hourly();
+        $schedule->command('invoices:send-overdue-reminders')->dailyAt('08:00');
     }
 
     /**
@@ -21,7 +22,7 @@ class Kernel extends ConsoleKernel
      */
     protected function commands(): void
     {
-        $this->load(__DIR__.'/Commands');
+        $this->load(__DIR__ . '/Commands');
 
         require base_path('routes/console.php');
     }

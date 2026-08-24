@@ -55,6 +55,16 @@ const form = useForm({
 });
 
 // Quản lý Tab hiện tại: 'banners', 'hero', 'contact'
+const formatDisplayMoney = (val) => {
+    if (val === null || val === undefined || val === '') return '';
+    return new Intl.NumberFormat('vi-VN').format(val);
+};
+
+const handleNumberInput = (field, e) => {
+    const rawVal = e.target.value.replace(/\D/g, '');
+    form[field] = rawVal ? Number(rawVal) : '';
+};
+
 const savedTab =
     localStorage.getItem("admin_webeditor_active_tab") || "banners";
 const activeTab = ref(savedTab);
@@ -453,7 +463,7 @@ function removeReason(index) {
                                 <label class="label-premium"><i class="bi bi-lightning-charge-fill"
                                         style="color: #eab308"></i>
                                     Giá Điện Cảnh Báo (VND/kWh)</label>
-                                <input type="number" v-model="form.warning_electricity_price" class="input-premium" />
+                                <input type="text" :value="formatDisplayMoney(form.warning_electricity_price)" @input="e => handleNumberInput('warning_electricity_price', e)" class="input-premium" placeholder="VD: 500.000" />
                                 <!-- THÀNH PHẦN HIỂN THỊ LỖI GIÁ ĐIỆN -->
                                 <span v-if="form.errors.warning_electricity_price"
                                     class="text-xs text-red-500 mt-1 block">
@@ -463,7 +473,7 @@ function removeReason(index) {
                             <div class="form-group-premium">
                                 <label class="label-premium"><i class="bi bi-droplet-fill" style="color: #3b82f6"></i>
                                     Giá Nước Cảnh Báo (VND/m³)</label>
-                                <input type="number" v-model="form.warning_water_price" class="input-premium" />
+                                <input type="text" :value="formatDisplayMoney(form.warning_water_price)" @input="e => handleNumberInput('warning_water_price', e)" class="input-premium" placeholder="VD: 500.000" />
                                 <!-- THÀNH PHẦN HIỂN THỊ LỖI GIÁ NƯỚC -->
                                 <span v-if="form.errors.warning_water_price" class="text-xs text-red-500 mt-1 block">
                                     {{ form.errors.warning_water_price }}
@@ -480,7 +490,7 @@ function removeReason(index) {
                             <div class="form-group-premium">
                                 <label class="label-premium"><i class="bi bi-wallet2" style="color: #10b981"></i>
                                     Tổng Hóa Đơn Cảnh Báo (VND/Tháng)</label>
-                                <input type="number" v-model="form.warning_invoice_amount" class="input-premium" />
+                                <input type="text" :value="formatDisplayMoney(form.warning_invoice_amount)" @input="e => handleNumberInput('warning_invoice_amount', e)" class="input-premium" placeholder="VD: 10.000.000" />
                                 <!-- THÀNH PHẦN HIỂN THỊ LỖI TỔNG TIỀN HÓA ĐƠN -->
                                 <span v-if="form.errors.warning_invoice_amount" class="text-xs text-red-500 mt-1 block">
                                     {{ form.errors.warning_invoice_amount }}
@@ -490,7 +500,7 @@ function removeReason(index) {
                                 <label class="label-premium"><i class="bi bi-file-earmark-text-fill"
                                         style="color: #8b5cf6"></i>
                                     Giá Thuê Cảnh Báo (VND/Tháng)</label>
-                                <input type="number" v-model="form.warning_monthly_rent" class="input-premium" />
+                                <input type="text" :value="formatDisplayMoney(form.warning_monthly_rent)" @input="e => handleNumberInput('warning_monthly_rent', e)" class="input-premium" placeholder="VD: 15.000.000" />
                                 <!-- THÀNH PHẦN HIỂN THỊ LỖI GIÁ THUÊ -->
                                 <span v-if="form.errors.warning_monthly_rent" class="text-xs text-red-500 mt-1 block">
                                     {{ form.errors.warning_monthly_rent }}

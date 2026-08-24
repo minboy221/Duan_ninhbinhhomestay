@@ -156,8 +156,8 @@ class BoardingHouseService
         $house = \App\Models\BoardingHouse::where('id', $id)->where('user_id', $userId)->firstOrFail();
         // Ràng buộc chặn nếu cơ sở này đang có phòng có khách ở
         $occupiedRoomsCount = \App\Models\Room::where('boarding_house_id', $id)
-            ->where('status', 'occupied')
-            ->count();
+        ->whereIn('status', ['rented', 'deposited', 'expiring_soon', 'pending_renewal'])
+        ->count();
         if ($occupiedRoomsCount > 0) {
             throw new \Exception("Không thể xoá Cơ sở trọ này vì đang có {$occupiedRoomsCount} phòng đang có người ở. Vui lòng làm thủ tục trả phòng trước khi xoá!");
         }

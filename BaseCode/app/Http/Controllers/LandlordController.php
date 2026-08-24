@@ -13,22 +13,26 @@ use Illuminate\Http\Request;
 use App\Notifications\SubscriptionNotification;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Services\InvoiceService;
 
 class LandlordController extends Controller
 {
     protected RoomService $roomService;
     protected ServiceManagementService $serviceManagementService;
+    protected InvoiceService $invoiceService;
 
     protected PublicListingService $publicListingService;
     public function __construct(
         RoomService $roomService,
         ServiceManagementService
         $serviceManagementService,
-        PublicListingService $publicListingService
+        PublicListingService $publicListingService,
+        InvoiceService $invoiceService
     ) {
         $this->roomService = $roomService;
         $this->serviceManagementService = $serviceManagementService;
         $this->publicListingService = $publicListingService;
+        $this->invoiceService = $invoiceService;
     }
 
     public function dashboard()
@@ -161,10 +165,12 @@ class LandlordController extends Controller
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
         ]);
-        $result = $this->roomService->createFloor(Auth::id(), $request->only('name', 'address', 'latitude', 'longitude'));
-        if (!$result)
-            return redirect()->back()->with('error', 'Không thể thêm tầng/khu!');
-        return redirect()->back()->with('success', 'Thêm tầng/khu thành công!');
+        try {
+            $result = $this->roomService->createFloor(Auth::id(), $request->only('name', 'address', 'latitude', 'longitude'));
+            return redirect()->back()->with('success', 'Thêm tầng/dãy thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function updateFloor(Request $request, int $id)
@@ -233,6 +239,13 @@ class LandlordController extends Controller
             if ($request->has('room_numbers') && is_array($request->room_numbers)) {
                 $count = 0;
                 foreach ($request->room_numbers as $rn) {
+                    //check lại số phòng trước mỗi lần tạo phòng mới
+                    $currentCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user) {
+                        $q->where('user_id', $user->id);
+                    })->count();
+                    if (!$user->canCreateResource('max_rooms', $currentCount)) {
+                        break;
+                    }
                     $data = $request->except(['room_numbers', 'room_number']);
                     $data['room_number'] = $rn;
                     $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles, $boardingHouseId);
@@ -578,7 +591,7 @@ class LandlordController extends Controller
             });
         }
 
-        $contracts = $query->with(['room.residents.user', 'tenant','extensions'])
+        $contracts = $query->with(['room.residents.user', 'tenant', 'extensions'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -671,73 +684,20 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         $boardingHouseId = session('selected_boarding_house_id');
-        $baseQuery = \App\Models\Invoice::whereHas('contract.room', function ($q) use ($boardingHouseId) {
-            $q->where('boarding_house_id', $boardingHouseId);
-        })
-            ->with(['contract.room', 'contract.tenant', 'details.service']);
 
-        $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->get();
-        $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->get();
+        $data = $this->invoiceService->getInvoicesData($landlordId, $boardingHouseId);
 
-        $activeContracts = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHouseId) {
-            $q->where('boarding_house_id', $boardingHouseId);
-            //lọc theo cơ sở được chọn
-        })
-            ->where('status', '!=', 'terminated')
-            ->with([
-                'room.services',
-                'tenant',
-                'invoices' => function ($q) {
-                    $q->orderBy('billing_month', 'desc')->with('details');
-                }
-            ])
-            ->get();
-
-        $boardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)
-            ->where('status', 'approved')
-            ->get();
-
-        $currentMonth = date('Y-m');
-        $pendingBillingContracts = \App\Models\Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
-            $q->where('user_id', $landlordId);
-        })
-            ->whereIn('status', ['active', 'signed'])
-            ->whereDoesntHave('invoices', function ($q) use ($currentMonth) {
-                $q->where('billing_month', $currentMonth);
-            })
-            ->with([
-                'room.services',
-                'tenant',
-                'room.boardingHouse',
-                'invoices' => function ($q) {
-                    $q->orderBy('billing_month', 'desc')->with('details');
-                }
-            ])
-            ->get();
-
-        // Get landlord services
-        $services = $this->serviceManagementService->getServices($landlordId, $boardingHouseId)
-            ->where('is_active', true)
-            ->values();
-        return Inertia::render('Landlord/Invoices/index', [
-            'invoices' => $invoices,
-            'archivedInvoices' => $archivedInvoices,
-            'activeContracts' => $activeContracts,
-            'services' => $services,
-            'boardingHouses' => $boardingHouses,
-            'pendingBillingContracts' => $pendingBillingContracts,
-        ]);
+        return Inertia::render('Landlord/Invoices/index', $data);
     }
 
     public function storeInvoice(Request $request)
     {
         $user = auth()->user();
         $contract = \App\Models\Contract::findOrFail($request->contract_id);
-        $room = $contract->room;
-        //check xem phòng  có bị đóng băng không
-        if ($user->isRoomFrozen($room)) {
+        if ($user->isRoomFrozen($contract->room)) {
             return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để lập hoá đơn!');
         }
+
         $request->validate([
             'contract_id' => 'required|exists:contracts,id',
             'billing_month' => 'required|string',
@@ -746,236 +706,14 @@ class LandlordController extends Controller
             'details.*.item_name' => 'required|string',
             'details.*.price' => 'required|numeric',
             'details.*.quantity' => 'required|numeric',
-            'details.*.subtotal' => 'required|numeric',
-            'details.*.old_index' => 'nullable|integer',
-            'details.*.new_index' => 'nullable|integer',
-            'details.*.service_id' => 'nullable|exists:services,id',
-            'elec_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-            'elec_old_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-            'water_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-            'water_old_meter_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-        ]);
-        $contract = \App\Models\Contract::with('room')->findOrFail($request->contract_id);
-
-        // Kiểm tra kỳ thanh toán phải nằm trong khoảng thời hạn hợp đồng
-        $startMonth = substr($contract->start_date, 0, 7);
-        $endMonth = substr($contract->end_date, 0, 7);
-        if ($request->billing_month < $startMonth || $request->billing_month > $endMonth) {
-            return redirect()->back()->with('error', "Kỳ thanh toán phải nằm trong khoảng thời hạn hợp đồng ({$startMonth} đến {$endMonth})!");
-        }
-
-        // Ràng buộc không cho phép tạo kỳ thanh toán trước quá 1 tháng so với tháng hiện tại
-        $maxAllowedMonth = \Carbon\Carbon::now()->addMonth()->format('Y-m');
-        if ($request->billing_month > $maxAllowedMonth) {
-            return redirect()->back()->with('error', "Kỳ thanh toán không được tạo vượt quá 1 tháng so với tháng hiện tại (Kỳ tối đa được phép: Tháng {$maxAllowedMonth})!");
-        }
-
-        // Tránh trùng hóa đơn trong cùng kỳ thanh toán
-        $exists = \App\Models\Invoice::where('contract_id', $request->contract_id)
-            ->where('billing_month', $request->billing_month)
-            ->exists();
-        if ($exists) {
-            return redirect()->back()->with('error', 'Hóa đơn cho hợp đồng này trong kỳ này đã tồn tại!');
-        }
-
-        // Lấy hóa đơn kỳ trước để khóa chỉ số điện / nước cũ server-side
-        $lastInv = \App\Models\Invoice::where('contract_id', $request->contract_id)
-            ->orderBy('billing_month', 'desc')
-            ->with('details')
-            ->first();
-
-        // Xử lý upload ảnh chỉ số công tơ
-        $elecImgPath = null;
-        $elecOldImgPath = null;
-        if ($request->hasFile('elec_meter_image')) {
-            $elecImgPath = '/storage/' . $request->file('elec_meter_image')->store('meter_readings', 'r2_public');
-        }
-        if ($request->hasFile('elec_old_meter_image')) {
-            $elecOldImgPath = '/storage/' . $request->file('elec_old_meter_image')->store('meter_readings', 'r2_public');
-        }
-
-        $waterImgPath = null;
-        $waterOldImgPath = null;
-        if ($request->hasFile('water_meter_image')) {
-            $waterImgPath = '/storage/' . $request->file('water_meter_image')->store('meter_readings', 'public');
-        }
-        if ($request->hasFile('water_old_meter_image')) {
-            $waterOldImgPath = '/storage/' . $request->file('water_old_meter_image')->store('meter_readings', 'public');
-        }
-
-        // Khóa giá phòng chuẩn theo Hợp đồng
-        $roomPrice = $contract->room ? (float) $contract->room->price : 0;
-
-        $processedDetails = [];
-        foreach ($request->details as $d) {
-            $itemName = $d['item_name'];
-            $price = (float) $d['price'];
-
-            // Nếu có service_id -> Khóa giá chuẩn theo DB/room_service
-            if (!empty($d['service_id'])) {
-                $srv = \App\Models\Service::find($d['service_id']);
-                if ($srv) {
-                    $pivotPrice = \DB::table('room_service')
-                        ->where('room_id', $contract->room_id)
-                        ->where('service_id', $srv->id)
-                        ->value('price');
-                    $price = (!is_null($pivotPrice) && $pivotPrice !== '') ? (float) $pivotPrice : (float) $srv->price;
-                }
-            }
-
-            $quantity = (float) $d['quantity'];
-            $oldIndex = isset($d['old_index']) ? (int) $d['old_index'] : null;
-            $newIndex = isset($d['new_index']) ? (int) $d['new_index'] : null;
-            $meterImg = null;
-            $oldMeterImg = null;
-
-            if ($itemName === 'Tiền thuê nhà') {
-                $price = $roomPrice;
-                $quantity = 1;
-            } elseif (str_contains($itemName, 'Điện')) {
-                if ($newIndex === null || $newIndex === '') {
-                    return redirect()->back()->with('error', 'Vui lòng nhập chỉ số điện mới!');
-                }
-                if ($lastInv) {
-                    $lastElec = $lastInv->details->first(fn($dt) => str_contains($dt->item_name, 'Điện'));
-                    if ($lastElec && $lastElec->new_index !== null) {
-                        $oldIndex = (int) $lastElec->new_index;
-                        if (!$elecOldImgPath && $lastElec->meter_image_path) {
-                            $oldMeterImg = $lastElec->meter_image_path;
-                        }
-                    }
-                } elseif ($contract->entry_elec_index !== null) {
-                    $oldIndex = (int) $contract->entry_elec_index;
-                    if (!$elecOldImgPath && $contract->entry_elec_image) {
-                        $oldMeterImg = $contract->entry_elec_image;
-                    }
-                }
-                if ($newIndex < $oldIndex) {
-                    return redirect()->back()->with('error', "Chỉ số điện mới ({$newIndex}) không được nhỏ hơn chỉ số cũ ({$oldIndex})!");
-                }
-                $quantity = $newIndex - $oldIndex;
-                $meterImg = $elecImgPath;
-                if ($elecOldImgPath)
-                    $oldMeterImg = $elecOldImgPath;
-            } elseif (str_contains($itemName, 'Nước')) {
-                if ($newIndex === null || $newIndex === '') {
-                    return redirect()->back()->with('error', 'Vui lòng nhập chỉ số nước mới!');
-                }
-                if ($lastInv) {
-                    $lastWater = $lastInv->details->first(fn($dt) => str_contains($dt->item_name, 'Nước'));
-                    if ($lastWater && $lastWater->new_index !== null) {
-                        $oldIndex = (int) $lastWater->new_index;
-                        if (!$waterOldImgPath && $lastWater->meter_image_path) {
-                            $oldMeterImg = $lastWater->meter_image_path;
-                        }
-                    }
-                } elseif ($contract->entry_water_index !== null) {
-                    $oldIndex = (int) $contract->entry_water_index;
-                    if (!$waterOldImgPath && $contract->entry_water_image) {
-                        $oldMeterImg = $contract->entry_water_image;
-                    }
-                }
-                if ($newIndex < $oldIndex) {
-                    return redirect()->back()->with('error', "Chỉ số nước mới ({$newIndex}) không được nhỏ hơn chỉ số cũ ({$oldIndex})!");
-                }
-                $quantity = $newIndex - $oldIndex;
-                $meterImg = $waterImgPath;
-                if ($waterOldImgPath)
-                    $oldMeterImg = $waterOldImgPath;
-            }
-
-            $subtotal = $price * $quantity;
-
-            $processedDetails[] = [
-                'service_id' => $d['service_id'] ?? null,
-                'item_name' => $itemName,
-                'old_index' => $oldIndex,
-                'new_index' => $newIndex,
-                'meter_image_path' => $meterImg,
-                'old_meter_image_path' => $oldMeterImg,
-                'quantity' => $quantity,
-                'price' => $price,
-                'subtotal' => $subtotal,
-            ];
-        }
-
-        $totalAmount = collect($processedDetails)->sum('subtotal');
-
-        $invoice = \App\Models\Invoice::create([
-            'contract_id' => $request->contract_id,
-            'invoice_code' => 'HD-' . date('Ym') . '-' . str_pad(rand(0, 999), 3, '0', STR_PAD_LEFT),
-            'billing_month' => $request->billing_month,
-            'total_amount' => $totalAmount,
-            'status' => 'unpaid',
-            'due_date' => $request->due_date,
         ]);
 
-        foreach ($processedDetails as $pd) {
-            $pd['invoice_id'] = $invoice->id;
-            \App\Models\InvoiceDetail::create($pd);
+        try {
+            $this->invoiceService->createInvoice(Auth::id(), $request->all(), $request->allFiles());
+            return redirect()->back()->with('success', 'Tạo hóa đơn thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        // Gửi thông báo cho tất cả người ở trong phòng (Chủ hợp đồng + Cư dân ở ghép active)
-        $recipients = collect();
-        if ($contract->tenant) {
-            $recipients->push($contract->tenant);
-        }
-        $roomResidents = \App\Models\RoomResident::where('room_id', $contract->room_id)
-            ->where('status', 'active')
-            ->with('user')
-            ->get();
-        foreach ($roomResidents as $res) {
-            if ($res->user && $res->user->id !== $contract->tenant_id) {
-                $recipients->push($res->user);
-            }
-        }
-
-        if ($recipients->isNotEmpty()) {
-            $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
-            foreach ($recipients as $recipient) {
-                if ($isFirstInvoice) {
-                    $proratedService = new \App\Services\ProratedBillingService();
-                    $proratedInfo = $proratedService->calculateProratedRent($contract, $request->billing_month);
-                    if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
-                        $recipient->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
-                    } else {
-                        $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
-                    }
-                } else {
-                    $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
-                }
-            }
-        }
-        //ghi log
-        $isAbnormal = false;
-        $reasons = [];
-        //lấy ngưỡng tổng tiền hoá đơn cảnh báo cho Admin
-        $maxInvoiceAmount = (float) (\App\Models\Setting::where('key', 'warning_invoice_amount')->value('value') ?? 10000000);
-        if ($totalAmount > $maxInvoiceAmount) {
-            $isAbnormal = true;
-            $reasons[] = "Tổng hoá đơn lớn hơn ngưỡng thiết lập (" . number_format($totalAmount) . " đ/Ngưỡng: " . number_format($maxInvoiceAmount) . "đ)";
-        }
-        //kiểm tra lượng điện/nước tiêu thụ bất thường phòng
-        foreach ($processedDetails as $pd) {
-            if (str_contains($pd['item_name'], 'Điện') && $pd['quantity'] > 1000) {
-                $isAbnormal = true;
-                $reasons[] = "Tiêu thụ điện bất thường: " . $pd['quantity'] . "kWh";
-            }
-            if (str_contains($pd['item_name'], 'Nước') && $pd['quantity'] > 50) {
-                $isAbnormal = true;
-                $reasons[] = "Tiêu thụ Nước bất thường: " . $pd['quantity'] . "m3";
-            }
-        }
-        //ghi log
-        $action = $isAbnormal ? 'abnormal_invoice' : 'create_invoice';
-        $logMesseage = "Chủ trọ" . Auth::user()->name . "Tạo hoá đơn {$invoice->invoice_code} cho phòng" . ($contract->room->room_number ?? 'N/A') . " (Kỳ: {$request->billing_month})";
-        if ($isAbnormal) {
-            $logMesseage .= " [CẢNH BÁO BẤT THƯỜNG]: " . implode(';', $reasons);
-        } else {
-            $logMesseage .= " với tổng tiền" . number_format($totalAmount) . "đ";
-        }
-        \App\Services\AuditLogger::log($action, $logMesseage, $isAbnormal);
-        return redirect()->back()->with('success', 'Tạo hóa đơn thành công!');
     }
 
     public function storeQuickBulkInvoices(Request $request)
@@ -988,284 +726,74 @@ class LandlordController extends Controller
             'readings.*.elec_new' => 'required|numeric|min:0',
             'readings.*.water_new' => 'required|numeric|min:0',
         ]);
-
-        $billingMonth = $request->billing_month;
-        $dueDate = $request->due_date;
-
-        // Ràng buộc không cho phép tạo kỳ thanh toán trước quá 1 tháng so với tháng hiện tại
-        $maxAllowedMonth = \Carbon\Carbon::now()->addMonth()->format('Y-m');
-        if ($billingMonth > $maxAllowedMonth) {
-            return redirect()->back()->with('error', "Kỳ thanh toán không được tạo vượt quá 1 tháng so với tháng hiện tại (Kỳ tối đa được phép: Tháng {$maxAllowedMonth})!");
+        try {
+            $result = $this->invoiceService->createQuickBulkInvoices(Auth::id(), $request->all(), $request);
+            return redirect()->back()->with('success', "Đã lập thành công {$result['created_count']} hoá đơn hàng loạt!");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        foreach ($request->readings as $index => $r) {
-            $contractId = $r['contract_id'];
-            $contract = \App\Models\Contract::with(['room.services', 'tenant'])->findOrFail($contractId);
-
-            // Skip if invoice already exists
-            $exists = \App\Models\Invoice::where('contract_id', $contractId)
-                ->where('billing_month', $billingMonth)
-                ->exists();
-            if ($exists) {
-                continue;
-            }
-
-            // Get last invoice for old indexes
-            $lastInv = \App\Models\Invoice::where('contract_id', $contractId)
-                ->orderBy('billing_month', 'desc')
-                ->with('details')
-                ->first();
-
-            // Handle uploads
-            $elecImgPath = null;
-            $elecOldImgPath = null;
-            $elecFileKey = "readings.{$index}.elec_image";
-            if ($request->hasFile($elecFileKey)) {
-                $elecImgPath = '/storage/' . $request->file($elecFileKey)->store('meter_readings', 'r2_public');
-            }
-
-            $waterImgPath = null;
-            $waterOldImgPath = null;
-            $waterFileKey = "readings.{$index}.water_image";
-            if ($request->hasFile($waterFileKey)) {
-                $waterImgPath = '/storage/' . $request->file($waterFileKey)->store('meter_readings', 'public');
-            }
-
-
-            // Default rates
-            $roomPrice = $contract->room ? (float) $contract->room->price : 0;
-            $elecPrice = 3000;
-            $waterPrice = 15000;
-
-            // Override với room services (ưu tiên giá đóng băng trong room_service pivot)
-            if ($contract->room) {
-                foreach ($contract->room->services as $service) {
-                    $pivotPrice = \DB::table('room_service')
-                        ->where('room_id', $contract->room_id)
-                        ->where('service_id', $service->id)
-                        ->value('price');
-                    $effectivePrice = (!is_null($pivotPrice) && $pivotPrice !== '') ? (float) $pivotPrice : (float) $service->price;
-                    if ($service->type === 'per_kwh' || str_contains(mb_strtolower($service->name), 'điện')) {
-                        $elecPrice = $effectivePrice;
-                    }
-                    if ($service->type === 'per_m3' || str_contains(mb_strtolower($service->name), 'nước')) {
-                        $waterPrice = $effectivePrice;
-                    }
-                }
-            }
-
-            $elecOld = 0;
-            if ($lastInv) {
-                $lastElec = $lastInv->details->first(fn($dt) => str_contains(strtolower($dt->item_name), 'điện'));
-                if ($lastElec && $lastElec->new_index !== null) {
-                    $elecOld = (int) $lastElec->new_index;
-                    if ($lastElec->meter_image_path)
-                        $elecOldImgPath = $lastElec->meter_image_path;
-                }
-            } else if ($contract->entry_elec_index !== null) {
-                $elecOld = (int) $contract->entry_elec_index;
-            }
-
-            $waterOld = 0;
-            if ($lastInv) {
-                $lastWater = $lastInv->details->first(fn($dt) => str_contains(strtolower($dt->item_name), 'nước'));
-                if ($lastWater && $lastWater->new_index !== null) {
-                    $waterOld = (int) $lastWater->new_index;
-                    if ($lastWater->meter_image_path)
-                        $waterOldImgPath = $lastWater->meter_image_path;
-                }
-            } else if ($contract->entry_water_index !== null) {
-                $waterOld = (int) $contract->entry_water_index;
-            }
-
-            if ((int) $r['elec_new'] < $elecOld) {
-                return redirect()->back()->with('error', "Chỉ số điện mới của phòng " . ($contract->room ? $contract->room->room_number : $contractId) . " không được nhỏ hơn chỉ số cũ ({$elecOld})!");
-            }
-            if ((int) $r['water_new'] < $waterOld) {
-                return redirect()->back()->with('error', "Chỉ số nước mới của phòng " . ($contract->room ? $contract->room->room_number : $contractId) . " không được nhỏ hơn chỉ số cũ ({$waterOld})!");
-            }
-
-            $elecQty = (int) $r['elec_new'] - $elecOld;
-            $waterQty = (int) $r['water_new'] - $waterOld;
-
-            $processedDetails = [];
-
-            // 1. Rent
-            $processedDetails[] = [
-                'service_id' => null,
-                'item_name' => 'Tiền thuê nhà',
-                'old_index' => null,
-                'new_index' => null,
-                'meter_image_path' => null,
-                'old_meter_image_path' => null,
-                'quantity' => 1,
-                'price' => $roomPrice,
-                'subtotal' => $roomPrice,
-            ];
-
-            // 2. Elec
-            $processedDetails[] = [
-                'service_id' => null,
-                'item_name' => 'Tiền Điện',
-                'old_index' => $elecOld,
-                'new_index' => (int) $r['elec_new'],
-                'meter_image_path' => $elecImgPath,
-                'old_meter_image_path' => $elecOldImgPath,
-                'quantity' => $elecQty,
-                'price' => $elecPrice,
-                'subtotal' => $elecPrice * $elecQty,
-            ];
-
-            // 3. Water
-            $processedDetails[] = [
-                'service_id' => null,
-                'item_name' => 'Tiền Nước',
-                'old_index' => $waterOld,
-                'new_index' => (int) $r['water_new'],
-                'meter_image_path' => $waterImgPath,
-                'old_meter_image_path' => $waterOldImgPath,
-                'quantity' => $waterQty,
-                'price' => $waterPrice,
-                'subtotal' => $waterPrice * $waterQty,
-            ];
-
-            // 4. Fixed & Person services from room services
-            if ($contract->room) {
-                foreach ($contract->room->services as $service) {
-                    $pivotPrice = \DB::table('room_service')
-                        ->where('room_id', $contract->room_id)
-                        ->where('service_id', $service->id)
-                        ->value('price');
-                    $effectivePrice = (!is_null($pivotPrice) && $pivotPrice !== '') ? (float) $pivotPrice : (float) $service->price;
-                    if ($service->type === 'fixed') {
-                        $processedDetails[] = [
-                            'service_id' => $service->id,
-                            'item_name' => $service->name,
-                            'old_index' => null,
-                            'new_index' => null,
-                            'meter_image_path' => null,
-                            'old_meter_image_path' => null,
-                            'quantity' => 1,
-                            'price' => $effectivePrice,
-                            'subtotal' => $effectivePrice,
-                        ];
-                    } elseif ($service->type === 'per_person') {
-                        $ppl = $contract->room->current_people ?: 1;
-                        $processedDetails[] = [
-                            'service_id' => $service->id,
-                            'item_name' => $service->name,
-                            'old_index' => null,
-                            'new_index' => null,
-                            'meter_image_path' => null,
-                            'old_meter_image_path' => null,
-                            'quantity' => $ppl,
-                            'price' => $effectivePrice,
-                            'subtotal' => $effectivePrice * $ppl,
-                        ];
-                    }
-                }
-            }
-
-            $totalAmount = collect($processedDetails)->sum('subtotal');
-
-            $invoice = \App\Models\Invoice::create([
-                'contract_id' => $contractId,
-                'invoice_code' => 'HD-' . date('Ym') . '-' . str_pad(rand(0, 999), 3, '0', STR_PAD_LEFT),
-                'billing_month' => $billingMonth,
-                'total_amount' => $totalAmount,
-                'status' => 'unpaid',
-                'due_date' => $dueDate,
-            ]);
-
-            foreach ($processedDetails as $pd) {
-                $pd['invoice_id'] = $invoice->id;
-                \App\Models\InvoiceDetail::create($pd);
-            }
-
-            // Gửi thông báo cho tất cả người ở trong phòng (Chủ hợp đồng + Cư dân ở ghép active)
-            $recipients = collect();
-            if ($contract->tenant) {
-                $recipients->push($contract->tenant);
-            }
-            $roomResidents = \App\Models\RoomResident::where('room_id', $contract->room_id)
-                ->where('status', 'active')
-                ->with('user')
-                ->get();
-            foreach ($roomResidents as $res) {
-                if ($res->user && $res->user->id !== $contract->tenant_id) {
-                    $recipients->push($res->user);
-                }
-            }
-
-            if ($recipients->isNotEmpty()) {
-                $isFirstInvoice = !\App\Models\Invoice::where('contract_id', $contract->id)->where('id', '!=', $invoice->id)->exists();
-                foreach ($recipients as $recipient) {
-                    if ($isFirstInvoice) {
-                        $proratedService = new \App\Services\ProratedBillingService();
-                        $proratedInfo = $proratedService->calculateProratedRent($contract, $billingMonth);
-                        if ($proratedInfo['should_prorate'] || $proratedInfo['is_grace_period']) {
-                            $recipient->notify(new \App\Notifications\FirstMonthProratedInvoiceNotification($invoice, (int) $proratedInfo['days_occupied'], $proratedInfo['reason']));
-                        } else {
-                            $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
-                        }
-                    } else {
-                        $recipient->notify(new \App\Notifications\NewInvoiceNotification($invoice));
-                    }
-                }
-            }
-        }
-
-        return redirect()->back()->with('success', 'Đã lập hóa đơn hàng loạt thành công!');
     }
 
     public function updateInvoice(Request $request, $id)
     {
-        return redirect()->back()->with('error', 'Hóa đơn sau khi đã tạo không thể chỉnh sửa!');
+        $request->validate([
+            'due_date' => 'required|date',
+            'details' => 'required|array',
+            'details.*.price' => 'required|numeric',
+            'details.*.quantity' => 'required|numeric',
+        ]);
+
+        try {
+            $this->invoiceService->updateInvoice((int) $id, $request->all(), Auth::id());
+            return redirect()->back()->with('success', 'Cập nhật hóa đơn thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function updateInvoiceStatus(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|string|in:unpaid,paid'
+            'status' => 'required|string|in:unpaid,partially_paid,paid',
+            'paid_amount' => 'nullable|numeric|min:0',
         ]);
 
-        $invoice = \App\Models\Invoice::findOrFail($id);
-        $invoice->update([
-            'status' => $request->status,
-            'paid_at' => $request->status === 'paid' ? now() : null,
-        ]);
-
-        return redirect()->back()->with('success', 'Cập nhật trạng thái hóa đơn thành công!');
+        try {
+            $this->invoiceService->updateInvoiceStatus((int) $id, $request->status, $request->paid_amount ? (float) $request->paid_amount : null, Auth::id());
+            return redirect()->back()->with('success', 'Cập nhật trạng thái hóa đơn thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function archiveInvoice($id)
     {
-        $invoice = \App\Models\Invoice::findOrFail($id);
-        $invoice->update(['archived_at' => now()]);
-
-        return redirect()->back()->with('success', 'Đã lưu trữ hóa đơn!');
+        try {
+            $this->invoiceService->archiveInvoice((int) $id, Auth::id());
+            return redirect()->back()->with('success', 'Đã lưu trữ hóa đơn!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function restoreInvoice($id)
     {
-        $invoice = \App\Models\Invoice::findOrFail($id);
-        $invoice->update(['archived_at' => null]);
-
-        return redirect()->back()->with('success', 'Đã khôi phục hóa đơn!');
+        try {
+            $this->invoiceService->restoreInvoice((int) $id, Auth::id());
+            return redirect()->back()->with('success', 'Đã khôi phục hóa đơn!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function deleteInvoice($id)
     {
-        $invoice = \App\Models\Invoice::findOrFail($id);
-
-        if ($invoice->status === 'paid') {
-            return redirect()->back()->with('error', 'Không thể xóa hóa đơn đã hoàn thành thanh toán! Vui lòng lưu trữ.');
+        try {
+            $this->invoiceService->deleteInvoice((int) $id, Auth::id());
+            return redirect()->back()->with('success', 'Xóa hóa đơn thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        $invoice->details()->delete();
-        $invoice->delete();
-
-        return redirect()->back()->with('success', 'Xóa hóa đơn thành công!');
     }
 
     public function finance()
@@ -1540,7 +1068,7 @@ class LandlordController extends Controller
                 ->exists();
             if (!$alreadyNotified) {
                 $user->notify(new SubscriptionNotification(
-                    "⚠️ Gói Dịch Vụ Sắp Hết Hạn",
+                    "Gói Dịch Vụ Sắp Hết Hạn",
                     "Gói \"{$activeSub->plan->name}\" của bạn sẽ hết hạn vào ngày {$activeSub->end_date->format('d/m/Y')} (Còn {$daysRemaining} ngày). Vui lòng gia hạn để không bị gián đoạn!",
                     route('landlord.subscriptions.index'),
                     'warning'

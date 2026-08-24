@@ -152,6 +152,11 @@ const actionMap = {
         icon: "bi-file-earmark-x-fill",
         color: "#dc2626",
     },
+    bulk_invoice: {
+        label: 'Lập hàng loạt',
+        icon: 'bi-lightning-charge-fill',
+        color: '#f59e0b',
+    },
 };
 
 // 2. Hàm định dạng thời gian đẹp mắt hiển thị lên giao diện
@@ -212,7 +217,7 @@ const filtered = computed(() => {
             <span>Phát hiện
                 <strong>{{
                     props.logs.data.filter((l) => l.sensitive).length
-                }}
+                    }}
                     hành động nhạy cảm</strong>
                 trong danh sách. Hãy kiểm tra kỹ!</span>
         </div>
@@ -275,7 +280,7 @@ const filtered = computed(() => {
                                 </div>
                                 <span class="fw">{{
                                     log.user ? log.user.name : "Hệ thống"
-                                    }}</span>
+                                }}</span>
                             </div>
                         </td>
                         <td>

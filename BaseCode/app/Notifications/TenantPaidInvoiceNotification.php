@@ -29,11 +29,18 @@ class TenantPaidInvoiceNotification extends Notification
     {
         $roomNumber = $this->invoice->contract->room->room_number ?? 'Phòng';
         $billingMonth = $this->invoice->billing_month;
-        $amountStr = number_format($this->invoice->total_amount, 0, ',', '.') . ' đ';
+        $totalAmount = (float) $this->invoice->total_amount;
+        $paidAmount = (float) ($this->invoice->paid_amount ?: 0);
+
+        if ($paidAmount > 0 && $paidAmount < $totalAmount) {
+            $amountStr = number_format($paidAmount, 0, ',', '.') . ' đ / ' . number_format($totalAmount, 0, ',', '.') . ' đ (Thanh toán 1 phần)';
+        } else {
+            $amountStr = number_format($totalAmount, 0, ',', '.') . ' đ';
+        }
 
         return [
             'title' => 'Thông báo thanh toán hóa đơn',
-            'message' => "Khách thuê tại {$roomNumber} đã báo thanh toán hóa đơn kỳ {$billingMonth} số tiền {$amountStr} bằng phương thức {$this->paymentMethod}.",
+            'message' => "Khách thuê tại {$roomNumber} đã báo thanh toán hóa đơn kỳ {$billingMonth} (Số tiền: {$amountStr}) bằng phương thức {$this->paymentMethod}.",
             'url' => route('landlord.invoices'),
             'invoice_id' => $this->invoice->id,
         ];
