@@ -19,12 +19,73 @@ class AdminController extends Controller
     }
     public function index()
     {
+        $totalUsers = User::where('role', '!=', 'admin')->count();
+        $newUsersToday = User::whereDate('created_at', today())->count();
+        $pendingApproval = RoomPost::where('status', 'pending')->count();
+        $pendingBoardingHouses = \App\Models\BoardingHouse::where('status', 'pending')->count();
+        $reports = Report::where('status', 'pending')->count();
+        $totalLandlords = User::where('role', 'landlord')->count();
+
+        // 5 Người dùng đăng ký mới nhất từ DB
+        $recentUsers = User::where('role', '!=', 'admin')
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name ?? 'Người dùng',
+                    'email' => $u->email,
+                    'avatar' => $u->avatar,
+                    'role' => $u->role === 'landlord' ? 'Chủ trọ' : 'Người thuê',
+                    'date' => $u->created_at->format('d/m/Y'),
+                    'status' => $u->status ?? 'active',
+                ];
+            });
+
+        // 5 Báo cáo mới nhất từ DB
+        $recentReports = Report::with(['user'])
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'from' => $r->user->name ?? 'Khách',
+                    'target' => $r->target_type ?? 'Tin đăng',
+                    'type' => $r->reason ?? 'Vi phạm',
+                    'date' => $r->created_at->format('d/m/Y'),
+                    'status' => $r->status ?? 'pending',
+                ];
+            });
+
+        // Biểu đồ đăng ký 12 tháng gần nhất từ DB
+        $months = [];
+        $monthlyCounts = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $monthLabel = 'T' . $date->month;
+            $count = User::whereYear('created_at', $date->year)
+                ->whereMonth('created_at', $date->month)
+                ->count();
+            $months[] = $monthLabel;
+            $monthlyCounts[] = $count;
+        }
+
         return Inertia::render('Admin/dashboard', [
             'stats' => [
-                'totalUsers' => User::count(),
-                'newUsersToday' => User::whereDate('created_at', today())->count(),
-                'pendingApproval' => RoomPost::where('status', 'pending')->count(),
-                'reports' => Report::where('status', 'pending')->count(),
+                'totalUsers' => $totalUsers,
+                'newUsersToday' => $newUsersToday,
+                'pendingApproval' => $pendingApproval,
+                'pendingBoardingHouses' => $pendingBoardingHouses,
+                'reports' => $reports,
+                'totalLandlords' => $totalLandlords,
+            ],
+            'recentUsers' => $recentUsers,
+            'recentReports' => $recentReports,
+            'monthlyChart' => [
+                'months' => $months,
+                'counts' => $monthlyCounts,
             ]
         ]);
     }
@@ -37,20 +98,36 @@ class AdminController extends Controller
         ]);
     }
 
-    public function toggleUserStatus($id)
+    public function toggleUserStatus(Request $request, $id)
     {
         $user = User::findOrFail($id);
-        $oldStatus = $user->status;
-        $user->status = $user->status === 'active' ? 'locked' : 'active';
+        $oldStatus = $user->status ?? 'active';
+        $isLocking = $oldStatus === 'active';
+
+        if ($isLocking) {
+            $request->validate([
+                'reason' => 'required|string|max:1000'
+            ], [
+                'reason.required' => 'Vui lòng nhập lý do khóa tài khoản.'
+            ]);
+            $user->status = 'locked';
+            $user->lock_reason = trim($request->input('reason'));
+        } else {
+            $user->status = 'active';
+            $user->lock_reason = null;
+        }
+
         $user->save();
+
         $action = $user->status === 'locked' ? 'lock_user' : 'unlock_user';
         $actionText = $user->status === 'locked' ? 'Khóa' : 'Mở khóa';
+        $logMsg = "{$actionText} tài khoản người dùng: {$user->email} (Trạng thái cũ: {$oldStatus})";
+        if ($user->status === 'locked') {
+            $logMsg .= ". Lý do khóa: {$user->lock_reason}";
+        }
+
         //ghi log
-        \App\Services\AuditLogger::log(
-            $action,
-            "{$actionText} tài khoản người dùng: {$user->email} (Trạng thái cũ: {$oldStatus})",
-            true
-        );
+        \App\Services\AuditLogger::log($action, $logMsg, true);
 
         return redirect()->back()->with('success', 'Đã cập nhật trạng thái người dùng thành công.');
     }
@@ -101,12 +178,28 @@ class AdminController extends Controller
                     'boarding_house_name' => $user->boardingHouse->name ?? 'Chưa cấu hình',
                     'verified' => true,       // Vì role=landlord nên chắc chắn đã xác minh
                     'joined' => $user->created_at->format('d/m/Y'),
+                    'verification' => $user->verification,
+                    'boarding_house' => $user->boardingHouse,
                 ];
             });
 
         return Inertia::render('Admin/Landlords/index', [
             'landlords' => $landlords
         ]);
+    }
+
+    public function logKycAccess(Request $request, $id)
+    {
+        $targetUser = User::findOrFail($id);
+        $adminName = auth()->user()->name ?? 'Admin';
+
+        \App\Services\AuditLogger::log(
+            'view_sensitive_kyc',
+            "Admin {$adminName} đã mở xem ảnh CCCD/KYC nhạy cảm của tài khoản chủ trọ: {$targetUser->email}",
+            true
+        );
+
+        return response()->json(['success' => true]);
     }
 
     public function approval()
@@ -372,7 +465,52 @@ class AdminController extends Controller
 
     public function reviews()
     {
-        return Inertia::render('Admin/Reviews/index');
+        $reviews = \App\Models\Review::with(['tenant', 'room.boardingHouse', 'appointment.room.boardingHouse'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($r) {
+                $roomName = 'Chưa xác định';
+                if ($r->room) {
+                    $bName = $r->room->boardingHouse->name ?? '';
+                    $rName = $r->room->name ?? ('Phòng ' . ($r->room->room_number ?? $r->room->id));
+                    $roomName = $bName ? "{$bName} - {$rName}" : $rName;
+                } elseif ($r->appointment && $r->appointment->room) {
+                    $bName = $r->appointment->room->boardingHouse->name ?? '';
+                    $rName = $r->appointment->room->name ?? ('Phòng ' . ($r->appointment->room->room_number ?? $r->appointment->room->id));
+                    $roomName = $bName ? "{$bName} - {$rName}" : $rName;
+                }
+
+                return [
+                    'id' => $r->id,
+                    'reviewer' => $r->tenant->name ?? 'Người dùng',
+                    'room' => $roomName,
+                    'stars' => (int) $r->rating,
+                    'content' => $r->comment ?? '',
+                    'date' => $r->created_at ? $r->created_at->format('d/m/Y') : '',
+                    'visible' => (bool) $r->is_visible,
+                ];
+            });
+
+        return Inertia::render('Admin/Reviews/index', [
+            'reviews' => $reviews
+        ]);
+    }
+
+    public function toggleReviewVisibility($id)
+    {
+        $review = \App\Models\Review::findOrFail($id);
+        $review->is_visible = !$review->is_visible;
+        $review->save();
+
+        return redirect()->back()->with('success', 'Cập nhật trạng thái hiển thị đánh giá thành công!');
+    }
+
+    public function deleteReview($id)
+    {
+        $review = \App\Models\Review::findOrFail($id);
+        $review->delete();
+
+        return redirect()->back()->with('success', 'Xóa đánh giá thành công!');
     }
 
     public function revenue()

@@ -143,6 +143,7 @@ Route::middleware('auth')->group(function () {
 
 // ROUTER cho admin
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/', function() { return redirect()->route('admin.dashboard'); });
     Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     // Phần Duyệt cơ sở mới của Admin
     Route::get('/boarding-houses', [\App\Http\Controllers\AdminBoardingHouseController::class, 'index'])->name('admin.boarding-houses.index');
@@ -154,6 +155,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::patch('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus'])->name('admin.users.toggle-status');
     Route::delete('/users/{id}', [AdminController::class, 'deleteUser'])->name('admin.users.delete');
     Route::get('/landlords', [AdminController::class, 'landlords'])->name('admin.landlords');
+    Route::post('/landlords/{id}/log-kyc-access', [AdminController::class, 'logKycAccess'])->name('admin.landlords.log-kyc-access');
     // Phần Duyệt tin đăng của Admin với chủ trọ
     Route::get('/approval', [AdminController::class, 'approval'])->name('admin.listings.index');
     //Phần xem chi tiết tin đăng của admin khi user đăng lên
@@ -192,6 +194,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/reports/settings/days', [AdminController::class, 'updateReportDays'])->name('admin.reports.update-days');
 
     Route::get('/reviews', [AdminController::class, 'reviews'])->name('admin.reviews');
+    Route::patch('/reviews/{id}/toggle-visibility', [AdminController::class, 'toggleReviewVisibility'])->name('admin.reviews.toggle-visibility');
+    Route::delete('/reviews/{id}', [AdminController::class, 'deleteReview'])->name('admin.reviews.delete');
     Route::get('/revenue', [AdminController::class, 'revenue'])->name('admin.revenue');
     Route::get('/auditlog', [AdminController::class, 'auditlog'])->name('admin.auditlog');
     Route::get('/website', [AdminController::class, 'website'])->name('admin.website');

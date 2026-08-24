@@ -10,11 +10,7 @@ import CustomSwal, {
     showError,
 } from "@/Utils/swal";
 import axios from "axios";
-<<<<<<< HEAD
-import { array } from "firebase/firestore/pipelines";
-=======
 import { performClientOcr } from "@/Utils/contractOcr.js";
->>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
 
 const props = defineProps({
     dbContracts: Array,

@@ -54,12 +54,14 @@ class AdminAuthController extends Controller
 
         // Check if account is locked
         if (Auth::user()->status === 'locked') {
+            $lockedUser = Auth::user();
+            $reasonText = $lockedUser->lock_reason ? " Lý do: \"{$lockedUser->lock_reason}\"." : '';
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
             
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'email' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
+                'email' => "Tài khoản của bạn đã bị khóa.{$reasonText} Vui lòng liên hệ quản trị viên.",
             ]);
         }
 
