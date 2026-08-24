@@ -1,0 +1,1199 @@
+@import url(main.css);
+@import url(animation.css);
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* =============================================
+   BANNER
+   ============================================= */
+.banner {
+    position: relative;
+    width: 100%;
+    height: 340px;
+    overflow: hidden;
+}
+
+.banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(60%);
+    border-radius: 0 0 35px 35px;
+}
+
+.banner-text {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: white;
+    width: 100%;
+    max-width: 800px;
+    padding: 0 20px;
+}
+
+.banner-text h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+}
+
+.banner-text p {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0;
+}
+
+.banner-text a {
+    text-decoration: none;
+    color: #fff;
+    transition: 0.3s;
+}
+
+.banner-text a:hover {
+    color: #38bdf8;
+}
+
+/* =============================================
+   THANH TÌM KIẾM THÔNG MINH AI
+   ============================================= */
+.ai-smart-search-wrapper {
+    max-width: 1300px;
+    margin: 24px auto 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 20;
+}
+
+.ai-smart-search-container {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1.5px solid rgba(226, 232, 240, 0.7);
+    border-radius: 22px;
+    padding: 24px 32px;
+    box-shadow: 0 12px 40px rgba(16, 42, 109, 0.10),
+                0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.ai-smart-search-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 14px;
+}
+
+.ai-smart-search-label i {
+    color: #2563eb;
+    font-size: 16px;
+}
+
+.ai-powered-badge {
+    font-size: 11px;
+    padding: 2px 10px;
+    background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+    color: #1d4ed8;
+    border-radius: 9999px;
+    font-weight: 700;
+    border: 1px solid #bfdbfe;
+    letter-spacing: 0.2px;
+}
+
+.ai-suggestions-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+@keyframes ai-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.ai-spin {
+    animation: ai-spin 1s linear infinite;
+}
+
+/* =============================================
+   KHUNG TIÊU CHÍ LỌC AI (KHI ĐƯỢC CHUYỂN TỪ CHATBOT)
+   ============================================= */
+.ai-active-filter-container {
+    max-width: 1300px;
+    margin: 24px auto 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 30;
+}
+
+.outer-glass-frame {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1.5px solid rgba(255, 255, 255, 0.65);
+    border-radius: 24px;
+    padding: 14px;
+    box-shadow: 
+        0 20px 50px rgba(16, 42, 109, 0.15), 
+        inset 0 0 15px rgba(255, 255, 255, 0.4);
+}
+
+.inner-search-card {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 30px 36px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    font-family: inherit;
+    letter-spacing: normal !important;
+}
+
+.inner-search-card * {
+    font-family: inherit;
+}
+
+/* Thanh tìm kiếm AI - Căn chỉnh khoảng cách & padding thoải mái */
+.ai-search-bar {
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 7px 9px 7px 18px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    transition: all 0.25s ease;
+    gap: 12px;
+    min-height: 56px;
+}
+
+.ai-search-bar:hover {
+    background: #ffffff;
+    border-color: #94a3b8;
+}
+
+.ai-search-bar:focus-within {
+    background: #ffffff;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.ai-search-input-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 12px;
+    min-height: 42px;
+}
+
+.ai-search-icon {
+    font-size: 19px;
+    color: #64748b;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.ai-search-input {
+    width: 100%;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    -webkit-appearance: none !important;
+    font-size: 15px;
+    color: #1e293b;
+    padding: 8px 0 !important;
+    margin: 0 !important;
+    line-height: 1.5;
+}
+
+.ai-search-input::placeholder {
+    color: #94a3b8;
+    font-size: 14.5px;
+}
+
+.ai-search-clear-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: color 0.2s;
+    flex-shrink: 0;
+}
+
+.ai-search-clear-btn:hover {
+    color: #475569;
+}
+
+.ai-search-submit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 24px;
+    background: linear-gradient(135deg, #102a6d 0%, #2563eb 100%);
+    color: #ffffff !important;
+    font-weight: 600;
+    font-size: 14.5px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(16, 42, 109, 0.22);
+    transition: all 0.25s ease;
+}
+
+.ai-search-submit-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0d2258 0%, #1d4ed8 100%);
+    box-shadow: 0 6px 16px rgba(16, 42, 109, 0.32);
+    transform: translateY(-1px);
+}
+
+.ai-search-submit-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.ai-search-submit-btn:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+}
+
+/* Suggestion Chips */
+.ai-suggestions-wrapper {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.ai-suggestion-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ai-suggestion-chip:hover {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
+    transform: translateY(-1px);
+}
+
+/* =============================================
+   KHUNG KẾT QUẢ PHÂN TÍCH AI (INSIGHT CARD)
+   ============================================= */
+.ai-insight-card {
+    margin-top: 22px;
+    background: #ffffff;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 20px;
+    padding: 22px 28px;
+    box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08);
+    transition: all 0.3s ease;
+}
+
+.ai-insight-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.ai-insight-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+}
+
+.ai-insight-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #102a6d 0%, #2563eb 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(16, 42, 109, 0.2);
+}
+
+.ai-insight-text-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ai-insight-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ai-insight-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.ai-insight-engine-badge {
+    font-size: 11.5px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.ai-insight-engine-gemini {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+.ai-insight-engine-smart {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.ai-insight-explanation {
+    font-size: 13.5px;
+    color: #475569;
+    margin-top: 3px;
+    line-height: 1.5;
+}
+
+.ai-insight-reset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e11d48;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.ai-insight-reset-btn:hover {
+    background: #ffe4e6;
+    color: #be123c;
+    border-color: #fda4af;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(225, 29, 72, 0.12);
+}
+
+.ai-insight-badges-section {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-insight-badges-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    margin-right: 4px;
+}
+
+.ai-badge-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* =============================================
+   LAYOUT TỔNG THỂ
+   ============================================= */
+.layout {
+    max-width: 1300px;
+    margin: 35px auto 60px auto;
+    padding: 0 24px;
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    position: relative;
+    z-index: 10;
+}
+
+/* =============================================
+   CỘT TRÁI - BỘ LỌC TÌM KIẾM
+   ============================================= */
+.filter {
+    margin-top: 0 !important;
+    width: 320px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 24px;
+    z-index: 20;
+    font-family: inherit;
+}
+
+.baofilter {
+    width: 100%;
+    padding: 22px 20px;
+    border-radius: 22px;
+    background: rgba(238, 242, 246, 0.85) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(226, 232, 240, 0.9) !important;
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.04) !important;
+}
+
+.baofilter h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.select_box {
+    width: 100%;
+    position: relative;
+}
+
+.select {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s;
+}
+
+.select:hover {
+    border-color: #93c5fd;
+    background: #ffffff !important;
+}
+
+.selected {
+    flex: 1;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.arrow {
+    transition: 0.3s;
+    color: #94a3b8;
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.select.active .arrow {
+    transform: rotate(180deg);
+}
+
+/* Dropdown */
+.dropdown {
+    position: absolute;
+    width: 100%;
+    top: calc(100% + 6px);
+    left: 0;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 50;
+}
+
+.dropdown.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.dropdown ul {
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.dropdown li {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #334155;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dropdown li:hover {
+    background: #f1f5f9;
+    color: #0284c7;
+}
+
+.dropdown li.active {
+    background: #e0f2fe;
+    color: #0284c7;
+    font-weight: 600;
+}
+
+.select_option {
+    margin-top: 18px;
+}
+
+.select_option h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.price_list,
+.feature_list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.price_list label,
+.feature_list label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: 0.2s;
+    color: #334155;
+}
+
+.price_list label:hover,
+.feature_list label:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.feature_list label i {
+    color: #0284c7;
+    font-size: 15px;
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Custom inputs */
+input[type="radio"],
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff;
+    flex-shrink: 0;
+    position: relative;
+}
+
+input[type="radio"] {
+    border-radius: 50%;
+}
+
+input[type="radio"]:checked,
+input[type="checkbox"]:checked {
+    background-color: #0284c7;
+    border-color: #0284c7;
+}
+
+input[type="checkbox"]:checked::after {
+    content: '';
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    margin-bottom: 2px;
+}
+
+input[type="radio"]:checked::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background-color: white;
+    border-radius: 50%;
+}
+
+.bao_btn {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 22px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.btn-apply-filter {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #102a6d 0%, #2563eb 100%);
+    color: #ffffff !important;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(16, 42, 109, 0.25);
+    letter-spacing: 0.2px;
+}
+
+.btn-apply-filter:hover {
+    background: linear-gradient(135deg, #0d2258 0%, #1d4ed8 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(16, 42, 109, 0.35);
+}
+
+.btn-apply-filter:active {
+    transform: translateY(0);
+}
+
+.btn-reset-filter {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 18px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #475569 !important;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.btn-reset-filter:hover {
+    background: #f1f5f9;
+    color: #0f172a !important;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
+.btn-reset-filter:active {
+    transform: translateY(0);
+}
+
+/* =============================================
+   CỘT PHẢI - DANH SÁCH PHÒNG TRỌ
+   ============================================= */
+.room {
+    flex: 1;
+    min-width: 0;
+}
+
+.baoroom {
+    width: 100%;
+}
+
+.item_room {
+    transform: none !important;
+    margin-bottom: 20px;
+    display: flex;
+    height: 250px;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    position: relative;
+    transition: all 0.25s ease;
+}
+
+.item_room:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 12px 25px -4px rgba(0, 0, 0, 0.08);
+    border-color: #cbd5e1;
+}
+
+/* Ảnh */
+.image_room {
+    width: 280px;
+    min-width: 280px;
+    height: 250px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+}
+
+.image_room img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.item_room:hover .image_room img {
+    transform: scale(1.04);
+}
+
+/* Nội dung */
+.infor_room {
+    padding: 18px 24px;
+    flex: 1;
+    min-width: 0;
+    height: 250px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+}
+
+.title_room h2 {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.infor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.infor-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+.infor p {
+    font-size: 13px;
+    color: #475569;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.infor i {
+    color: #0284c7;
+}
+
+.about_room {
+    width: 100%;
+    margin-top: 2px;
+}
+
+.about_room p {
+    margin: 0;
+    color: #64748b;
+    font-size: 12.5px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =============================================
+   ROOM BADGES (Rộng rãi, căn giữa, không dính viền)
+   ============================================= */
+.room-badge-list {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.room-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px 12px;
+    min-height: 26px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    white-space: nowrap;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.room-badge i {
+    font-size: 12px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+}
+
+.room-badge-area {
+    background: #f1f5f9;
+    color: #334155;
+    border-color: #e2e8f0;
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 3px 10px;
+    min-height: 24px;
+}
+
+.room-badge-available {
+    background: #ecfdf5;
+    color: #059669;
+    border-color: #a7f3d0;
+}
+
+.room-badge-rented {
+    background: #f8fafc;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+
+/* Map section */
+.map_section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.room-badge-construction {
+    background: #f0fdfa;
+    color: #0d9488;
+    border-color: #99f6e4;
+}
+
+.room-badge-floor {
+    background: #eef2ff;
+    color: #4f46e5;
+    border-color: #c7d2fe;
+}
+
+.room-badge-residents {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+}
+
+.room-badge-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #f59e0b;
+    padding: 3px 8px;
+}
+
+.room-badge-no-rating {
+    font-size: 12px;
+    color: #94a3b8;
+    font-style: italic;
+    padding: 3px 4px;
+}
+
+/* User & Button Footer */
+.user_room {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.user_infor_left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user_room img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid #e2e8f0;
+}
+
+.user_room p {
+    transform: none !important;
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.user_room .name_user {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 13px;
+}
+
+.btn {
+    position: static !important;
+    background: linear-gradient(135deg, #0284c7, #1e40af);
+    padding: 8px 18px;
+    border-radius: 10px;
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2);
+}
+
+.btn:hover {
+    background: linear-gradient(135deg, #0369a1, #1e3a8a);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+
+/* =============================================
+   PHÂN TRANG
+   ============================================= */
+.phantrang {
+    margin-top: 32px;
+    display: flex;
+    justify-content: center;
+}
+
+.baophantrang {
+    transform: none !important;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.so_trang {
+    border-radius: 8px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s;
+    background: #fff;
+}
+
+.so_trang a,
+.so_trang span {
+    display: block;
+    padding: 8px 14px;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.so_trang:hover:not(.active):not(.disabled) {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(59, 130, 246, 0.15);
+}
+
+.so_trang:hover:not(.active):not(.disabled) a {
+    color: #2563eb;
+}
+
+.so_trang.active {
+    background: #0284c7;
+    border-color: #0284c7;
+}
+
+.so_trang.active a,
+.so_trang.active span {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.so_trang.disabled {
+    background: #f8fafc;
+    border-color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.so_trang.disabled span {
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* Map section */
+.map_section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.map_section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.map_wrap {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.map_wrap :deep(iframe) {
+    width: 100%;
+    height: 200px;
+    border: none;
+    display: block;
+}
+
+/* =============================================
+   RESPONSIVE COLLAPSIBLE FILTER
+   ============================================= */
+.filter-title-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.filter-toggle-btn {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .layout {
+        flex-direction: column;
+        padding: 0 16px;
+        gap: 24px;
+    }
+
+    .filter {
+        width: 100%;
+        position: static;
+    }
+
+    .filter-title-wrapper {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .filter-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        color: #475569;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .filter-body {
+        transition: max-height 0.3s ease, opacity 0.2s ease;
+        max-height: 2500px;
+        opacity: 1;
+        overflow: hidden;
+        margin-top: 15px;
+    }
+
+    .filter-body.collapsed {
+        max-height: 0;
+        opacity: 0;
+        margin-top: 0;
+        pointer-events: none;
+    }
+}

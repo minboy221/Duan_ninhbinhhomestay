@@ -1,0 +1,71 @@
+@media (max-width: 1024px) {
+    .layout {
+        flex-direction: column-reverse;
+        /* Đưa bài viết lên trên, thanh bên xuống dưới */
+        align-items: center;
+        gap: 30px;
+        margin-bottom: 50px;
+        padding: 0 15px;
+    }
+
+    .dieuhuong {
+        display: none;
+    }
+
+    .left_section {
+        margin-top: 0;
+        /* Bỏ margin âm */
+        width: 100%;
+    }
+
+    .category {
+        margin-top: 20px;
+        /* Bỏ margin lớn */
+    }
+
+    .right_section {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+
+    .chitiettintuc {
+        width: 100%;
+        margin-top: 10px;
+        /* Bỏ margin lớn */
+    }
+
+    .search {
+        width: 100%;
+    }
+
+    .baoinfor_tintuc {
+        width: 100%;
+    }
+
+    .baotag_tintuc {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .title_tintuc h2 {
+        font-size: 24px;
+        line-height: 1.3;
+    }
+
+    .thongtin {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .baohastag {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .image_tintuc img {
+        height: auto;
+    }
+}

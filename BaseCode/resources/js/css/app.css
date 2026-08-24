@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+*:not(.material-symbols-outlined):not(.material-icons):not(.bi):not([class^="bi-"]):not([class*=" bi-"]),
+*::before,
+*::after,
+button:not(.material-symbols-outlined):not(.material-icons):not(.bi),
+input,
+select,
+textarea,
+label,
+p,
+span:not(.material-symbols-outlined):not(.material-icons):not(.bi):not([class^="bi-"]):not([class*=" bi-"]),
+div,
+a,
+h1, h2, h3, h4, h5, h6,
+table, th, td,
+body.landlord-theme,
+body.landlord-theme *,
+.landlord-layout,
+.landlord-layout *,
+body.admin-theme,
+body.admin-theme *,
+.admin-shell,
+.admin-shell *,
+.admin-layout,
+.admin-layout * {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Bảo vệ 100% cho các lớp Icon Fonts */
+.material-symbols-outlined,
+.material-symbols-outlined * {
+    font-family: 'Material Symbols Outlined' !important;
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+}
+
+.material-icons,
+.material-icons-outlined,
+.material-icons * {
+    font-family: 'Material Icons' !important;
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+}
+
+.bi,
+[class^="bi-"],
+[class*=" bi-"] {
+    font-family: 'bootstrap-icons' !important;
+}
+
+body.landlord-theme .font-black,
+body.landlord-theme .font-extrabold,
+body.admin-theme .font-black,
+body.admin-theme .font-extrabold,
+.admin-shell .font-black,
+.admin-shell .font-extrabold {
+    font-weight: 700 !important;
+}
+
+/* ── Custom CSS Responsive cho Giao Diện Admin ── */
+.admin-shell .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.admin-shell .table-card,
+.admin-shell .data-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+    .admin-shell .stat-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .admin-shell .filter-bar,
+    .admin-shell .action-bar,
+    .admin-shell .search-filter-row {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px;
+    }
+
+    .admin-shell .search-box,
+    .admin-shell .filter-input,
+    .admin-shell .btn-action {
+        width: 100% !important;
+    }
+
+    .admin-shell .modal-card {
+        width: 95vw !important;
+        max-width: 100% !important;
+        margin: 10px auto;
+    }
+}
+
+
+

@@ -1,0 +1,160 @@
+@import url('tintuc.css');
+@import url('chitiettro.css');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.search {
+    position: relative;
+    width: 300px;
+}
+
+/* input */
+.bao_search input {
+    width: 100%;
+    padding: 14px 45px 14px 15px;
+    /* chừa chỗ bên phải cho icon */
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    outline: none;
+    font-size: 14px;
+}
+
+/* nút icon */
+.btn_search {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    color: #888;
+}
+
+/* hover đẹp hơn */
+.btn_search:hover {
+    color: #102a6d;
+}
+
+.layout {
+    max-width: 1200px;
+    margin: 50px auto;
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    margin-bottom: 200px;
+}
+
+.left_section {
+    margin-top: -203px;
+    width: 300px;
+    flex-shrink: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* phần layout chứa nội dung tin tức */
+.right_section {
+    flex: 1;
+}
+
+.category {
+    margin-top: 300px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.2),
+        inset 0 0 15px rgba(255, 255, 255, 0.2);
+    padding: 15px;
+}
+
+/* phần nội dung của tin tức */
+
+.chitiettintuc {
+    width: 860px;
+    margin-top: 150px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.25),
+        inset 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.baoitem_tintuc {
+    padding: 10px;
+}
+
+.title_tintuc h2 {
+    color: #000;
+    font-size: 35px;
+}
+
+.image_tintuc img {
+    width: 100%;
+    margin-top: 10px;
+    height: auto;
+    object-fit: cover;
+}
+
+.baiviet_tintuc {
+    margin-top: 10px;
+    line-height: 1.5;
+    letter-spacing: 1px;
+}
+
+/* phần hastag */
+/* Khung tổng */
+.hastag {
+    margin-top: 20px;
+}
+
+.baohastag {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Tiêu đề */
+.baohastag h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Container tag */
+.item_hastag {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Tag */
+.item_hastag a {
+    text-decoration: none;
+    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: rgba(69, 171, 230, 0.1);
+    color: #45abe6;
+    border: 1px solid rgba(69, 171, 230, 0.3);
+    transition: all 0.3s ease;
+}
+
+/* Hover xịn */
+.item_hastag a:hover {
+    background: #45abe6;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(69, 171, 230, 0.3);
+}

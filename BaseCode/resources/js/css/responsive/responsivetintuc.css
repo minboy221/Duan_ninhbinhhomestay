@@ -1,0 +1,174 @@
+/* =============================================
+   RESPONSIVETINTUC.CSS
+   Mobile: <= 767px | Tablet: 768–1023px
+   ============================================= */
+
+/* Mobile (<= 767px) */
+@media (max-width: 767px) {
+    .layout {
+        flex-direction: column-reverse;
+        gap: 30px;
+        margin: 0 auto;
+        padding: 0 15px;
+    }
+
+    .left_section {
+        margin-top: 0;
+        width: 100%;
+        position: relative;
+        z-index: 10;
+    }
+
+    .search {
+        width: 100%;
+    }
+
+    .bao_search input {
+        width: 100%;
+    }
+
+    .baotag_tintuc {
+        width: 100%;
+    }
+
+    .baoinfor_tintuc {
+        width: 100%;
+    }
+
+    .right_section {
+        margin-top: 50px; /* Đè một phần lên banner */
+        position: relative;
+        z-index: 10;
+        width: 100%;
+    }
+
+    .tintuc {
+        width: 100%;
+    }
+
+    .baotintuc {
+        width: 100%;
+        height: auto;
+        transform: none; /* Bỏ lệch (translate) */
+        padding-bottom: 20px;
+        margin-bottom: 25px;
+    }
+
+    .image_tintuc img {
+        height: 220px;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .infor_tintuc {
+        padding: 15px;
+    }
+
+    .title_tintuc h2 {
+        font-size: 18px;
+    }
+
+    .thongtin {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .thongtin span, .thongtin span a {
+        font-size: 13px;
+    }
+
+    .bio_tintuc p {
+        width: 100%;
+        font-size: 14px;
+        /* Giới hạn hiển thị 3 dòng trên mobile cho gọn */
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .btn_tintuc {
+        position: static;
+        transform: none;
+        display: block;
+        text-align: center;
+        margin-top: 20px;
+        border-radius: 8px;
+    }
+
+    /* Đưa phân trang về luồng tài liệu bình thường */
+    .phantrang_joob {
+        margin-top: 10px;
+        height: auto;
+        margin-bottom: 30px;
+    }
+}
+
+/* Tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .layout {
+        flex-direction: column-reverse;
+        padding: 0 20px;
+        gap: 40px;
+    }
+
+    .left_section {
+        width: 100%;
+        margin-top: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+    }
+
+    .search {
+        width: 100%;
+        grid-column: 1 / -1; /* Tìm kiếm chiếm 2 cột */
+    }
+
+    .category, .baivietmoi, .tags {
+        margin-top: 0;
+    }
+
+    .baotag_tintuc, .baoinfor_tintuc {
+        width: 100%;
+    }
+
+    .right_section {
+        margin-top: -120px;
+        position: relative;
+        z-index: 10;
+        width: 100%;
+    }
+
+    .tintuc {
+        width: 100%;
+    }
+
+    .baotintuc {
+        width: 100%;
+        height: auto;
+        transform: none;
+        padding-bottom: 20px;
+    }
+
+    .image_tintuc img {
+        height: 280px;
+    }
+
+    .bio_tintuc p {
+        width: 100%;
+    }
+
+    .btn_tintuc {
+        position: static;
+        transform: none;
+        display: inline-block;
+        margin-top: 15px;
+    }
+
+    .phantrang_joob {
+        margin-top: 10px;
+        height: auto;
+        margin-bottom: 40px;
+    }
+}

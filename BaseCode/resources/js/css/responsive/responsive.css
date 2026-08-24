@@ -1,0 +1,783 @@
+/* =============================================
+   RESPONSIVE.CSS — Toàn bộ trang index.html
+   Mobile: <= 767px | Tablet: 768–1023px
+   ============================================= */
+
+/* =============================================
+   MOBILE (<= 767px)
+   ============================================= */
+@media (max-width: 767px) {
+
+    /* -------- NAVBAR -------- */
+    .navbar {
+        height: 60px;
+        width: 100%;
+        padding: 5px 15px;
+        top: 15px;
+        border-radius: 50px;
+        justify-content: space-between;
+    }
+
+    .logo img {
+        width: 75px;
+    }
+
+    .nav-menu {
+        display: none;
+    }
+
+    /* Hiện hamburger button trên mobile */
+    /* Hamburger */
+    .hamburger-btn {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        background: #eee;
+        border: none;
+        font-size: 15px;
+        cursor: pointer;
+    }
+
+
+    .user-menu {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .user-btn,
+    .thongbao-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 15px;
+    }
+
+    .thongbao-btn {
+        margin-left: 5px;
+    }
+
+    .dropdown {
+        width: 270px;
+        right: -10px;
+        top: 50px;
+        border-radius: 10px;
+    }
+
+    .notification-box {
+        width: 250px;
+        right: 40px;
+        top: 50px;
+    }
+
+    /* -------- BANNER -------- */
+    .banner {
+        height: 420px;
+    }
+
+    .banner img {
+        height: 100%;
+        object-fit: cover;
+        border-radius: 0 0 10px 10px;
+    }
+
+    .banner-text {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        text-align: center;
+    }
+
+    .banner-text h1 {
+        font-size: 35px;
+        line-height: 1.4;
+        margin-bottom: 10px;
+    }
+
+    .banner-text p {
+        font-size: 13px;
+        margin-bottom: 15px;
+    }
+
+    /* -------- BOLOC (Tìm kiếm) -------- */
+    .boloc {
+        width: 90%;
+        height: auto;
+        padding: 16px 18px;
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
+        margin: -50px auto 30px;
+        border-radius: 10px;
+    }
+
+    .search {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .search>div {
+        width: 100%;
+    }
+
+    .location,
+    .price_select {
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+        padding-right: 0;
+        padding-bottom: 12px;
+    }
+
+    .search label {
+        font-size: 12px;
+        color: #000;
+    }
+
+    .search input,
+    .search select {
+        width: 100%;
+        padding: 9px 12px;
+        font-size: 14px;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 6px;
+    }
+
+    .search button.login-btn {
+        width: 100%;
+        padding: 12px;
+        margin-top: 5px;
+        font-size: 14px;
+        background-color: #45abe6;
+    }
+
+    /* -------- SECTION GIỚI THIỆU -------- */
+    .section_noidung {
+        flex-direction: column;
+        gap: 20px;
+        padding: 30px 20px;
+        margin-top: 20px;
+    }
+
+    .image_noidung img {
+        height: 230px;
+        border-radius: 10px;
+        object-fit: cover;
+        width: 100%;
+    }
+
+    .noidung {
+        max-width: 100%;
+        text-align: center;
+    }
+
+    .title h2 {
+        font-size: 26px;
+    }
+
+    .title span {
+        font-size: 32px;
+    }
+
+    .noidung p {
+        font-size: 14px;
+    }
+
+    .btn {
+        width: 100%;
+        padding: 12px;
+        font-size: 14px;
+    }
+
+    /* -------- PHẦN PHÒNG TRỌ -------- */
+    .phongtro {
+        padding: 0 15px;
+    }
+
+    .baophongtro {
+        height: auto;
+        margin-top: 30px;
+    }
+
+    .baophongtro img {
+        height: 300px;
+        border-radius: 10px;
+        width: 100%;
+    }
+
+    .about_tro {
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 15px 0;
+        width: 100%;
+    }
+
+    .title1 h2 {
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
+        font-size: 22px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    .dieuhuong {
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
+        text-align: center;
+    }
+
+    .baodieuhuong {
+        justify-content: center;
+        margin-bottom: 15px;
+    }
+
+    .baotro {
+        width: 100%;
+        height: auto;
+        margin: 0;
+    }
+
+    .baotro img {
+        height: 220px;
+        border-radius: 10px 10px 0 0;
+        width: 100%;
+    }
+
+    .infor {
+        grid-template-columns: 1fr auto;
+        padding: 10px 12px;
+    }
+
+    .text h2 {
+        font-size: 15px;
+    }
+
+    .price {
+        font-size: 14px;
+    }
+
+    .btn_xem {
+        transform: none;
+        font-size: 13px;
+        padding: 8px 12px;
+        background: linear-gradient(90deg, #102a6d, #45abe6);
+        border-radius: 6px;
+        display: inline-block;
+    }
+
+    /* -------- PHẦN CAM KẾT -------- */
+    .camket {
+        margin-top: -85px;
+        padding: 30px 20px;
+    }
+
+    .baocamket {
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    .about_camket {
+        width: 100%;
+    }
+
+    .img_camket img {
+        width: 100%;
+        height: auto;
+        border-radius: 10px;
+    }
+
+    .title h2 {
+        font-size: 22px;
+    }
+
+    .timeline {
+        padding-left: 55px;
+    }
+
+    .timeline::before {
+        left: 25px;
+    }
+
+    .item {
+        margin-bottom: 35px;
+    }
+
+    .icon {
+        width: 48px;
+        height: 48px;
+        left: -48px;
+    }
+
+    .icon img {
+        width: 24px;
+    }
+
+    .content h3 {
+        font-size: 16px;
+    }
+
+    .content p {
+        font-size: 13px;
+    }
+
+    .house_3d {
+        display: none;
+        /* ẩn ảnh trang trí trên mobile */
+    }
+
+    /* -------- PHẦN THỐNG KÊ -------- */
+    .baothongso {
+        height: auto;
+        padding: 30px 20px;
+        background-attachment: scroll;
+    }
+
+    .baothongso::before {
+        height: 480px;
+        content: "";
+        position: absolute;
+        inset: 0;
+        /* top right bottom left = 0 */
+        background: rgba(0, 0, 20, 0.5);
+        /* màu đen mờ */
+        z-index: 1;
+    }
+
+    .infor_thongso {
+        flex-direction: column;
+        width: 100%;
+        height: auto;
+        gap: 20px;
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        padding: 0;
+        align-items: center;
+    }
+
+    .item_thongso h2 {
+        font-size: 70px;
+    }
+
+    .item_thongso p {
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .item_thongso:not(:last-child)::after {
+        display: none;
+        /* ẩn đường kẻ dọc */
+    }
+
+    /* -------- PHẦN ĐÁNH GIÁ -------- */
+    .review {
+        padding: 50px 15px 30px;
+        background: #f8f9fa;
+    }
+
+    .review .title {
+        margin-bottom: 25px;
+    }
+
+    .review .title h2 {
+        font-size: 24px;
+        letter-spacing: 0.5px;
+    }
+
+    .review .desc {
+        font-size: 13px;
+        padding: 0 20px;
+    }
+
+    .review-container {
+        margin: 25px 0;
+        padding-bottom: 10px;
+    }
+
+    .card {
+        min-width: calc(100vw - 60px);
+        margin: 0 10px;
+        padding: 22px;
+        border-radius: 10px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.03);
+    }
+
+    .card h3 {
+        font-size: 17px;
+        color: #102a6d;
+    }
+
+    .card p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #555;
+        margin: 12px 0;
+    }
+
+    .user {
+        margin-top: 15px;
+        gap: 12px;
+    }
+
+    .user img {
+        width: 45px;
+        height: 45px;
+        border: 2px solid #45abe6;
+    }
+
+    .user b {
+        font-size: 15px;
+    }
+
+    .user span {
+        font-size: 12px;
+        color: #888;
+    }
+
+    .btns {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 5px;
+    }
+
+    .btns button {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        border-radius: 50%;
+        background: #fff;
+        color: #102a6d;
+        border: 1px solid #ddd;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+
+
+    /* -------- PHẦN ĐĂNG KÝ -------- */
+    .dangky {
+        transform: none;
+        padding: 0 15px;
+        margin-top: 40px;
+    }
+
+    .baodangky {
+        flex-direction: column;
+        height: auto;
+        gap: 0;
+        border-radius: 10px;
+        padding: 30px 20px;
+    }
+
+    .infor_dangky {
+        height: auto;
+        padding: 0;
+        transform: none;
+        text-align: center;
+    }
+
+    .infor_dangky h2 {
+        font-size: 22px;
+    }
+
+    .infor_dangky p {
+        font-size: 13px;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .btn_dangky {
+        display: block;
+        text-align: center;
+        margin: 15px auto 0;
+        padding: 12px 20px;
+        font-size: 14px;
+    }
+
+    .image_dangky {
+        display: none;
+        /* ẩn ảnh trên mobile */
+    }
+
+    /* -------- FOOTER -------- */
+    .footer {
+        height: auto;
+        margin-top: 0;
+        padding: 40px 20px 20px;
+    }
+
+    .footer_container {
+        flex-direction: column;
+        gap: 25px;
+        transform: none;
+    }
+
+    .footer_col {
+        width: 100%;
+    }
+
+    .footer_col p {
+        font-size: 13px;
+    }
+
+    .footer_bottom {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+        transform: none;
+        margin-top: 20px;
+    }
+
+    #backToTop {
+        bottom: 92px;
+        right: 28px;
+        width: 38px;
+        height: 38px;
+        font-size: 16px;
+    }
+}
+
+
+/* =============================================
+   TABLET (768px – 1023px)
+   ============================================= */
+@media (min-width: 768px) and (max-width: 1023px) {
+
+    /* -------- NAVBAR -------- */
+    .navbar {
+        width: 95%;
+    }
+
+    .nav-menu {
+        gap: 12px;
+    }
+
+    .nav-menu a {
+        font-size: 13px;
+        padding: 6px 10px;
+    }
+
+    .logo img {
+        width: 100px;
+    }
+
+    /* -------- BANNER -------- */
+    .banner {
+        height: 550px;
+    }
+
+    .banner img {
+        height: 550px;
+    }
+
+    .banner-text h1 {
+        font-size: 34px;
+    }
+
+    /* -------- BOLOC -------- */
+    .boloc {
+        width: 90%;
+        height: auto;
+        transform: translate(-50%, 300%);
+    }
+
+    .search {
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    /* -------- SECTION GIỚI THIỆU -------- */
+    .section_noidung {
+        flex-direction: column;
+        padding: 30px 30px;
+        gap: 25px;
+    }
+
+    .image_noidung img {
+        height: 300px;
+    }
+
+    .noidung {
+        max-width: 100%;
+        text-align: center;
+    }
+
+    /* -------- PHÒNG TRỌ -------- */
+    .about_tro {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .baotro {
+        width: 100%;
+    }
+
+    /* -------- CAM KẾT -------- */
+    .baocamket {
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .img_camket img {
+        display: none;
+    }
+
+    /* -------- THỐNG KÊ -------- */
+    .infor_thongso {
+        gap: 60px;
+    }
+
+    /* -------- ĐĂNG KÝ -------- */
+    .baodangky {
+        flex-direction: column;
+        height: auto;
+        padding: 30px;
+    }
+
+    .infor_dangky {
+        transform: none;
+        height: auto;
+    }
+
+    .infor_dangky p {
+        width: 100%;
+    }
+
+    .image_dangky {
+        display: none;
+    }
+
+    /* -------- FOOTER -------- */
+    .footer {
+        height: auto;
+        padding: 50px 30px 20px;
+        margin-top: 0;
+    }
+
+    .footer_container {
+        flex-wrap: wrap;
+        transform: none;
+    }
+
+    .footer_bottom {
+        transform: none;
+        margin-top: 20px;
+    }
+}
+
+/* =============================================
+   PHÒNG TRỌ SLIDER — RESPONSIVE
+   ============================================= */
+
+/* Mobile */
+@media (max-width: 767px) {
+
+    .phongtro {
+        padding: 40px 15px 0;
+    }
+
+    .pt-header h2 {
+        font-size: 24px;
+    }
+
+    .pt-header h2 span {
+        font-size: 28px;
+    }
+
+    .pt-slider {
+        height: 480px;
+        border-radius: 10px;
+    }
+
+    .pt-info {
+        bottom: 25px;
+        left: 20px;
+        right: 20px;
+        max-width: 100%;
+    }
+
+    .pt-name {
+        font-size: 22px;
+    }
+
+    .pt-addr {
+        font-size: 13px;
+    }
+
+    .pt-price {
+        font-size: 18px;
+    }
+
+    .pt-meta {
+        gap: 14px;
+        margin-bottom: 15px;
+    }
+
+    .pt-btn {
+        padding: 10px 18px;
+        font-size: 13px;
+    }
+
+    /* Ẩn nút prev/next trên mobile — dùng swipe thay thế */
+    .pt-nav {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    .pt-prev {
+        left: 10px;
+    }
+
+    .pt-next {
+        right: 10px;
+    }
+
+    .pt-dots {
+        bottom: 14px;
+        right: 50%;
+        transform: translateX(50%);
+    }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+
+    .phongtro {
+        padding: 50px 20px 0;
+    }
+
+    .pt-slider {
+        height: 460px;
+        border-radius: 10px;
+    }
+
+    .pt-info {
+        bottom: 35px;
+        left: 35px;
+    }
+
+    .pt-name {
+        font-size: 26px;
+    }
+
+    .pt-price {
+        font-size: 20px;
+    }
+}

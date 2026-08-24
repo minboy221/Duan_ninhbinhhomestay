@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Vinkla\Hashids\Facades\Hashids;
+use Illuminate\Support\Str;
+class RoomPost extends Model
+{
+    use HasFactory;
+    protected $table = 'room_posts';
+
+    protected $fillable = [
+        'landlord_id',
+        'room_id',
+        'title',
+        'description',
+        'image',
+        'status',
+        'reject_reason',
+        'view_count',
+        'is_vip',
+        'published_at'
+    ];
+
+    protected $casts = [
+        'image' => 'array',
+        'published_at' => 'datetime',
+    ];
+
+    protected $appends = ['slug_with_hash'];
+
+    //sinh slug kèm theo hashids
+    public function getSlugWithHashAttribute()
+    {
+        $slug = Str::slug($this->title);
+        $hash = Hashids::encode($this->id);
+        return $slug . '-' . $hash;
+    }
+    public function landlord()
+    {
+        return $this->belongsTo(User::class, 'landlord_id', 'id');
+    }
+
+    public function room()
+    {
+        return $this->belongsTo(Room::class, 'room_id');
+    }
+}
