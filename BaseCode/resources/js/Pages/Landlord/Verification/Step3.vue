@@ -168,13 +168,8 @@ const startScanning = () => {
                 .detectAllFaces(
                     videoRef.value,
                     new faceapi.TinyFaceDetectorOptions({
-<<<<<<< HEAD
-                        inputSize: 320,
-                        scoreThreshold: 0.4,
-=======
                         inputSize: 416,
                         scoreThreshold: 0.65,
->>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
                     }),
                 )
                 .withFaceLandmarks()

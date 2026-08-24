@@ -47,6 +47,11 @@ class Report extends Model
     {
         return $this->belongsTo(User::class, 'reporter_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'reporter_id');
+    }
     //admin xử lý
     public function resolver()
     {

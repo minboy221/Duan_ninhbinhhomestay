@@ -175,8 +175,8 @@ watch(activeTab, () => {
     <AdminLayout>
         <template #header-title>
             <div>
-                <h1 class="header-page-title">Quản Lý Thư Liên Hệ</h1>
-                <p class="header-page-sub">Xem và phản hồi các thông tin liên hệ từ khách hàng gửi qua form website.</p>
+                <h1 class="page-title">Quản Lý Thư Liên Hệ</h1>
+                <p class="page-sub">Xem và phản hồi các thông tin liên hệ từ khách hàng gửi qua form website.</p>
             </div>
         </template>
 
@@ -611,17 +611,15 @@ watch(activeTab, () => {
 </template>
 
 <style scoped>
-.header-page-title {
-    font-size: 1.25rem;
-    font-weight: 800;
+.page-title {
+    font-size: 18px;
+    font-weight: 700;
     color: #0f172a;
-    line-height: 1.75rem;
     margin: 0;
 }
-.header-page-sub {
-    font-size: 0.75rem;
+.page-sub {
+    font-size: 12px;
     color: #94a3b8;
-    margin: 0.25rem 0 0 0;
-    font-weight: 500;
+    margin: 2px 0 0 0;
 }
 </style>

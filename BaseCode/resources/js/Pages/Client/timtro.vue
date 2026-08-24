@@ -448,19 +448,7 @@ const formatPaginationLabel = (label) => {
                             </div>
                         </div>
 
-                        <!-- Loại phòng (Lấy động từ DB) -->
-                        <div class="select_option" v-if="categories.length">
-                            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Loại phòng:
-                            </h3>
-                            <div class="feature_list space-y-1.5 text-sm">
-                                <label v-for="cat in categories" :key="cat.id"
-                                    class="flex items-center gap-2 cursor-pointer hover:text-blue-600">
-                                    <input type="checkbox" :value="cat.id" v-model="form.categories"
-                                        class="rounded text-blue-600 focus:ring-blue-500">
-                                    <i :class="['bi', cat.icon || 'bi-house']"></i> {{ cat.name }}
-                                </label>
-                            </div>
-                        </div>
+
 
                         <!-- Tiện ích (Lấy động từ DB) -->
                         <div class="select_option" v-if="amenities.length">

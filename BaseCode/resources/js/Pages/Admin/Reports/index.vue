@@ -400,9 +400,20 @@ onUnmounted(() => {
                                 }})</span>
                             </div>
                             <div class="ib-row">
-                                <span class="ib-l">Đối tượng</span><span class="ib-v font-bold text-indigo-600">{{
-                                    selected?.target
-                                    }}</span>
+                                <span class="ib-l">Đối tượng</span><span class="ib-v font-bold text-indigo-600">
+                                    {{ selected?.target }}
+                                    <span v-if="selected?.target_info" style="display: block; font-size: 11px; color: #64748b; font-weight: 400">
+                                        ({{ selected?.target_info }})
+                                    </span>
+                                </span>
+                            </div>
+                            <div v-if="selected?.target_file_url" class="ib-row">
+                                <span class="ib-l">Hợp đồng gốc</span><span class="ib-v">
+                                    <a :href="selected.target_file_url" target="_blank"
+                                       style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #e0e7ff; color: #4338ca; font-size: 12px; font-weight: 700; border-radius: 6px; text-decoration: none;">
+                                        <i class="bi bi-file-earmark-pdf-fill"></i> Xem / Tải file Hợp đồng
+                                    </a>
+                                </span>
                             </div>
                             <div class="ib-row">
                                 <span class="ib-l">Lý do</span><span class="ib-v"><span

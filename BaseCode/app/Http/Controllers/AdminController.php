@@ -8,6 +8,9 @@ use App\Models\RoomPost;
 use App\Services\RoomListingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Notifications\AccountStatusNotification;
+use Illuminate\Support\Facades\Notification;
+
 
 class AdminController extends Controller
 {
@@ -19,38 +22,145 @@ class AdminController extends Controller
     }
     public function index()
     {
+        $totalUsers = User::where('role', '!=', 'admin')->count();
+        $newUsersToday = User::whereDate('created_at', today())->count();
+        $pendingApproval = RoomPost::where('status', 'pending')->count();
+        $pendingBoardingHouses = \App\Models\BoardingHouse::where('status', 'pending')->count();
+        $reports = Report::where('status', 'pending')->count();
+        $totalLandlords = User::where('role', 'landlord')->count();
+
+        // 5 Người dùng đăng ký mới nhất từ DB
+        $recentUsers = User::where('role', '!=', 'admin')
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name ?? 'Người dùng',
+                    'email' => $u->email,
+                    'avatar' => $u->avatar,
+                    'role' => $u->role === 'landlord' ? 'Chủ trọ' : 'Người thuê',
+                    'date' => $u->created_at->format('d/m/Y'),
+                    'status' => $u->status ?? 'active',
+                ];
+            });
+
+        // 5 Báo cáo mới nhất từ DB
+        $recentReports = Report::with(['reporter'])
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'from' => $r->reporter->name ?? 'Khách',
+                    'target' => $r->target_type ?? 'Tin đăng',
+                    'type' => $r->reason ?? 'Vi phạm',
+                    'date' => $r->created_at->format('d/m/Y'),
+                    'status' => $r->status ?? 'pending',
+                ];
+            });
+
+        // Biểu đồ đăng ký 12 tháng gần nhất từ DB
+        $months = [];
+        $monthlyCounts = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $monthLabel = 'T' . $date->month;
+            $count = User::whereYear('created_at', $date->year)
+                ->whereMonth('created_at', $date->month)
+                ->count();
+            $months[] = $monthLabel;
+            $monthlyCounts[] = $count;
+        }
+
         return Inertia::render('Admin/dashboard', [
             'stats' => [
-                'totalUsers' => User::count(),
-                'newUsersToday' => User::whereDate('created_at', today())->count(),
-                'pendingApproval' => RoomPost::where('status', 'pending')->count(),
-                'reports' => Report::where('status', 'pending')->count(),
+                'totalUsers' => $totalUsers,
+                'newUsersToday' => $newUsersToday,
+                'pendingApproval' => $pendingApproval,
+                'pendingBoardingHouses' => $pendingBoardingHouses,
+                'reports' => $reports,
+                'totalLandlords' => $totalLandlords,
+            ],
+            'recentUsers' => $recentUsers,
+            'recentReports' => $recentReports,
+            'monthlyChart' => [
+                'months' => $months,
+                'counts' => $monthlyCounts,
             ]
         ]);
     }
 
     public function users()
     {
-        $users = User::where('role', '!=', 'admin')->orderBy('created_at', 'desc')->get();
+        $users = User::where('role', '!=', 'admin')
+            ->select(['id', 'name', 'email', 'phone', 'avatar', 'role', 'status', 'lock_reason', 'created_at'])
+            ->orderBy('created_at', 'desc')
+            ->get();
         return Inertia::render('Admin/Users/index', [
             'users' => $users
         ]);
     }
 
-    public function toggleUserStatus($id)
+    public function toggleUserStatus(Request $request, $id)
     {
+
         $user = User::findOrFail($id);
-        $oldStatus = $user->status;
-        $user->status = $user->status === 'active' ? 'locked' : 'active';
+        $oldStatus = $user->status ?? 'active';
+        $isLocking = $oldStatus === 'active';
+        $adminContactEmail = \App\Models\Setting::where('key', 'contact_email')->value('value') ?? 'support@ninhbinhstaywork.vn';
+        if ($isLocking) {
+            $request->validate([
+                'reason' => 'required|string|max:1000'
+            ], [
+                'reason.required' => 'Vui lòng nhập lý do khóa tài khoản.'
+            ]);
+            $user->status = 'locked';
+            $user->lock_reason = trim($request->input('reason'));
+        } else {
+            $user->status = 'active';
+            $user->lock_reason = null;
+        }
+
         $user->save();
+
+        // tài khoản bị khóa và là chủ trọ -> tự động ẩn hoặc khôi phục tin đăng của chủ trọ
+        if ($user->role === 'landlord') {
+            if ($user->status === 'locked') {
+                //khi khoá: tạm ẩn tất cả tin đăng đang hiển thị
+                \App\Models\RoomPost::where('landlord_id', $user->id)
+                    ->where('status', 'approved')
+                    ->update(['status' => 'hidden']);
+            } else if ($user->status === 'active') {
+                //khi mở khoá: tự động khôi phục tất cả tin đăng đã bị ẩn trước đó
+                \App\Models\RoomPost::where('landlord_id', $user->id)
+                    ->where('status', 'hidden')
+                    ->update(['status' => 'approved']);
+            }
+        }
+
         $action = $user->status === 'locked' ? 'lock_user' : 'unlock_user';
         $actionText = $user->status === 'locked' ? 'Khóa' : 'Mở khóa';
+
+        // gửi mail thông báo cho user/chủ trọ và admin
+        try {
+            $user->notify(new AccountStatusNotification($user->status, $user->lock_reason, $adminContactEmail));
+
+            \Illuminate\Support\Facades\Notification::route('mail', $adminContactEmail)
+                ->notify(new AccountStatusNotification($user->status, "[GIÁM SÁT ADMIN] Đã {$actionText} tài khoản: {$user->email}. Lý do: {$user->lock_reason}", $adminContactEmail));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Gửi mail thông báo khóa tài khoản thất bại: " . $e->getMessage());
+        }
+
+        $logMsg = "{$actionText} tài khoản người dùng: {$user->email} (Trạng thái cũ: {$oldStatus})";
+        if ($user->status === 'locked') {
+            $logMsg .= ". Lý do khóa: {$user->lock_reason}";
+        }
+
         //ghi log
-        \App\Services\AuditLogger::log(
-            $action,
-            "{$actionText} tài khoản người dùng: {$user->email} (Trạng thái cũ: {$oldStatus})",
-            true
-        );
+        \App\Services\AuditLogger::log($action, $logMsg, true);
 
         return redirect()->back()->with('success', 'Đã cập nhật trạng thái người dùng thành công.');
     }
@@ -78,44 +188,77 @@ class AdminController extends Controller
     public function landlords()
     {
         $landlords = User::where('role', 'landlord')
-            ->with(['verification', 'boardingHouse'])
+            ->with([
+                'verification',
+                'activeSubscription.plan',
+                'boardingHouse' => function ($q) {
+                    $q->withCount('rooms');
+                }
+            ])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($user) {
-                $roomCount = 0;
-                if ($user->boardingHouse) {
-                    $roomCount = \Illuminate\Support\Facades\DB::table('rooms')
-                        ->where('boarding_house_id', $user->boardingHouse->id)
-                        ->count();
-                }
-
+                //lấy kết quả từ thuộc tính rooms_count được tự động đếm sẵn
+                $roomCount = $user->boardingHouse->rooms_count ?? 0;
+                //lấy tên gói dịch vụ miễn phí
+                $planName = $user->activateSubscription->plan->name ?? 'Miễn phí';
                 return [
                     'id' => $user->id,
                     'avatar' => $user->avatar,
                     'name' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone ?? 'Chưa cập nhật',
-                    'cccd' => $user->cccd_number ?? ($user->verification->id_card_number ?? 'Chưa cập nhật'),
+                    'cccd' => $user->cccd_number ?? ($user->verification->id_card_number ?? 'chưa cập nhật'),
                     'rooms' => $roomCount,
-                    'plan' => 'Miễn phí', // Logic gói dịch vụ có thể mở rộng sau
+                    'plan' => $planName,
                     'boarding_house_name' => $user->boardingHouse->name ?? 'Chưa cấu hình',
-                    'verified' => true,       // Vì role=landlord nên chắc chắn đã xác minh
+                    'verified' => true,
                     'joined' => $user->created_at->format('d/m/Y'),
+                    'verification' => $user->verification,
+                    'boarding_house' => $user->boardingHouse,
                 ];
             });
-
         return Inertia::render('Admin/Landlords/index', [
             'landlords' => $landlords
         ]);
     }
 
-    public function approval()
+    public function logKycAccess(Request $request, $id)
     {
-        $listings = RoomPost::with(['room.floor', 'room.boardingHouse', 'landlord'])
-            ->whereIn('status', ['pending', 'approved', 'rejected'])
-            ->get();
+        $targetUser = User::findOrFail($id);
+        $adminName = auth()->user()->name ?? 'Admin';
+
+        \App\Services\AuditLogger::log(
+            'view_sensitive_kyc',
+            "Admin {$adminName} đã mở xem ảnh CCCD/KYC nhạy cảm của tài khoản chủ trọ: {$targetUser->email}",
+            true
+        );
+
+        return response()->json(['success' => true]);
+    }
+
+    public function approval(Request $request)
+    {
+        $status = $request->input('status', 'pending');
+
+        $counts = [
+            'pending' => RoomPost::where('status', 'pending')->count(),
+            'approved' => RoomPost::where('status', 'approved')->count(),
+            'rejected' => RoomPost::where('status', 'rejected')->count(),
+        ];
+
+        $query = RoomPost::with(['room.floor', 'room.boardingHouse', 'landlord']);
+
+        if (in_array($status, ['pending', 'approved', 'rejected'])) {
+            $query->where('status', $status);
+        }
+
+        $listings = $query->latest()->paginate(10)->withQueryString();
+
         return Inertia::render('Admin/Approval/index', [
-            'listings' => $listings
+            'listings' => $listings,
+            'counts' => $counts,
+            'currentStatus' => $status,
         ]);
     }
 
@@ -195,13 +338,34 @@ class AdminController extends Controller
             ->map(function ($report) {
                 // Tạo tên hiển thị cho đối tượng bị báo cáo (phòng trọ, hóa đơn, hợp đồng)
                 $targetText = 'N/A';
+                $targetFileUrl = null;
+                $targetInfo = null;
+
                 if ($report->reportable) {
                     if ($report->reportable_type === \App\Models\Room::class) {
-                        $targetText = 'Phòng ' . $report->reportable->room_number . ' - ' . ($report->reportable->boardingHouse->name ?? '');
+                        $room = $report->reportable;
+                        $targetText = 'Phòng ' . $room->room_number . ' - ' . ($room->boardingHouse->name ?? '');
+                        $targetInfo = 'Giá phòng: ' . number_format($room->price ?? 0) . 'đ';
                     } elseif ($report->reportable_type === \App\Models\Invoice::class) {
-                        $targetText = 'Hóa đơn #' . $report->reportable->invoice_code;
+                        $invoice = $report->reportable;
+                        $targetText = 'Hóa đơn #' . ($invoice->invoice_code ?? $invoice->id);
+                        $targetInfo = 'Tổng tiền: ' . number_format($invoice->total_amount ?? 0) . 'đ';
+                        $contractFile = $invoice->contract->contract_file_path ?? null;
+                        if ($contractFile) {
+                            $targetFileUrl = (str_starts_with($contractFile, 'http') || str_starts_with($contractFile, '/storage/'))
+                                ? $contractFile
+                                : '/storage/' . ltrim($contractFile, '/');
+                        }
                     } elseif ($report->reportable_type === \App\Models\Contract::class) {
-                        $targetText = 'Hợp đồng #' . $report->reportable->id;
+                        $contract = $report->reportable;
+                        $targetText = 'Hợp đồng #' . $contract->id;
+                        $targetInfo = 'Tiền nhà: ' . number_format($contract->monthly_rent ?? 0) . 'đ | Cọc: ' . number_format($contract->deposit_amount ?? 0) . 'đ';
+                        $contractFile = $contract->contract_file_path ?? null;
+                        if ($contractFile) {
+                            $targetFileUrl = (str_starts_with($contractFile, 'http') || str_starts_with($contractFile, '/storage/'))
+                                ? $contractFile
+                                : '/storage/' . ltrim($contractFile, '/');
+                        }
                     } else {
                         $targetText = class_basename($report->reportable_type) . ' #' . $report->reportable->id;
                     }
@@ -215,6 +379,8 @@ class AdminController extends Controller
                     'from' => $report->reporter->name ?? 'Người dùng ẩn danh',
                     'fromEmail' => $report->reporter->email ?? '',
                     'target' => $targetText,
+                    'target_info' => $targetInfo,
+                    'target_file_url' => $targetFileUrl,
                     'reason' => $report->reason,
                     'description' => $report->description,
                     'date' => $report->created_at->format('d/m/Y'),
@@ -253,11 +419,11 @@ class AdminController extends Controller
 
         $report = Report::findOrFail($id);
         //nạp quan hệ động tuỳ theo báo cái hay hoá đơn
-        if($report->reportable_type === \App\Models\Room::class){
-            $report ->load(['reportable.boardingHouse.user', 'reporter']);
-        }elseif($report->reportable_type === \App\Models\Invoice::class){
+        if ($report->reportable_type === \App\Models\Room::class) {
+            $report->load(['reportable.boardingHouse.user', 'reporter']);
+        } elseif ($report->reportable_type === \App\Models\Invoice::class) {
             $report->load(['reportable.contract.room.boardingHouse.user', 'reporter']);
-        }else{
+        } else {
             $report->load(['reporter']);
         }
 
@@ -297,13 +463,13 @@ class AdminController extends Controller
         // 2. Thông báo cho Chủ trọ của phòng
         if ($report->reportable_type === \App\Models\Room::class) {
             $landlord = $report->reportable->boardingHouse->user ?? null;
-        }elseif($report->reportable_type === \App\Models\Invoice::class){
+        } elseif ($report->reportable_type === \App\Models\Invoice::class) {
             $landlord = $report->reportable->contract->room->boardingHouse->user ?? null;
         }
-        if($landlord){
+        if ($landlord) {
             $landlord->notify(new \App\Notifications\AdminNotification(
                 'kết quả xử lý khiếu nại từ Admin',
-                'Khiếu nại #'. $report->id. '' . $statusLabel,
+                'Khiếu nại #' . $report->id . '' . $statusLabel,
                 'report_admin_action_landlord',
                 '/landlord/reports'
             ));
@@ -389,12 +555,114 @@ class AdminController extends Controller
 
     public function reviews()
     {
-        return Inertia::render('Admin/Reviews/index');
+        $reviews = \App\Models\Review::with(['tenant', 'room.boardingHouse', 'appointment.room.boardingHouse'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($r) {
+                $roomName = 'Chưa xác định';
+                if ($r->room) {
+                    $bName = $r->room->boardingHouse->name ?? '';
+                    $rName = $r->room->name ?? ('Phòng ' . ($r->room->room_number ?? $r->room->id));
+                    $roomName = $bName ? "{$bName} - {$rName}" : $rName;
+                } elseif ($r->appointment && $r->appointment->room) {
+                    $bName = $r->appointment->room->boardingHouse->name ?? '';
+                    $rName = $r->appointment->room->name ?? ('Phòng ' . ($r->appointment->room->room_number ?? $r->appointment->room->id));
+                    $roomName = $bName ? "{$bName} - {$rName}" : $rName;
+                }
+
+                return [
+                    'id' => $r->id,
+                    'reviewer' => $r->tenant->name ?? 'Người dùng',
+                    'room' => $roomName,
+                    'stars' => (int) $r->rating,
+                    'content' => $r->comment ?? '',
+                    'date' => $r->created_at ? $r->created_at->format('d/m/Y') : '',
+                    'visible' => (bool) $r->is_visible,
+                ];
+            });
+
+        return Inertia::render('Admin/Reviews/index', [
+            'reviews' => $reviews
+        ]);
     }
 
+    public function toggleReviewVisibility($id)
+    {
+        $review = \App\Models\Review::findOrFail($id);
+        $review->is_visible = !$review->is_visible;
+        $review->save();
+
+        return redirect()->back()->with('success', 'Cập nhật trạng thái hiển thị đánh giá thành công!');
+    }
+
+    public function deleteReview($id)
+    {
+        $review = \App\Models\Review::findOrFail($id);
+        $review->delete();
+
+        return redirect()->back()->with('success', 'Xóa đánh giá thành công!');
+    }
+
+    //phần trang nguồn thu của admin
     public function revenue()
     {
-        return Inertia::render('Admin/Revenue/index');
+        $currentYear = (int) date('Y');
+        //tổng doang thu tích luỹ từ các đơn mua gói đã duyệt
+        $totalRevenue = (float) \App\Models\LandlordSubscription::whereIn('status', ['approved', 'active'])
+            ->sum('price_at_purchase');
+        //doanh thu tháng hiện tại 
+        $thisMonthRevenue = (float) \App\Models\LandlordSubscription::whereIn('status', ['approved', 'active'])
+            ->whereYear('created_at', date('Y'))
+            ->whereMonth('created_at', date('m'))
+            ->sum('price_at_purchase');
+        //số lượng chủ trọ trả phí
+        $paidCount = \App\Models\LandlordSubscription::whereIn('status', ['approved', 'active'])
+            ->where('price_at_purchase', '>', 0)
+            ->distinct('user_id')
+            ->count('user_id');
+        //số lượng chủ trọ dùng thử miễn phí
+        $freeCount = \App\Models\User::where('role', 'landlord')
+            ->whereDoesntHave('subscriptions', function ($q) {
+                $q->whereIn('status', ['approved', 'active'])
+                    ->where('price_at_purchase', '>', 0);
+            })
+            ->count();
+        //doanh thu 12 tháng năm hiện tại dùng cho biểu đồ
+        $monthlyRevenue = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $sum = (float) 
+                \App\Models\LandlordSubscription::whereIn('status', ['approved', 'active'])
+                    ->whereYear('created_at', $currentYear)
+                    ->whereMonth('created_at', $m)
+                    ->sum('price_at_purchase');
+            $monthlyRevenue[] = $sum;
+        }
+        //các gói dịch vụ đang hoạt động
+        $plans = \App\Models\SubscriptionPlan::with('features')->where('is_active', true)->orderBy('price')->get();
+        // lịch sử giao dịch mua gói phân trang 10 giao dịch / trang
+        $transactions = \App\Models\LandlordSubscription::with(['user', 'plan'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString()
+            ->through(function ($sub) {
+                return [
+                    'id' => $sub->id,
+                    'landlord' => $sub->user->name ?? 'Chủ trọ',
+                    'plan' => $sub->plan->name ?? 'Gói dịch vụ',
+                    'amount' => (float) ($sub->price_at_purchase ?? 0),
+                    'date' => $sub->created_at ? $sub->created_at->format('d/m/Y') : '',
+                    'status' => ($sub->status === 'approved' || $sub->status === 'active') ? 'paid' : ($sub->price_at_purchase == 0 ? 'free' : $sub->status),
+                ];
+            });
+        return Inertia::render('Admin/Revenue/index', [
+            'totalRevenue' => $totalRevenue,
+            'thisMonthRevenue' => $thisMonthRevenue,
+            'paidCount' => $paidCount,
+            'freeCount' => $freeCount,
+            'monthlyRevenue' => $monthlyRevenue,
+            'plans' => $plans,
+            'transactions' => $transactions,
+        ]);
     }
 
     public function roles()
@@ -497,7 +765,7 @@ class AdminController extends Controller
         \App\Models\Setting::updateOrCreate(['key' => 'warning_invoice_amount'], ['value' => $request->warning_invoice_amount]);
         \App\Models\Setting::updateOrCreate(['key' => 'warning_monthly_rent'], ['value' => $request->warning_monthly_rent]);
         $rawReasons = $request->input('not_interested_reasons', []);
-        $reasonsArray = array_values(array_filter((array) $rawReasons, function($r) {
+        $reasonsArray = array_values(array_filter((array) $rawReasons, function ($r) {
             return !is_null($r) && trim($r) !== '';
         }));
         \App\Models\Setting::updateOrCreate(['key' => 'not_interested_reasons'], ['value' => json_encode($reasonsArray, JSON_UNESCAPED_UNICODE)]);

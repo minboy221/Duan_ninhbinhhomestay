@@ -53,42 +53,8 @@ const convertHeicToJpeg = async (file) => {
     }
 };
 
-<<<<<<< HEAD
-// Hàm trích xuất tọa độ GPS từ Ảnh hoặc Video bằng exifr (có fallback Geolocation trình duyệt)
-const extractGPSMetadata = async (file) => {
-    try {
-        const gps = await exifr.gps(file);
-        if (gps && gps.latitude && gps.longitude) {
-            props.form.latitude = gps.latitude;
-            props.form.longitude = gps.longitude;
-            console.log("Đã trích xuất GPS từ file:", gps.latitude, gps.longitude);
-            return;
-        }
-    } catch (error) {
-        console.warn("Không đọc được EXIF GPS từ file:", error);
-    }
-
-    // Nếu file ảnh/video không có sẵn dữ liệu GPS EXIF, dùng Geolocation API của trình duyệt làm fallback
-    if (!props.form.latitude && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                props.form.latitude = pos.coords.latitude;
-                props.form.longitude = pos.coords.longitude;
-                console.log("Đã lấy GPS vị trí hiện tại:", pos.coords.latitude, pos.coords.longitude);
-            },
-            (err) => {
-                console.warn("Không lấy được Geolocation trình duyệt:", err);
-            },
-            { enableHighAccuracy: true, timeout: 5000 }
-        );
-    }
-};
-
-// Xử lý tải ảnh/video cho hồ sơ pháp lý (contract_images) và không gian (room_images)
-=======
 // Xử lý tải ảnh/file cho hồ sơ pháp lý (contract_images) và không gian (room_images)
 // Không lấy GPS ở frontend nữa: GPS sẽ được trích xuất từ ảnh ở backend/admin để đảm bảo dữ liệu chuẩn nhất.
->>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
 const handleMultipleFiles = async (e, field) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -105,15 +71,6 @@ const handleMultipleFiles = async (e, field) => {
         if (file.name.toLowerCase().endsWith(".heic")) {
             file = await convertHeicToJpeg(file);
         }
-
-<<<<<<< HEAD
-        // Nếu tải ảnh/video phòng và chưa có tọa độ GPS, trích xuất GPS từ file này
-        if (field === "room_images" && !props.form.latitude) {
-            await extractGPSMetadata(file);
-        }
-
-=======
->>>>>>> a5d242909cbdb77076c294474466cef862d7a2c2
         props.form[field].push(file);
 
         // Tạo preview

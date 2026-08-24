@@ -16,6 +16,7 @@ class Review extends Model
         'appointment_id',
         'rating',
         'comment',
+        'is_visible',
     ];
 
     public function tenant()

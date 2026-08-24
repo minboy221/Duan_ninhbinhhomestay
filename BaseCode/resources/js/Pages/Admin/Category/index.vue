@@ -11,10 +11,9 @@ const props = defineProps({
     amenities:  { type: Array, default: () => [] },
 })
 
-const activeTab = ref('types')
+const activeTab = ref('areas')
 
 const tabs = [
-    { key: 'types',      label: 'Loại Phòng' },
     { key: 'areas',      label: 'Khu Vực' },
     { key: 'amenities',  label: 'Tiện Ích' },
 ]
