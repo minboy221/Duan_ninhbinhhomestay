@@ -13,7 +13,7 @@
 .banner {
     position: relative;
     width: 100%;
-    height: 340px;
+    height: 380px;
     overflow: hidden;
 }
 
@@ -27,7 +27,7 @@
 
 .banner-text {
     position: absolute;
-    top: 42%;
+    top: 60%;
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
@@ -79,7 +79,7 @@
     border-radius: 22px;
     padding: 24px 32px;
     box-shadow: 0 12px 40px rgba(16, 42, 109, 0.10),
-                0 2px 8px rgba(0, 0, 0, 0.04);
+        0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .ai-smart-search-label {
@@ -116,8 +116,13 @@
 }
 
 @keyframes ai-spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .ai-spin {
@@ -142,8 +147,8 @@
     border: 1.5px solid rgba(255, 255, 255, 0.65);
     border-radius: 24px;
     padding: 14px;
-    box-shadow: 
-        0 20px 50px rgba(16, 42, 109, 0.15), 
+    box-shadow:
+        0 20px 50px rgba(16, 42, 109, 0.15),
         inset 0 0 15px rgba(255, 255, 255, 0.4);
 }
 

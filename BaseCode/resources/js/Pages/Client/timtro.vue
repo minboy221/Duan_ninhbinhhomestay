@@ -264,9 +264,8 @@ const formatPaginationLabel = (label) => {
         <div class="banner">
             <img src="/anh/banner.png" alt="banner">
             <div class="banner-text">
-                <h1>Tìm Trọ</h1>
                 <h1>Tìm Phòng Trọ Thông Minh</h1>
-                <p><a href="/">Trang Chủ</a> / Tìm Trọ</p>
+                <p><Link :href="route('home')">Trang Chủ</Link> / Tìm Trọ</p>
             </div>
         </div>
 
