@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
+import axios from 'axios'
 
 defineProps({
     canResetPassword: { type: Boolean },
@@ -10,15 +11,40 @@ defineProps({
 
 const page = usePage()
 
+// State Form Đăng nhập & Khiếu nại
+const loginForm = useForm({
+    email: '',
+    password: '',
+    remember: false,
+})
+
+const showAppealModal = ref(false)
+const appealForm = ref({
+    email: '',
+    phone: '',
+    content: '',
+})
+const isSubmittingAppeal = ref(false)
+
 const showLockedAlert = () => {
     if (page.props.flash && page.props.flash.error) {
+        if (loginForm.email) {
+            appealForm.value.email = loginForm.email;
+        }
         Swal.fire({
             icon: 'error',
             title: 'Tài khoản bị khóa',
             text: page.props.flash.error,
-            confirmButtonText: 'Đã hiểu',
-            confirmButtonColor: '#f97316'
-        })
+            showCancelButton: true,
+            confirmButtonText: '🚨 Gửi Đơn Khiếu Nại Mở Khóa',
+            cancelButtonText: 'Đóng',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                showAppealModal.value = true;
+            }
+        });
     }
 }
 
@@ -41,13 +67,6 @@ const captchaUrl = ref('/captcha/flat?' + Math.random())
 const reloadCaptcha = () => {
     captchaUrl.value = '/captcha/flat?' + Math.random()
 }
-
-// Form đăng nhập
-const loginForm = useForm({
-    email: '',
-    password: '',
-    remember: false,
-})
 
 // Form đăng ký
 const signupForm = useForm({
@@ -80,16 +99,6 @@ const submitSignup = () => {
         },
     })
 }
-
-import axios from 'axios'
-
-const showAppealModal = ref(false)
-const appealForm = ref({
-    email: '',
-    phone: '',
-    content: '',
-})
-const isSubmittingAppeal = ref(false)
 
 async function submitAppeal() {
     isSubmittingAppeal.value = true
@@ -241,13 +250,6 @@ const submitForgot = () => {
                                 class="w-full py-3 bg-gradient-to-r from-[#00628c] to-[#46ace7] text-white font-bold rounded-full shadow-lg hover:scale-[1.02] transition-transform active:scale-95">
                                 {{ loginForm.processing ? 'Đang xử lý...' : 'Đăng nhập' }}
                             </button>
-
-                            <div class="mt-3 text-center">
-                                <button type="button" @click="showAppealModal = true" class="text-xs font-bold text-rose-600 hover:underline inline-flex items-center gap-1">
-                                    <span class="material-symbols-outlined text-[16px]">gavel</span>
-                                    Tài khoản bị khóa? Gửi đơn khiếu nại tại đây
-                                </button>
-                            </div>
                         </form>
 
                         <!-- ===== FORM ĐĂNG KÝ ===== -->
