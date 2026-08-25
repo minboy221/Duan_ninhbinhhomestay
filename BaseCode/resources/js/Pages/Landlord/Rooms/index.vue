@@ -517,10 +517,10 @@ const getCurrentFloorPosition = () => {
 
 const floorMapUrl = computed(() => {
     if (floorLatitude.value && floorLongitude.value) {
-        return `https://maps.google.com/maps?q=${floorLatitude.value},${floorLongitude.value}&z=15&output=embed`;
+        return `https://maps.google.com/maps?q=${floorLatitude.value},${floorLongitude.value}&hl=vi&z=16&output=embed`;
     }
     if (floorAddress.value) {
-        return `https://maps.google.com/maps?q=${encodeURIComponent(floorAddress.value)}&z=15&output=embed`;
+        return `https://maps.google.com/maps?q=${encodeURIComponent(floorAddress.value)}&hl=vi&z=16&output=embed`;
     }
     return null;
 });

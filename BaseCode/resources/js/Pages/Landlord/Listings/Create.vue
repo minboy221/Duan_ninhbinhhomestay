@@ -40,6 +40,17 @@ watch(selectedHouse, (newHouse) => {
     selectedFloor.value = null;
     form.room_id = "";
     roomDetails.value = null;
+    if (newHouse) {
+        form.latitude = newHouse.latitude || null;
+        form.longitude = newHouse.longitude || null;
+        if (newHouse.address_detail) {
+            form.address = [newHouse.address_detail, newHouse.district, "Ninh Bình"].filter(Boolean).join(", ");
+        }
+    } else {
+        form.latitude = null;
+        form.longitude = null;
+        form.address = "";
+    }
     availableFloors.value = newHouse 
         ? newHouse.floors.filter(floor => 
             floor.rooms && floor.rooms.some(room => room.boarding_house_id === newHouse.id)
@@ -75,10 +86,17 @@ watch(
             roomDetails.value = null;
             roomServices.value = [];
             selectedRoomInfo.value = null;
-            // Reset địa chỉ khi không chọn phòng
-            form.address = "";
-            form.latitude = null;
-            form.longitude = null;
+            if (selectedHouse.value) {
+                form.latitude = selectedHouse.value.latitude || null;
+                form.longitude = selectedHouse.value.longitude || null;
+                form.address = selectedHouse.value.address_detail 
+                    ? [selectedHouse.value.address_detail, selectedHouse.value.district, "Ninh Bình"].filter(Boolean).join(", ") 
+                    : "";
+            } else {
+                form.address = "";
+                form.latitude = null;
+                form.longitude = null;
+            }
             return;
         }
         isLoadingDetails.value = true;
@@ -99,10 +117,16 @@ watch(
             };
 
             // === TỰ ĐỘNG ĐIỀN ĐỊA CHỈ & GPS CỦA KHU TRỌ/TẦNG VÀO GIAO DIỆN ===
-            if (detailsResponse.data.floor) {
-                form.address = detailsResponse.data.floor.address || "";
-                form.latitude = detailsResponse.data.floor.latitude || null;
-                form.longitude = detailsResponse.data.floor.longitude || null;
+            const floor = detailsResponse.data.floor;
+            const bh = selectedHouse.value || detailsResponse.data.boarding_house;
+            
+            form.latitude = floor?.latitude || bh?.latitude || null;
+            form.longitude = floor?.longitude || bh?.longitude || null;
+
+            if (floor?.address) {
+                form.address = floor.address;
+            } else if (bh?.address_detail) {
+                form.address = [bh.address_detail, bh.district, "Ninh Bình"].filter(Boolean).join(", ");
             }
         } catch (error) {
             console.error(
@@ -217,12 +241,23 @@ const getCurrentPosition = () => {
 
 //phần hiển thị bản đồ map
 const mapUrl = computed(() => {
-    if (form.latitude && form.longitude) {
-        return `https://maps.google.com/maps?q=${form.latitude},${form.longitude}&z=15&output=embed`;
+    const lat = form.latitude || selectedHouse.value?.latitude;
+    const lng = form.longitude || selectedHouse.value?.longitude;
+
+    if (lat && lng) {
+        return `https://www.google.com/maps?q=${lat},${lng}&hl=vi&output=embed`;
+    }
+
+    const houseAddr = selectedHouse.value?.address_detail;
+    const houseDist = selectedHouse.value?.district;
+    if (houseAddr) {
+        const fullAddr = [houseAddr, houseDist, "Ninh Bình"].filter(Boolean).join(", ");
+        return `https://www.google.com/maps?q=${encodeURIComponent(fullAddr)}&hl=vi&output=embed`;
     }
 
     if (form.address) {
-        return `https://maps.google.com/maps?q=${encodeURIComponent(form.address)}&z=15&output=embed`;
+        const fullAddr = [form.address, "Ninh Bình"].filter(Boolean).join(", ");
+        return `https://www.google.com/maps?q=${encodeURIComponent(fullAddr)}&hl=vi&output=embed`;
     }
 
     return null;

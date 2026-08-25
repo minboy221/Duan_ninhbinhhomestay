@@ -270,49 +270,7 @@ const formatPaginationLabel = (label) => {
             </div>
         </div>
 
-        <!-- THANH TÌM KIẾM THÔNG MINH AI -->
-        <div class="ai-smart-search-wrapper">
-            <div class="ai-smart-search-container">
-                <!-- Tiêu đề nhỏ -->
-                <div class="ai-smart-search-label">
-                    <i class="bi bi-stars"></i>
-                    <span>Tìm kiếm thông minh</span>
-                </div>
 
-                <!-- Thanh input + nút tìm kiếm -->
-                <div class="ai-search-bar">
-                    <div class="ai-search-input-wrapper">
-                        <i class="bi bi-search ai-search-icon"></i>
-                        <input
-                            v-model="aiPrompt"
-                            type="text"
-                            class="ai-search-input"
-                            placeholder="Mô tả phòng bạn muốn, ví dụ: Phòng tầng 1 Hoa Lư dưới 2.5 triệu có gác xép..."
-                            @keyup.enter="handleAiSearch()"
-                        />
-                        <button v-if="aiPrompt" @click="aiPrompt = ''; clearAllFilters()"
-                            class="ai-search-clear-btn" type="button">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-                    <button @click="handleAiSearch()" :disabled="isAiSearching || !aiPrompt.trim()"
-                        class="ai-search-submit-btn" type="button">
-                        <i :class="isAiSearching ? 'bi bi-arrow-repeat ai-spin' : 'bi bi-stars'"></i>
-                        {{ isAiSearching ? 'Đang tìm...' : 'Tìm kiếm' }}
-                    </button>
-                </div>
-
-                <!-- Gợi ý nhanh (suggestion chips) -->
-                <div class="ai-suggestions-wrapper">
-                    <span class="ai-suggestions-label">Gợi ý:</span>
-                    <button v-for="(s, idx) in promptSuggestions" :key="idx"
-                        @click="handleAiSearch(s.text)"
-                        class="ai-suggestion-chip" type="button">
-                        <i class="bi bi-lightning-charge-fill"></i> {{ s.label }}
-                    </button>
-                </div>
-            </div>
-        </div>
 
 
 

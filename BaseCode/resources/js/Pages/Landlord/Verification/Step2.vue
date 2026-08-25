@@ -145,13 +145,12 @@ const nextStep = () => {
 const googleMapUrlFromPhoto = computed(() => {
     //nếu ảnh có toạ độ GPS
     if (props.form.latitude && props.form.longitude) {
-        return `https://maps.google.com/maps?q=${props.form.latitude},${props.form.longitude}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
+        return `https://maps.google.com/maps?q=${props.form.latitude},${props.form.longitude}&hl=vi&z=16&output=embed`;
     }
     //nếu ảnh không có GPS hiển thị theo tên địa chỉ nhà trọ đã nhập
     if (props.form.address_detail || props.form.ward) {
-        const fullAddress = `${props.form.address_detail || ""}
-        ${props.form.ward || ""}`;
-        return `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+        const fullAddress = `${props.form.address_detail || ""} ${props.form.ward || ""}`;
+        return `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress.trim())}&hl=vi&z=16&output=embed`;
     }
     return null;
 });

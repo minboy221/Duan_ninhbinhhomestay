@@ -467,20 +467,46 @@ const handleEvidenceImages = async (e) => {
     reportForm.evidence_images = compressedFiles;
     previewEvidenceImages.value = compressedFiles.map(file => URL.createObjectURL(file));
 };
+
+const roomMapUrl = computed(() => {
+    const lat = props.room?.latitude || props.room?.boardingHouse?.latitude || props.room?.boarding_house?.latitude;
+    const lng = props.room?.longitude || props.room?.boardingHouse?.longitude || props.room?.boarding_house?.longitude;
+
+    if (lat && lng) {
+        return `https://www.google.com/maps?q=${lat},${lng}&hl=vi&output=embed`;
+    }
+
+    const bh = props.room?.boardingHouse || props.room?.boarding_house;
+    if (bh?.address_detail) {
+        const fullAddr = [bh.address_detail, bh.district, "Ninh Bình"].filter(Boolean).join(", ");
+        return `https://www.google.com/maps?q=${encodeURIComponent(fullAddr)}&hl=vi&output=embed`;
+    }
+
+    if (props.room?.address) {
+        const fullAddr = [props.room.address, "Ninh Bình"].filter(Boolean).join(", ");
+        return `https://www.google.com/maps?q=${encodeURIComponent(fullAddr)}&hl=vi&output=embed`;
+    }
+
+    return `https://www.google.com/maps?q=Ninh+B%C3%ACnh&hl=vi&output=embed`;
+});
 </script>
 
 <template>
 
     <Head :title="`Xem Chi Tiết Phòng ${room.room_number} | Ninh Bình HomeStay`" />
     <MainLayout>
-        <!-- điều hướng -->
-        <div class="dieuhuong">
-            <div class="baodieuhuong">
-                <Link :href="route('home')">Trang Chủ</Link> /
-                <Link :href="route('timtro')">Tìm Phòng Trọ</Link> /
-                <span>Xem Chi Tiết Phòng</span>
+        <template #breadcrumb>
+            <!-- điều hướng -->
+            <div class="dieuhuong">
+                <div class="baodieuhuong">
+                    <Link :href="route('home')">Trang Chủ</Link> /
+                    <Link :href="route('timtro')">Tìm Phòng Trọ</Link> /
+                    <span>Xem Chi Tiết Phòng</span>
+                </div>
             </div>
-        </div>
+        </template>
+
+        <div class="chitiettro-container">
 
         <!-- Flash messages(thông báo góc) -->
         <div class="flash-alert-container">
@@ -604,7 +630,7 @@ const handleEvidenceImages = async (e) => {
                             <div class="bando">
                                 <h2>Vị trí &amp; Bản Đồ</h2>
                                 <iframe
-                                    :src="`https://maps.google.com/maps?q=${encodeURIComponent(room.address || room.boardingHouse?.address_detail || 'Ninh Bình')}&t=&z=15&ie=UTF8&iwloc=&output=embed`"
+                                    :src="roomMapUrl"
                                     width="100%" height="350" style="border: 0; border-radius: 12px" allowfullscreen=""
                                     loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
                             </div>
@@ -1181,6 +1207,7 @@ const handleEvidenceImages = async (e) => {
                     </div>
                 </form>
             </div>
+        </div>
         </div>
     </MainLayout>
 </template>
