@@ -35,8 +35,6 @@ use App\Http\Controllers\LandlordSubscriptionController as AdminLandlordSubscrip
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Response;
 use Inertia\Inertia;
-use Psy\Readline\Interactive\Input\IndentationPolicy;
-use Symfony\Component\Routing\Router;
 
 /*
 |--------------------------------------------------------------------------
