@@ -131,6 +131,8 @@ class PublicListingController extends Controller
             'post_images' => $post->image ?? [],           // ảnh từ RoomPost
             'amenities' => $room->amenities ?? null,
             'address' => $room->address ?? null,
+            'latitude' => $post->latitude ?? $room->latitude ?? $room->floor?->latitude ?? $room->boardingHouse?->latitude ?? null,
+            'longitude' => $post->longitude ?? $room->longitude ?? $room->floor?->longitude ?? $room->boardingHouse?->longitude ?? null,
             'description' => $post->description ?? null,
             'title' => $post->title ?? null,
             'boardingHouse' => $room->boardingHouse,

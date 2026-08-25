@@ -1680,6 +1680,30 @@
     padding: 16px;
 }
 
+/* Phông chữ Arial 100% bắt buộc cho toàn bộ Modal AI và tất cả các thẻ con */
+.ai-modal-overlay,
+.ai-modal-overlay *,
+.ai-modal-box,
+.ai-modal-box *,
+.ai-modal-header,
+.ai-modal-header *,
+.ai-modal-body,
+.ai-modal-body *,
+.ai-modal-footer,
+.ai-modal-footer *,
+.ai-viewed-summary-card,
+.ai-viewed-summary-card *,
+.ai-reason-pill,
+.ai-reason-pill *,
+.ai-message-box,
+.ai-message-box *,
+.ai-recommendations-grid,
+.ai-recommendations-grid *,
+.ai-room-card,
+.ai-room-card * {
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
 .ai-modal-box {
     background: #ffffff;
     border-radius: 24px;
@@ -1749,30 +1773,34 @@
 }
 
 .ai-header-title-box h3 {
-    font-size: 17px;
-    font-weight: 800;
+    font-size: 18px !important;
+    font-weight: 700 !important;
     margin: 0;
-    color: #ffffff;
+    color: #ffffff !important;
     display: flex;
     align-items: center;
     gap: 8px;
+    text-transform: none !important;
 }
 
 .ai-header-badge {
-    display: inline-block;
-    padding: 2px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
     background: rgba(255, 255, 255, 0.22);
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
     letter-spacing: 0.5px;
 }
 
 .ai-header-title-box p {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.85);
-    margin: 2px 0 0 0;
+    font-size: 13px !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    margin: 4px 0 0 0;
+    font-weight: 400 !important;
 }
 
 .ai-modal-close-btn {
@@ -1826,22 +1854,22 @@
 }
 
 .ai-viewed-label {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 12px !important;
+    font-weight: 700 !important;
     color: #64748b;
-    text-transform: uppercase;
+    text-transform: uppercase !important;
     letter-spacing: 0.5px;
 }
 
 .ai-viewed-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
 }
 
 .ai-viewed-sub {
-    font-size: 12px;
-    color: #64748b;
+    font-size: 13px !important;
+    color: #64748b !important;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1856,8 +1884,19 @@
     border: 1px solid #fecdd3;
     padding: 6px 12px;
     border-radius: 10px;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+}
+
+.ai-reason-pill span,
+.ai-reason-pill strong {
+    font-size: 13px !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.ai-reason-pill strong {
+    font-weight: 700 !important;
+    color: #be123c !important;
 }
 
 /* AI Message Box */
@@ -1870,8 +1909,9 @@
     align-items: flex-start;
     gap: 10px;
     color: #1e3a8a;
-    font-size: 13px;
+    font-size: 13.5px !important;
     line-height: 1.5;
+    font-family: Arial, sans-serif !important;
 }
 
 .ai-message-box i {
@@ -1898,6 +1938,7 @@
     flex-direction: column;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: Arial, sans-serif !important;
 }
 
 .ai-room-card:hover {
@@ -1929,14 +1970,15 @@
     position: absolute;
     top: 8px;
     right: 8px;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 11px !important;
+    font-weight: 700 !important;
     padding: 3px 8px;
     border-radius: 6px;
     display: inline-flex;
     align-items: center;
     gap: 4px;
     backdrop-filter: blur(4px);
+    font-family: Arial, sans-serif !important;
 }
 
 .ai-room-occupancy-badge.empty {
@@ -1955,24 +1997,27 @@
     flex-direction: column;
     flex: 1;
     gap: 6px;
+    font-family: Arial, sans-serif !important;
 }
 
 .ai-room-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
     line-height: 1.35;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     min-height: 34px;
+    font-family: Arial, sans-serif !important;
 }
 
 .ai-room-price {
-    font-size: 15px;
-    font-weight: 800;
-    color: #dc2626;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #dc2626 !important;
+    font-family: Arial, sans-serif !important;
 }
 
 .ai-room-meta-tags {
@@ -1983,8 +2028,8 @@
 }
 
 .ai-meta-tag {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 12px !important;
+    font-weight: 600 !important;
     color: #475569;
     background: #f1f5f9;
     padding: 2px 6px;
@@ -1992,10 +2037,11 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    font-family: Arial, sans-serif !important;
 }
 
 .ai-room-address {
-    font-size: 11px;
+    font-size: 12px !important;
     color: #64748b;
     display: flex;
     align-items: center;
@@ -2004,6 +2050,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     margin-top: 2px;
+    font-family: Arial, sans-serif !important;
 }
 
 .ai-room-actions {
@@ -2020,11 +2067,12 @@
     padding: 8px 12px;
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     color: #ffffff;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
     border-radius: 10px;
     text-decoration: none;
     transition: all 0.2s;
+    font-family: Arial, sans-serif !important;
 }
 
 .btn-ai-view-room:hover {
@@ -2040,7 +2088,7 @@
     border-top: 1px solid #f1f5f9;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 12px;
 }
 
@@ -2053,10 +2101,11 @@
     color: #2563eb;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
     text-decoration: none;
     transition: all 0.2s;
+    font-family: Arial, sans-serif !important;
 }
 
 .btn-ai-footer-explore:hover {
@@ -2070,10 +2119,11 @@
     color: #ffffff;
     border: none;
     border-radius: 10px;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
     cursor: pointer;
     transition: all 0.2s;
+    font-family: Arial, sans-serif !important;
 }
 
 .btn-ai-footer-close:hover {

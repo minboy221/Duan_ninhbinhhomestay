@@ -5,13 +5,17 @@
 
 /* Mobile (<= 767px) */
 @media screen and (max-width: 767px) {
+    .chitiettro-container {
+        margin-top: 90px;
+    }
+
     .dieuhuong {
         display: none;
     }
 
     .layout {
         flex-direction: column;
-        margin-top: 100px;
+        margin-top: 0;
         gap: 30px;
         padding: 0 15px;
     }
@@ -130,16 +134,20 @@
 
 /* Tablet (768px - 1023px) */
 @media screen and (min-width: 768px) and (max-width: 1023px) {
+    .chitiettro-container {
+        margin-top: 155px;
+    }
+
     .dieuhuong {
-        left: 50%;
-        transform: translateX(-50%);
-        top: 80px;
+        position: absolute;
+        top: calc(100% - 2px);
+        left: 25px;
     }
 
     .layout {
         flex-direction: column;
         padding: 0 20px;
-        margin-top: 160px;
+        margin-top: 0;
     }
 
     .room_detail {

@@ -134,6 +134,88 @@ const nextStep = () => {
         emit("next");
     }
 };
+
+//tạo computed URL bản đồ google tự động lấy toạ độ từ ảnh
+const googleMapUrlFromPhoto = computed(() => {
+    //nếu ảnh có toạ độ GPS
+    if (props.form.latitude && props.form.longitude) {
+        return `https://maps.google.com/maps?q=${props.form.latitude},${props.form.longitude}&hl=vi&z=16&output=embed`;
+    }
+    //nếu ảnh không có GPS hiển thị theo tên địa chỉ nhà trọ đã nhập
+    if (props.form.address_detail || props.form.ward) {
+        const fullAddress = `${props.form.address_detail || ""} ${props.form.ward || ""}`;
+        return `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress.trim())}&hl=vi&z=16&output=embed`;
+    }
+    return null;
+});
+
+//nếu ảnh không có GPS, tự động lấy toạ độ từ địa chỉ người dùng chọn
+const fetchGpsFromAddress = async () => {
+    if (!props.form.ward) return;
+    const fullAddress = `${props.form.address_detail || ""}, ${props.form.ward}`;
+    try {
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`,
+        );
+        const data = await res.json();
+        if (data && data.length > 0) {
+            props.form.latitude = parseFloat(data[0].lat);
+            props.form.longitude = parseFloat(data[0].lon);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+};
+
+//lấy vị trí GPS thực tế từ thiết bị điện thoại của chủ trọ
+const getCurrentDeviceLocation = () => {
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                props.form.latitude = position.coords.latitude;
+                props.form.longitude = position.coords.longitude;
+                console.log(
+                    "Đã lấy định vị GPS điện thoại thành công:",
+                    position.coords.latitude,
+                    position.coords.longitude,
+                );
+            },
+            (error) => {
+                console.log(
+                    "Không thể lấy vị trí thiết bị, chuyển sang dùng GPS địa chỉ.",
+                );
+                fetchGpsFromAddress();
+            },
+            { enableHighAccuracy: true, timeout: 10000 },
+        );
+    } else {
+        fetchGpsFromAddress();
+    }
+};
+onMounted(() => {
+    getCurrentDeviceLocation();
+});
+
+// Hàm chuyển Tọa độ GPS đọc từ Ảnh thành Tên Địa chỉ chữ tự động
+const reverseGeocodeFromPhotoGps = async (lat, lng) => {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=vi`,
+        );
+        const data = await response.json();
+
+        if (data && data.display_name) {
+            console.log("Đã đọc được Địa chỉ từ GPS ảnh:", data.display_name);
+
+            // Nếu chưa có địa chỉ chi tiết, tự động điền địa chỉ đọc được từ ảnh vào Form!
+            if (!props.form.address_detail) {
+                props.form.address_detail = data.display_name;
+            }
+        }
+    } catch (error) {
+        console.error("Không thể chuyển đổi GPS ảnh thành địa chỉ chữ:", error);
+    }
+};
 </script>
 
 <template>
