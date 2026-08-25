@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Repositories\ContactRepository;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Models\Contact;
 
 class ContactController extends Controller
 {
@@ -23,8 +24,8 @@ class ContactController extends Controller
         }
 
         $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => [
+            'name' => 'required|string|max:255',
+            'email' => [
                 'required',
                 'email',
                 'max:255',
@@ -37,25 +38,27 @@ class ContactController extends Controller
                     }
                 }
             ],
-            'phone'    => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:20',
             'category' => 'nullable|string|in:general,consultation,technical,partnership',
-            'subject'  => 'required|string|max:255',
-            'message'  => 'required|string|min:5',
+            'subject' => 'required|string|max:255',
+            'message' => 'required|string|min:5',
         ], [
-            'name.required'    => 'Vui lòng nhập họ và tên của bạn.',
-            'email.required'   => 'Vui lòng nhập địa chỉ email.',
-            'email.email'      => 'Địa chỉ email không đúng định dạng.',
+            'name.required' => 'Vui lòng nhập họ và tên của bạn.',
+            'email.required' => 'Vui lòng nhập địa chỉ email.',
+            'email.email' => 'Địa chỉ email không đúng định dạng.',
             'subject.required' => 'Vui lòng nhập chủ đề liên hệ.',
             'message.required' => 'Vui lòng nhập nội dung liên hệ.',
-            'message.min'      => 'Nội dung liên hệ phải có ít nhất 5 ký tự.',
+            'message.min' => 'Nội dung liên hệ phải có ít nhất 5 ký tự.',
         ]);
 
         // Cooldown check: max 1 submission per 60 seconds per IP / Email
         $ipKey = 'contact_cd_ip:' . $request->ip();
         $emailKey = 'contact_cd_email:' . strtolower($request->email);
 
-        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($ipKey, 1) ||
-            \Illuminate\Support\Facades\RateLimiter::tooManyAttempts($emailKey, 1)) {
+        if (
+            \Illuminate\Support\Facades\RateLimiter::tooManyAttempts($ipKey, 1) ||
+            \Illuminate\Support\Facades\RateLimiter::tooManyAttempts($emailKey, 1)
+        ) {
             $secondsIp = \Illuminate\Support\Facades\RateLimiter::availableIn($ipKey);
             $secondsEmail = \Illuminate\Support\Facades\RateLimiter::availableIn($emailKey);
             $wait = max($secondsIp, $secondsEmail);
@@ -71,19 +74,19 @@ class ContactController extends Controller
         $ticketCode = 'LH-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(4));
 
         $this->contactRepo->create([
-            'user_id'     => auth()->id(),
+            'user_id' => auth()->id(),
             'ticket_code' => $ticketCode,
-            'name'        => $request->name,
-            'email'       => $request->email,
-            'phone'       => $request->phone,
-            'category'    => $request->category ?? 'general',
-            'subject'     => $request->subject,
-            'message'     => $request->message,
-            'status'      => 'pending',
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'category' => $request->category ?? 'general',
+            'subject' => $request->subject,
+            'message' => $request->message,
+            'status' => 'pending',
         ]);
 
         return redirect()->back()->with([
-            'success'     => 'Gửi liên hệ thành công! Chúng tôi sẽ phản hồi sớm nhất.',
+            'success' => 'Gửi liên hệ thành công! Chúng tôi sẽ phản hồi sớm nhất.',
             'ticket_code' => $ticketCode,
         ]);
     }
@@ -174,5 +177,33 @@ class ContactController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Gửi phản hồi qua email khách hàng thành công!');
+    }
+    //hàm xử lý khiếu nại
+    public function storeLockAppeal(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'phone' => 'required|string|max:20',
+            'content' => 'required|string|min:10|max:1000',
+        ], [
+            'email.required' => 'Vui lòng nhập Email tài khoản bị khóa.',
+            'email.exists' => 'Email này chưa được đăng ký trong hệ thống.',
+            'phone.required' => 'Vui lòng nhập số điện thoại liên hệ.',
+            'content.required' => 'Vui lòng nhập nội dung giải trình khiếu nại.',
+            'content.min' => 'Nội dung giải trình phải ít nhất 10 ký tự.',
+        ]);
+        // Tạo bản ghi lưu vào mục Liên hệ của Admin
+        Contact::create([
+            'name' => 'Khiếu nại Mở khóa Tài khoản (' . $request->email . ')',
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'subject' => 'YÊU CẦU KHIẾU NẠI MỞ KHÓA TÀI KHOẢN',
+            'message' => "Yêu cầu mở khóa từ User Email: {$request->email}.\nSố điện thoại: {$request->phone}.\n\nNội dung giải trình:\n" . $request->content,
+            'status' => 'unread',
+        ]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Đơn khiếu nại của bạn đã được gửi tới Ban quản trị. Admin sẽ kiểm tra và phản hồi trong thời gian sớm nhất!'
+        ]);
     }
 }

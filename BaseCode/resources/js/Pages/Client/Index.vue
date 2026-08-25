@@ -267,43 +267,7 @@ const scrollReview = (direction) => {
                     </div>
                 </div>
 
-                <!-- Room Type Dropdown -->
-                <div class="roomtype_select relative" ref="categoryDropdownRef">
-                    <label for="">Loại Phòng:</label>
-                    <div class="custom-select-trigger cursor-pointer flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm hover:border-blue-400 transition-all"
-                        @click.stop="showCategoryDropdown = !showCategoryDropdown">
-                        <span class="truncate flex items-center gap-2 font-medium">
-                            <i class="bi bi-houses text-purple-600"></i>
-                            {{ selectedCategory ? selectedCategory.name : '--Chọn Loại Phòng--' }}
-                        </span>
-                        <i class="bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200"
-                            :class="{ 'rotate-180': showCategoryDropdown }"></i>
-                    </div>
 
-                    <!-- Room Type Dropdown Menu -->
-                    <div v-if="showCategoryDropdown"
-                        class="absolute left-0 top-full mt-2 w-full min-w-[200px] bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden text-left">
-                        <ul class="py-1">
-                            <li class="px-3.5 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
-                                :class="{ 'font-semibold text-purple-600 bg-purple-50/50': !selectedCategory }"
-                                @click="selectCategory(null)">
-                                <span>-- Tất cả loại phòng --</span>
-                                <i v-if="!selectedCategory" class="bi bi-check2 text-purple-600 font-bold"></i>
-                            </li>
-                            <li v-for="cat in categories" :key="cat.id"
-                                class="px-3.5 py-2 text-xs text-slate-700 hover:bg-purple-50 hover:text-purple-600 cursor-pointer flex items-center justify-between transition-colors"
-                                :class="{ 'bg-purple-50 font-semibold text-purple-600': selectedCategory?.id === cat.id }"
-                                @click="selectCategory(cat)">
-                                <span class="flex items-center gap-2">
-                                    <i :class="['bi', cat.icon || 'bi-house']"></i>
-                                    {{ cat.name }}
-                                </span>
-                                <i v-if="selectedCategory?.id === cat.id"
-                                    class="bi bi-check2 text-purple-600 font-bold"></i>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
                 <button class="login-btn" @click="searchRooms">
                     <i class="bi bi-search"></i> <span>Tìm Kiếm</span>
                 </button>

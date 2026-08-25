@@ -117,8 +117,13 @@ const navGroups = [
         ],
     },
     {
-        label: "Gói Dịch Vụ",
+        label: "Gói Dịch Vụ & Nguồn Thu",
         items: [
+            {
+                label: "Nguồn Thu Doanh Thu",
+                path: "/admin/revenue",
+                icon: "bi-cash-stack",
+            },
             {
                 label: "Cấu Hình Gói",
                 path: "/admin/subscription-plans",
