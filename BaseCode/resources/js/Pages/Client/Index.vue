@@ -174,18 +174,15 @@ const scrollReview = (direction) => {
 };
 </script>
 <template>
+
     <Head title="Ninh Bình HomeStay" />
     <MainLayout>
         <!-- BANNER SLIDESHOW -->
         <div class="banner">
-            <div
-                v-for="(banner, index) in activeBanners"
-                :key="banner.id"
-                :class="[
-                    'banner-slide',
-                    index === currentBannerIndex ? 'active' : '',
-                ]"
-            >
+            <div v-for="(banner, index) in activeBanners" :key="banner.id" :class="[
+                'banner-slide',
+                index === currentBannerIndex ? 'active' : '',
+            ]">
                 <img :src="banner.img || '/anh/banner.png'" alt="banner" />
             </div>
             <div class="banner-text">
@@ -205,15 +202,10 @@ const scrollReview = (direction) => {
 
             <!-- Banner Navigation dots if there are multiple active banners -->
             <div v-if="activeBanners.length > 1" class="banner-dots">
-                <span
-                    v-for="(banner, index) in activeBanners"
-                    :key="'dot-' + banner.id"
-                    :class="[
-                        'banner-dot',
-                        index === currentBannerIndex ? 'active' : '',
-                    ]"
-                    @click="currentBannerIndex = index"
-                ></span>
+                <span v-for="(banner, index) in activeBanners" :key="'dot-' + banner.id" :class="[
+                    'banner-dot',
+                    index === currentBannerIndex ? 'active' : '',
+                ]" @click="currentBannerIndex = index"></span>
             </div>
         </div>
         <!-- phần tìm kiếm -->
@@ -222,13 +214,9 @@ const scrollReview = (direction) => {
             <div class="search">
                 <div class="location relative" ref="areaDropdownRef">
                     <label for="">Khu Vực:</label>
-                    <div
-                        class="custom-select-trigger cursor-pointer flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm hover:border-blue-400 transition-all"
-                        @click.stop="showAreaDropdown = !showAreaDropdown"
-                    >
-                        <span
-                            class="truncate flex items-center gap-2 font-medium"
-                        >
+                    <div class="custom-select-trigger cursor-pointer flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm hover:border-blue-400 transition-all"
+                        @click.stop="showAreaDropdown = !showAreaDropdown">
+                        <span class="truncate flex items-center gap-2 font-medium">
                             <i class="bi bi-geo-alt text-blue-600"></i>
                             {{
                                 selectedArea
@@ -236,81 +224,49 @@ const scrollReview = (direction) => {
                                     : "--Chọn khu vực--"
                             }}
                         </span>
-                        <i
-                            class="bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200"
-                            :class="{ 'rotate-180': showAreaDropdown }"
-                        ></i>
+                        <i class="bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200"
+                            :class="{ 'rotate-180': showAreaDropdown }"></i>
                     </div>
 
                     <!-- Searchable Dropdown Popup -->
-                    <div
-                        v-if="showAreaDropdown"
-                        class="absolute left-0 top-full mt-2 w-full min-w-[220px] bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden text-left"
-                    >
+                    <div v-if="showAreaDropdown"
+                        class="absolute left-0 top-full mt-2 w-full min-w-[220px] bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden text-left">
                         <!-- Search Box -->
-                        <div
-                            class="p-2 border-b border-slate-100 bg-slate-50/80 sticky top-0 z-10"
-                        >
+                        <div class="p-2 border-b border-slate-100 bg-slate-50/80 sticky top-0 z-10">
                             <div class="relative flex items-center">
-                                <i
-                                    class="bi bi-search absolute left-3 text-slate-400 text-xs"
-                                ></i>
-                                <input
-                                    v-model="areaSearchQuery"
-                                    type="text"
-                                    placeholder="Gõ tìm phường, xã..."
+                                <i class="bi bi-search absolute left-3 text-slate-400 text-xs"></i>
+                                <input v-model="areaSearchQuery" type="text" placeholder="Gõ tìm phường, xã..."
                                     class="w-full pl-8 pr-3 py-2 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                    @click.stop
-                                />
+                                    @click.stop />
                             </div>
                         </div>
 
                         <!-- Area Options List -->
-                        <ul
-                            class="max-h-56 overflow-y-auto py-1 custom-scrollbar"
-                        >
-                            <li
-                                class="px-3.5 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                        <ul class="max-h-56 overflow-y-auto py-1 custom-scrollbar">
+                            <li class="px-3.5 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
                                 :class="{
                                     'font-semibold text-blue-600 bg-blue-50/50':
                                         !selectedArea,
-                                }"
-                                @click="clearAreaSelection"
-                            >
+                                }" @click="clearAreaSelection">
                                 <span>-- Tất cả khu vực --</span>
-                                <i
-                                    v-if="!selectedArea"
-                                    class="bi bi-check2 text-blue-600 font-bold"
-                                ></i>
+                                <i v-if="!selectedArea" class="bi bi-check2 text-blue-600 font-bold"></i>
                             </li>
-                            <li
-                                v-for="area in filteredAreas"
-                                :key="area.id"
+                            <li v-for="area in filteredAreas" :key="area.id"
                                 class="px-3.5 py-2 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer flex items-center justify-between transition-colors"
                                 :class="{
                                     'bg-blue-50 font-semibold text-blue-600':
                                         selectedArea?.id === area.id,
-                                }"
-                                @click="selectArea(area)"
-                            >
+                                }" @click="selectArea(area)">
                                 <span class="flex items-center gap-2">
-                                    <i
-                                        :class="[
-                                            'bi',
-                                            area.icon || 'bi-geo-alt',
-                                        ]"
-                                    ></i>
+                                    <i :class="[
+                                        'bi',
+                                        area.icon || 'bi-geo-alt',
+                                    ]"></i>
                                     {{ area.name }}
                                 </span>
-                                <i
-                                    v-if="selectedArea?.id === area.id"
-                                    class="bi bi-check2 text-blue-600 font-bold"
-                                ></i>
+                                <i v-if="selectedArea?.id === area.id" class="bi bi-check2 text-blue-600 font-bold"></i>
                             </li>
-                            <li
-                                v-if="filteredAreas.length === 0"
-                                class="px-3 py-4 text-center text-xs text-slate-400"
-                            >
+                            <li v-if="filteredAreas.length === 0" class="px-3 py-4 text-center text-xs text-slate-400">
                                 Không tìm thấy khu vực phù hợp
                             </li>
                         </ul>
@@ -319,13 +275,9 @@ const scrollReview = (direction) => {
                 <!-- Price Range Dropdown -->
                 <div class="price_select relative" ref="priceDropdownRef">
                     <label for="">Mức Giá:</label>
-                    <div
-                        class="custom-select-trigger cursor-pointer flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm hover:border-blue-400 transition-all"
-                        @click.stop="showPriceDropdown = !showPriceDropdown"
-                    >
-                        <span
-                            class="truncate flex items-center gap-2 font-medium"
-                        >
+                    <div class="custom-select-trigger cursor-pointer flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm hover:border-blue-400 transition-all"
+                        @click.stop="showPriceDropdown = !showPriceDropdown">
+                        <span class="truncate flex items-center gap-2 font-medium">
                             <i class="bi bi-tag text-emerald-600"></i>
                             {{
                                 selectedPrice
@@ -333,50 +285,34 @@ const scrollReview = (direction) => {
                                     : "--Chọn Giá--"
                             }}
                         </span>
-                        <i
-                            class="bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200"
-                            :class="{ 'rotate-180': showPriceDropdown }"
-                        ></i>
+                        <i class="bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200"
+                            :class="{ 'rotate-180': showPriceDropdown }"></i>
                     </div>
 
                     <!-- Price Dropdown Menu -->
-                    <div
-                        v-if="showPriceDropdown"
-                        class="absolute left-0 top-full mt-2 w-full min-w-[180px] bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden text-left"
-                    >
+                    <div v-if="showPriceDropdown"
+                        class="absolute left-0 top-full mt-2 w-full min-w-[180px] bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden text-left">
                         <ul class="py-1">
-                            <li
-                                class="px-3.5 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                            <li class="px-3.5 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
                                 :class="{
                                     'font-semibold text-emerald-600 bg-emerald-50/50':
                                         !selectedPrice,
-                                }"
-                                @click="selectPrice(null)"
-                            >
+                                }" @click="selectPrice(null)">
                                 <span>-- Tất cả giá --</span>
-                                <i
-                                    v-if="!selectedPrice"
-                                    class="bi bi-check2 text-emerald-600 font-bold"
-                                ></i>
+                                <i v-if="!selectedPrice" class="bi bi-check2 text-emerald-600 font-bold"></i>
                             </li>
-                            <li
-                                v-for="price in priceOptions"
-                                :key="price.id"
+                            <li v-for="price in priceOptions" :key="price.id"
                                 class="px-3.5 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 cursor-pointer flex items-center justify-between transition-colors"
                                 :class="{
                                     'bg-emerald-50 font-semibold text-emerald-600':
                                         selectedPrice?.id === price.id,
-                                }"
-                                @click="selectPrice(price)"
-                            >
+                                }" @click="selectPrice(price)">
                                 <span class="flex items-center gap-2">
                                     <i :class="['bi', price.icon]"></i>
                                     {{ price.name }}
                                 </span>
-                                <i
-                                    v-if="selectedPrice?.id === price.id"
-                                    class="bi bi-check2 text-emerald-600 font-bold"
-                                ></i>
+                                <i v-if="selectedPrice?.id === price.id"
+                                    class="bi bi-check2 text-emerald-600 font-bold"></i>
                             </li>
                         </ul>
                     </div>
@@ -423,11 +359,8 @@ const scrollReview = (direction) => {
 
             <!-- Slider fullscreen background -->
             <div class="pt-slider" id="ptSlider">
-                <div
-                    v-if="featuredRooms.length === 0"
-                    class="pt-slide active"
-                    style="background-image: url(&quot;/anh/phong1.jpg&quot;)"
-                >
+                <div v-if="featuredRooms.length === 0" class="pt-slide active"
+                    style="background-image: url(&quot;/anh/phong1.jpg&quot;)">
                     <div class="pt-overlay"></div>
                     <div class="pt-info">
                         <h3 class="pt-name">Chưa có phòng nổi bật</h3>
@@ -435,33 +368,19 @@ const scrollReview = (direction) => {
                     </div>
                 </div>
 
-                <div
-                    v-for="(room, index) in featuredRooms"
-                    :key="room.id"
-                    class="pt-slide"
-                    :class="{ active: currentPtSlide === index }"
-                    :style="
-                        room.image
+                <div v-for="(room, index) in featuredRooms" :key="room.id" class="pt-slide"
+                    :class="{ active: currentPtSlide === index }" :style="room.image
                             ? `background-image: url('${room.image.startsWith('/') ? room.image : '/storage/' + room.image}')`
                             : `background-image: url('/anh/phong1.jpg')`
-                    "
-                >
-                    <div
-                        class="landlord-avatar-badge"
-                        :title="
-                            'Đăng bởi: ' + (room.landlord_name || 'Chủ trọ')
-                        "
-                    >
-                        <img
-                            :src="
-                                room.landlord_avatar
-                                    ? room.landlord_avatar.startsWith('/')
-                                        ? room.landlord_avatar
-                                        : `/storage/${room.landlord_avatar}`
-                                    : '/anh/avatar_d.jpg'
-                            "
-                            alt="Avatar"
-                        />
+                        ">
+                    <div class="landlord-avatar-badge" :title="'Đăng bởi: ' + (room.landlord_name || 'Chủ trọ')
+                        ">
+                        <img :src="room.landlord_avatar
+                                ? room.landlord_avatar.startsWith('/')
+                                    ? room.landlord_avatar
+                                    : `/storage/${room.landlord_avatar}`
+                                : '/anh/avatar_d.jpg'
+                            " alt="Avatar" />
                     </div>
 
                     <div class="pt-overlay"></div>
@@ -474,24 +393,19 @@ const scrollReview = (direction) => {
                             {{ room.address || "Đang cập nhật" }}
                         </p>
                         <div class="pt-meta">
-                            <span class="pt-price"
-                                >{{
-                                    room.price
-                                        ? new Intl.NumberFormat("vi-VN").format(
-                                              room.price,
-                                          )
-                                        : "Liên hệ"
-                                }}
-                                <small v-if="room.price">/Tháng</small></span
-                            >
-                            <span class="pt-area"
-                                ><i class="bi bi-aspect-ratio"></i>
-                                {{ room.area || 0 }}m²</span
-                            >
+                            <span class="pt-price">{{
+                                room.price
+                                    ? new Intl.NumberFormat("vi-VN").format(
+                                        room.price,
+                                    )
+                                    : "Liên hệ"
+                            }}
+                                <small v-if="room.price">/Tháng</small></span>
+                            <span class="pt-area"><i class="bi bi-aspect-ratio"></i>
+                                {{ room.area || 0 }}m²</span>
                         </div>
-                        <a class="pt-btn" :href="route('chitiettro', room.slug)"
-                            >Xem Chi Tiết <i class="bi bi-arrow-right"></i
-                        ></a>
+                        <a class="pt-btn" :href="route('chitiettro', room.slug)">Xem Chi Tiết <i
+                                class="bi bi-arrow-right"></i></a>
                     </div>
                 </div>
 
@@ -504,13 +418,8 @@ const scrollReview = (direction) => {
                 </button>
 
                 <div class="pt-dots" v-if="featuredRooms.length > 0">
-                    <span
-                        v-for="(room, index) in featuredRooms"
-                        :key="'dot-' + room.id"
-                        class="pt-dot"
-                        :class="{ active: currentPtSlide === index }"
-                        @click="goToPtSlide(index)"
-                    ></span>
+                    <span v-for="(room, index) in featuredRooms" :key="'dot-' + room.id" class="pt-dot"
+                        :class="{ active: currentPtSlide === index }" @click="goToPtSlide(index)"></span>
                 </div>
             </div>
         </section>
@@ -620,12 +529,9 @@ const scrollReview = (direction) => {
             </div>
 
             <div class="review-container">
-                <div
-                    class="review-track"
-                    :style="{
-                        transform: `translateX(-${currentReviewIndex * 380}px)`,
-                    }"
-                >
+                <div class="review-track" :style="{
+                    transform: `translateX(-${currentReviewIndex * 380}px)`,
+                }">
                     <div v-if="topReviews.length === 0" class="card">
                         <h3>Chưa có đánh giá</h3>
                         <p>
@@ -634,11 +540,7 @@ const scrollReview = (direction) => {
                         </p>
                     </div>
 
-                    <div
-                        v-for="review in topReviews"
-                        :key="review.id"
-                        class="card"
-                    >
+                    <div v-for="review in topReviews" :key="review.id" class="card">
                         <h3>Tuyệt vời</h3>
                         <div class="stars">
                             {{ "★".repeat(review.rating)
@@ -646,15 +548,12 @@ const scrollReview = (direction) => {
                         </div>
                         <p>{{ review.comment }}</p>
                         <div class="user">
-                            <img
-                                :src="
-                                    review.tenant_avatar
-                                        ? review.tenant_avatar.startsWith('/')
-                                            ? review.tenant_avatar
-                                            : `/storage/${review.tenant_avatar}`
-                                        : '/anh/banner.png'
-                                "
-                            />
+                            <img :src="review.tenant_avatar
+                                    ? review.tenant_avatar.startsWith('/')
+                                        ? review.tenant_avatar
+                                        : `/storage/${review.tenant_avatar}`
+                                    : '/anh/banner.png'
+                                " />
                             <div class="name_user">
                                 <b>{{ review.tenant_name }}</b>
                                 <span>{{ review.created_at }}</span>
