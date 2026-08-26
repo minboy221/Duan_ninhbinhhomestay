@@ -7,8 +7,14 @@ const props = defineProps({
     listings: Object,
 });
 
+const page = usePage();
+const user = computed(() => page.props.auth.user);
+
 const activeTab = ref("all"); // 'all' | 'approved' | 'pending'  | 'draft'
-const flashSuccess = computed(() => usePage().props.flash?.success);
+const showPackageModal = ref(false);
+const selectedPackage = ref("standard");
+
+const flashSuccess = computed(() => page.props.flash?.success);
 const statusMap = {
     approved: {
         label: "Đang Hiển Thị",
@@ -38,6 +44,16 @@ const statusMap = {
 };
 
 const formatMoney = (n) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
+const formatDateTime = (dateStr) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
+    });
+};
+
 const deleteListing = (id) => {
     if (confirm("Bạn có chắc chắn muốn xóa bài đăng này?")) {
         router.delete(route("landlord.listings.destroy", id));
@@ -64,6 +80,20 @@ const handleDeletePost = (id) => {
     ) {
         router.delete(route("landlord.listings.destroy", id));
     }
+};
+
+const bumpListing = (id) => {
+    if (confirm("Mỗi lần đẩy tin sẽ trừ 1 lượt đẩy trong tài khoản của bạn. Xác nhận đẩy tin đăng này lên đầu trang?")) {
+        router.post(route("landlord.listings.bump", id));
+    }
+};
+
+const buyPackage = (pkg) => {
+    router.post(route("landlord.listings.buy-package"), { package: pkg }, {
+        onSuccess: () => {
+            showPackageModal.value = false;
+        }
+    });
 };
 </script>
 
@@ -97,6 +127,28 @@ const handleDeletePost = (id) => {
                     <i class="bi bi-plus-lg"></i>
                     Đăng tin mới
                 </Link>
+            </div>
+
+            <!-- Gói Đẩy Tin Card -->
+            <div class="p-6 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl text-white shadow-xl shadow-emerald-500/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                            {{ user?.package_name || 'Chưa mua gói' }}
+                        </span>
+                    </div>
+                    <h3 class="text-lg font-extrabold flex items-center gap-1">
+                        Số lượt đẩy tin còn lại: <span class="text-yellow-300 text-2xl font-black ml-1">{{ user?.bump_credits || 0 }}</span> lượt
+                    </h3>
+                    <p class="text-[11px] text-emerald-100/90 max-w-xl leading-relaxed">
+                        Đẩy tin giúp bài đăng của bạn ngay lập tức đứng đầu danh sách hiển thị trên trang chủ Ninh Bình Homestay và trang tìm kiếm để tiếp cận nhiều khách thuê hơn.
+                    </p>
+                </div>
+                <button @click="showPackageModal = true"
+                    class="px-5 py-3 bg-white hover:bg-emerald-50 text-emerald-600 font-bold text-xs rounded-xl transition-all shadow-md shadow-black/5 flex items-center gap-1.5 self-stretch md:self-auto justify-center">
+                    <i class="bi bi-gem text-amber-500"></i>
+                    Mua thêm lượt đẩy
+                </button>
             </div>
 
             <!-- Filter Tabs -->
@@ -219,7 +271,7 @@ const handleDeletePost = (id) => {
                         </div>
 
                         <!-- View Stats -->
-                        <div class="flex items-center gap-4 text-[10px] text-slate-400 font-bold">
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-400 font-bold">
                             <span><i class="bi bi-eye mr-1"></i>
                                 {{ ls.view_count }} lượt xem</span>
                             <span><i class="bi bi-calendar3 mr-1"></i> Ngày tạo:
@@ -228,6 +280,12 @@ const handleDeletePost = (id) => {
                                         "vi-VN",
                                     )
                                 }}</span>
+                            <span v-if="ls.bump_count > 0" class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1">
+                                <i class="bi bi-arrow-up-circle"></i> Đã đẩy {{ ls.bump_count }} lần
+                            </span>
+                            <span v-if="ls.bumped_at" class="text-slate-500 flex items-center gap-1">
+                                <i class="bi bi-clock-history"></i> Đẩy cuối: {{ formatDateTime(ls.bumped_at) }}
+                            </span>
                         </div>
                     </div>
 
@@ -240,6 +298,13 @@ const handleDeletePost = (id) => {
                             <i class="bi bi-pencil-square"></i>
                             Chỉnh sửa
                         </Link>
+
+                        <!-- Đẩy Tin Button -->
+                        <button v-if="ls.status === 'approved'" type="button" @click="bumpListing(ls.id)"
+                            class="flex-1 md:flex-none px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-emerald-200/40">
+                            <i class="bi bi-arrow-up-circle-fill text-emerald-500"></i>
+                            Đẩy tin
+                        </button>
 
                         <button v-if="ls.status === 'approved'" type="button" @click="closeListing(ls.id, ls.title)"
                             class="flex-1 md:flex-none px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-amber-200/40">
@@ -266,6 +331,103 @@ const handleDeletePost = (id) => {
                         : 'bg-white text-slate-500 border-slate-200',
                     !link.url && 'opacity-50',
                 ]" />
+        </div>
+
+        <!-- Modal Mua Gói Đẩy Tin -->
+        <div v-if="showPackageModal" class="fixed inset-0 z-50 overflow-y-auto animate-fade-in" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <!-- Background overlay -->
+                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="showPackageModal = false"></div>
+
+                <!-- Center elements -->
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                <div class="inline-block align-bottom bg-white rounded-[32px] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-100">
+                    <div class="p-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-base font-black text-slate-800 flex items-center gap-2">
+                                <i class="bi bi-gem text-emerald-500 text-lg"></i>
+                                Chọn gói đẩy tin đăng quảng cáo
+                            </h3>
+                            <button @click="showPackageModal = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+                                <i class="bi bi-x-lg text-sm"></i>
+                            </button>
+                        </div>
+
+                        <p class="text-xs text-slate-400 mb-8 font-medium">
+                            Giúp tin đăng của bạn luôn hiển thị nổi bật ở các vị trí vàng trên trang chủ Ninh Bình Homestay. Thanh toán giả lập (mock payment) ngay lập tức cộng lượt đẩy vào tài khoản.
+                        </p>
+
+                        <!-- Gói Cước Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                            <!-- Gói Cơ bản -->
+                            <div @click="selectedPackage = 'standard'" 
+                                :class="[
+                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
+                                    selectedPackage === 'standard' 
+                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
+                                        : 'border-slate-100 hover:border-slate-200 bg-white'
+                                ]">
+                                <div class="space-y-1">
+                                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cơ bản</h4>
+                                    <div class="text-2xl font-black text-slate-800">10 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
+                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Phù hợp cho chủ trọ ít phòng.</p>
+                                </div>
+                                <div class="text-sm font-extrabold text-emerald-600 mt-2">50.000đ</div>
+                                <span v-if="selectedPackage === 'standard'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
+                            </div>
+
+                            <!-- Gói Phổ thông -->
+                            <div @click="selectedPackage = 'premium'" 
+                                :class="[
+                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
+                                    selectedPackage === 'premium' 
+                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
+                                        : 'border-slate-100 hover:border-slate-200 bg-white'
+                                ]">
+                                <div class="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-bl-lg tracking-wider">Bán chạy</div>
+                                <div class="space-y-1">
+                                    <h4 class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Phổ thông</h4>
+                                    <div class="text-2xl font-black text-slate-800">30 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
+                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Lựa chọn tối ưu chi phí.</p>
+                                </div>
+                                <div class="text-sm font-extrabold text-emerald-600 mt-2">120.000đ</div>
+                                <span v-if="selectedPackage === 'premium'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
+                            </div>
+
+                            <!-- Gói Đặc quyền -->
+                            <div @click="selectedPackage = 'vip'" 
+                                :class="[
+                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
+                                    selectedPackage === 'vip' 
+                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
+                                        : 'border-slate-100 hover:border-slate-200 bg-white'
+                                ]">
+                                <div class="space-y-1">
+                                    <h4 class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Đặc quyền</h4>
+                                    <div class="text-2xl font-black text-slate-800">100 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
+                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Dành cho hệ thống nhiều phòng.</p>
+                                </div>
+                                <div class="text-sm font-extrabold text-emerald-600 mt-2">300.000đ</div>
+                                <span v-if="selectedPackage === 'vip'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex gap-3 justify-end">
+                            <button type="button" @click="showPackageModal = false"
+                                class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-colors">
+                                Hủy bỏ
+                            </button>
+                            <button type="button" @click="buyPackage(selectedPackage)"
+                                class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 shadow-md shadow-emerald-500/10">
+                                <i class="bi bi-wallet2"></i>
+                                Thanh toán giả lập
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </LandlordLayout>
 </template>

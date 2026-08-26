@@ -205,6 +205,8 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::put('/listings/{id}', [RoomListingController::class, 'update'])->name('landlord.listings.update');
     Route::delete('/listings/{id}', [RoomListingController::class, 'destroy'])->name('landlord.listings.destroy');
     Route::post('/listings/{id}/close',[RoomListingController::class,'close'])->name('landlord.listings.close');
+    Route::post('/listings/{id}/bump', [RoomListingController::class, 'bump'])->name('landlord.listings.bump');
+    Route::post('/listings/buy-package', [RoomListingController::class, 'buyPackage'])->name('landlord.listings.buy-package');
     // Lấy dịch vụ tiện ích của các phòng
     Route::get('/rooms/{id}/services', [RoomListingController::class, 'getRoomServices']);
 

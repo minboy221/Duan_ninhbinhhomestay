@@ -156,4 +156,72 @@ class RoomListingController extends Controller
         return redirect()->route('landlord.listings.index')
             ->with('success', 'Đã đóng tin đăng thành công! tin đăng đã được gỡ bỏ');
     }
+
+    // Đẩy tin đăng lên đầu trang
+    public function bump($id)
+    {
+        $post = RoomPost::findOrFail($id);
+        if ($post->landlord_id !== auth()->id()) {
+            abort(403, 'Bạn không có quyền đẩy tin đăng này');
+        }
+
+        if ($post->status !== 'approved') {
+            return redirect()->back()->with('error', 'Chỉ có thể đẩy những tin đang được hiển thị!');
+        }
+
+        $user = auth()->user();
+        if ($user->bump_credits <= 0) {
+            return redirect()->back()->with('error', 'Bạn đã hết lượt đẩy tin! Vui lòng mua thêm gói.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($post, $user) {
+            $post->update([
+                'bumped_at' => now(),
+                'bump_count' => $post->bump_count + 1
+            ]);
+
+            $user->update([
+                'bump_credits' => $user->bump_credits - 1
+            ]);
+        });
+
+        return redirect()->route('landlord.listings.index')
+            ->with('success', 'Đã đẩy tin thành công! Tin đăng của bạn đã được đưa lên đầu trang.');
+    }
+
+    // Mua gói đẩy tin (giả lập)
+    public function buyPackage(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'package' => 'required|in:standard,premium,vip'
+        ]);
+
+        $package = $request->input('package');
+        $credits = 0;
+        $packageName = '';
+
+        switch ($package) {
+            case 'standard':
+                $credits = 10;
+                $packageName = 'Gói Cơ bản (10 lượt)';
+                break;
+            case 'premium':
+                $credits = 30;
+                $packageName = 'Gói Phổ thông (30 lượt)';
+                break;
+            case 'vip':
+                $credits = 100;
+                $packageName = 'Gói Đặc quyền (100 lượt)';
+                break;
+        }
+
+        $user = auth()->user();
+        $user->update([
+            'bump_credits' => $user->bump_credits + $credits,
+            'package_name' => $packageName
+        ]);
+
+        return redirect()->route('landlord.listings.index')
+            ->with('success', "Đã thanh toán giả lập thành công! Bạn được cộng {$credits} lượt đẩy tin.");
+    }
 }

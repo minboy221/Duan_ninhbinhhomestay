@@ -13,17 +13,65 @@ class PublicListingController extends Controller
     //Phần hiển thị danh sách tin đăng của phòng trọ công khai
     public function index(Request $request, \App\Services\CategoryService $categoryService)
     {
-        //chỉ lấy các tin đăng đã được phê duyệt, kèm theo thông tin phòng và người đăng
-        $query = RoomPost::with(['room.boardingHouse', 'landlord'])
-            ->where('status', 'approved')
-            ->latest();
+        $baseQuery = RoomPost::with(['room.boardingHouse', 'landlord'])
+            ->where('status', 'approved');
 
         //bộ lọc tìm kiếm nhanh theo tiêu đề tin đăng
         if ($request->has('search')) {
-            $query->where('title', 'like', '%' . $request->search . '%');
+            $baseQuery->where('title', 'like', '%' . $request->search . '%');
         }
-        //phân trang
-        $listings = $query->paginate(10)->withQueryString();
+
+        // 1. Lấy danh sách tin đã đẩy
+        $bumpedPosts = (clone $baseQuery)
+            ->whereNotNull('bumped_at')
+            ->orderBy('bumped_at', 'desc')
+            ->get();
+
+        // 2. Lấy danh sách tin thường
+        $regularPosts = (clone $baseQuery)
+            ->whereNull('bumped_at')
+            ->orderBy('published_at', 'desc')
+            ->get();
+
+        // 3. Thuật toán xen kẽ tin đã đẩy của các chủ trọ khác nhau (Interleaving)
+        $bumpedByLandlord = [];
+        foreach ($bumpedPosts as $post) {
+            $bumpedByLandlord[$post->landlord_id][] = $post;
+        }
+
+        $interleavedBumped = [];
+        $hasMore = true;
+        $index = 0;
+        while ($hasMore) {
+            $hasMore = false;
+            foreach ($bumpedByLandlord as $landlordId => $posts) {
+                if (isset($posts[$index])) {
+                    $interleavedBumped[] = $posts[$index];
+                    $hasMore = true;
+                }
+            }
+            $index++;
+        }
+
+        // 4. Trộn hai danh sách (tin đẩy xen kẽ đứng trước, tin thường đứng sau)
+        $allPosts = array_merge($interleavedBumped, $regularPosts->all());
+
+        // 5. Phân trang thủ công để tương thích với Vue/Inertia Paginator
+        $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage() ?: 1;
+        $perPage = 10;
+        $currentItems = array_slice($allPosts, ($currentPage - 1) * $perPage, $perPage);
+
+        $listings = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentItems,
+            count($allPosts),
+            $perPage,
+            $currentPage,
+            [
+                'path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath(),
+                'query' => $request->query()
+            ]
+        );
+
         $categoryData = $categoryService->getActiveData();
 
         return Inertia::render('Client/timtro', [
