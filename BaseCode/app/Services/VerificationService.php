@@ -1,8 +1,8 @@
 <?php
 namespace App\Services;
 
-use App\Repositories\UserRepository;
-use App\Repositories\BoardingHouseRepository;
+use App\Repositories\Eloquent\UserRepository;
+use App\Repositories\Eloquent\BoardingHouseRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Exception;
@@ -83,7 +83,8 @@ class VerificationService
             // Vòng lặp lưu từng ảnh hợp đồng
             if (isset($data['contract_images']) && is_array($data['contract_images'])) {
                 foreach ($data['contract_images'] as $index => $image) {
-                    if (!$image) continue;
+                    if (!$image)
+                        continue;
                     $ext = $image->getClientOriginalExtension() ?: 'jpg';
 
                     // Thử quét GPS nếu chưa có tọa độ
@@ -111,7 +112,8 @@ class VerificationService
             // Lưu mảng ảnh không gian trọ
             if (isset($data['room_images']) && is_array($data['room_images'])) {
                 foreach ($data['room_images'] as $index => $file) {
-                    if (!$file) continue;
+                    if (!$file)
+                        continue;
                     $ext = $file->getClientOriginalExtension() ?: 'jpg';
 
                     // Chỉ quét GPS nếu chưa có

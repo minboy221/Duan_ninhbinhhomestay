@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Repositories\ContactRepository;
+use App\Repositories\Eloquent\ContactRepository;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Contact;

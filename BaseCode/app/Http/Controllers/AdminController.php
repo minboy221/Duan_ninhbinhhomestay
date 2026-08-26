@@ -63,17 +63,20 @@ class AdminController extends Controller
             });
 
         // Biểu đồ đăng ký 12 tháng gần nhất từ DB
-        $months = [];
-        $monthlyCounts = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $date = now()->subMonths($i);
-            $monthLabel = 'T' . $date->month;
-            $count = User::whereYear('created_at', $date->year)
-                ->whereMonth('created_at', $date->month)
-                ->count();
-            $months[] = $monthLabel;
-            $monthlyCounts[] = $count;
-        }
+        $startDate = now()->subMonths(11)->startOfMonth();
+        $userStats = User::where('created_at', '>=', $startDate)
+       ->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count')
+       ->groupBy('year', 'month')
+       ->get()
+       ->keyBy(fn($item) => $item->year . '-' .sprintf('%02d', $item->month));
+       $months = [];
+       $monthlyCounts = [];
+       for($i = 11; $i >= 0; $i--){
+        $date = now()->subMonth($i);
+        $key = $date->year . '-' . sprintf('%02d', $date->month);
+        $months[] = 'T' . $date->month;
+        $monthlyCounts[] = isset($userStats[$key]) ? (int) $userStats[$key]->count : 0;
+       }
 
         return Inertia::render('Admin/dashboard', [
             'stats' => [

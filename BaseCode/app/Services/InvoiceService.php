@@ -43,8 +43,8 @@ class InvoiceService
             }
         })->with(['contract.room', 'contract.tenant', 'details.service']);
 
-        $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->get();
-        $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->get();
+        $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->take(100)->get();
+        $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->take(100)->get();
 
         $activeContracts = Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId, $boardingHouseId) {
             $q->where('user_id', $landlordId);
