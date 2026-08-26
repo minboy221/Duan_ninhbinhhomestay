@@ -136,7 +136,3 @@ graph TD
 ```
 
 ---
-
-## 📝 GIẤY PHÉP & PHÁT TRIỂN
-* Hệ thống được phát triển phục vụ Đồ Án Tốt Nghiệp và Sẵn Sàng Triển Khai Môi Trường Sản Xuất (Production-Ready).
-* License: MIT.
