@@ -1,10 +1,11 @@
 <?php
-namespace App\Repositories\Contracts;
+namespace App\Repositories\Interfaces;
 
-interface ReportRepositoryInterface{
+interface ReportRepositoryInterface
+{
     public function create(array $data);
     public function findById(int $id);
-    public function  update(int $id, array $data);
+    public function update(int $id, array $data);
     public function getUserReports(int $userId);
 }
 

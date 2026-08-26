@@ -189,7 +189,17 @@ const getStatusText = (status) => {
                                     height="100%"
                                     frameborder="0"
                                     style="border:0"
-                                    :src="`https://maps.google.com/maps?q=${house.latitude},${house.longitude}&hl=vi&z=15&output=embed`"
+                                    :src="`https://maps.google.com/maps?q=${house.latitude},${house.longitude}&hl=vi&z=16&output=embed`"
+                                    allowfullscreen
+                                ></iframe>
+                            </div>
+                            <div v-else-if="house.address_detail" class="w-full h-80 relative">
+                                <iframe
+                                    width="100%"
+                                    height="100%"
+                                    frameborder="0"
+                                    style="border:0"
+                                    :src="`https://maps.google.com/maps?q=${encodeURIComponent(house.address_detail)}&hl=vi&z=16&output=embed`"
                                     allowfullscreen
                                 ></iframe>
                             </div>

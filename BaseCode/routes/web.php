@@ -61,11 +61,11 @@ Route::get('/about', function () {
 
 // Route cho Trang Tìm trọ
 Route::get('/timtro', [PublicListingController::class, 'index'])->name('timtro');
-Route::post('/api/ai/parse-room-search', [PublicListingController::class, 'parseAiSearch'])->name('api.ai.parse-room-search');
-Route::post('/api/ai/chat-assistant', [PublicListingController::class, 'chatAiAssistant'])->name('api.ai.chat-assistant');
-Route::get('/api/ai/chat-history', [PublicListingController::class, 'getChatHistory'])->name('api.ai.chat-history');
-Route::post('/api/ai/clear-chat-history', [PublicListingController::class, 'clearChatHistory'])->name('api.ai.clear-chat-history');
-Route::post('/api/ai/sync-guest-history', [PublicListingController::class, 'syncGuestHistory'])->name('api.ai.sync-guest-history');
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/api/ai/parse-room-search', [PublicListingController::class, 'parseAiSearch'])->name('api.ai.parse-room-search');
+    Route::post('/api/ai/chat-assistant', [PublicListingController::class, 'chatAiAssistant'])->name('api.ai.chat-assistant');
+});
+Route::get('/api/ai/chat-history',[PublicListingController::class, 'getChatHistory'])->name('api.ai.chat-history');
 
 // Route cho Trang Tin tức
 Route::get('/tintuc', [PostController::class, 'index'])->name('tintuc');
@@ -145,7 +145,9 @@ Route::middleware('auth')->group(function () {
 
 // ROUTER cho admin
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/', function() { return redirect()->route('admin.dashboard'); });
+    Route::get('/', function () {
+        return redirect()->route('admin.dashboard');
+    });
     Route::get('/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     // Phần Duyệt cơ sở mới của Admin
     Route::get('/boarding-houses', [\App\Http\Controllers\AdminBoardingHouseController::class, 'index'])->name('admin.boarding-houses.index');

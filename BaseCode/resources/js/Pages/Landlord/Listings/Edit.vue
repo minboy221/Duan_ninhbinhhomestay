@@ -42,18 +42,43 @@ const roomDetails = ref(null);
 const isLoadingDetails = ref(false);
 const isLocating = ref(false);
 
+const bh = props.post.room?.boardingHouse || props.post.room?.boarding_house;
+const fl = props.post.room?.floor;
 const form = useForm({
     room_id: props.post.room_id || "",
     title: props.post.title || "",
     description: props.post.description || "",
-    address: props.post.address || "",
+    address: props.post.address || fl?.address || (bh?.address_detail ? [bh.address_detail, bh.district, "Ninh Bình"].filter(Boolean).join(", ") : ""),
     current_people: props.post.room?.current_people ?? 0,
     capacity: props.post.room?.capacity ?? 1,
-    latitude: props.post.latitude || null,
-    longitude: props.post.longitude || null,
+    latitude: props.post.latitude || props.post.room?.latitude || fl?.latitude || bh?.latitude || null,
+    longitude: props.post.longitude || props.post.room?.longitude || fl?.longitude || bh?.longitude || null,
     existing_images: props.post.image || [], // Chứa ảnh cũ
     images: [], // Chứa ảnh mới upload
     action: "publish",
+});
+
+const editMapUrl = computed(() => {
+    const lat = form.latitude || selectedHouse.value?.latitude || bh?.latitude;
+    const lng = form.longitude || selectedHouse.value?.longitude || bh?.longitude;
+
+    if (lat && lng) {
+        return `https://www.google.com/maps?q=${lat},${lng}&hl=vi&output=embed`;
+    }
+
+    const houseAddr = selectedHouse.value?.address_detail || bh?.address_detail;
+    const houseDist = selectedHouse.value?.district || bh?.district;
+    if (houseAddr) {
+        const fullAddr = [houseAddr, houseDist, "Ninh Bình"].filter(Boolean).join(", ");
+        return `https://www.google.com/maps?q=${encodeURIComponent(fullAddr)}&hl=vi&output=embed`;
+    }
+
+    if (form.address) {
+        const fullAddr = [form.address, "Ninh Bình"].filter(Boolean).join(", ");
+        return `https://www.google.com/maps?q=${encodeURIComponent(fullAddr)}&hl=vi&output=embed`;
+    }
+
+    return null;
 });
 
 
@@ -622,8 +647,8 @@ const formatPrice = (val) => {
                             Đồ
                         </h3>
                         <div class="map-container">
-                            <iframe v-if="form.latitude && form.longitude"
-                                :src="`https://maps.google.com/maps?q=${form.latitude},${form.longitude}&z=15&output=embed`"
+                            <iframe v-if="editMapUrl"
+                                :src="editMapUrl"
                                 width="100%" height="250" style="border: 0; border-radius: 12px"
                                 loading="lazy"></iframe>
                             <div v-else class="map-placeholder"> <i class="bi bi-map"></i> <span>Nhập địa chỉ để định vị

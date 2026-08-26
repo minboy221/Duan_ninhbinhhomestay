@@ -1,5 +1,5 @@
 <?php
-namespace App\Repositories;
+namespace App\Repositories\Eloquent;
 
 use App\Models\BoardingHouse;
 use App\Repositories\Interfaces\BoardingHouseRepositoryInterface;

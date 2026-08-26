@@ -30,19 +30,14 @@ class User extends Authenticatable implements MustVerifyEmail
         'gender',
         'avatar',
         'password',
-        'role',
-        'status',
         'google_id',
-        'otp_code',
-        'otp_expires_at',
         'last_profile_update_at',
         'bank_name',
         'bank_account_no',
         'bank_account_name',
         'last_seen_at',
         'cccd_number',
-        'fcm_token',
-        'lock_reason'
+        'fcm_token'
     ];
 
     protected $appends = ['is_online'];

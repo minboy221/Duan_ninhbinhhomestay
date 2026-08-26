@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Repositories\ServiceRepository;
-use App\Repositories\PropertyRepository;
-
+use App\Repositories\Eloquent\ServiceRepository;
+use App\Repositories\Eloquent\PropertyRepository;
 class ServiceManagementService
 {
     protected ServiceRepository $serviceRepo;

@@ -178,8 +178,9 @@ function getGoogleMapsEmbedUrl(appointment) {
     if (!appointment) return "";
     const bh =
         appointment.room?.boardingHouse || appointment.room?.boarding_house;
+    const room = appointment.room;
     const address =
-        bh?.address_detail || appointment.room?.address || "Ninh Bình";
+        bh?.address_detail || room?.address || "Ninh Bình";
 
     if (mapMode.value === "directions") {
         if (userCoords.value) {
@@ -188,15 +189,23 @@ function getGoogleMapsEmbedUrl(appointment) {
         return `https://maps.google.com/maps?saddr=My+Location&daddr=${encodeURIComponent(address)}&output=embed`;
     }
 
-    return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+    if (room?.latitude && room?.longitude) {
+        return `https://maps.google.com/maps?q=${room.latitude},${room.longitude}&hl=vi&z=16&output=embed`;
+    }
+    if (bh?.latitude && bh?.longitude) {
+        return `https://maps.google.com/maps?q=${bh.latitude},${bh.longitude}&hl=vi&z=16&output=embed`;
+    }
+
+    return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&hl=vi&z=16&output=embed`;
 }
 
 function getInlineGoogleMapsEmbedUrl(appointment) {
     if (!appointment) return "";
     const bh =
         appointment.room?.boardingHouse || appointment.room?.boarding_house;
+    const room = appointment.room;
     const address =
-        bh?.address_detail || appointment.room?.address || "Ninh Bình";
+        bh?.address_detail || room?.address || "Ninh Bình";
 
     if (inlineMapMode.value === "directions") {
         if (userCoords.value) {
@@ -205,7 +214,14 @@ function getInlineGoogleMapsEmbedUrl(appointment) {
         return `https://maps.google.com/maps?saddr=My+Location&daddr=${encodeURIComponent(address)}&output=embed`;
     }
 
-    return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+    if (room?.latitude && room?.longitude) {
+        return `https://maps.google.com/maps?q=${room.latitude},${room.longitude}&hl=vi&z=16&output=embed`;
+    }
+    if (bh?.latitude && bh?.longitude) {
+        return `https://maps.google.com/maps?q=${bh.latitude},${bh.longitude}&hl=vi&z=16&output=embed`;
+    }
+
+    return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&hl=vi&z=16&output=embed`;
 }
 
 //tạo link google map dẫn đến vị trí cơ sở trọ
@@ -1667,7 +1683,7 @@ const paginatedAppointments = computed(() => {
                         <div class="ai-header-title-box">
                             <h3>
                                 <span>Gợi Ý Phòng Trọ Thay Thế</span>
-                                <span class="ai-header-badge"><i class="bi bi-stars"></i> AI Smart</span>
+                                <span class="ai-header-badge"><i class="bi bi-stars"></i> AI SMART</span>
                             </h3>
                             <p>
                                 Trợ lý AI Ninh Bình tự động đề xuất 3 phòng
@@ -1833,10 +1849,6 @@ const paginatedAppointments = computed(() => {
 
                 <!-- Modal Footer -->
                 <div class="ai-modal-footer">
-                    <Link :href="route('timtro')" class="btn-ai-footer-explore">
-                        <i class="bi bi-search"></i> Khám phá thêm trên bản đồ
-                        Tìm Trọ
-                    </Link>
                     <button type="button" @click="closeAiAlternativesModal" class="btn-ai-footer-close">
                         Đóng
                     </button>

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Repositories\Contracts\ReportRepositoryInterface;
+use App\Repositories\Interfaces\ReportRepositoryInterface;
 use App\Traits\CompressesImages;
 use Illuminate\Support\Facades\Storage;
 use Exception;

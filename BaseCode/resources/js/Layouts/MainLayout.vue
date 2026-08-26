@@ -322,6 +322,8 @@ const formatDateTime = (dateString) => {
                     </div>
                 </template>
             </div>
+            <!-- Breadcrumb Slot -->
+            <slot name="breadcrumb" />
         </nav>
 
         <!-- Mobile Menu Drawer -->

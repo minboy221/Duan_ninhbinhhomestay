@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
-use App\Repositories\CategoryRepository;
-use App\Repositories\AreaRepository;
-use App\Repositories\AmenityRepository;
+use App\Repositories\Eloquent\CategoryRepository;
+use App\Repositories\Eloquent\AreaRepository;
+use App\Repositories\Eloquent\AmenityRepository;
+
 
 class CategoryService
 {
@@ -18,8 +19,8 @@ class CategoryService
         AmenityRepository $amenityRepo
     ) {
         $this->categoryRepo = $categoryRepo;
-        $this->areaRepo     = $areaRepo;
-        $this->amenityRepo  = $amenityRepo;
+        $this->areaRepo = $areaRepo;
+        $this->amenityRepo = $amenityRepo;
     }
 
     /**
@@ -28,8 +29,8 @@ class CategoryService
     public function getAllData(): array
     {
         return [
-            'types'     => $this->categoryRepo->getAll(),
-            'areas'     => $this->areaRepo->getAll(),
+            'types' => $this->categoryRepo->getAll(),
+            'areas' => $this->areaRepo->getAll(),
             'amenities' => $this->amenityRepo->getAll(),
         ];
     }
@@ -40,8 +41,8 @@ class CategoryService
     public function getActiveData(): array
     {
         return [
-            'types'     => $this->categoryRepo->getActive(),
-            'areas'     => $this->areaRepo->getActive(),
+            'types' => $this->categoryRepo->getActive(),
+            'areas' => $this->areaRepo->getActive(),
             'amenities' => $this->amenityRepo->getActive(),
         ];
     }
@@ -54,8 +55,8 @@ class CategoryService
     public function createCategory(array $data)
     {
         return $this->categoryRepo->create([
-            'name'      => $data['name'],
-            'icon'      => $data['icon'] ?? 'bi-tag',
+            'name' => $data['name'],
+            'icon' => $data['icon'] ?? 'bi-tag',
             'is_active' => $data['is_active'] ?? true,
         ]);
     }
@@ -106,8 +107,8 @@ class CategoryService
     public function createArea(array $data)
     {
         return $this->areaRepo->create([
-            'name'      => $data['name'],
-            'icon'      => $data['icon'] ?? 'bi-geo-alt',
+            'name' => $data['name'],
+            'icon' => $data['icon'] ?? 'bi-geo-alt',
             'map_embed' => $data['map_embed'] ?? null,
             'is_active' => $data['is_active'] ?? true,
         ]);
@@ -159,8 +160,8 @@ class CategoryService
     public function createAmenity(array $data)
     {
         return $this->amenityRepo->create([
-            'name'      => $data['name'],
-            'icon'      => $data['icon'] ?? 'bi-star',
+            'name' => $data['name'],
+            'icon' => $data['icon'] ?? 'bi-star',
             'is_active' => $data['is_active'] ?? true,
         ]);
     }

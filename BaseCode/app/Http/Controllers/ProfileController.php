@@ -85,7 +85,6 @@ class ProfileController extends Controller
                 ->count();
             $realCurrentPeople = max(1, ($hasActiveContract ? 1 : 0) + $activeResidentsCount);
             if ((int) $room->current_people !== $realCurrentPeople) {
-                $room->update(['current_people' => $realCurrentPeople]);
                 $room->current_people = $realCurrentPeople;
             }
         }

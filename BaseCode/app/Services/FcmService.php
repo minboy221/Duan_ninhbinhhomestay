@@ -32,16 +32,19 @@ class FcmService
                 'exp' => $now + 3600,
                 'iat' => $now
             ]);
-            $base64UrlHeader = str_replace(['+','/','='],['-','_',''], base64_encode($header));
-            $base64UrlPayload = str_replace(['+','/','='],['-','_',''], base64_encode($payload));
+            $base64UrlHeader = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
+            $base64UrlPayload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
             $signatureInput = $base64UrlHeader . "." . $base64UrlPayload;
 
             openssl_sign($signatureInput, $signature, $privateKey, 'SHA256');
-            $base64UrlSignature = str_replace(['+','/','='],['-','_',''],
-            base64_encode($signature));
+            $base64UrlSignature = str_replace(
+                ['+', '/', '='],
+                ['-', '_', ''],
+                base64_encode($signature)
+            );
             $jwt = $signatureInput . "." . $base64UrlSignature;
             //xin Access Token tiwf Google
-            $response = Http::asForm()->post('https://oauth2.googleapis.com/token',[
+            $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
                 'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
                 'assertion' => $jwt
             ]);
@@ -51,26 +54,28 @@ class FcmService
     //gửi push Notificaion với điện thoại bằng Google FCM V1 API
     public static function sendPushNotification($fcmToken, string $title, string $body, string $url = '/')
     {
-        if(!$fcmToken) return false;
+        if (!$fcmToken)
+            return false;
         $accessToken = self::getAccessToken();
-        if(!$accessToken) return false;
-        $projectId = env('VITE_FIREBASE_PROJECT_ID', 'datn-homestay-app');
+        if (!$accessToken)
+            return false;
+        $projectId = config('services.firebase.project_id', 'datn-homestay-app');
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $accessToken,
             'Content-Type' => 'application/json',
-        ])->post("https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send",[
-            'message' => [
-                'token' => $fcmToken,
-                'notification' => [
-                    'title' => $title,
-                    'body' => $body,
-                ],
-                'data' => [
-                    'url' => $url,
-                ],
-            ]
-        ]);
-        if($response->failed()){
+        ])->post("https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send", [
+                    'message' => [
+                        'token' => $fcmToken,
+                        'notification' => [
+                            'title' => $title,
+                            'body' => $body,
+                        ],
+                        'data' => [
+                            'url' => $url,
+                        ],
+                    ]
+                ]);
+        if ($response->failed()) {
             Log::error('FCM Push V1 Failed: ' . $response->body());
         }
         return $response->successful();

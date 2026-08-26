@@ -6,9 +6,9 @@ use App\Models\Room;
 use App\Models\Floor;
 use App\Models\RoomResident;
 use App\Models\User;
-use App\Repositories\RoomRepository;
-use App\Repositories\PropertyRepository;
-use App\Repositories\FloorRepository;
+use App\Repositories\Eloquent\RoomRepository;
+use App\Repositories\Eloquent\PropertyRepository;
+use App\Repositories\Eloquent\FloorRepository;
 use Illuminate\Support\Facades\Storage;
 use App\Traits\HandlesStorageFiles;
 
