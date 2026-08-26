@@ -625,6 +625,7 @@ class ProfileController extends Controller
      */
     public function submitEntryReadings(Request $request, $contractId)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         $request->validate([
             'entry_elec_index' => 'required|integer|min:0',
             'entry_water_index' => 'required|integer|min:0',
@@ -640,11 +641,11 @@ class ProfileController extends Controller
         $waterImgPath = $contract->entry_water_image;
 
         if ($request->hasFile('entry_elec_image')) {
-            $elecImgPath = '/storage/' . $request->file('entry_elec_image')->store('meter_readings/entry', 'public');
+            $elecImgPath = '/storage/' . $request->file('entry_elec_image')->store('meter_readings/entry', $disk);
         }
 
         if ($request->hasFile('entry_water_image')) {
-            $waterImgPath = '/storage/' . $request->file('entry_water_image')->store('meter_readings/entry', 'public');
+            $waterImgPath = '/storage/' . $request->file('entry_water_image')->store('meter_readings/entry', $disk);
         }
 
         $contract->update([

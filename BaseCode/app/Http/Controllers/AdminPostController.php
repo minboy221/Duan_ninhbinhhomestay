@@ -100,6 +100,7 @@ class AdminPostController extends Controller
 
     public function update(Request $request, $id)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         $post = Post::findOrFail($id);
 
         $request->validate([
@@ -133,7 +134,7 @@ class AdminPostController extends Controller
                 $oldPath = str_replace('/storage/', '', $post->image);
                 Storage::disk('public')->delete($oldPath);
             }
-            $post->image = '/storage/' . $request->file('image_file')->store('posts', 'public');
+            $post->image = '/storage/' . $request->file('image_file')->store('posts', $disk);
         } elseif ($request->filled('image_url')) {
             $post->image = $request->input('image_url');
         }

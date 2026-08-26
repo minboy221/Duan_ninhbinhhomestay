@@ -3,6 +3,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Head, router } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
 import Swal from 'sweetalert2'
+import { getAvatarUrl, DEFAULT_AVATAR } from '@/Utils/media'
 
 const props = defineProps({
     users: { type: Array, default: () => [] }
@@ -150,7 +151,8 @@ function resetFilters() {
                             <div class="user-cell">
                                 <div class="user-ava" :style="u.avatar ? 'overflow: hidden; background: #f1f5f9; padding: 0;' : `background: hsl(${(u.id * 57) % 360}, 65%, 55%)`">
                                     <img v-if="u.avatar"
-                                        :src="u.avatar.startsWith('/') ? u.avatar : `/storage/${u.avatar}`" 
+                                        :src="getAvatarUrl(u.avatar)" 
+                                        @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
                                         :alt="u.name"
                                         style="width: 100%; height: 100%; object-fit: cover;"
                                     />
@@ -252,7 +254,7 @@ function resetFilters() {
                 <!-- User Detail Modal -->
                 <div v-else-if="modalAction === 'view'" class="modal-box">
                     <div class="user-detail-ava" :style="modalUser?.avatar ? 'overflow: hidden; background: #f1f5f9;' : `background: hsl(${((modalUser?.id || 1) * 57) % 360}, 65%, 55%)`">
-                        <img v-if="modalUser?.avatar" :src="modalUser.avatar.startsWith('/') ? modalUser.avatar : `/storage/${modalUser.avatar}`" :alt="modalUser?.name" style="width:100%;height:100%;object-fit:cover;" />
+                        <img v-if="modalUser?.avatar" :src="getAvatarUrl(modalUser.avatar)" @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR" :alt="modalUser?.name" style="width:100%;height:100%;object-fit:cover;" />
                         <template v-else>{{ modalUser?.name ? modalUser.name[0] : 'U' }}</template>
                     </div>
                     <h3 class="modal-title" style="margin-top:10px;">{{ modalUser?.name }}</h3>

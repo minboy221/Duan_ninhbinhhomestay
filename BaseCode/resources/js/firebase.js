@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getMessaging } from "firebase/messaging";
+import { getMessaging, isSupported } from "firebase/messaging";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -19,5 +19,28 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const messaging = getMessaging(app);
+
+let messagingSync = null;
+try {
+  if (typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator) {
+    messagingSync = getMessaging(app);
+  }
+} catch (e) {
+  console.warn("Trình duyệt điện thoại không hỗ trợ Firebase Messaging:", e.message);
+}
+
+export const getMessagingInstance = async () => {
+  try {
+    const supported = await isSupported();
+    if (supported) {
+      return getMessaging(app);
+    }
+  } catch (err) {
+    console.warn("Lỗi kiểm tra hỗ trợ Firebase Messaging:", err);
+  }
+  return null;
+};
+
+export const messaging = messagingSync;
 export const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BI4oQirK1z-KOrTARFVW3MGns6MfSqu6hchiA5fnAA55zQhkbQFF6ZV8jWljiOyNy8pfX1Xeb-9y9Qc84QyAxBY";
+export { app };

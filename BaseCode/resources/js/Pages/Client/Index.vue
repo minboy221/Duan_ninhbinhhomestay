@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from "vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import { Head, router } from "@inertiajs/vue3";
 import HomePopup from "@/Components/HomePopup.vue";
+import { getAvatarUrl, DEFAULT_AVATAR } from "@/Utils/media";
 
 // Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Route → Inertia)
 const props = defineProps({
@@ -375,12 +376,7 @@ const scrollReview = (direction) => {
                         ">
                     <div class="landlord-avatar-badge" :title="'Đăng bởi: ' + (room.landlord_name || 'Chủ trọ')
                         ">
-                        <img :src="room.landlord_avatar
-                                ? room.landlord_avatar.startsWith('/')
-                                    ? room.landlord_avatar
-                                    : `/storage/${room.landlord_avatar}`
-                                : '/anh/avatar_d.jpg'
-                            " alt="Avatar" />
+                        <img :src="getAvatarUrl(room.landlord_avatar)" @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR" alt="Avatar" />
                     </div>
 
                     <div class="pt-overlay"></div>
@@ -548,12 +544,7 @@ const scrollReview = (direction) => {
                         </div>
                         <p>{{ review.comment }}</p>
                         <div class="user">
-                            <img :src="review.tenant_avatar
-                                    ? review.tenant_avatar.startsWith('/')
-                                        ? review.tenant_avatar
-                                        : `/storage/${review.tenant_avatar}`
-                                    : '/anh/banner.png'
-                                " />
+                            <img :src="getAvatarUrl(review.tenant_avatar)" @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR" alt="Avatar" />
                             <div class="name_user">
                                 <b>{{ review.tenant_name }}</b>
                                 <span>{{ review.created_at }}</span>

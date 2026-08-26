@@ -2,7 +2,7 @@
 import { Link, usePage, useForm } from "@inertiajs/vue3";
 import { computed } from "vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
-import { getAvatarUrl, getRoomImageUrl } from "@/Utils/media";
+import { getAvatarUrl, getRoomImageUrl, DEFAULT_AVATAR } from "@/Utils/media";
 
 const { props } = usePage();
 const user = computed(() => props.auth.user);
@@ -27,6 +27,10 @@ const uploadAvatar = (e) => {
         avatarForm.avatar = e.target.files[0];
         avatarForm.post(route("profile.avatar.update"), {
             preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => {
+                avatarForm.reset();
+            }
         });
     }
 };
@@ -38,7 +42,7 @@ const uploadAvatar = (e) => {
             <div class="left_section">
                 <div class="bao-user">
                     <div class="img_user">
-                        <img id="avatarPreview" :src="getAvatarUrl(user.avatar)" alt="" />
+                        <img id="avatarPreview" :src="getAvatarUrl(user.avatar)" @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR" alt="Avatar" />
 
                         <!-- input ẩn -->
                         <input type="file" @change="uploadAvatar" id="avatarInput" accept="image/*" hidden />

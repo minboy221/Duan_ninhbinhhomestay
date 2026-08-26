@@ -3,6 +3,7 @@ import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, Link, usePage } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 import axios from "axios";
+import { getAvatarUrl, DEFAULT_AVATAR } from "@/Utils/media";
 
 const page = usePage();
 const currentAdminName = computed(() => page.props.auth?.user?.name || "Admin");
@@ -207,7 +208,8 @@ const copyGpsCoordinates = (lat, lng) => {
                             <div class="user-cell">
                                 <div class="ava" :style="l.avatar ? 'overflow: hidden; background: #f1f5f9; padding: 0;' : `background:hsl(${l.id * 80}deg,60%,55%)`">
                                     <img v-if="l.avatar"
-                                        :src="l.avatar.startsWith('/') || l.avatar.startsWith('http') ? l.avatar : `/storage/${l.avatar}`" 
+                                        :src="getAvatarUrl(l.avatar)" 
+                                        @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
                                         :alt="l.name"
                                         style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;"
                                     />
@@ -260,10 +262,9 @@ const copyGpsCoordinates = (lat, lng) => {
                     </div>
                     <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
                         <div class="ll-avatar" style="overflow: hidden">
-                            <img v-if="selected?.avatar" :src="selected.avatar.startsWith('http')
-                                ? selected.avatar
-                                : '/storage/' + selected.avatar
-                                " class="w-full h-full object-cover rounded-full" style="
+                            <img v-if="selected?.avatar" :src="getAvatarUrl(selected.avatar)"
+                                @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
+                                class="w-full h-full object-cover rounded-full" style="
                                     width: 100%;
                                     height: 100%;
                                     object-fit: cover;

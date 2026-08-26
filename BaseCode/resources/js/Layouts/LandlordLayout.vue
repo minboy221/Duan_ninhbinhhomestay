@@ -5,7 +5,7 @@ import { messaging, VAPID_KEY } from '@/firebase';
 import { getToken } from "firebase/messaging";
 import { useFcm } from "@/composables/useFcm";
 import { showError, showSuccess } from "@/Utils/swal";
-import { getAvatarUrl, getRoomImageUrl } from "@/Utils/media";
+import { getAvatarUrl, getRoomImageUrl, DEFAULT_AVATAR } from "@/Utils/media";
 import axios from "axios";
 
 const page = usePage();
@@ -818,6 +818,7 @@ const requestAndSaveFcmToken = async () => {
                             </div>
 
                             <img v-if="user?.avatar" :src="getAvatarUrl(user.avatar)"
+                                @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
                                 class="relative w-9 h-9 rounded-xl object-cover border-2 shadow-sm transition-all"
                                 :class="user?.has_vip_frame ? 'border-amber-400 ring-2 ring-amber-300' : 'border-slate-200'"
                                 alt="Avatar" />

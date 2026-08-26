@@ -167,14 +167,19 @@ class LandlordController extends Controller
         if ($request->hasFile('avatar')) {
             try {
                 if ($user->avatar) {
-                    $oldPath = str_replace('/storage/', '', $user->avatar);
+                    $oldPath = str_replace('/storage/', '', parse_url($user->avatar, PHP_URL_PATH) ?? $user->avatar);
                     \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
                 }
-                $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
-                $path = $request->file('avatar')->store('avatars', $disk);
-                $data['avatar'] = (str_starts_with($path, 'http') || str_starts_with($path, '/storage/'))
-                    ? $path
-                    : '/storage/' . ltrim($path, '/');
+                $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+                $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+
+                if ($useR2 && !empty($r2Url)) {
+                    $path = $request->file('avatar')->store('avatars', 'r2_public');
+                    $data['avatar'] = str_starts_with($path, 'http') ? $path : $r2Url . '/' . ltrim($path, '/');
+                } else {
+                    $path = $request->file('avatar')->store('avatars', 'public');
+                    $data['avatar'] = '/storage/' . ltrim($path, '/');
+                }
             } catch (\Throwable $e) {
                 $path = $request->file('avatar')->store('avatars', 'public');
                 $data['avatar'] = '/storage/' . ltrim($path, '/');

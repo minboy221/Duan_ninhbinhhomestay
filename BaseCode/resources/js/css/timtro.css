@@ -483,29 +483,12 @@ input[type="radio"]:checked::after {
 
 /* phần phân trang */
 .phantrang {
-    margin-top: -45px;
-    align-items: center;
-    flex: 1;
-}
-
-.baophantrang {
-    transform: translate(15%, -190%);
+    margin-top: 35px;
+    margin-bottom: 25px;
     display: flex;
-    gap: 20px;
-}
-
-.so_trang {
-    background-color: #45abe6;
-    padding: 10px 20px;
-    text-align: center;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-.so_trang a {
-    text-decoration: none;
-    color: #fff;
-    font-weight: 600;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
 }
 
 /* Map section */
@@ -645,7 +628,7 @@ input[type="radio"]:checked::after {
     }
 
     .filter-title-wrapper:hover .filter-toggle-btn {
-       background: linear-gradient(90deg, #102a6d, #45abe6);
+        background: linear-gradient(90deg, #102a6d, #45abe6);
         color: #fff;
     }
 
@@ -684,4 +667,59 @@ input[type="radio"]:checked::after {
     .bao_btn {
         grid-column: 1 / -1;
     }
+}
+
+/* ===== BADGES TRẠNG THÁI PHÒNG TRỌ PREMIER ===== */
+.room-badge-available {
+    background-color: #ecfdf5 !important;
+    color: #047857 !important;
+    border-color: #a7f3d0 !important;
+}
+
+.room-badge-deposited {
+    background-color: #fffbeb !important;
+    color: #b45309 !important;
+    border-color: #fde68a !important;
+}
+
+.room-badge-rented {
+    background-color: #f1f5f9 !important;
+    color: #334155 !important;
+    border-color: #cbd5e1 !important;
+}
+
+.room-badge-maintenance {
+    background-color: #fff1f2 !important;
+    color: #be123c !important;
+    border-color: #fecdd3 !important;
+}
+
+.room-badge-construction {
+    background-color: #eef2ff !important;
+    color: #4338ca !important;
+    border-color: #c7d2fe !important;
+}
+
+.room-badge-renewal {
+    background-color: #f5f3ff !important;
+    color: #6d28d9 !important;
+    border-color: #ddd6fe !important;
+}
+
+.room-badge-suspended {
+    background-color: #f4f4f5 !important;
+    color: #52525b !important;
+    border-color: #e4e4e7 !important;
+}
+
+.room-badge-pending {
+    background-color: #fefce8 !important;
+    color: #a16207 !important;
+    border-color: #fef08a !important;
+}
+
+.room-badge-approved {
+    background-color: #f0f9ff !important;
+    color: #0369a1 !important;
+    border-color: #bae6fd !important;
 }

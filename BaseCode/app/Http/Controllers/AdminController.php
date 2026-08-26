@@ -65,18 +65,18 @@ class AdminController extends Controller
         // Biểu đồ đăng ký 12 tháng gần nhất từ DB
         $startDate = now()->subMonths(11)->startOfMonth();
         $userStats = User::where('created_at', '>=', $startDate)
-       ->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count')
-       ->groupBy('year', 'month')
-       ->get()
-       ->keyBy(fn($item) => $item->year . '-' .sprintf('%02d', $item->month));
-       $months = [];
-       $monthlyCounts = [];
-       for($i = 11; $i >= 0; $i--){
-        $date = now()->subMonth($i);
-        $key = $date->year . '-' . sprintf('%02d', $date->month);
-        $months[] = 'T' . $date->month;
-        $monthlyCounts[] = isset($userStats[$key]) ? (int) $userStats[$key]->count : 0;
-       }
+            ->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count')
+            ->groupBy('year', 'month')
+            ->get()
+            ->keyBy(fn($item) => $item->year . '-' . sprintf('%02d', $item->month));
+        $months = [];
+        $monthlyCounts = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $date = now()->subMonth($i);
+            $key = $date->year . '-' . sprintf('%02d', $date->month);
+            $months[] = 'T' . $date->month;
+            $monthlyCounts[] = isset($userStats[$key]) ? (int) $userStats[$key]->count : 0;
+        }
 
         return Inertia::render('Admin/dashboard', [
             'stats' => [
@@ -718,6 +718,7 @@ class AdminController extends Controller
 
     public function updateWebsite(Request $request)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         $request->validate([
             'hero_title' => 'required|string|max:255',
             'hero_subtitle' => 'required|string|max:500',
@@ -778,7 +779,7 @@ class AdminController extends Controller
         if (is_array($files)) {
             foreach ($banners as $index => &$banner) {
                 if (isset($files[$index]['file']) && $files[$index]['file']->isValid()) {
-                    $path = $files[$index]['file']->store('banners', 'public');
+                    $path = $files[$index]['file']->store('banners', $disk);
                     $banner['img'] = '/storage/' . $path;
                 }
             }

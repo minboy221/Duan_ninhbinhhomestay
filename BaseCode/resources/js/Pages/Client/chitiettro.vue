@@ -5,6 +5,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import { showSuccess, showWarning, showConfirm } from "@/Utils/swal";
 import { compressMultipleImages } from "@/Utils/compressor";
+import { getAvatarUrl, DEFAULT_AVATAR } from "@/Utils/media";
 
 const props = defineProps({
     reportable_type: "Room",
@@ -642,11 +643,9 @@ const roomMapUrl = computed(() => {
                     <div class="baochutro">
                         <div class="avatar1">
                             <div class="avatar-img">
-                                <img :src="room.boardingHouse?.user?.avatar
-                                    ? '/storage/' +
-                                    room.boardingHouse.user.avatar
-                                    : '/anh/banner.png'
-                                    " alt="Avatar" />
+                                <img :src="getAvatarUrl(room.boardingHouse?.user?.avatar)"
+                                    @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
+                                    alt="Avatar" />
                                 <span :class="[
                                     'status1',
                                     room.boardingHouse?.user?.is_online

@@ -66,15 +66,23 @@ class AdminVerificationController extends Controller
     // Hàm đọc ảnh từ file private/public một cách an toàn cho Admin và chủ sở hữu
     public function showPrivateFile($type, $filename)
     {
+        $cleanFilename = basename(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $filename));
+
         // Phân quyền: Kiểm tra user đăng nhập có quyền xem không
         $user = auth()->user();
         if ($user && $user->role !== 'admin') {
-            if (!str_contains($filename, 'user_' . $user->id . '_')) {
-                abort(403, 'Không có quyền truy cập file này.');
+            $verification = \App\Models\UserVerification::where('user_id', $user->id)->first();
+            $isUserOwner = str_contains($filename, 'user_' . $user->id . '_')
+                || ($verification && (
+                    ($verification->id_card_front && str_contains($verification->id_card_front, $cleanFilename)) ||
+                    ($verification->id_card_back && str_contains($verification->id_card_back, $cleanFilename)) ||
+                    ($verification->face_auth_image && str_contains($verification->face_auth_image, $cleanFilename))
+                ));
+            if (!$isUserOwner) {
+                abort(403, 'Không có quyền truy cập file me.');
             }
         }
 
-        $cleanFilename = basename(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $filename));
         $candidatePaths = [];
 
         if (in_array($type, ['id_cards', 'faces'])) {

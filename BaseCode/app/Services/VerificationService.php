@@ -20,6 +20,7 @@ class VerificationService
     }
     public function processVerification($userId, $data)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         //dùng db transaction để khi lỗi ở các bước sẽ không lưu vào db để tránh dữ liệu rác
         DB::beginTransaction();
         try {
@@ -131,7 +132,7 @@ class VerificationService
                         }
                     }
                     $name = "user_{$userId}_phong_tro_{$index}_{$timestamp}.{$ext}";
-                    $stored = $file->storeAs('properties/rooms', $name, 'public');
+                    $stored = $file->storeAs('properties/rooms', $name, $disk);
                     if (!$stored) {
                         Storage::disk('public')->put('properties/rooms/' . $name, file_get_contents($file->getRealPath()));
                         $stored = 'properties/rooms/' . $name;

@@ -107,10 +107,11 @@ class SubscriptionController extends Controller
     // Phần upload bằng chứng mua gói của chủ trọ
     public function uploadProof(UploadProofRequest $request, $id)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         $subscription = LandlordSubscription::where('user_id', auth()->id())
             ->findOrFail($id);
         if ($request->hasFile('proof_image')) {
-            $path = $request->file('proof_image')->store('subscription_proofs', 'public');
+            $path = $request->file('proof_image')->store('subscription_proofs', $disk);
             $subscription->update([
                 'proof_image' => '/storage/' . $path,
             ]);
