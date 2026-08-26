@@ -342,7 +342,7 @@ const buyPackage = (pkg) => {
                 <!-- Center elements -->
                 <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-                <div class="inline-block align-bottom bg-white rounded-[32px] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-100">
+                <div class="inline-block align-bottom bg-white rounded-[32px] text-left overflow-visible shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-100">
                     <div class="p-8">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-base font-black text-slate-800 flex items-center gap-2">
@@ -359,57 +359,253 @@ const buyPackage = (pkg) => {
                         </p>
 
                         <!-- Gói Cước Grid -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 py-4">
                             <!-- Gói Cơ bản -->
-                            <div @click="selectedPackage = 'standard'" 
-                                :class="[
-                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
-                                    selectedPackage === 'standard' 
-                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
-                                        : 'border-slate-100 hover:border-slate-200 bg-white'
-                                ]">
-                                <div class="space-y-1">
-                                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cơ bản</h4>
-                                    <div class="text-2xl font-black text-slate-800">10 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
-                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Phù hợp cho chủ trọ ít phòng.</p>
+                            <div class="package-card-wrapper" 
+                                :class="{ 'active': selectedPackage === 'standard' }"
+                                style="--neon-c1: #e2e8f0; --neon-c2: #0ea5e9; --neon-c3: #ffffff; --wing-glow-shadow: 0 0 15px rgba(255, 255, 255, 0.85);">
+                                <!-- Wings behind -->
+                                <div class="wings-container">
+                                    <svg class="angel-wing left-wing" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                        <defs>
+                                            <linearGradient id="white-wing-grad" x1="100%" y1="0%" x2="0%" y2="100%">
+                                                <stop offset="0%" stop-color="#ffffff" />
+                                                <stop offset="60%" stop-color="#f8fafc" />
+                                                <stop offset="100%" stop-color="#cbd5e1" />
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M 180,90 C 150,50 110,30 70,40 C 50,45 30,60 15,80 C 5,90 2,105 7,120 C 12,130 25,140 45,140 C 30,148 20,158 20,168 C 20,178 35,182 60,175 C 45,185 40,195 45,202 C 50,208 65,205 85,190 C 75,200 75,208 80,210 C 85,212 105,195 125,175 C 145,155 170,125 180,90 Z" fill="url(#white-wing-grad)" />
+                                        <path d="M 150,85 C 120,65 85,55 65,60 C 55,62 45,70 35,80" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none" />
+                                        <path d="M 130,105 C 100,90 75,85 60,90" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" fill="none" />
+                                    </svg>
+                                    <svg class="angel-wing right-wing" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M 180,90 C 150,50 110,30 70,40 C 50,45 30,60 15,80 C 5,90 2,105 7,120 C 12,130 25,140 45,140 C 30,148 20,158 20,168 C 20,178 35,182 60,175 C 45,185 40,195 45,202 C 50,208 65,205 85,190 C 75,200 75,208 80,210 C 85,212 105,195 125,175 C 145,155 170,125 180,90 Z" fill="url(#white-wing-grad)" />
+                                        <path d="M 150,85 C 120,65 85,55 65,60 C 55,62 45,70 35,80" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none" />
+                                        <path d="M 130,105 C 100,90 75,85 60,90" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" fill="none" />
+                                    </svg>
                                 </div>
-                                <div class="text-sm font-extrabold text-emerald-600 mt-2">50.000đ</div>
-                                <span v-if="selectedPackage === 'standard'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
+                                <!-- Glow -->
+                                <div class="glow-bg"></div>
+                                <!-- Neon border -->
+                                <div class="neon-border"></div>
+                                <!-- Feathers falling down -->
+                                <div class="feathers-container">
+                                    <div class="feather f-1">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-2">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-3">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-4">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-5">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <!-- Particles -->
+                                <div class="particles-container">
+                                    <span class="particle p-1"></span>
+                                    <span class="particle p-2"></span>
+                                    <span class="particle p-3"></span>
+                                    <span class="particle p-4"></span>
+                                    <span class="particle p-5"></span>
+                                </div>
+                                <!-- Inner card -->
+                                <div @click="selectedPackage = 'standard'" 
+                                    :class="[
+                                        'package-card-inner p-5 rounded-2xl border-2 cursor-pointer flex flex-col justify-between gap-4 h-full relative overflow-hidden bg-white',
+                                        selectedPackage === 'standard' 
+                                            ? 'border-transparent shadow-lg shadow-sky-500/5' 
+                                            : 'border-slate-100 hover:border-slate-200'
+                                    ]">
+                                    <div class="space-y-1 relative z-10">
+                                        <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cơ bản</h4>
+                                        <div class="text-2xl font-black text-slate-800">10 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
+                                        <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Phù hợp cho chủ trọ ít phòng.</p>
+                                    </div>
+                                    <div class="text-sm font-extrabold text-emerald-600 mt-2 relative z-10">50.000đ</div>
+                                    <span v-if="selectedPackage === 'standard'" class="absolute top-2 right-2 text-emerald-500 z-20"><i class="bi bi-check-circle-fill"></i></span>
+                                </div>
                             </div>
 
                             <!-- Gói Phổ thông -->
-                            <div @click="selectedPackage = 'premium'" 
-                                :class="[
-                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
-                                    selectedPackage === 'premium' 
-                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
-                                        : 'border-slate-100 hover:border-slate-200 bg-white'
-                                ]">
-                                <div class="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-bl-lg tracking-wider">Bán chạy</div>
-                                <div class="space-y-1">
-                                    <h4 class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Phổ thông</h4>
-                                    <div class="text-2xl font-black text-slate-800">30 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
-                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Lựa chọn tối ưu chi phí.</p>
+                            <div class="package-card-wrapper" 
+                                :class="{ 'active': selectedPackage === 'premium' }"
+                                style="--neon-c1: #c084fc; --neon-c2: #3b82f6; --neon-c3: #22d3ee; --wing-glow-shadow: 0 0 18px rgba(255, 255, 255, 0.95);">
+                                <!-- Wings behind -->
+                                <div class="wings-container">
+                                    <svg class="angel-wing left-wing" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M 180,90 C 150,50 110,30 70,40 C 50,45 30,60 15,80 C 5,90 2,105 7,120 C 12,130 25,140 45,140 C 30,148 20,158 20,168 C 20,178 35,182 60,175 C 45,185 40,195 45,202 C 50,208 65,205 85,190 C 75,200 75,208 80,210 C 85,212 105,195 125,175 C 145,155 170,125 180,90 Z" fill="url(#white-wing-grad)" />
+                                        <path d="M 150,85 C 120,65 85,55 65,60 C 55,62 45,70 35,80" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none" />
+                                        <path d="M 130,105 C 100,90 75,85 60,90" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" fill="none" />
+                                    </svg>
+                                    <svg class="angel-wing right-wing" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M 180,90 C 150,50 110,30 70,40 C 50,45 30,60 15,80 C 5,90 2,105 7,120 C 12,130 25,140 45,140 C 30,148 20,158 20,168 C 20,178 35,182 60,175 C 45,185 40,195 45,202 C 50,208 65,205 85,190 C 75,200 75,208 80,210 C 85,212 105,195 125,175 C 145,155 170,125 180,90 Z" fill="url(#white-wing-grad)" />
+                                        <path d="M 150,85 C 120,65 85,55 65,60 C 55,62 45,70 35,80" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none" />
+                                        <path d="M 130,105 C 100,90 75,85 60,90" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" fill="none" />
+                                    </svg>
                                 </div>
-                                <div class="text-sm font-extrabold text-emerald-600 mt-2">120.000đ</div>
-                                <span v-if="selectedPackage === 'premium'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
+                                <!-- Glow -->
+                                <div class="glow-bg"></div>
+                                <!-- Neon border -->
+                                <div class="neon-border"></div>
+                                <!-- Feathers falling down -->
+                                <div class="feathers-container">
+                                    <div class="feather f-1">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-2">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-3">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-4">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-5">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <!-- Particles -->
+                                <div class="particles-container">
+                                    <span class="particle p-1"></span>
+                                    <span class="particle p-2"></span>
+                                    <span class="particle p-3"></span>
+                                    <span class="particle p-4"></span>
+                                    <span class="particle p-5"></span>
+                                </div>
+                                <!-- Inner card -->
+                                <div @click="selectedPackage = 'premium'" 
+                                    :class="[
+                                        'package-card-inner p-5 rounded-2xl border-2 cursor-pointer flex flex-col justify-between gap-4 h-full relative overflow-hidden bg-white',
+                                        selectedPackage === 'premium' 
+                                            ? 'border-transparent shadow-lg shadow-purple-500/5' 
+                                            : 'border-slate-100 hover:border-slate-200'
+                                    ]">
+                                    <div class="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-bl-lg tracking-wider z-20">Bán chạy</div>
+                                    <div class="space-y-1 relative z-10">
+                                        <h4 class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Phổ thông</h4>
+                                        <div class="text-2xl font-black text-slate-800">30 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
+                                        <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Lựa chọn tối ưu chi phí.</p>
+                                    </div>
+                                    <div class="text-sm font-extrabold text-emerald-600 mt-2 relative z-10">120.000đ</div>
+                                    <span v-if="selectedPackage === 'premium'" class="absolute top-2 right-2 text-emerald-500 z-20"><i class="bi bi-check-circle-fill"></i></span>
+                                </div>
                             </div>
 
                             <!-- Gói Đặc quyền -->
-                            <div @click="selectedPackage = 'vip'" 
-                                :class="[
-                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
-                                    selectedPackage === 'vip' 
-                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
-                                        : 'border-slate-100 hover:border-slate-200 bg-white'
-                                ]">
-                                <div class="space-y-1">
-                                    <h4 class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Đặc quyền</h4>
-                                    <div class="text-2xl font-black text-slate-800">100 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
-                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Dành cho hệ thống nhiều phòng.</p>
+                            <div class="package-card-wrapper" 
+                                :class="{ 'active': selectedPackage === 'vip' }"
+                                style="--neon-c1: #fde047; --neon-c2: #f97316; --neon-c3: #ef4444; --wing-glow-shadow: 0 0 22px rgba(255, 255, 255, 0.98);">
+                                <!-- Wings behind -->
+                                <div class="wings-container">
+                                    <svg class="angel-wing left-wing" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M 180,90 C 150,50 110,30 70,40 C 50,45 30,60 15,80 C 5,90 2,105 7,120 C 12,130 25,140 45,140 C 30,148 20,158 20,168 C 20,178 35,182 60,175 C 45,185 40,195 45,202 C 50,208 65,205 85,190 C 75,200 75,208 80,210 C 85,212 105,195 125,175 C 145,155 170,125 180,90 Z" fill="url(#white-wing-grad)" />
+                                        <path d="M 150,85 C 120,65 85,55 65,60 C 55,62 45,70 35,80" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none" />
+                                        <path d="M 130,105 C 100,90 75,85 60,90" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" fill="none" />
+                                    </svg>
+                                    <svg class="angel-wing right-wing" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M 180,90 C 150,50 110,30 70,40 C 50,45 30,60 15,80 C 5,90 2,105 7,120 C 12,130 25,140 45,140 C 30,148 20,158 20,168 C 20,178 35,182 60,175 C 45,185 40,195 45,202 C 50,208 65,205 85,190 C 75,200 75,208 80,210 C 85,212 105,195 125,175 C 145,155 170,125 180,90 Z" fill="url(#white-wing-grad)" />
+                                        <path d="M 150,85 C 120,65 85,55 65,60 C 55,62 45,70 35,80" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none" />
+                                        <path d="M 130,105 C 100,90 75,85 60,90" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" fill="none" />
+                                    </svg>
                                 </div>
-                                <div class="text-sm font-extrabold text-emerald-600 mt-2">300.000đ</div>
-                                <span v-if="selectedPackage === 'vip'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
+                                <!-- Glow -->
+                                <div class="glow-bg"></div>
+                                <!-- Neon border -->
+                                <div class="neon-border"></div>
+                                <!-- Feathers falling down -->
+                                <div class="feathers-container">
+                                    <div class="feather f-1">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-2">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-3">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-4">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="feather f-5">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2C12 2 10 5 8 8C6 11 5 14 7 17C9 20 12 21 14 20C17 19 18 16 16 13C14 10 12 2 12 2Z" fill="rgba(255, 255, 255, 0.85)" />
+                                            <path d="M12 2C11.5 5 10 8 9.5 11" stroke="rgba(226, 232, 240, 0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <!-- Particles -->
+                                <div class="particles-container">
+                                    <span class="particle p-1"></span>
+                                    <span class="particle p-2"></span>
+                                    <span class="particle p-3"></span>
+                                    <span class="particle p-4"></span>
+                                    <span class="particle p-5"></span>
+                                </div>
+                                <!-- Inner card -->
+                                <div @click="selectedPackage = 'vip'" 
+                                    :class="[
+                                        'package-card-inner p-5 rounded-2xl border-2 cursor-pointer flex flex-col justify-between gap-4 h-full relative overflow-hidden bg-white',
+                                        selectedPackage === 'vip' 
+                                            ? 'border-transparent shadow-lg shadow-orange-500/5' 
+                                            : 'border-slate-100 hover:border-slate-200'
+                                    ]">
+                                    <div class="space-y-1 relative z-10">
+                                        <h4 class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Đặc quyền</h4>
+                                        <div class="text-2xl font-black text-slate-800">100 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
+                                        <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Dành cho hệ thống nhiều phòng.</p>
+                                    </div>
+                                    <div class="text-sm font-extrabold text-emerald-600 mt-2 relative z-10">300.000đ</div>
+                                    <span v-if="selectedPackage === 'vip'" class="absolute top-2 right-2 text-emerald-500 z-20"><i class="bi bi-check-circle-fill"></i></span>
+                                </div>
                             </div>
                         </div>
 
@@ -431,3 +627,253 @@ const buyPackage = (pkg) => {
         </div>
     </LandlordLayout>
 </template>
+
+<style scoped>
+/* Card Container Wrapper */
+.package-card-wrapper {
+  position: relative;
+  height: 100%;
+  perspective: 1000px;
+  z-index: 1;
+}
+
+/* 3D Hover & Lift */
+.package-card-inner {
+  position: relative;
+  height: 100%;
+  z-index: 10;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.5s ease, border-color 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.package-card-wrapper:hover .package-card-inner {
+  transform: translateY(-8px) rotateX(4deg) rotateY(-4deg);
+}
+
+.package-card-wrapper.active .package-card-inner {
+  transform: translateY(-4px) scale(1.01);
+}
+
+/* Wing Styling */
+.wings-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.angel-wing {
+  position: absolute;
+  top: -15px;
+  width: 130px;
+  height: 130px;
+  opacity: 0;
+  transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.6s ease, filter 0.6s ease;
+}
+
+.left-wing {
+  right: 52%;
+  transform: translateX(30px) scale(0.4) rotate(-35deg);
+  transform-origin: right center;
+}
+
+.right-wing {
+  left: 52%;
+  transform: translateX(-30px) scale(0.4) rotate(35deg) scaleX(-1);
+  transform-origin: left center;
+}
+
+/* Hover/Active states for wings */
+.package-card-wrapper:hover .left-wing,
+.package-card-wrapper.active .left-wing {
+  opacity: 0.95;
+  transform: translateX(-105px) scale(1.2) rotate(5deg);
+  filter: drop-shadow(var(--wing-glow-shadow));
+  animation: wingFlopLeft 3s ease-in-out infinite alternate;
+}
+
+.package-card-wrapper:hover .right-wing,
+.package-card-wrapper.active .right-wing {
+  opacity: 0.95;
+  transform: translateX(105px) scale(1.2) rotate(-5deg) scaleX(-1);
+  filter: drop-shadow(var(--wing-glow-shadow));
+  animation: wingFlopRight 3s ease-in-out infinite alternate;
+}
+
+@keyframes wingFlopLeft {
+  0% { transform: translateX(-105px) scale(1.2) rotate(5deg); }
+  100% { transform: translateX(-108px) scale(1.23) rotate(12deg); }
+}
+
+@keyframes wingFlopRight {
+  0% { transform: translateX(105px) scale(1.2) rotate(-5deg) scaleX(-1); }
+  100% { transform: translateX(108px) scale(1.23) rotate(-12deg) scaleX(-1); }
+}
+
+/* Feathers falling down */
+.feathers-container {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 16px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.package-card-wrapper:hover .feathers-container,
+.package-card-wrapper.active .feathers-container {
+  opacity: 1;
+}
+
+.feather {
+  position: absolute;
+  top: -20px;
+  width: 16px;
+  height: 16px;
+  opacity: 0;
+}
+
+.package-card-wrapper:hover .feather,
+.package-card-wrapper.active .feather {
+  animation: featherFall var(--fall-dur) infinite linear;
+  animation-delay: var(--fall-delay);
+}
+
+.f-1 { left: 15%; --fall-dur: 3.5s; --fall-delay: 0.2s; transform: rotate(15deg); }
+.f-2 { left: 35%; --fall-dur: 4.2s; --fall-delay: 1.0s; transform: rotate(-20deg); }
+.f-3 { left: 55%; --fall-dur: 3.8s; --fall-delay: 0.5s; transform: rotate(10deg); }
+.f-4 { left: 75%; --fall-dur: 4.5s; --fall-delay: 1.8s; transform: rotate(-15deg); }
+.f-5 { left: 90%; --fall-dur: 3.9s; --fall-delay: 0.8s; transform: rotate(25deg); }
+
+@keyframes featherFall {
+  0% {
+    transform: translateY(-20px) translateX(0) rotate(0deg) scale(0.6);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(80px) translateX(15px) rotate(45deg) scale(0.85);
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(220px) translateX(-15px) rotate(90deg) scale(0.7);
+    opacity: 0;
+  }
+}
+
+/* Neon Border Glow */
+.neon-border {
+  position: absolute;
+  inset: -2px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, var(--neon-c1), var(--neon-c2), var(--neon-c3), var(--neon-c1));
+  background-size: 300% 300%;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.package-card-wrapper:hover .neon-border {
+  opacity: 0.45;
+  animation: neonFlow 4s linear infinite;
+}
+
+.package-card-wrapper.active .neon-border {
+  opacity: 1;
+  animation: neonFlow 3s linear infinite;
+}
+
+@keyframes neonFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glow Effect Backing */
+.glow-bg {
+  position: absolute;
+  inset: -5px;
+  border-radius: 20px;
+  background: radial-gradient(circle, var(--neon-c2) 0%, transparent 70%);
+  z-index: 0;
+  opacity: 0;
+  filter: blur(15px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none;
+}
+
+.package-card-wrapper:hover .glow-bg {
+  opacity: 0.3;
+  transform: scale(1.05);
+}
+
+.package-card-wrapper.active .glow-bg {
+  opacity: 0.7;
+  transform: scale(1.1);
+  animation: glowPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes glowPulse {
+  0% { filter: blur(12px); opacity: 0.5; }
+  100% { filter: blur(18px); opacity: 0.8; }
+}
+
+/* Particles Container & Styling */
+.particles-container {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  overflow: hidden;
+  border-radius: 16px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.package-card-wrapper:hover .particles-container,
+.package-card-wrapper.active .particles-container {
+  opacity: 1;
+}
+
+.particle {
+  position: absolute;
+  bottom: -10px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--neon-c2);
+  box-shadow: 0 0 8px var(--neon-c1);
+  opacity: 0;
+}
+
+.p-1 { left: 15%; width: 4px; height: 4px; animation: floatUp 2.2s infinite ease-in; animation-delay: 0.1s; }
+.p-2 { left: 35%; width: 3px; height: 3px; animation: floatUp 2.8s infinite ease-in; animation-delay: 0.7s; }
+.p-3 { left: 55%; width: 5px; height: 5px; animation: floatUp 2.0s infinite ease-in; animation-delay: 0.3s; }
+.p-4 { left: 75%; width: 3px; height: 3px; animation: floatUp 2.5s infinite ease-in; animation-delay: 1.1s; }
+.p-5 { left: 85%; width: 4px; height: 4px; animation: floatUp 1.8s infinite ease-in; animation-delay: 0.5s; }
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-130px) scale(1.3);
+    opacity: 0;
+  }
+}
+</style>
