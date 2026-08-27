@@ -364,11 +364,11 @@ const isRoomFull = (ls) => {
                 <!-- Center elements -->
                 <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-                <div class="inline-block align-bottom bg-white rounded-[32px] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-100">
-                    <div class="p-8">
+                <div class="inline-block align-bottom bg-slate-900/40 backdrop-blur-md rounded-[32px] text-left overflow-visible shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-white/10">
+                    <div class="p-8 bg-white/95 rounded-[32px] relative overflow-visible">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-base font-black text-slate-800 flex items-center gap-2">
-                                <i class="bi bi-gem text-emerald-500 text-lg"></i>
+                                <i class="bi bi-gem text-emerald-500 text-lg animate-pulse"></i>
                                 Chọn gói đẩy tin đăng quảng cáo
                             </h3>
                             <button @click="showPackageModal = false" class="text-slate-400 hover:text-slate-600 transition-colors">
@@ -376,67 +376,85 @@ const isRoomFull = (ls) => {
                             </button>
                         </div>
 
-                        <p class="text-xs text-slate-400 mb-8 font-medium">
+                        <p class="text-xs text-slate-500 mb-8 font-medium">
                             Giúp tin đăng của bạn luôn hiển thị nổi bật ở các vị trí vàng trên trang chủ Ninh Bình Homestay. Thanh toán giả lập (mock payment) ngay lập tức cộng lượt đẩy vào tài khoản.
                         </p>
 
-                        <!-- Gói Cước Grid -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <!-- Gói Cước Grid (Glassmorphism 3D Theme) -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 py-4">
                             <!-- Gói Cơ bản -->
-                            <div @click="selectedPackage = 'standard'" 
-                                :class="[
-                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
-                                    selectedPackage === 'standard' 
-                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
-                                        : 'border-slate-100 hover:border-slate-200 bg-white'
-                                ]">
-                                <div class="space-y-1">
-                                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cơ bản</h4>
-                                    <div class="text-2xl font-black text-slate-800">10 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
-                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Phù hợp cho chủ trọ ít phòng.</p>
+                            <div class="glass-card-wrapper" 
+                                :class="{ 'active': selectedPackage === 'standard' }"
+                                style="--glow-color: rgba(14, 165, 233, 0.16); --glow-color-active: #0ea5e9; --active-rgb: 14, 165, 233;">
+                                <!-- Ambient Glow Behind -->
+                                <div class="glass-card-glow"></div>
+                                <!-- Inner Glass Card -->
+                                <div @click="selectedPackage = 'standard'" 
+                                    :class="[
+                                        'glass-card-inner p-5 rounded-2xl cursor-pointer flex flex-col justify-between gap-4 h-full relative overflow-hidden',
+                                        selectedPackage === 'standard' ? 'active-border' : 'inactive-border'
+                                    ]">
+                                    <div class="glass-shine"></div>
+                                    <div class="space-y-1 relative z-10">
+                                        <h4 class="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Cơ bản</h4>
+                                        <div class="text-2xl font-black text-slate-800">10 <span class="text-xs font-bold text-slate-500">lượt</span></div>
+                                        <p class="text-[10px] text-slate-600 leading-relaxed font-semibold">Phù hợp cho chủ trọ ít phòng.</p>
+                                    </div>
+                                    <div class="text-sm font-extrabold text-emerald-600 mt-2 relative z-10">50.000đ</div>
+                                    <span v-if="selectedPackage === 'standard'" class="absolute top-2 right-2 text-emerald-500 z-20"><i class="bi bi-check-circle-fill"></i></span>
                                 </div>
-                                <div class="text-sm font-extrabold text-emerald-600 mt-2">50.000đ</div>
-                                <span v-if="selectedPackage === 'standard'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
                             </div>
 
                             <!-- Gói Phổ thông -->
-                            <div @click="selectedPackage = 'premium'" 
-                                :class="[
-                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
-                                    selectedPackage === 'premium' 
-                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
-                                        : 'border-slate-100 hover:border-slate-200 bg-white'
-                                ]">
-                                <div class="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-bl-lg tracking-wider">Bán chạy</div>
-                                <div class="space-y-1">
-                                    <h4 class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Phổ thông</h4>
-                                    <div class="text-2xl font-black text-slate-800">30 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
-                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Lựa chọn tối ưu chi phí.</p>
+                            <div class="glass-card-wrapper" 
+                                :class="{ 'active': selectedPackage === 'premium' }"
+                                style="--glow-color: rgba(168, 85, 247, 0.18); --glow-color-active: #a855f7; --active-rgb: 168, 85, 247;">
+                                <!-- Ambient Glow Behind -->
+                                <div class="glass-card-glow"></div>
+                                <!-- Inner Glass Card -->
+                                <div @click="selectedPackage = 'premium'" 
+                                    :class="[
+                                        'glass-card-inner p-5 rounded-2xl cursor-pointer flex flex-col justify-between gap-4 h-full relative overflow-hidden',
+                                        selectedPackage === 'premium' ? 'active-border' : 'inactive-border'
+                                    ]">
+                                    <div class="glass-shine"></div>
+                                    <div class="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black uppercase px-2.5 py-0.5 rounded-bl-lg tracking-wider z-20">Bán chạy</div>
+                                    <div class="space-y-1 relative z-10">
+                                        <h4 class="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Phổ thông</h4>
+                                        <div class="text-2xl font-black text-slate-800">30 <span class="text-xs font-bold text-slate-500">lượt</span></div>
+                                        <p class="text-[10px] text-slate-600 leading-relaxed font-semibold">Lựa chọn tối ưu chi phí.</p>
+                                    </div>
+                                    <div class="text-sm font-extrabold text-emerald-600 mt-2 relative z-10">120.000đ</div>
+                                    <span v-if="selectedPackage === 'premium'" class="absolute top-2 right-2 text-emerald-500 z-20"><i class="bi bi-check-circle-fill"></i></span>
                                 </div>
-                                <div class="text-sm font-extrabold text-emerald-600 mt-2">120.000đ</div>
-                                <span v-if="selectedPackage === 'premium'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
                             </div>
 
                             <!-- Gói Đặc quyền -->
-                            <div @click="selectedPackage = 'vip'" 
-                                :class="[
-                                    'p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-4 h-full relative overflow-hidden',
-                                    selectedPackage === 'vip' 
-                                        ? 'border-emerald-500 bg-emerald-50/20 shadow-lg shadow-emerald-500/5' 
-                                        : 'border-slate-100 hover:border-slate-200 bg-white'
-                                ]">
-                                <div class="space-y-1">
-                                    <h4 class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Đặc quyền</h4>
-                                    <div class="text-2xl font-black text-slate-800">100 <span class="text-xs font-semibold text-slate-500">lượt</span></div>
-                                    <p class="text-[10px] text-slate-400 leading-relaxed font-medium">Dành cho hệ thống nhiều phòng.</p>
+                            <div class="glass-card-wrapper" 
+                                :class="{ 'active': selectedPackage === 'vip' }"
+                                style="--glow-color: rgba(249, 115, 22, 0.2); --glow-color-active: #f97316; --active-rgb: 249, 115, 22;">
+                                <!-- Ambient Glow Behind -->
+                                <div class="glass-card-glow"></div>
+                                <!-- Inner Glass Card -->
+                                <div @click="selectedPackage = 'vip'" 
+                                    :class="[
+                                        'glass-card-inner p-5 rounded-2xl cursor-pointer flex flex-col justify-between gap-4 h-full relative overflow-hidden',
+                                        selectedPackage === 'vip' ? 'active-border' : 'inactive-border'
+                                    ]">
+                                    <div class="glass-shine"></div>
+                                    <div class="space-y-1 relative z-10">
+                                        <h4 class="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Đặc quyền</h4>
+                                        <div class="text-2xl font-black text-slate-800">100 <span class="text-xs font-bold text-slate-500">lượt</span></div>
+                                        <p class="text-[10px] text-slate-600 leading-relaxed font-semibold">Dành cho hệ thống nhiều phòng.</p>
+                                    </div>
+                                    <div class="text-sm font-extrabold text-emerald-600 mt-2 relative z-10">300.000đ</div>
+                                    <span v-if="selectedPackage === 'vip'" class="absolute top-2 right-2 text-emerald-500 z-20"><i class="bi bi-check-circle-fill"></i></span>
                                 </div>
-                                <div class="text-sm font-extrabold text-emerald-600 mt-2">300.000đ</div>
-                                <span v-if="selectedPackage === 'vip'" class="absolute top-2 right-2 text-emerald-500"><i class="bi bi-check-circle-fill"></i></span>
                             </div>
                         </div>
 
                         <!-- Actions -->
-                        <div class="flex gap-3 justify-end">
+                        <div class="flex gap-3 justify-end relative z-10">
                             <button type="button" @click="showPackageModal = false"
                                 class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-colors">
                                 Hủy bỏ
@@ -453,3 +471,130 @@ const isRoomFull = (ls) => {
         </div>
     </LandlordLayout>
 </template>
+
+<style scoped>
+/* Glass Card Wrapper */
+.glass-card-wrapper {
+  position: relative;
+  height: 100%;
+  perspective: 1000px;
+  z-index: 1;
+}
+
+/* 3D Tilt Effect */
+.glass-card-inner {
+  position: relative;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-radius: 16px;
+  z-index: 10;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), 
+              background 0.3s ease, 
+              box-shadow 0.3s ease, 
+              border-color 0.3s ease;
+  transform-style: preserve-3d;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Active State Border & Background */
+.active-border {
+  border: 2px solid var(--glow-color-active) !important;
+  background: rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 0 10px 30px -5px rgba(var(--active-rgb), 0.15),
+              inset 0 1px 2px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.inactive-border {
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* 3D Hover tilt & gloss increase */
+.glass-card-wrapper:hover .glass-card-inner {
+  transform: translateY(-6px) rotateX(6deg) rotateY(-6deg);
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Ambient Glow behind the card */
+.glass-card-glow {
+  position: absolute;
+  inset: -10px;
+  background: radial-gradient(circle, var(--glow-color) 0%, transparent 70%);
+  border-radius: 24px;
+  z-index: 0;
+  opacity: 0.4;
+  filter: blur(10px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none;
+}
+
+.glass-card-wrapper:hover .glass-card-glow {
+  opacity: 0.8;
+  transform: scale(1.08);
+}
+
+.glass-card-wrapper.active .glass-card-glow {
+  opacity: 1;
+  transform: scale(1.12);
+  animation: floatGlow 4s ease-in-out infinite alternate;
+}
+
+@keyframes floatGlow {
+  0% { transform: scale(1.1) translateY(0); filter: blur(10px); }
+  100% { transform: scale(1.15) translateY(-4px); filter: blur(14px); }
+}
+
+/* Reflective Shine Light sweeping overlay */
+.glass-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.glass-shine::after {
+  content: '';
+  position: absolute;
+  top: -150%;
+  left: -150%;
+  width: 300%;
+  height: 300%;
+  background: linear-gradient(
+    45deg,
+    transparent 45%,
+    rgba(255, 255, 255, 0.1) 48%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0.1) 52%,
+    transparent 55%
+  );
+  transform: rotate(-15deg);
+}
+
+.glass-card-wrapper:hover .glass-shine::after {
+  animation: shineSweep 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.glass-card-wrapper.active .glass-shine::after {
+  animation: shineSweep 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+  animation-delay: 0.8s;
+}
+
+@keyframes shineSweep {
+  0% {
+    top: -150%;
+    left: -150%;
+  }
+  100% {
+    top: 50%;
+    left: 50%;
+  }
+}
+</style>
+
