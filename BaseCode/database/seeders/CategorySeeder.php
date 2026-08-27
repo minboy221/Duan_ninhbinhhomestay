@@ -20,22 +20,55 @@ class CategorySeeder extends Seeder
             ['name' => 'Căn hộ dịch vụ',   'icon' => 'bi-buildings'],
         ];
         foreach ($categories as $cat) {
-            Category::create($cat);
+            Category::firstOrCreate(['name' => $cat['name']], $cat);
         }
 
-        // Khu vực (Huyện/Thành phố thuộc Ninh Bình) - có kèm mã nhúng Google Maps
-        $areas = [
-            ['name' => 'TP. Ninh Bình',   'icon' => 'bi-geo-alt-fill', 'map_embed' => '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d59745.20735948975!2d105.94!3d20.25!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3136814a12811cf3%3A0xd1e9fb9944fa5e68!2zVGjDoG5oIHBo4buRIE5pbmggQsOsbmg!5e0!3m2!1svi!2svn!4v1" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>'],
-            ['name' => 'TP. Tam Điệp',    'icon' => 'bi-geo-alt-fill', 'map_embed' => '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d59808.74!2d105.88!3d20.16!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31368be8cebc5d65%3A0xf0eaebb211bce29!2zVGjDoG5oIHBo4buRIFRhbSBEaeG7h3A!5e0!3m2!1svi!2svn!4v1" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>'],
-            ['name' => 'Hoa Lư',          'icon' => 'bi-geo-alt', 'map_embed' => '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d59770.21!2d105.89!3d20.28!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31368a8f64bc9aff%3A0xdce4bab4e9aa0b38!2zSG9hIEzGsCwgTmluaCBCw6xuaCwgVmnhu4d0IE5hbQ!5e0!3m2!1svi!2svn!4v1" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>'],
-            ['name' => 'Gia Viễn',        'icon' => 'bi-geo-alt'],
-            ['name' => 'Nho Quan',        'icon' => 'bi-geo-alt'],
-            ['name' => 'Yên Khánh',       'icon' => 'bi-geo-alt'],
-            ['name' => 'Kim Sơn',         'icon' => 'bi-geo-alt'],
-            ['name' => 'Yên Mô',          'icon' => 'bi-geo-alt'],
+        // Khu vực (Nạp đầy đủ 33 Phường/Xã thuộc Hà Nam từ hằng số HA_NAM_COMMUNES)
+        $haNamCommunes = [
+            "Xã Bình Lục",
+            "Xã Bình Mỹ",
+            "Xã Bình An",
+            "Xã Bình Giang",
+            "Xã Bình Sơn",
+            "Xã Liêm Hà",
+            "Xã Tân Thanh",
+            "Xã Thanh Bình",
+            "Xã Thanh Lâm",
+            "Xã Thanh Liêm",
+            "Xã Lý Nhân",
+            "Xã Nam Xang",
+            "Xã Bắc Lý",
+            "Xã Vĩnh Trụ",
+            "Xã Trần Thương",
+            "Xã Nhân Hòa",
+            "Xã Nam Lý",
+            "Phường Duy Tiên",
+            "Phường Duy Tân",
+            "Phường Đồng Văn",
+            "Phường Duy Hà",
+            "Phường Tiên Sơn",
+            "Phường Lê Hồ",
+            "Phường Nguyễn Úy",
+            "Phường Lý Thường Kiệt",
+            "Phường Kim Thanh",
+            "Phường Tam Chúc",
+            "Phường Kim Bảng",
+            "Phường Hà Nam",
+            "Phường Phù Vân",
+            "Phường Châu Sơn",
+            "Phường Phủ Lý",
+            "Phường Liêm Tuyền"
         ];
-        foreach ($areas as $area) {
-            Area::create($area);
+
+        foreach ($haNamCommunes as $communeName) {
+            $data = [
+                'name' => $communeName,
+                'icon' => str_starts_with($communeName, 'Phường') ? 'bi-geo-alt-fill' : 'bi-geo-alt',
+            ];
+            if ($communeName === 'Phường Phủ Lý') {
+                $data['map_embed'] = '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d59745!2d105.91!3d20.54!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135cf570d8a5725%3A0x8849b2512f455c11!2zVFAuIFBow7ogTMO9LCBIw6AgTmFt!5e0!3m2!1svi!2svn!4v1" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>';
+            }
+            Area::firstOrCreate(['name' => $communeName], $data);
         }
 
         // Tiện ích phòng trọ (Danh sách tiện ích dịch vụ chuẩn)
@@ -51,7 +84,7 @@ class CategorySeeder extends Seeder
             ['name' => 'Phí phát sinh',      'icon' => 'bi-plus-circle'],
         ];
         foreach ($amenities as $amenity) {
-            Amenity::create($amenity);
+            Amenity::firstOrCreate(['name' => $amenity['name']], $amenity);
         }
 
         $this->command->info('✅ Dữ liệu danh mục đã được tạo thành công!');

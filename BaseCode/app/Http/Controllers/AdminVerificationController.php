@@ -46,43 +46,74 @@ class AdminVerificationController extends Controller
                 $request->action,
                 $request->reason
             );
+            //ghi log
+            $action = $request->action === 'approve' ? 'approve_verification' : 'reject_verification';
+            $actionText = $request->action === 'approve' ? 'Phê duyệt' : 'Từ chối';
+            //tìm thông tin email của người dùng bị tác động
+            $targetUser = \App\Models\User::find($userId);
+            $email = $targetUser ? $targetUser->email : 'ID # {$userId}';
+            $reasonText = $request->reason ? "(Lý do: " . $request->reason . ")" : "";
+            \App\Services\AuditLogger::log(
+                $action,
+                "{$actionText} hồ sơ làm chủ trọ của tài khoản: {$email}{$reasonText}",
+                false
+            );
             return redirect()->route('admin.verifications.index')->with('success', $result['message']);
         } catch (\Exception $e) {
             return back()->with('error', 'có lỗi hệ thống xảy ra:' . $e->getMessage());
         }
     }
-    //hàm đọc ảnh từ file private
+    // Hàm đọc ảnh từ file private/public một cách an toàn cho Admin và chủ sở hữu
     public function showPrivateFile($type, $filename)
     {
+        // Phân quyền: Kiểm tra user đăng nhập có quyền xem không
         $user = auth()->user();
-        if ($user->role !== 'admin') {
+        if ($user && $user->role !== 'admin') {
             if (!str_contains($filename, 'user_' . $user->id . '_')) {
                 abort(403, 'Không có quyền truy cập file này.');
             }
         }
 
-        // 1. Phân loại thư mục
-        $folder = '';
+        $cleanFilename = basename(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $filename));
+        $candidatePaths = [];
+
         if (in_array($type, ['id_cards', 'faces'])) {
-            $folder = "kyc/" . $type;
-        } elseif (in_array($type, ['contracts', 'rooms'])) {
-            $folder = "properties/" . $type;
-        } else {
-            abort(404);
+            $candidatePaths[] = storage_path('app/private/kyc/' . $type . '/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/public/kyc/' . $type . '/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/private/' . $type . '/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/private/kyc/' . $cleanFilename);
+        } elseif (in_array($type, ['contracts'])) {
+            $candidatePaths[] = storage_path('app/private/properties/contracts/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/public/properties/contracts/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/public/boarding_houses/contracts/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/private/boarding_houses/contracts/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/private/contracts/' . $cleanFilename);
+        } elseif ($type === 'rooms') {
+            $candidatePaths[] = storage_path('app/public/properties/rooms/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/private/properties/rooms/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/public/boarding_houses/rooms/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/private/boarding_houses/rooms/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/public/rooms/' . $cleanFilename);
+            $candidatePaths[] = storage_path('app/private/rooms/' . $cleanFilename);
         }
 
-        // 2. Ghép đường dẫn tương đối (để check exists)
-        $path = "private/" . $folder . "/" . $filename;
-
-        // 3. Ghép đường dẫn tuyệt đối (để trả về file)
-        $fullPath = storage_path("app/" . $path);
-
-        // 4. Kiểm tra xem file có tồn tại không
-        if (!\Storage::disk('local')->exists($path)) {
-            abort(404, 'Không tìm thấy file ảnh thực tế trên hệ thống.');
+        foreach ($candidatePaths as $candidate) {
+            if (file_exists($candidate) && is_file($candidate)) {
+                return response()->file($candidate);
+            }
         }
 
-        // 5. Trả file ra ngoài (Sử dụng biến $fullPath an toàn 100%)
-        return response()->file($fullPath);
+        // Quét tìm trong private hoặc public nếu file nằm ở thư mục khác
+        $privateMatches = glob(storage_path('app/private/**/' . $cleanFilename));
+        if (!empty($privateMatches) && is_file($privateMatches[0])) {
+            return response()->file($privateMatches[0]);
+        }
+
+        $publicMatches = glob(storage_path('app/public/**/' . $cleanFilename));
+        if (!empty($publicMatches) && is_file($publicMatches[0])) {
+            return response()->file($publicMatches[0]);
+        }
+
+        abort(404, 'Không tìm thấy file ảnh thực tế trên hệ thống.');
     }
 }

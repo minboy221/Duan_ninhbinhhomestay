@@ -20,11 +20,16 @@ class BoardingHouse extends Model
         'status',
         'latitude',
         'longitude',
+        'cancel_after_minutes',
+        'directions_guide',
+        'invoice_billing_day',
     ];
     protected $casts = [
         'contract_images' => 'array',
         'room_images' => 'array',
     ];
+
+    protected $appends = ['average_rating'];
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -39,5 +44,39 @@ class BoardingHouse extends Model
             'user_id',       // Khóa nội bộ trên bảng boarding_houses lưu ID chủ trọ
             'id'             // Khóa nội bộ trên bảng properties
         );
+    }
+
+    public function landlord()
+    {
+        // Liên kết bảng BoardingHouse với bảng Users qua khoá ngoại user_id
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function rooms()
+    {
+        return $this->hasMany(Room::class, 'boarding_house_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasManyThrough(Review::class, Room::class, 'boarding_house_id', 'room_id');
+    }
+
+    public function realReviews()
+    {
+        return $this->hasManyThrough(Review::class, Room::class, 'boarding_house_id', 'room_id')
+            ->where('reviews.tenant_id', '!=', $this->user_id)
+            ->whereHas('tenant', function($q) {
+                $q->where('role', '!=', 'admin');
+            });
+    }
+
+    public function getAverageRatingAttribute()
+    {
+        return $this->realReviews()->count() > 0 ? round($this->realReviews()->avg('rating'), 1) : 0;
+    }
+
+    public function propertyManager(){
+        return $this->hasOne(PropertyManager::class,'boarding_house_id');
     }
 }

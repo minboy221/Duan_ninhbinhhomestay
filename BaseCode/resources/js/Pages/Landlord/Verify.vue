@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import * as faceapi from 'face-api.js'; // Import thư viện AI
+import { showSuccess, showError, showWarning } from '@/Utils/swal';
 
 const currentStep = ref(1);
 const isModelsLoaded = ref(false);
@@ -30,7 +31,7 @@ onMounted(async () => {
 //phần hàm xử lý so sánh 2 ảnh ở bước 3
 const compareFaces = async (idCardFile, selfieFile) => {
     if (!isModelsLoaded.value) {
-        alert('hệ thống AI đang khởi động, vui lòng đợi');
+        showWarning('Đang khởi động', 'Hệ thống AI đang khởi động, vui lòng đợi trong giây lát!');
         return;
     }
     // Tạo các thẻ <img> ảo trong bộ nhớ để AI có thể đọc được ảnh từ File
@@ -41,11 +42,11 @@ const compareFaces = async (idCardFile, selfieFile) => {
     const detection2 = await faceapi.detectSingleFace(img2).withFaceLandmarks().withFaceDescriptor();
 
     if (!detection1) {
-        alert('Không tìm thấy khuôn mặt trên ảnh CCCD!');
+        showError('Lỗi xác minh', 'Không tìm thấy khuôn mặt trên ảnh CCCD!');
         return false;
     }
     if (!detection2) {
-        alert('Không tìm thấy khuôn mặt trên ảnh chụp thực tế!');
+        showError('Lỗi xác minh', 'Không tìm thấy khuôn mặt trên ảnh chụp thực tế!');
         return false;
     }
     //tính khoảng cách giữa 2 khuôn mặt
@@ -69,13 +70,13 @@ const submitVerification = async () => {
     form.processing = false;
 
     if (!isMatched) {
-        alert('khuôn mặt không khớp với CCCD. Vui lòng chụp lại!');
+        showError('Xác minh thất bại', 'Khuôn mặt không khớp với CCCD. Vui lòng chụp lại!');
         return;
     }
     //nếu khớp, gửi toàn bộ dữ liệu xuống backend
     form.post(route('landlord.verify.store'), {
         preserveScroll: true,
-        onSuccess: () => alert('Đã gửi hồ sơ xác minh thành công!'),
+        onSuccess: () => showSuccess('Thành công', 'Đã gửi hồ sơ xác minh thành công!'),
     });
 };
 </script>

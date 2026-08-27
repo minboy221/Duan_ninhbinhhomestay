@@ -11,7 +11,7 @@
         height: auto;
         /* Bỏ chiều cao cố định 900px */
         gap: 20px;
-        margin: 20px auto 40px;
+        margin: 120px auto 40px;
         padding: 0 15px;
     }
 
@@ -25,7 +25,7 @@
     }
 
     .bao-user {
-        margin-top: 70px;
+        margin-top: 0;
         width: 100%;
         height: auto;
         /* Bỏ chiều cao cố định 550px */
@@ -42,7 +42,7 @@
         height: auto;
         /* Bỏ chiều cao cố định 650px */
         padding: 15px;
-        border-radius: 25px;
+        border-radius: 10px;
         /* Giảm bo góc cho vừa màn hình mobile */
     }
 
@@ -84,7 +84,7 @@
     .form-group select {
         width: 100%;
         padding: 12px 15px;
-        border-radius: 10px;
+        border-radius: 6px;
         border: 1px solid #ddd;
         font-size: 14px;
         background-color: #fff;
@@ -182,7 +182,7 @@
         flex-direction: column;
         height: auto;
         gap: 30px;
-        margin: 30px auto;
+        margin: 120px auto 30px;
         padding: 0 20px;
     }
 
@@ -233,7 +233,7 @@
     .form-group select {
         width: 100%;
         padding: 12px 15px;
-        border-radius: 10px;
+        border-radius: 6px;
         border: 1px solid #ddd;
         font-size: 14px;
         background-color: #fff;

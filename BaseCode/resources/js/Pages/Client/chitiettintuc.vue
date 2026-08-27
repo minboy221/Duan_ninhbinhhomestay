@@ -181,14 +181,18 @@ const formatDate = (dateStr) => {
 
     <Head :title="post.title + ' | Ninh Bình HomeStay'" />
     <MainLayout>
-        <!-- điều hướng -->
-        <div class="dieuhuong">
-            <div class="baodieuhuong">
-                <Link :href="route('home')">Trang Chủ</Link> /
-                <Link :href="route('tintuc')">Tin Tức</Link> /
-                <span>{{ post.title }}</span>
+        <template #breadcrumb>
+            <!-- điều hướng -->
+            <div class="dieuhuong">
+                <div class="baodieuhuong">
+                    <Link :href="route('home')">Trang Chủ</Link> /
+                    <Link :href="route('tintuc')">Tin Tức</Link> /
+                    <span>{{ post.title }}</span>
+                </div>
             </div>
-        </div>
+        </template>
+
+        <div class="chitiettintuc-container">
         <!-- phần layout bao chi tiết tin tức -->
         <div class="layout">
             <section class="left_section">
@@ -407,6 +411,7 @@ const formatDate = (dateStr) => {
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     </MainLayout>
 </template>
@@ -817,5 +822,29 @@ const formatDate = (dateStr) => {
     to {
         transform: rotate(360deg);
     }
+}
+
+.chitiettintuc-container {
+    max-width: 1200px;
+    margin: 155px auto 0;
+    padding: 0 10px;
+}
+
+.dieuhuong {
+    position: absolute !important;
+    top: calc(100% - 2px) !important;
+    left: 35px !important;
+    transform: none !important;
+    width: auto;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 0 0 20px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-top: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    z-index: 98;
+    white-space: nowrap;
 }
 </style>

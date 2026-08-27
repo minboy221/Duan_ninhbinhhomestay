@@ -25,6 +25,8 @@ class UpdateRoomPostRequest extends FormRequest
             'action' => 'required|string|in:draft,publish',
             'room_id' => 'required|exists:rooms,id',
             'title' => 'required|string|min:10|max:255',
+            'current_people' => 'nullable|integer|min:0',
+            'capacity' => 'nullable|integer|min:1',
             'existing_images' => 'nullable|array', //mảng các link ảnh sẽ giữ lại
             'address' => 'nullable|string',
             'latitude'=> 'nullable|numeric',
@@ -35,7 +37,7 @@ class UpdateRoomPostRequest extends FormRequest
             $rules['description'] = 'required|string|min:20';
             //nếu không giữ ảnh cũ thì bắt buộc phải chọn ảnh mới tải lên
             if (empty($this->input('existing_images'))) {
-                $rules['image'] = 'required|array|min:1';
+                $rules['images'] = 'required|array|min:1';
             } else {
                 $rules['images'] = 'nullable|array';
             }

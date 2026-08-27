@@ -5,16 +5,17 @@
 
 /* Mobile (<= 767px) */
 @media screen and (max-width: 767px) {
+    .chitiettro-container {
+        margin-top: 90px;
+    }
+
     .dieuhuong {
-        margin-top: 70px;
-        margin-left: 20px;
-        height: 45px;
-        position: fixed;
+        display: none;
     }
 
     .layout {
         flex-direction: column;
-        margin-top: 50px;
+        margin-top: 0;
         gap: 30px;
         padding: 0 15px;
     }
@@ -30,7 +31,7 @@
 
     .gallery {
         width: 100%;
-        border-radius: 15px;
+        border-radius: 8px;
     }
 
     .main-image {
@@ -51,7 +52,7 @@
         width: 100%;
         padding: 20px;
         margin-top: 15px;
-        border-radius: 15px;
+        border-radius: 8px;
     }
 
     .tieude h2 {
@@ -90,7 +91,6 @@
 
     .avatar1 {
         margin-top: 30px;
-        margin-left: 120px;
         justify-content: center;
     }
 
@@ -114,8 +114,12 @@
     }
 
     .bao_tindang {
-        grid-template-columns: 1fr;
+        display: flex !important;
         gap: 15px;
+    }
+
+    .item_tindang {
+        flex: 0 0 100% !important;
     }
 
     .item_tindang img {
@@ -130,16 +134,20 @@
 
 /* Tablet (768px - 1023px) */
 @media screen and (min-width: 768px) and (max-width: 1023px) {
+    .chitiettro-container {
+        margin-top: 155px;
+    }
+
     .dieuhuong {
-        left: 50%;
-        transform: translateX(-50%);
-        top: 80px;
+        position: absolute;
+        top: calc(100% - 2px);
+        left: 25px;
     }
 
     .layout {
         flex-direction: column;
         padding: 0 20px;
-        margin-top: 160px;
+        margin-top: 0;
     }
 
     .room_detail {
@@ -163,6 +171,11 @@
     }
 
     .bao_tindang {
-        grid-template-columns: repeat(2, 1fr);
+        display: flex !important;
+        gap: 20px;
+    }
+
+    .item_tindang {
+        flex: 0 0 calc(50% - 10px) !important;
     }
 }

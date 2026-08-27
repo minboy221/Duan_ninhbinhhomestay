@@ -13,7 +13,32 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(
             \App\Repositories\Interfaces\UserRepositoryInterface::class,
-            \App\Repositories\UserRepository::class
+            \App\Repositories\UserRepository::class,
+        );
+
+        $this->app->bind(
+            \App\Repositories\Contracts\ReportRepositoryInterface::class,
+            \App\Repositories\Eloquent\ReportRepository::class
+        );
+        
+        $this->app->bind(
+            \App\Repositories\Interfaces\BoardingHouseRepositoryInterface::class,
+            \App\Repositories\BoardingHouseRepository::class
+        );
+        
+        $this->app->bind(
+            \App\Repositories\Interfaces\RoomPostRepositoryInterface::class,
+            \App\Repositories\RoomPostRepository::class
+        );
+        
+        $this->app->bind(
+            \App\Repositories\Interfaces\ReviewRepositoryInterface::class,
+            \App\Repositories\ReviewRepository::class
+        );
+        
+        $this->app->bind(
+            \App\Repositories\Interfaces\TenantRepositoryInterface::class,
+            \App\Repositories\TenantRepository::class
         );
     }
 
@@ -22,6 +47,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (is_dir(base_path('../public_html')) && file_exists(base_path('../public_html/build/manifest.json'))) {
+            $this->app->usePublicPath(base_path('../public_html'));
+        }
     }
 }

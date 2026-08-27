@@ -2,30 +2,142 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BoardingHouse;
+use App\Models\LandlordAvailability;
 use App\Services\RoomService;
 use App\Services\ServiceManagementService;
 use App\Models\Appointment;
 use App\Notifications\AppointmentStatusUpdated;
+use App\Services\PublicListingService;
 use Illuminate\Http\Request;
+use App\Notifications\SubscriptionNotification;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Services\InvoiceService;
 
 class LandlordController extends Controller
 {
     protected RoomService $roomService;
     protected ServiceManagementService $serviceManagementService;
+    protected InvoiceService $invoiceService;
 
+    protected PublicListingService $publicListingService;
     public function __construct(
         RoomService $roomService,
-        ServiceManagementService $serviceManagementService
+        ServiceManagementService
+        $serviceManagementService,
+        PublicListingService $publicListingService,
+        InvoiceService $invoiceService
     ) {
         $this->roomService = $roomService;
         $this->serviceManagementService = $serviceManagementService;
+        $this->publicListingService = $publicListingService;
+        $this->invoiceService = $invoiceService;
     }
 
+    //trang tổng quan
     public function dashboard()
     {
-        return Inertia::render('Landlord/Dashboard');
+        $landlordId = Auth::id();
+        $boardingHouseId = session('selected_boarding_house_id');
+        //lấy danh sách ID các cơ sở do chủ trọ xử lý
+        $houseIdsQuery = \App\Models\BoardingHouse::where('user_id', $landlordId);
+        if ($boardingHouseId) {
+            $houseIdsQuery->where('id', $boardingHouseId);
+        }
+        $houseIds = $houseIdsQuery->pluck('id')->toArray();
+        //thống kê phòng
+        $totalRooms = \App\Models\Room::whereIn('boarding_house_id', $houseIds)->count();
+        $rentedRooms = \App\Models\Room::whereIn('boarding_house_id', $houseIds)->where('status', 'rented')->count();
+        //đếm tổng khách thuê (chủ HĐ active + user ở ghép active)
+        $tenantCount = \App\Models\Contract::whereHas('room', function ($q) use ($houseIds) {
+            $q->whereIn('boarding_house_id', $houseIds);
+        })->whereIn('status', ['signed', 'active'])->count();
+        $residentCount = \App\Models\RoomResident::whereHas('room', function ($q) use ($houseIds) {
+            $q->whereIn('boarding_house_id', $houseIds);
+        })->where('status', 'active')->count();
+        $totalTenants = $tenantCount + $residentCount;
+        //doanh thu tháng này (tổng tiền từ các hoá đơn đã thanh toán trong tháng hiện tại)
+        $currentMonth = date('Y-m');
+        $thisMonthRevenue = \App\Models\Invoice::whereHas('contract.room', function ($q) use ($houseIds) {
+            $q->whereIn('boarding_house_id', $houseIds);
+        })->where('status', 'paid')
+            ->where('billing_month', $currentMonth)
+            ->sum('total_amount');
+
+        //tổng doanh thu tích luỹ tất cả thời gian
+        $totalRevenue = \App\Models\Invoice::whereHas('contract.room', function ($q) use ($houseIds) {
+            $q->whereIn('boarding_house_id', $houseIds);
+        })->where('status', 'paid')->sum('total_amount');
+
+        //số cơ sở trọ đang sở hữu
+        $totalBoardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)->count();
+
+        //thông tin gói dịch vụ hiện tại
+        $user = Auth::user();
+        $activeSub = $user->activeSubscription()->with('plan')->first();
+        $currentPlanName = $activeSub?->plan?->name ?? 'Dùng Thử MIỄN PHÍ';
+        $planEndDate = $activeSub?->end_date ? $activeSub->end_date->format('d/m/Y') : null;
+        $planDaysRemaining = $activeSub?->end_date ? max(0, (int) now()->startOfDay()->diffInDays($activeSub->end_date->startOfDay(), false)) : null;
+
+        //lấy hợp đồng mới nhất
+        $recentContracts = \App\Models\Contract::whereHas('room', function ($q) use ($houseIds) {
+            $q->whereIn('boarding_house_id', $houseIds);
+        })->with(['tenant', 'room'])
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($c) {
+                $rawRoom = (string) ($c->room->room_number ?? $c->room_id);
+                $roomName = (str_starts_with(strtoupper($rawRoom), 'P.') || str_starts_with(mb_strtolower($rawRoom), 'phòng'))
+                    ? $rawRoom
+                    : 'P.' . $rawRoom;
+
+                return [
+                    'id' => $c->id,
+                    'tenant' => $c->tenant->name ?? 'Người thuê',
+                    'room' => $roomName,
+                    'date' => $c->created_at ? $c->created_at->format('d/m/Y') : '',
+                    'status' => $c->status,
+                ];
+            });
+        //lấy hoá đơn mới nhất
+        $recentInvoices = \App\Models\Invoice::whereHas('contract.room', function ($q) use ($houseIds) {
+            $q->whereIn('boarding_house_id', $houseIds);
+        })->with(['contract.room'])
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($inv) {
+                $rawInvRoom = (string) ($inv->contract->room->room_number ?? '');
+                $invRoomName = (str_starts_with(strtoupper($rawInvRoom), 'P.') || str_starts_with(mb_strtolower($rawInvRoom), 'phòng'))
+                    ? $rawInvRoom
+                    : ($rawInvRoom ? 'P.' . $rawInvRoom : '');
+
+                return [
+                    'id' => $inv->id,
+                    'code' => $inv->invoice_code ?? ('HD-' . $inv->id),
+                    'room' => $invRoomName,
+                    'amount' => (float) $inv->total_amount,
+                    'status' => $inv->status,
+                    'date' => $inv->created_at ? $inv->created_at->format('d/m/Y') : '',
+                ];
+            });
+        return Inertia::render('Landlord/Dashboard', [
+            'stats' => [
+                'totalRooms' => $totalRooms,
+                'rentedRooms' => $rentedRooms,
+                'totalTenants' => $totalTenants,
+                'thisMonthRevenue' => (float) $thisMonthRevenue,
+                'totalRevenue' => (float) $totalRevenue,
+                'totalBoardingHouses' => $totalBoardingHouses,
+                'currentPlanName' => $currentPlanName,
+                'planEndDate' => $planEndDate,
+                'planDaysRemaining' => $planDaysRemaining,
+            ],
+            'recentContracts' => $recentContracts,
+            'recentInvoices' => $recentInvoices,
+        ]);
     }
 
     public function profile()
@@ -36,21 +148,99 @@ class LandlordController extends Controller
         ]);
     }
 
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'bank_name' => 'nullable|string|max:100',
+            'bank_account_no' => 'nullable|string|max:50',
+            'bank_account_name' => 'nullable|string|max:100',
+            'invoice_billing_day' => 'nullable|integer|between:1,31',
+        ]);
+
+        $user = Auth::user();
+        $data = $request->only('name', 'phone', 'email', 'bank_name', 'bank_account_no', 'bank_account_name');
+
+        if ($request->hasFile('avatar')) {
+            try {
+                if ($user->avatar) {
+                    $oldPath = str_replace('/storage/', '', $user->avatar);
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+                }
+                $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
+                $path = $request->file('avatar')->store('avatars', $disk);
+                $data['avatar'] = (str_starts_with($path, 'http') || str_starts_with($path, '/storage/'))
+                    ? $path
+                    : '/storage/' . ltrim($path, '/');
+            } catch (\Throwable $e) {
+                $path = $request->file('avatar')->store('avatars', 'public');
+                $data['avatar'] = '/storage/' . ltrim($path, '/');
+            }
+        }
+
+        $user->update($data);
+
+        if ($request->has('invoice_billing_day') && $request->invoice_billing_day) {
+            \App\Models\BoardingHouse::where('user_id', $user->id)
+                ->update(['invoice_billing_day' => (int) $request->invoice_billing_day]);
+        }
+
+        return redirect()->back()->with('success', 'Cập nhật thông tin thành công!');
+    }
+
+    public function bankSettings()
+    {
+        $user = Auth::user();
+        return Inertia::render('Landlord/BankSettings', [
+            'userData' => $user
+        ]);
+    }
+
+    public function updateBankSettings(Request $request)
+    {
+        $request->validate([
+            'bank_name' => 'required|string|max:100',
+            'bank_account_no' => 'required|string|max:50',
+            'bank_account_name' => 'required|string|max:100',
+        ], [
+            'bank_name.required' => 'Vui lòng chọn hoặc nhập tên ngân hàng',
+            'bank_account_no.required' => 'Vui lòng nhập số tài khoản ngân hàng',
+            'bank_account_name.required' => 'Vui lòng nhập tên chủ tài khoản ngân hàng',
+        ]);
+
+        $user = Auth::user();
+        $user->update($request->only('bank_name', 'bank_account_no', 'bank_account_name'));
+
+        return redirect()->back()->with('success', 'Cập nhật thông tin tài khoản ngân hàng thành công!');
+    }
+
     /**
      * Trang quản lý phòng trọ — Controller chỉ gọi Service, trả kết quả
      */
     public function rooms()
     {
         $landlordId = Auth::id();
-        $floors = $this->roomService->getFloorsWithRooms($landlordId);
-        $statusCounts = $this->roomService->getStatusCounts($landlordId);
+        $boardingHouseId = session('selected_boarding_house_id');
+
+        $floors = $this->roomService->getFloorsWithRooms($landlordId, $boardingHouseId);
+        $statusCounts = $this->roomService->getStatusCounts($landlordId, $boardingHouseId);
 
         // Fetch active services
-        $allServices = $this->serviceManagementService->getServices($landlordId);
+        $allServices = $this->serviceManagementService->getServices($landlordId, $boardingHouseId);
         $services = $allServices->where('is_active', true)->values();
 
+        //lấy tất cả tầng của chủ trọ để dùng riêng cho chọn tầng khi tạo phòng mới
+        $propertyId = $this->roomService->getOrCreatePropertyId($landlordId);
+        $allFloors = \App\Models\Floor::where('property_id', $propertyId)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->toArray();
         return Inertia::render('Landlord/Rooms/index', [
             'floors' => $floors,
+            'allFloors' => $allFloors,
             'statusCounts' => $statusCounts,
             'services' => $services,
         ]);
@@ -60,16 +250,27 @@ class LandlordController extends Controller
 
     public function storeFloor(Request $request)
     {
+        $user = auth()->user();
+        $currentFloorCount = \App\Models\Floor::whereHas('property', function ($q) use ($user) {
+            $q->where('landlord_id', $user->id);
+        })->count();
+        //kiểm tra với giới hạn max_properties của Gói dịch vụ
+        if (!$user->canCreateResource('max_properties', $currentFloorCount)) {
+            $limit = $user->getFeatureValue('max_properties');
+            return redirect()->back()->with('error', "Gói dịch vụ của bạn cho phép tạo tối đa {$limit} Tầng/Dãy nhà. Bạn hiện đang có {$currentFloorCount} Tầng. Vui lòng nâng cấp gói để tạo thêm!");
+        }
         $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:255',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
         ]);
-        $result = $this->roomService->createFloor(Auth::id(), $request->only('name', 'address', 'latitude', 'longitude'));
-        if (!$result)
-            return redirect()->back()->with('error', 'Không thể thêm tầng/khu!');
-        return redirect()->back()->with('success', 'Thêm tầng/khu thành công!');
+        try {
+            $result = $this->roomService->createFloor(Auth::id(), $request->only('name', 'address', 'latitude', 'longitude'));
+            return redirect()->back()->with('success', 'Thêm tầng/dãy thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function updateFloor(Request $request, int $id)
@@ -102,47 +303,80 @@ class LandlordController extends Controller
 
     public function storeRoom(Request $request)
     {
-        $request->validate([
-            'floor_id' => 'required|integer|exists:floors,id',
-            'room_numbers' => 'nullable|array',
-            'room_number' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:255',
-            'price' => 'required|numeric|min:0',
-            'area' => 'required|numeric|min:0',
-            'capacity' => 'nullable|integer|min:1',
-            'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
-            'amenities' => 'nullable|string',
-            'images' => 'nullable|array|max:10',
-            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-        ]);
-
-        $imageFiles = $request->file('images', []);
-
-        if ($request->has('room_numbers') && is_array($request->room_numbers)) {
-            $count = 0;
-            foreach ($request->room_numbers as $rn) {
-                $data = $request->except(['room_numbers', 'room_number']);
-                $data['room_number'] = $rn;
-                $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles);
-                if ($room) {
-                    $count++;
-                }
+        try {
+            $user = auth()->user();
+            //đếm tổng số phòng hiện tại của chủ trọ
+            $currentRoomCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->count();
+            //check với giới hạn max_rooms trong gói dịch vụ
+            if (!$user->canCreateResource('max_rooms', $currentRoomCount)) {
+                $limit = $user->getFeatureValue('max_rooms');
+                return redirect()->back()->with(
+                    'error',
+                    "Gói dịch vụ hiện tại của bạn chỉ cho phép tối đa {$limit} phòng trọ. Vui lòng nâng cấp gói VIP để tạo thêm phòng mới!"
+                );
             }
-            if ($count === 0)
-                return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Vui lòng kiểm tra lại.');
-            return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
-        } else {
-            $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles);
-            if (!$result)
-                return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
-            return redirect()->back()->with('success', 'Thêm phòng thành công!');
+            $request->validate([
+                'floor_id' => 'required|integer|exists:floors,id',
+                'room_numbers' => 'nullable|array',
+                'room_number' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                'price' => 'required|numeric|min:0',
+                'area' => 'required|numeric|min:0',
+                'capacity' => 'nullable|integer|min:1',
+                'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+                'amenities' => 'nullable|string',
+                'images' => 'nullable|array|max:10',
+                'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
+            ]);
+
+            $imageFiles = $request->file('images', []);
+            $boardingHouseId = session('selected_boarding_house_id');
+
+            if ($request->has('room_numbers') && is_array($request->room_numbers)) {
+                $count = 0;
+                foreach ($request->room_numbers as $rn) {
+                    //check lại số phòng trước mỗi lần tạo phòng mới
+                    $currentCount = \App\Models\Room::whereHas('boardingHouse', function ($q) use ($user) {
+                        $q->where('user_id', $user->id);
+                    })->count();
+                    if (!$user->canCreateResource('max_rooms', $currentCount)) {
+                        break;
+                    }
+                    $data = $request->except(['room_numbers', 'room_number']);
+                    $data['room_number'] = $rn;
+                    $room = $this->roomService->createRoom(Auth::id(), $data, $imageFiles, $boardingHouseId);
+                    if ($room) {
+                        $count++;
+                    }
+                }
+                if ($count === 0)
+                    return redirect()->back()->with('error', 'Không thể thêm bất kỳ phòng nào! Số phòng có thể đã tồn tại.');
+                return redirect()->back()->with('success', "Thêm thành công {$count} phòng!");
+            } else {
+                $result = $this->roomService->createRoom(Auth::id(), $request->all(), $imageFiles, $boardingHouseId);
+                if (!$result)
+                    return redirect()->back()->with('error', 'Không thể thêm phòng! Số phòng có thể đã tồn tại.');
+                return redirect()->back()->with('success', 'Thêm phòng thành công!');
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Lỗi khi tạo phòng: ' . $e->getMessage());
         }
     }
 
     public function updateRoom(Request $request, int $id)
     {
+        $room = \App\Models\Room::findOrFail($id);
+        $user = auth()->user();
+        //chặn nếu phòng bị đóng băng thì không cho phép cập nhật thông tin
+        if ($user->isRoomFrozen($room)) {
+            return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để sửa thông tin!');
+        }
         $request->validate([
             'room_number' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:255',
@@ -175,6 +409,15 @@ class LandlordController extends Controller
 
     public function changeRoomStatus(Request $request, int $id)
     {
+        $room = \App\Models\Room::findOrFail($id);
+        $user = auth()->user();
+        //chặn đổi trạng thái nếu phòng bị đóng băng
+        if ($user->isRoomFrozen($room)) {
+            return redirect()->back()->with(
+                'error',
+                'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ.Vui lòng nâng cấp gói để thao tác!'
+            );
+        }
         $request->validate([
             'status' => 'required|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
             'maintenance_reason' => 'nullable|string',
@@ -238,8 +481,12 @@ class LandlordController extends Controller
 
     public function appointments()
     {
-        $appointments = Appointment::with(['user', 'room.property'])
-            ->where('landlord_id', Auth::id())
+        $boardingHouseId = session('selected_boarding_house_id');
+        $appointments = Appointment::with(['user', 'room.boardingHouse'])
+            ->where('landlord_id', auth()->id())
+            ->whereHas('room', function ($q) use ($boardingHouseId) {
+                $q->where('boarding_house_id', $boardingHouseId); //lấy lịch hẹn của phòng thuộc cơ sở đang chọn
+            })
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')
             ->get()
@@ -253,6 +500,8 @@ class LandlordController extends Controller
                     'time' => substr($apt->time, 0, 5), // Giới hạn H:i
                     'status' => $apt->status,
                     'note' => $apt->note ?? '',
+                    'feedback_result' => $apt->feedback_result,
+                    'has_contract' => \App\Models\Contract::where('tenant_id', $apt->user_id)->where('room_id', $apt->room_id)->exists(),
                 ];
             });
 
@@ -273,31 +522,374 @@ class LandlordController extends Controller
         return redirect()->back()->with('success', 'Đã duyệt lịch hẹn xem phòng.');
     }
 
-    public function rejectAppointment(int $id)
+    public function rejectAppointment(Request $request, int $id)
     {
-        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
-        $appointment->update(['status' => 'rejected']);
+        $request->validate([
+            'cancellation_reason' => 'required|string|min:10|max:255'
+        ], [
+            'cancellation_reason.required' => 'Vui lòng cung cấp lý do từ chối lịch hẹn',
+            'cancellation_reason.min' => 'Lý do từ chối quá ngắn tối thiểu 10 ký tự'
+        ]);
+        try {
+            // Gọi service để xử lý cập nhật lên DB và gửi thông báo
+            $appointment = $this->publicListingService->rejectAppointmentWithReason($id, $request->cancellation_reason);
 
-        if ($appointment->user) {
-            $appointment->user->notify(new AppointmentStatusUpdated($appointment));
+            return redirect()->back()->with('success', 'Đã từ chối lịch hẹn xem phòng và gửi cho khách');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        return redirect()->back()->with('success', 'Đã từ chối lịch hẹn xem phòng.');
     }
 
-    public function tenants()
+    public function confirmCancelAppointment(Request $request, int $id)
     {
-        return Inertia::render('Landlord/Tenants/index');
+        // Yêu cầu chủ trọ nhập lý do huỷ 
+        $request->validate([
+            'cancellation_reason' => 'required|string|min:5|max:255',
+        ], [
+            'cancellation_reason.required' => 'Vui lòng nhập lý do hủy lịch hẹn!',
+            'cancellation_reason.min' => 'Lý do hủy quá ngắn, vui lòng nhập tối thiểu 5 ký tự.',
+        ]);
+
+        $reason = $request->input('cancellation_reason') ?: $request->input('reason', 'Chủ trọ đã hủy lịch hẹn');
+
+        $appointment = Appointment::where('landlord_id', Auth::id())->findOrFail($id);
+        // Cập nhật trạng thái lịch hẹn
+        $appointment->update([
+            'status' => 'cancelled',
+            'feedback_result' => 'cancelled',
+            'cancellation_reason' => $reason
+        ]);
+
+        // Mở lại phòng trọ về trạng thái trống
+        if ($appointment->room) {
+            $appointment->room->update(['status' => 'available']);
+        }
+
+        // Hủy bất kỳ dự thảo hợp đồng nào liên quan (Dùng whereIn chuẩn cú pháp SQL)
+        \App\Models\Contract::where('room_id', $appointment->room_id)
+            ->where('tenant_id', $appointment->user_id)
+            ->whereIn('status', ['draft', 'awaiting_upload', 'pending', 'termination_requested'])
+            ->update(['status' => 'cancelled', 'cancellation_reason' => $reason]);
+
+        // Gửi thông báo tới khách thuê
+        if ($appointment->user) {
+            $appointment->user->notify(new \App\Notifications\AppointmentStatusUpdated($appointment));
+        }
+
+        return redirect()->back()->with('success', 'Đã xác nhận hủy lịch hẹn và gửi lý do tới khách thuê thành công!');
+    }
+
+    // Phần hiển thị cấu hình giờ cho chủ trọ
+    public function editAvailabilities()
+    {
+        //lấy danh sách các cơ sở trọ thuộc sở hữu của chủ trọ
+        $boardingHouses = BoardingHouse::where('user_id', auth()->id())->get();
+        //lấy ID cơ sở trọ đang chọn trong session
+        $selectBoardingHouseId = session('selected_boarding_house_id') ?: ($boardingHouses->first()?->id ?? null);
+        //lấy các cấu hình khung giờ rảnh để hiển thị lại trên form 
+        $currentAvailabilities = LandlordAvailability::where('landlord_id', auth()->id())->get();
+        return Inertia::render('Landlord/Availabilities/Edit', [
+            'boardingHouses' => $boardingHouses,
+            'currentAvailabilities' => $currentAvailabilities,
+            'selectedBoardingHouseId' => $selectBoardingHouseId ? (int) $selectBoardingHouseId : null
+        ]);
+    }
+
+    //Phần xử lý lưu cấu hình giờ hàng loạt cho cơ sở trọ
+    public function storeAvailabilities(Request $request)
+    {
+        //validate dữ liệu từ form gửi lên
+        $request->validate([
+            'boarding_house_id' => 'required|exists:boarding_houses,id',
+            'cancel_after_minutes' => 'required|integer|min:5|max:1440',
+            'availabilities' => 'required|array',
+            'availabilities.*.day_of_week' => 'required|integer|between:0,6',
+            'availabilities.*.start_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i',
+            'availabilities.*.end_time' => 'required_if:availabilities.*.is_active,true|nullable|date_format:H:i|after:availabilities.*.start_time',
+        ], [
+            'cancel_after_minutes.required' => 'Vui lòng nhập thời gian tự động hủy lịch.',
+            'cancel_after_minutes.integer' => 'Thời gian tự động hủy lịch phải là số phút.',
+            'cancel_after_minutes.min' => 'Thời gian tự động hủy lịch hẹn phải tối thiểu là 5 phút.',
+            'cancel_after_minutes.max' => 'Thời gian tự động hủy lịch hẹn không được vượt quá 1440 phút (24 giờ).',
+            'availabilities.*.end_time.after' => 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu.',
+            'availabilities.*.start_time.required_if' => 'Vui lòng chọn giờ bắt đầu.',
+            'availabilities.*.end_time.required_if' => 'Vui lòng chọn giờ kết thúc.',
+        ]);
+        $landlordId = auth()->id();
+        $boardingHouseId = $request->boarding_house_id;
+
+        //cập nhật số phút tự huỷ cho mỗi cơ sở trọ
+        $boardingHouse = BoardingHouse::where('id', $boardingHouseId)
+            ->where('user_id', $landlordId)
+            ->firstOrFail();
+        $boardingHouse->update([
+            'cancel_after_minutes' => $request->cancel_after_minutes
+        ]);
+
+        //xoá sạch các câu hình cũ để ghi đè câu hình mới
+        LandlordAvailability::where('boarding_house_id', $boardingHouseId)
+            ->where('landlord_id', $landlordId)
+            ->delete();
+        //Duyệt qua mảng cấu hình gửi lên vue
+        foreach ($request->availabilities as $item) {
+            if ($item['is_active']) {
+                LandlordAvailability::create([
+                    'landlord_id' => $landlordId,
+                    'boarding_house_id' => $boardingHouseId,
+                    'day_of_week' => $item['day_of_week'],
+                    'start_time' => $item['start_time'],
+                    'end_time' => $item['end_time'],
+                ]);
+            }
+        }
+        return redirect()->back()->with('success', 'cập nhật khung giờ cho cơ sở thành công');
+    }
+
+    public function tenants(\App\Services\TenantService $tenantService)
+    {
+        $landlordId = Auth::id();
+        $boardingHouseId = session('selected_boarding_house_id');
+
+        $tenants = $tenantService->getFormattedTenants($landlordId, $boardingHouseId);
+
+        // Lấy danh sách tầng của chủ trọ / cơ sở đang chọn để phục vụ Bộ lọc Tầng
+        $floorsQuery = \App\Models\Floor::whereHas('property', function ($q) use ($landlordId) {
+            $q->where('landlord_id', $landlordId);
+        });
+        if ($boardingHouseId) {
+            $floorsQuery->where('property_id', $boardingHouseId);
+        }
+        $floors = $floorsQuery->select('id', 'name')->get();
+
+        return Inertia::render('Landlord/Tenants/index', [
+            'tenants' => $tenants,
+            'floors' => $floors,
+        ]);
     }
 
     public function contracts()
     {
-        return Inertia::render('Landlord/Contracts/index');
+        $landlordId = Auth::id();
+        $boardingHousesId = session('selected_boarding_house_id');
+        // Lấy danh sách ID các cơ sở do chủ trọ sở hữu hoặc được phân quyền làm quản lý phụ
+        $ownerHouseIds = \App\Models\BoardingHouse::where('user_id', $landlordId)->pluck('id')->toArray();
+        $managedHouseIds = \App\Models\PropertyManager::where('user_id', $landlordId)->pluck('boarding_house_id')->toArray();
+        $allHouseIds = array_unique(array_merge($ownerHouseIds, $managedHouseIds));
+
+        $query = \App\Models\Contract::whereHas('room', function ($q) use ($allHouseIds) {
+            $q->whereIn('boarding_house_id', $allHouseIds);
+        });
+
+        // nếu chọn 1 cơ sở cụ thể trên header -> lấy hợp đồng thuộc cơ sở đó
+        if ($boardingHousesId) {
+            $query->whereHas('room', function ($q) use ($boardingHousesId) {
+                $q->where('boarding_house_id', $boardingHousesId);
+            });
+        }
+
+        $contracts = $query->with(['room.residents.user', 'tenant', 'extensions'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Danh sách ID phòng đã có hợp đồng còn hiệu lực / chờ upload
+        $existingContractRoomIds = \App\Models\Contract::whereHas('room', function ($q) use ($boardingHousesId) {
+            $q->where('boarding_house_id', $boardingHousesId);
+        })
+            ->whereIn('status', ['awaiting_upload', 'active', 'signed', 'expiring', 'termination_requested'])
+            ->pluck('room_id')
+            ->toArray();
+
+        // 1. Lịch hẹn thuê phòng mới (nguyên căn chưa có hợp đồng) -> Đưa vào "Hợp đồng chờ"
+        $appointments = \App\Models\Appointment::with(['user', 'room'])
+            ->where('landlord_id', $landlordId)
+            ->whereIn('status', ['approved', 'viewed', 'waiting_contract'])
+            ->whereIn('feedback_result', ['interested', 'like'])
+            ->whereNotIn('room_id', $existingContractRoomIds)
+            ->get();
+
+        // 2. Lịch hẹn Người lạ đăng ký ở ghép -> Chỉ lấy lịch hẹn ĐANG CHỜ (Chưa chốt/Chưa thanh toán/Chưa vào ở)
+        $roommateAppointments = \App\Models\Appointment::with(['user', 'room'])
+            ->where('landlord_id', $landlordId)
+            ->whereIn('status', ['approved', 'viewed', 'waiting_contract'])
+            ->whereIn('feedback_result', ['interested', 'like'])
+            ->whereIn('room_id', $existingContractRoomIds)
+            ->whereHas('room', function ($q) {
+                $q->whereColumn('current_people', '<', 'capacity');
+            })
+            ->get()
+            ->reject(function ($apt) {
+                // Loại bỏ nếu người này ĐÃ LÀ cư dân ở ghép active hoặc Chủ hợp đồng active của phòng này
+                $isAlreadyResident = \App\Models\RoomResident::where('room_id', $apt->room_id)
+                    ->where('user_id', $apt->user_id)
+                    ->where('status', 'active')
+                    ->exists();
+
+                $isAlreadyTenant = \App\Models\Contract::where('room_id', $apt->room_id)
+                    ->where('tenant_id', $apt->user_id)
+                    ->whereIn('status', ['signed', 'active'])
+                    ->exists();
+
+                return $isAlreadyResident || $isAlreadyTenant;
+            })
+            ->map(function ($apt) {
+                return [
+                    'id' => 'apt_' . $apt->id,
+                    'appointment_id' => $apt->id,
+                    'room_id' => $apt->room_id,
+                    'type' => 'stranger_applicant',
+                    'new_resident_name' => $apt->user?->name ?: 'Người lạ đăng ký ở ghép',
+                    'new_resident_phone' => $apt->user?->phone ?: '',
+                    'new_resident_cccd' => $apt->user?->cccd_number ?: '',
+                    'created_at' => $apt->created_at,
+                    'room' => $apt->room,
+                    'tenant' => $apt->user,
+                ];
+            });
+
+        // 3. Lấy danh sách yêu cầu ở ghép (loại giới thiệu người quen) đang chờ
+        $acquaintanceRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
+            $q->where('user_id', $landlordId);
+        })
+            ->where('status', 'pending')
+            ->where('type', 'acquaintance')
+            ->with(['room', 'tenant'])
+            ->get();
+
+        // Hợp nhất cả 2 nguồn người ở ghép (Người quen B + Người lạ B ấn ƯNG) đưa vào pendingRoommateRequests
+        $pendingRoommateRequests = $acquaintanceRequests->concat($roommateAppointments);
+
+        // Lấy danh sách Nhà trọ kèm các Tầng và Phòng trọ
+        $boardingHousesQuery = \App\Models\BoardingHouse::where('user_id', $landlordId);
+        if ($boardingHousesId) {
+            $boardingHousesQuery->where('id', $boardingHousesId);
+        }
+        $boardingHouses = $boardingHousesQuery->with(['rooms.residents.user', 'floors.rooms.residents.user'])
+            ->get();
+
+        return Inertia::render('Landlord/Contracts/index', [
+            'dbContracts' => $contracts,
+            'appointments' => $appointments,
+            'pendingRoommateRequests' => $pendingRoommateRequests,
+            'boardingHouses' => $boardingHouses,
+            'selectedBoardingHouseId' => $boardingHousesId ?: ($boardingHouses->first()?->id ?? null),
+            'authLandlord' => Auth::user(),
+        ]);
     }
 
     public function invoices()
     {
-        return Inertia::render('Landlord/Invoices/index');
+        $landlordId = Auth::id();
+        $boardingHouseId = session('selected_boarding_house_id');
+
+        $data = $this->invoiceService->getInvoicesData($landlordId, $boardingHouseId);
+
+        return Inertia::render('Landlord/Invoices/index', $data);
+    }
+
+    public function storeInvoice(Request $request)
+    {
+        $user = auth()->user();
+        $contract = \App\Models\Contract::findOrFail($request->contract_id);
+        if ($user->isRoomFrozen($contract->room)) {
+            return redirect()->back()->with('error', 'Phòng này đang bị tạm đóng băng do vượt quá hạn mức gói dịch vụ. Vui lòng nâng cấp gói để lập hoá đơn!');
+        }
+
+        $request->validate([
+            'contract_id' => 'required|exists:contracts,id',
+            'billing_month' => 'required|string',
+            'due_date' => 'required|date',
+            'details' => 'required|array',
+            'details.*.item_name' => 'required|string',
+            'details.*.price' => 'required|numeric',
+            'details.*.quantity' => 'required|numeric',
+        ]);
+
+        try {
+            $this->invoiceService->createInvoice(Auth::id(), $request->all(), $request->allFiles());
+            return redirect()->back()->with('success', 'Tạo hóa đơn thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function storeQuickBulkInvoices(Request $request)
+    {
+        $request->validate([
+            'billing_month' => 'required|string',
+            'due_date' => 'required|date',
+            'readings' => 'required|array',
+            'readings.*.contract_id' => 'required|exists:contracts,id',
+            'readings.*.elec_new' => 'required|numeric|min:0',
+            'readings.*.water_new' => 'required|numeric|min:0',
+        ]);
+        try {
+            $result = $this->invoiceService->createQuickBulkInvoices(Auth::id(), $request->all(), $request);
+            return redirect()->back()->with('success', "Đã lập thành công {$result['created_count']} hoá đơn hàng loạt!");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateInvoice(Request $request, $id)
+    {
+        $request->validate([
+            'due_date' => 'required|date',
+            'details' => 'required|array',
+            'details.*.price' => 'required|numeric',
+            'details.*.quantity' => 'required|numeric',
+        ]);
+
+        try {
+            $this->invoiceService->updateInvoice((int) $id, $request->all(), Auth::id());
+            return redirect()->back()->with('success', 'Cập nhật hóa đơn thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateInvoiceStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|string|in:unpaid,partially_paid,paid',
+            'paid_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        try {
+            $this->invoiceService->updateInvoiceStatus((int) $id, $request->status, $request->paid_amount ? (float) $request->paid_amount : null, Auth::id());
+            return redirect()->back()->with('success', 'Cập nhật trạng thái hóa đơn thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function archiveInvoice($id)
+    {
+        try {
+            $this->invoiceService->archiveInvoice((int) $id, Auth::id());
+            return redirect()->back()->with('success', 'Đã lưu trữ hóa đơn!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function restoreInvoice($id)
+    {
+        try {
+            $this->invoiceService->restoreInvoice((int) $id, Auth::id());
+            return redirect()->back()->with('success', 'Đã khôi phục hóa đơn!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function deleteInvoice($id)
+    {
+        try {
+            $this->invoiceService->deleteInvoice((int) $id, Auth::id());
+            return redirect()->back()->with('success', 'Xóa hóa đơn thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     public function finance()
@@ -307,9 +899,13 @@ class LandlordController extends Controller
 
     public function services()
     {
-        $services = $this->serviceManagementService->getServices(Auth::id());
+        $boardingHouseId = session('selected_boarding_house_id');
+        $services = $this->serviceManagementService->getConfiguredServices(Auth::id(), $boardingHouseId);
+        $availableAmenities = $this->serviceManagementService->getAvailableAmenities(Auth::id(), $boardingHouseId);
+
         return Inertia::render('Landlord/Services/index', [
-            'services' => $services
+            'services' => $services,
+            'availableAmenities' => $availableAmenities,
         ]);
     }
 
@@ -317,21 +913,33 @@ class LandlordController extends Controller
     {
         $request->validate([
             'amenity_id' => 'required|integer|exists:amenities,id',
-            'price' => 'required|numeric|min:0',
+            'price' => 'required|numeric|min:1000',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+        ], [
+            'price.min' => 'Đơn giá dịch vụ phải tối thiểu từ 1.000đ trở lên!',
+            'price.required' => 'Vui lòng nhập đơn giá cho dịch vụ!',
+            'price.numeric' => 'Đơn giá phải là chữ số hợp lệ!',
         ]);
 
+        $boardingHouseId = session('selected_boarding_house_id');
         $propertyId = $this->serviceManagementService->getOrCreatePropertyId(Auth::id());
-        $exists = \App\Models\Service::where('property_id', $propertyId)
-            ->where('amenity_id', $request->amenity_id)
-            ->exists();
-        if ($exists) {
+        $existsQuery = \App\Models\Service::where('property_id', $propertyId)
+            ->where('amenity_id', $request->amenity_id);
+        if ($boardingHouseId) {
+            $existsQuery->where('boarding_house_id', $boardingHouseId);
+        }
+        if ($existsQuery->exists()) {
             return redirect()->back()->with('error', 'Tiện ích này đã được kích hoạt!');
         }
 
-        $result = $this->serviceManagementService->createService(Auth::id(), $request->all());
+        $data = $request->all();
+        if ($boardingHouseId) {
+            $data['boarding_house_id'] = $boardingHouseId;
+        }
+
+        $result = $this->serviceManagementService->createService(Auth::id(), $data);
         if (!$result)
             return redirect()->back()->with('error', 'Không thể kích hoạt tiện ích!');
         return redirect()->back()->with('success', 'Kích hoạt tiện ích thành công!');
@@ -339,25 +947,105 @@ class LandlordController extends Controller
 
     public function updateService(Request $request, int $id)
     {
+        // check quyền 
+        $service = \App\Models\Service::where('id', $id)
+            ->whereHas('property', function ($q) {
+                $q->where('landlord_id', Auth::id());
+            })->first();
+        if (!$service) {
+            return redirect()->back()->with('error', 'Dịch vụ không tồn tại hoặc bạn không có quyền thao tác!');
+        }
+        // 1. Lấy thông tin dịch vụ cũ để so sánh giá
+        $oldService = \App\Models\Service::find($id);
+        if (!$oldService) {
+            return redirect()->back()->with('error', 'Không tìm thấy dịch vụ!');
+        }
+        $oldPrice = (float) $oldService->price;
+
         $request->validate([
-            'price' => 'required|numeric|min:0',
+            'price' => 'required|numeric|min:1000',
             'type' => 'required|string|in:per_kwh,per_m3,fixed,per_person',
             'color' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+        ], [
+            'price.min' => 'Đơn giá dịch vụ phải tối thiểu từ 1.000đ trở lên!',
+            'price.required' => 'Vui lòng nhập đơn giá cho dịch vụ!',
+            'price.numeric' => 'Đơn giá phải là chữ số hợp lệ!',
         ]);
 
+        // 2. Thực hiện cập nhật đơn giá dịch vụ
         try {
             $result = $this->serviceManagementService->updateService(Auth::id(), $id, $request->all());
-            if (!$result)
+            if (!$result) {
                 return redirect()->back()->with('error', 'Không thể cập nhật cấu hình dịch vụ!');
-            return redirect()->back()->with('success', 'Cập nhật cấu hình dịch vụ thành công!');
+            }
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
+
+        // 3. Kiểm tra nếu giá tăng bất thường hoặc vượt ngưỡng Admin cấu hình
+        $newPrice = (float) $request->price;
+        $serviceName = $request->name ?? $oldService->name ?? '';
+        $isAbnormal = false;
+        $reason = "";
+
+        // Cảnh báo nếu giá tăng đột biến từ 50% trở lên so với giá cũ
+        if ($oldPrice > 0 && ($newPrice - $oldPrice) / $oldPrice >= 0.5) {
+            $isAbnormal = true;
+            $reason = "Tăng giá đột ngột hơn 50% (Từ " . number_format($oldPrice) . "đ lên " . number_format($newPrice) . "đ)";
+        }
+
+        // Đọc ngưỡng giá Điện & Nước do Admin thiết lập (Key chuẩn: warning_electricity_price & warning_water_price)
+        $maxElecPrice = (float) (\App\Models\Setting::where('key', 'warning_electricity_price')->value('value') ?? 8000);
+        $maxWaterPrice = (float) (\App\Models\Setting::where('key', 'warning_water_price')->value('value') ?? 40000);
+
+        if (str_contains(mb_strtolower($serviceName), 'điện') && $newPrice > $maxElecPrice) {
+            $isAbnormal = true;
+            $reason = "Giá điện vượt ngưỡng cấu hình: " . number_format($newPrice) . "đ/kWh (Ngưỡng Admin quy định: " . number_format($maxElecPrice) . "đ)";
+        }
+
+        if (str_contains(mb_strtolower($serviceName), 'nước') && $newPrice > $maxWaterPrice) {
+            $isAbnormal = true;
+            $reason = "Giá nước vượt ngưỡng cấu hình: " . number_format($newPrice) . "đ/m³ (Ngưỡng Admin quy định: " . number_format($maxWaterPrice) . "đ)";
+        }
+
+        // 4. Tự động ghi Audit Log bên Admin
+        $action = $isAbnormal ? 'abnormal_service_price' : 'update_service';
+        $logMessage = "Chủ trọ " . Auth::user()->name . " thay đổi giá dịch vụ '{$serviceName}'";
+        if ($isAbnormal) {
+            $logMessage .= " [CẢNH BÁO BẤT THƯỜNG]: {$reason}";
+            //tự động gửi thông báo cho chủ trọ đang thao tác
+            Auth::user()->notify(new \App\Notifications\AdminNotification(
+                'CẢNH BÁO: Giá dịch vụ vừa chỉnh sửa vượt ngưỡng quy định',
+                "Giá dịch vụ '{$serviceName}' bạn vừa cập nhật là " . number_format($newPrice) . "đ. {$reason}. Vui lòng kiểm tra và điều chỉnh lại đúng quy định.",
+                'abnormal_service_warning',
+                '/landlord/services'
+            ));
+        } else {
+            $logMessage .= " từ " . number_format($oldPrice) . "đ thành " . number_format($newPrice) . "đ";
+        }
+
+        // Lưu vào bảng audit_logs (Đánh dấu sensitive = true khi bất thường)
+        \App\Services\AuditLogger::log(
+            $action,
+            $logMessage,
+            $isAbnormal
+        );
+
+        return redirect()->back()->with('success', 'Cập nhật dịch vụ thành công!');
     }
+
 
     public function deleteService(int $id)
     {
+        // check quyền 
+        $service = \App\Models\Service::where('id', $id)
+            ->whereHas('property', function ($q) {
+                $q->where('landlord_id', Auth::id());
+            })->first();
+        if (!$service) {
+            return redirect()->back()->with('error', 'Dịch vụ không tồn tại hoặc bạn không có quyền thao tác!');
+        }
         try {
             $result = $this->serviceManagementService->deleteService(Auth::id(), $id);
             if (!$result)
@@ -370,6 +1058,14 @@ class LandlordController extends Controller
 
     public function changeServiceStatus(Request $request, int $id)
     {
+        // check quyền 
+        $service = \App\Models\Service::where('id', $id)
+            ->whereHas('property', function ($q) {
+                $q->where('landlord_id', Auth::id());
+            })->first();
+        if (!$service) {
+            return redirect()->back()->with('error', 'Dịch vụ không tồn tại hoặc bạn không có quyền thao tác!');
+        }
         $request->validate(['is_active' => 'required|boolean']);
         $result = $this->serviceManagementService->changeStatus(Auth::id(), $id, $request->is_active);
         if (!$result)
@@ -377,13 +1073,124 @@ class LandlordController extends Controller
         return redirect()->back()->with('success', 'Cập nhật trạng thái thành công!');
     }
 
-    public function pricingSheets()
+    public function updateBillingDay(Request $request, $id)
     {
-        return redirect()->route('landlord.services');
+        $request->validate([
+            'invoice_billing_day' => 'required|integer|min:1|max:31'
+        ]);
+
+        $house = \App\Models\BoardingHouse::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $house->update([
+            'invoice_billing_day' => $request->invoice_billing_day
+        ]);
+
+        return redirect()->back()->with('success', 'Cập nhật ngày chốt hóa đơn thành công!');
     }
 
-    public function pricingSheetsCreate()
+    public function ocrMeter(Request $request)
     {
-        return redirect()->route('landlord.services');
+        $request->validate([
+            'image' => 'required|image|max:10240'
+        ]);
+
+        $file = $request->file('image');
+        $base64 = base64_encode(file_get_contents($file->path()));
+        $mimeType = $file->getMimeType();
+
+        $apiKey = config('services.gemini.api_key');
+        if (!$apiKey) {
+            return response()->json(['error' => 'Chưa cấu hình GEMINI_API_KEY trong file .env!'], 400);
+        }
+
+        $prompt = "Hãy đọc chỉ số hiện tại trên công tơ điện/nước trong ảnh này. Chỉ trả về một số nguyên duy nhất đại diện cho chỉ số đó. Không trả thêm bất cứ chữ hay kí tự đặc biệt nào khác. Nếu không đọc được hoặc không tìm thấy công tơ, hãy trả về 'ERROR'.";
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(30)->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
+                'contents' => [
+                    [
+                        'parts' => [
+                            [
+                                'text' => $prompt
+                            ],
+                            [
+                                'inlineData' => [
+                                    'mimeType' => $mimeType,
+                                    'data' => $base64
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                $text = trim($text);
+
+                $digits = preg_replace('/\D/', '', $text);
+
+                if (str_contains(strtoupper($text), 'ERROR') || empty($digits)) {
+                    return response()->json(['error' => 'AI không thể nhận dạng được số công tơ từ ảnh này. Vui lòng nhập tay hoặc chụp ảnh rõ nét hơn!'], 422);
+                }
+
+                return response()->json(['index' => (int) $digits]);
+            } else {
+                return response()->json(['error' => 'Lỗi kết nối dịch vụ AI (Gemini API): ' . $response->status()], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Đã xảy ra lỗi khi gọi AI xử lý ảnh: ' . $e->getMessage()], 500);
+        }
+    }
+    public function addResident(Request $request, int $roomId)
+    {
+        $request->validate([
+            'phone' => 'required|string',
+            'start_date' => 'required|date',
+        ]);
+
+        try {
+            $this->roomService->addResident(Auth::id(), $roomId, $request->phone, $request->start_date);
+            return redirect()->back()->with('success', 'Đã thêm thành viên ở ghép thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function removeResident(Request $request, int $roomId, int $residentId)
+    {
+        try {
+            $this->roomService->removeResident(Auth::id(), $roomId, $residentId);
+            return redirect()->back()->with('success', 'Đã xóa thành viên ở ghép khỏi phòng!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    //hàm kiểm tra gói và gửi thông báo nhắc gia hạn gói nếu còn dưới 3 ngày
+    protected function checkSubscriptionExpiryWarning($user)
+    {
+        $activeSub = $user->activateSubscription;
+        if (!$activeSub || !$activeSub->end_date)
+            return;
+        $daysRemaining = now()->startOfDay()->diffInDays($activeSub->end_date->startOfDay(), false);
+        //nếu còn từ 1 -> 3 ngày và chưa gửi thông báo
+        if ($daysRemaining >= 0 && $daysRemaining <= 3) {
+            $alreadyNotified = $user->unreadNotifications()
+                ->where('type', 'App\Notifications\SubscriptionNotification')
+                ->where('data->title', 'Gói dịch vụ sắp hết hạn')
+                ->exists();
+            if (!$alreadyNotified) {
+                $user->notify(new SubscriptionNotification(
+                    "Gói Dịch Vụ Sắp Hết Hạn",
+                    "Gói \"{$activeSub->plan->name}\" của bạn sẽ hết hạn vào ngày {$activeSub->end_date->format('d/m/Y')} (Còn {$daysRemaining} ngày). Vui lòng gia hạn để không bị gián đoạn!",
+                    route('landlord.subscriptions.index'),
+                    'warning'
+                ));
+            }
+        }
     }
 }

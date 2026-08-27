@@ -5,14 +5,13 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 /* ===== CONTACT ===== */
 .contact {
     position: relative;
     margin-top: -155px;
-    height: 150vh;
+    height: 160vh;
 }
 
 /* ===== MAP ===== */
@@ -118,7 +117,7 @@
     font-size: 26px;
     color: #45abe6;
     background: #dff3f2;
-    border-radius: 15px;
+    border-radius: 8px;
 }
 
 .item_contac h3 {
@@ -145,7 +144,7 @@
     width: 100%;
     padding: 15px;
     line-height: 1;
-    border-radius: 10px;
+    border-radius: 6px;
     border: 1px solid #ddd;
     outline: none;
 }
@@ -165,7 +164,7 @@
     display: inline-block;
     text-align: center;
     padding: 12px 15px;
-    border-radius: 10px;
+    border-radius: 6px;
     background: linear-gradient(90deg, #102a6d, #45abe6);
     color: #fff;
     text-decoration: none;

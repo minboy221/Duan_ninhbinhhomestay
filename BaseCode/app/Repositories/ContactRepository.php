@@ -12,7 +12,7 @@ class ContactRepository
      */
     public function getAll(): Collection
     {
-        return Contact::orderBy('created_at', 'desc')->get();
+        return Contact::with('user')->orderBy('created_at', 'desc')->get();
     }
 
     /**

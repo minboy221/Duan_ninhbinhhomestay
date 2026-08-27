@@ -1,7 +1,6 @@
 <script setup>
 import { defineProps, defineEmits, ref, onMounted, onUnmounted } from "vue";
 import heic2any from "heic2any";
-import exifr from "exifr";
 import { HA_NAM_COMMUNES } from "@/constants/locations.js";
 
 const props = defineProps({
@@ -54,23 +53,8 @@ const convertHeicToJpeg = async (file) => {
     }
 };
 
-// Hàm trích xuất tọa độ GPS từ ảnh bằng thư viện exifr
-const extractGPSMetadata = async (file) => {
-    try {
-        const gps = await exifr.gps(file);
-        if (gps && gps.latitude && gps.longitude) {
-            props.form.latitude = gps.latitude;
-            props.form.longitude = gps.longitude;
-            console.log("Đã trích xuất GPS:", gps.latitude, gps.longitude);
-        } else {
-            console.log("Không tìm thấy dữ liệu GPS trong ảnh.");
-        }
-    } catch (error) {
-        console.error("Lỗi khi trích xuất dữ liệu GPS:", error);
-    }
-};
-
 // Xử lý tải ảnh/file cho hồ sơ pháp lý (contract_images) và không gian (room_images)
+// Không lấy GPS ở frontend nữa: GPS sẽ được trích xuất từ ảnh ở backend/admin để đảm bảo dữ liệu chuẩn nhất.
 const handleMultipleFiles = async (e, field) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -87,12 +71,6 @@ const handleMultipleFiles = async (e, field) => {
         if (file.name.toLowerCase().endsWith(".heic")) {
             file = await convertHeicToJpeg(file);
         }
-
-        // Nếu tải ảnh phòng và chưa có tọa độ GPS, thử trích xuất từ ảnh này
-        if (field === "room_images" && !props.form.latitude) {
-            await extractGPSMetadata(file);
-        }
-
         props.form[field].push(file);
 
         // Tạo preview
@@ -156,6 +134,88 @@ const nextStep = () => {
         emit("next");
     }
 };
+
+//tạo computed URL bản đồ google tự động lấy toạ độ từ ảnh
+const googleMapUrlFromPhoto = computed(() => {
+    //nếu ảnh có toạ độ GPS
+    if (props.form.latitude && props.form.longitude) {
+        return `https://maps.google.com/maps?q=${props.form.latitude},${props.form.longitude}&hl=vi&z=16&output=embed`;
+    }
+    //nếu ảnh không có GPS hiển thị theo tên địa chỉ nhà trọ đã nhập
+    if (props.form.address_detail || props.form.ward) {
+        const fullAddress = `${props.form.address_detail || ""} ${props.form.ward || ""}`;
+        return `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress.trim())}&hl=vi&z=16&output=embed`;
+    }
+    return null;
+});
+
+//nếu ảnh không có GPS, tự động lấy toạ độ từ địa chỉ người dùng chọn
+const fetchGpsFromAddress = async () => {
+    if (!props.form.ward) return;
+    const fullAddress = `${props.form.address_detail || ""}, ${props.form.ward}`;
+    try {
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`,
+        );
+        const data = await res.json();
+        if (data && data.length > 0) {
+            props.form.latitude = parseFloat(data[0].lat);
+            props.form.longitude = parseFloat(data[0].lon);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+};
+
+//lấy vị trí GPS thực tế từ thiết bị điện thoại của chủ trọ
+const getCurrentDeviceLocation = () => {
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                props.form.latitude = position.coords.latitude;
+                props.form.longitude = position.coords.longitude;
+                console.log(
+                    "Đã lấy định vị GPS điện thoại thành công:",
+                    position.coords.latitude,
+                    position.coords.longitude,
+                );
+            },
+            (error) => {
+                console.log(
+                    "Không thể lấy vị trí thiết bị, chuyển sang dùng GPS địa chỉ.",
+                );
+                fetchGpsFromAddress();
+            },
+            { enableHighAccuracy: true, timeout: 10000 },
+        );
+    } else {
+        fetchGpsFromAddress();
+    }
+};
+onMounted(() => {
+    getCurrentDeviceLocation();
+});
+
+// Hàm chuyển Tọa độ GPS đọc từ Ảnh thành Tên Địa chỉ chữ tự động
+const reverseGeocodeFromPhotoGps = async (lat, lng) => {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=vi`,
+        );
+        const data = await response.json();
+
+        if (data && data.display_name) {
+            console.log("Đã đọc được Địa chỉ từ GPS ảnh:", data.display_name);
+
+            // Nếu chưa có địa chỉ chi tiết, tự động điền địa chỉ đọc được từ ảnh vào Form!
+            if (!props.form.address_detail) {
+                props.form.address_detail = data.display_name;
+            }
+        }
+    } catch (error) {
+        console.error("Không thể chuyển đổi GPS ảnh thành địa chỉ chữ:", error);
+    }
+};
 </script>
 
 <template>
@@ -185,45 +245,41 @@ const nextStep = () => {
                                 class="w-full h-14 px-6 rounded-lg bg-surface-container-lowest border-none ring-1 ring-outline-variant/30 focus:ring-4 focus:ring-primary-container/30 transition-all text-on-surface"
                                 :class="{ 'ring-error/50': errors.property_name }" />
                             <p v-if="errors.property_name" class="text-error text-xs font-bold">{{ errors.property_name
-                                }}</p>
+                            }}</p>
                         </div>
 
                         <!-- Ward & Address detail -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                             <div class="space-y-1" ref="dropdownRef">
-                                <label class="block text-sm font-semibold text-on-surface mb-2 tracking-wide uppercase">Phường / Xã <span class="text-error font-bold">*</span></label>
+                                <label
+                                    class="block text-sm font-semibold text-on-surface mb-2 tracking-wide uppercase">Phường
+                                    / Xã <span class="text-error font-bold">*</span></label>
                                 <div class="relative w-full">
                                     <!-- Custom Trigger Button (matching standard form styles) -->
-                                    <button
-                                        type="button"
-                                        @click="toggleDropdown"
+                                    <button type="button" @click="toggleDropdown"
                                         class="w-full h-14 px-6 pr-10 rounded-lg bg-surface-container-lowest border-none ring-1 ring-outline-variant/30 focus:ring-4 focus:ring-primary-container/30 transition-all text-on-surface flex items-center justify-between text-left cursor-pointer select-none"
-                                        :class="{ 'ring-error/50': errors.ward }"
-                                    >
+                                        :class="{ 'ring-error/50': errors.ward }">
                                         <span :class="{ 'text-on-surface-variant/60': !form.ward }">
                                             {{ form.ward || '-- Chọn Phường/Xã --' }}
                                         </span>
-                                        <span class="material-symbols-outlined text-on-surface-variant transition-transform duration-300" :class="{ 'rotate-180': isDropdownOpen }">
+                                        <span
+                                            class="material-symbols-outlined text-on-surface-variant transition-transform duration-300"
+                                            :class="{ 'rotate-180': isDropdownOpen }">
                                             keyboard_arrow_down
                                         </span>
                                     </button>
 
                                     <!-- Custom Dropdown Options Menu -->
                                     <transition name="dropdown-fade">
-                                        <div
-                                            v-show="isDropdownOpen"
-                                            class="absolute top-full left-0 right-0 mt-2 bg-surface-container-lowest rounded-xl shadow-2xl border border-outline-variant/20 z-[999] p-2 max-h-60 overflow-y-auto custom-scrollbar"
-                                        >
-                                            <button
-                                                v-for="commune in HA_NAM_COMMUNES"
-                                                :key="commune"
-                                                type="button"
+                                        <div v-show="isDropdownOpen"
+                                            class="absolute top-full left-0 right-0 mt-2 bg-surface-container-lowest rounded-xl shadow-2xl border border-outline-variant/20 z-[999] p-2 max-h-60 overflow-y-auto custom-scrollbar">
+                                            <button v-for="commune in HA_NAM_COMMUNES" :key="commune" type="button"
                                                 @click="selectCommune(commune)"
                                                 class="w-full px-4 py-3 rounded-lg text-left text-sm font-medium transition-all duration-150 flex items-center justify-between"
-                                                :class="form.ward === commune ? 'bg-primary/10 text-primary font-bold shadow-sm' : 'hover:bg-surface-container-low text-on-surface-variant hover:text-on-surface'"
-                                            >
+                                                :class="form.ward === commune ? 'bg-primary/10 text-primary font-bold shadow-sm' : 'hover:bg-surface-container-low text-on-surface-variant hover:text-on-surface'">
                                                 <span>{{ commune }}</span>
-                                                <span v-if="form.ward === commune" class="material-symbols-outlined text-sm text-primary font-extrabold">check</span>
+                                                <span v-if="form.ward === commune"
+                                                    class="material-symbols-outlined text-sm text-primary font-extrabold">check</span>
                                             </button>
                                         </div>
                                     </transition>
@@ -253,7 +309,7 @@ const nextStep = () => {
                         <span class="material-symbols-outlined text-primary">description</span>
                         Hồ sơ pháp lý <span class="text-error font-bold">*</span>
                     </h2>
-                    <p class="text-sm text-on-surface-variant mb-6">Tải lên bản quét Sổ đỏ hoặc Giấy phép kinh doanh
+                    <p class="text-sm text-on-surface-variant mb-6">Tải lên bản hợp đồng thuê trọ
                         (Định dạng: JPG, PNG, PDF).</p>
 
                     <!-- Drag Drop Area -->
@@ -269,7 +325,7 @@ const nextStep = () => {
                     </label>
 
                     <p v-if="errors.contract_images" class="text-error text-xs font-bold mt-2">{{ errors.contract_images
-                        }}</p>
+                    }}</p>
 
                     <!-- File Previews List -->
                     <div v-if="form.contract_images_preview?.length" class="space-y-3 mt-4">
@@ -283,7 +339,7 @@ const nextStep = () => {
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-medium text-on-surface truncate" :title="file.name">{{ file.name
-                                    }}</p>
+                                }}</p>
                                 <p class="text-xs text-on-surface-variant">{{ file.size || 'Kích thước ẩn' }}</p>
                             </div>
                             <button type="button" @click="removeFile(index, 'contract_images')"
@@ -301,17 +357,18 @@ const nextStep = () => {
                     <div>
                         <h2 class="text-xl font-bold text-on-surface mb-6 flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary">collections</span>
-                            Hình ảnh không gian <span class="text-error font-bold">*</span>
+                            Hình ảnh & Video không gian <span class="text-error font-bold">*</span>
                         </h2>
 
-                        <!-- Drag Drop Area for Room Images -->
+                        <!-- Drag Drop Area for Room Images & Videos -->
                         <label class="relative block group mb-6">
                             <div
                                 class="border-2 border-dashed border-outline-variant/40 rounded-xl p-6 text-center hover:border-primary transition-colors cursor-pointer bg-surface-container-low/30">
-                                <span class="material-symbols-outlined text-2xl text-outline mb-2">add_a_photo</span>
-                                <p class="text-sm font-medium">Tải lên ảnh Homestay</p>
+                                <span class="material-symbols-outlined text-2xl text-outline mb-2">video_camera_back</span>
+                                <p class="text-sm font-medium">Tải lên Ảnh / Video Homestay</p>
+                                <p class="text-xs text-outline font-normal mt-1">(Hỗ trợ JPG, PNG, HEIC, MP4, MOV - Tối đa 20MB)</p>
                             </div>
-                            <input type="file" multiple accept="image/*" class="hidden"
+                            <input type="file" multiple accept="image/*,video/*" class="hidden"
                                 @change="(e) => handleMultipleFiles(e, 'room_images')" />
                         </label>
 
@@ -382,7 +439,7 @@ const nextStep = () => {
                             <div v-for="(file, index) in form.room_images_preview.slice(3)" :key="'room-extra-' + index"
                                 class="flex items-center justify-between text-xs p-1.5 hover:bg-surface-container rounded transition-colors">
                                 <span class="truncate max-w-[200px] font-medium text-on-surface-variant">{{ file.name
-                                    }}</span>
+                                }}</span>
                                 <button type="button" @click="removeFile(index + 3, 'room_images')"
                                     class="text-error hover:text-error-dim font-bold flex items-center gap-1">
                                     <span class="material-symbols-outlined text-xs">delete</span> Xoá
@@ -391,8 +448,7 @@ const nextStep = () => {
                         </div>
                     </div>
 
-                    <p class="text-xs text-on-surface-variant italic mt-4">* Hình ảnh chất lượng cao giúp tăng tỉ lệ đặt
-                        phòng lên 40%.</p>
+                    <p class="text-xs text-on-surface-variant italic mt-3">* Tọa độ sẽ được trích xuất từ dữ liệu GPS nằm trong ảnh đã tải lên để hiển thị chính xác trong admin.</p>
                 </section>
             </div>
         </div>
@@ -435,13 +491,16 @@ select::-ms-expand {
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.1);
     border-radius: 9999px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.2);
 }
@@ -451,6 +510,7 @@ select::-ms-expand {
 .dropdown-fade-leave-active {
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .dropdown-fade-enter-from,
 .dropdown-fade-leave-to {
     opacity: 0;

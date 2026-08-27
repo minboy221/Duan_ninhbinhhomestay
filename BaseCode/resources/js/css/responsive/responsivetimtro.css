@@ -5,158 +5,174 @@
 
 /* Mobile */
 @media (max-width: 767px) {
+    .banner {
+        height: 220px;
+    }
 
-    /* Layout chung */
+    .banner img {
+        border-radius: 0 0 25px 25px;
+    }
+
+    .banner-text {
+        top: 38%;
+    }
+
+    .banner-text h1 {
+        font-size: 22px;
+    }
+
+    .ai-hero-wrapper {
+        margin: -50px auto 16px auto;
+        padding: 0 10px;
+    }
+
+    .outer-glass-frame {
+        border-radius: 24px;
+        padding: 8px;
+    }
+
+    .inner-search-card {
+        border-radius: 18px;
+        padding: 18px 14px;
+    }
+
+    .ai-search-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px 12px;
+        gap: 10px;
+    }
+
+    .ai-search-input-wrapper {
+        min-height: 40px;
+    }
+
+    .ai-search-submit-btn {
+        width: 100%;
+        padding: 11px 16px;
+    }
+
+    .ai-insight-card {
+        padding: 16px 14px;
+        margin-top: 16px;
+        border-radius: 16px;
+    }
+
+    .ai-insight-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .ai-insight-info {
+        gap: 12px;
+    }
+
+    .ai-insight-reset-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 10px;
+    }
+
     .layout {
         flex-direction: column;
-        padding: 0 15px;
-        margin: 0 auto 40px;
-        gap: 30px;
+        padding: 0 12px;
+        margin: 20px auto 40px;
+        gap: 20px;
     }
 
-    /* Bộ lọc */
-    @media (max-width: 767px) {
-
-        .filter {
-            width: 100%;
-            margin-top: 20px;
-            padding: 0 10px;
-        }
-
-        .baofilter {
-            width: 100%;
-            border-radius: 15px;
-        }
-
-        .dropdown {
-            position: fixed;
-            /* 👈 QUAN TRỌNG */
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            border-radius: 20px 20px 0 0;
-            max-height: 50vh;
-        }
-
-        .dropdown ul {
-            max-height: 250px;
-        }
-    }
-
-    /* Hiển thị phòng */
-    .room {
+    .filter {
         width: 100%;
+        margin-top: 0 !important;
+        position: static;
     }
 
-    .baoroom {
+    .baofilter {
         width: 100%;
+        border-radius: 16px;
+        padding: 18px 16px;
+    }
+
+    .btn-apply-filter {
+        min-height: 50px;
+        font-size: 15.5px;
+        border-radius: 12px;
+    }
+
+    .btn-reset-filter {
+        min-height: 44px;
+        font-size: 14.5px;
+        border-radius: 12px;
     }
 
     .item_room {
         flex-direction: column;
-        transform: none;
-        /* Bỏ transform để layout không bị lệch */
-        margin-bottom: 25px;
-        border-radius: 20px;
-        height: auto;
+        transform: none !important;
+        margin-bottom: 16px;
+        border-radius: 16px;
     }
 
-    .item_room img {
+    .image_room {
         width: 100%;
-        height: 220px;
-        border-radius: 20px 20px 0 0;
+        min-width: 100%;
+        height: 200px;
     }
 
     .infor_room {
-        padding: 15px 20px;
-        display: flex;
-        flex-direction: column;
+        padding: 16px;
+        gap: 10px;
     }
 
     .title_room h2 {
-        font-size: 18px;
-    }
-
-    .about_room {
-        width: 100%;
-    }
-
-    .user_room {
-        margin-top: 15px;
-        margin-bottom: 10px;
-    }
-
-    .user_room img {
-        width: 35px;
-        height: 35px;
-        border-radius: 100%;
-    }
-
-    .user_room p {
-        transform: none;
-        margin-top: 0;
+        font-size: 16px;
     }
 
     .btn {
-        position: static;
-        /* Thay vì absolute */
-        display: block;
-        text-align: center;
-        margin-top: 15px;
         width: 100%;
-        border-radius: 12px;
-    }
-
-    /* Phân trang */
-    .phantrang {
+        justify-content: center;
         margin-top: 10px;
     }
 
-    .baophantrang {
-        transform: none;
-        justify-content: center;
+    .phantrang {
+        margin-top: 20px;
     }
 }
 
 /* Tablet */
 @media (min-width: 768px) and (max-width: 1023px) {
+    .banner {
+        height: 280px;
+    }
+
+    .ai-hero-wrapper {
+        margin: -70px auto 20px auto;
+        padding: 0 16px;
+    }
+
     .layout {
         flex-direction: column;
         padding: 0 20px;
-        gap: 40px;
+        margin: 24px auto 40px;
+        gap: 24px;
     }
 
     .filter {
         width: 100%;
-        margin-top: -120px;
+        margin-top: 0 !important;
+        position: static;
     }
 
     .baofilter {
         width: 100%;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-    }
-
-    .baofilter h2,
-    .btn_filter {
-        grid-column: 1 / -1;
-    }
-
-    .baoroom {
-        width: 100%;
     }
 
     .item_room {
-        transform: none;
+        transform: none !important;
     }
 
-    .item_room img {
-        width: 280px;
-    }
-
-    .baophantrang {
-        transform: none;
-        justify-content: center;
+    .image_room {
+        width: 240px;
+        min-width: 240px;
+        height: 200px;
     }
 }

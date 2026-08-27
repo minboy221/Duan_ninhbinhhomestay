@@ -25,7 +25,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             Databasedulieumau::class,
             PostSeeder::class,
-            AppointmentSeeder::class,
+            SettingSeeder::class,
         ]);
     }
 }

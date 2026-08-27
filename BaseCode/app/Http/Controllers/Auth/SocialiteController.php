@@ -35,7 +35,17 @@ class SocialiteController extends Controller
         try {
             $this->authService->handleGoogleLogin();
 
+            if (auth()->check() && auth()->user()->status === 'locked') {
+                $user = auth()->user();
+                $reasonText = $user->lock_reason ? " Lý do: \"{$user->lock_reason}\"." : '';
+                Auth::logout();
+                return redirect('/login')->withErrors(['email' => "Tài khoản của bạn đã bị khóa.{$reasonText} Vui lòng liên hệ quản trị viên."]);
+            }
+
             // Redirect to home or dashboard
+            if (auth()->check() && auth()->user()->role === 'landlord') {
+                return redirect()->route('landlord.dashboard');
+            }
             return redirect('/');
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Google Login Error: ' . $e->getMessage());

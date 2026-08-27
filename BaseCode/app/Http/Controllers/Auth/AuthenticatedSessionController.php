@@ -45,7 +45,32 @@ class AuthenticatedSessionController extends Controller
         if (!$this->authService->loginAccount($request->only('email', 'password'), $request->boolean('remember'))) {
             \Illuminate\Support\Facades\RateLimiter::hit($request->throttleKey());
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => 'Thông tin đăng nhập không chính xác.',
+            ]);
+        }
+        
+        // Prevent admins from logging in here
+        if (Auth::user()->role === 'admin') {
+            $this->authService->logoutAccount();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            
+            \Illuminate\Support\Facades\RateLimiter::hit($request->throttleKey());
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => 'Thông tin đăng nhập không chính xác.',
+            ]);
+        }
+
+        // Check if account is locked
+        if (Auth::user()->status === 'locked') {
+            $lockedUser = Auth::user();
+            $reasonText = $lockedUser->lock_reason ? " Lý do: \"{$lockedUser->lock_reason}\"." : '';
+            $this->authService->logoutAccount();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => "Tài khoản của bạn đã bị khóa.{$reasonText} Vui lòng liên hệ quản trị viên.",
             ]);
         }
 
@@ -53,15 +78,18 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        if ($request->user()->role === 'admin') {
-            return redirect()->route('admin.dashboard');
-        }
+        $user = $request->user();
+        $request->session()->forget('url.intended');
 
-        if ($request->user()->role === 'landlord') {
+        // chuyển hướng chính xác theo vai trò role của tài khoản
+        if ($user && $user->role === 'landlord') {
             return redirect()->route('landlord.dashboard');
         }
-
-        return redirect()->intended(RouteServiceProvider::HOME);
+        if ($user && $user->role === 'admin') {
+            return redirect()->route('admin.dashboard');
+        }
+        // khách thuê / người dùng
+        return redirect()->route('home');
     }
 
     /**

@@ -1,39 +1,57 @@
 <script setup>
 import AdminLayout from "@/Layouts/AdminLayout.vue";
+import Pagination from "@/Components/Pagination.vue";
 import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
+import { showConfirm } from "@/Utils/swal";
 
 const props = defineProps({
-    listings: Array,
+    listings: [Object, Array],
+    counts: Object,
+    currentStatus: { type: String, default: "pending" },
 });
 
-const activeTab = ref("pending");
+const activeTab = ref(props.currentStatus || "pending");
 
-//Phần phân loại dữ liệu tự đông theo tap dựa trên trạng thái
-const filteredPosts = computed(() => {
+function changeTab(key) {
+    activeTab.value = key;
+    router.get(
+        route("admin.listings.index"),
+        { status: key },
+        { preserveState: true, preserveScroll: true }
+    );
+}
+
+// Lấy danh sách bài đăng (tự động xử lý cả Paginator object lẫn Mảng)
+const postsList = computed(() => {
     if (!props.listings) return [];
-    return props.listings.filter((p) => p.status === activeTab.value);
+    if (Array.isArray(props.listings)) return props.listings;
+    return props.listings.data || [];
 });
 
-//Phần cập nhật số lượng hiển thị trên các nhãn tap tự động hiển thị theo
+const paginationLinks = computed(() => {
+    if (props.listings && !Array.isArray(props.listings) && props.listings.links) {
+        return props.listings.links;
+    }
+    return [];
+});
+
+// Cập nhật số lượng trên các nhãn tab từ backend counts hoặc local fallback
 const tabs = computed(() => [
     {
         key: "pending",
         label: "Chờ Duyệt",
-        count:
-            props.listings?.filter((p) => p.status === "pending").length || 0,
+        count: props.counts?.pending ?? (Array.isArray(props.listings) ? props.listings.filter((p) => p.status === "pending").length : 0),
     },
     {
         key: "approved",
         label: "Đã Duyệt",
-        count:
-            props.listings?.filter((p) => p.status === "approved").length || 0,
+        count: props.counts?.approved ?? (Array.isArray(props.listings) ? props.listings.filter((p) => p.status === "approved").length : 0),
     },
     {
         key: "rejected",
         label: "Từ Chối",
-        count:
-            props.listings?.filter((p) => p.status === "rejected").length || 0,
+        count: props.counts?.rejected ?? (Array.isArray(props.listings) ? props.listings.filter((p) => p.status === "rejected").length : 0),
     },
 ]);
 
@@ -51,12 +69,14 @@ function openDetail(post) {
 }
 
 //Phần kết nối với DB để gọi lệnh phê duyệt bài viết lên
-function approvePost(post) {
-    if (
-        confirm(
-            `Bạn có chắc chắn muốn phê duyệt bài đăng:"${post.title}" không`,
-        )
-    ) {
+async function approvePost(post) {
+    const confirmed = await showConfirm(
+        "Phê duyệt bài đăng",
+        `Bạn có chắc chắn muốn phê duyệt bài đăng: "${post.title}" không?`,
+        "Phê duyệt",
+        "Hủy"
+    );
+    if (confirmed) {
         router.post(
             route("admin.listings.approve", post.id),
             {},
@@ -95,6 +115,7 @@ const typeClass = {
 </script>
 
 <template>
+
     <Head title="Admin - Phê Duyệt Nội Dung" />
     <AdminLayout>
         <template #header-title>
@@ -108,100 +129,75 @@ const typeClass = {
         </template>
 
         <div class="tabs-bar">
-            <button
-                v-for="tab in tabs"
-                :key="tab.key"
-                @click="activeTab = tab.key"
-                :class="['tab-btn', activeTab === tab.key ? 'tab-active' : '']"
-            >
+            <button v-for="tab in tabs" :key="tab.key" @click="changeTab(tab.key)"
+                :class="['tab-btn', activeTab === tab.key ? 'tab-active' : '']">
                 {{ tab.label }}
-                <span
-                    :class="[
-                        'tab-count',
-                        activeTab === tab.key ? 'count-active' : '',
-                    ]"
-                >
+                <span :class="[
+                    'tab-count',
+                    activeTab === tab.key ? 'count-active' : '',
+                ]">
                     {{ tab.count }}
                 </span>
             </button>
         </div>
 
         <div class="post-list">
-            <div v-if="filteredPosts.length === 0" class="empty-state">
+            <div v-if="postsList.length === 0" class="empty-state">
                 <i class="bi bi-inbox text-3xl text-gray-300"></i>
                 <p class="text-sm text-gray-400 mt-2">
                     Không có tin đăng nào trong danh mục này
                 </p>
             </div>
 
-            <div v-for="post in filteredPosts" :key="post.id" class="post-card">
+            <div v-for="post in postsList" :key="post.id" class="post-card">
                 <div class="post-thumb">
-                    <img
-                        v-if="post.image && post.image.length > 0"
-                        :src="post.image[0]"
-                        class="w-full h-full object-cover rounded-lg"
-                    />
-                    <i
-                        v-else
-                        class="bi bi-house-door text-4xl text-slate-300"
-                    ></i>
+                    <img v-if="post.image && post.image.length > 0" :src="post.image[0]"
+                        class="w-full h-full object-cover rounded-lg" />
+                    <i v-else class="bi bi-house-door text-4xl text-slate-300"></i>
                 </div>
 
                 <div class="post-info">
                     <div class="post-meta">
-                        <span
-                            :class="[
-                                'post-type',
-                                typeClass[post.room?.room_type] || 'type-blue',
-                            ]"
-                        >
+                        <span :class="[
+                            'post-type',
+                            typeClass[post.room?.room_type] || 'type-blue',
+                        ]">
                             {{ post.room?.room_type || "Phòng trọ" }}
                         </span>
                         <span class="post-id">#{{ post.id }}</span>
                     </div>
                     <h3 class="post-title">{{ post.title }}</h3>
                     <div class="post-details">
-                        <span
-                            ><i class="bi bi-person"></i>
-                            {{ post.landlord?.name }}</span
-                        >
-                        <span class="font-bold text-red-600"
-                            ><i class="bi bi-cash"></i>
-                            {{ formatMoney(post.room?.price) }}đ/tháng</span
-                        >
-                        <span
-                            ><i class="bi bi-calendar3"></i>
-                            {{ formatDate(post.created_at) }}</span
-                        >
+                        <span><i class="bi bi-person"></i>
+                            {{ post.landlord?.name }}</span>
+                        <span class="font-bold text-red-600"><i class="bi bi-cash"></i>
+                            {{ formatMoney(post.room?.price) }}đ/tháng</span>
+                        <span><i class="bi bi-calendar3"></i>
+                            {{ formatDate(post.created_at) }}</span>
                     </div>
                 </div>
 
                 <div class="post-actions">
-                    <Link
-                        :href="route('admin.listings.show', post.id)"
-                        class="act-view inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-bold text-xs transition-colors"
-                    >
+                    <Link :href="route('admin.listings.show', post.id)"
+                        class="act-view inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-bold text-xs transition-colors">
                         <i class="bi bi-eye"></i> Xem chi tiết
                     </Link>
                     <template v-if="activeTab === 'pending'">
                         <button @click="approvePost(post)" class="act-approve">
                             <i class="bi bi-check-lg"></i> Duyệt
                         </button>
-                        <button @click="openDetail(post)" class="act-reject">
-                            <i class="bi bi-x-lg"></i> Từ chối
-                        </button>
                     </template>
-                    <span
-                        v-else-if="activeTab === 'approved'"
-                        class="badge-done"
-                        >✓ Đã duyệt</span
-                    >
+                    <span v-else-if="activeTab === 'approved'" class="badge-done">✓ Đã duyệt</span>
                     <span v-else class="badge-reject">✗ Đã từ chối</span>
                 </div>
             </div>
+
+            <!-- Component Phân Trang -->
+            <Pagination :links="paginationLinks" />
         </div>
     </AdminLayout>
 </template>
+
 
 <style scoped>
 .page-title {
@@ -223,7 +219,7 @@ const typeClass = {
     margin-bottom: 20px;
     background: #fff;
     padding: 6px;
-    border-radius: 14px;
+    border-radius: 8px;
     border: 1px solid #f1f5f9;
     width: fit-content;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -231,7 +227,7 @@ const typeClass = {
 
 .tab-btn {
     padding: 8px 18px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: none;
     background: none;
     cursor: pointer;
@@ -281,7 +277,7 @@ const typeClass = {
     padding: 60px;
     color: #94a3b8;
     background: #fff;
-    border-radius: 16px;
+    border-radius: 8px;
     border: 1px solid #f1f5f9;
 }
 
@@ -293,7 +289,7 @@ const typeClass = {
 
 .post-card {
     background: #fff;
-    border-radius: 14px;
+    border-radius: 8px;
     border: 1px solid #f1f5f9;
     padding: 18px;
     display: flex;
@@ -310,7 +306,7 @@ const typeClass = {
 .post-thumb {
     width: 70px;
     height: 70px;
-    border-radius: 12px;
+    border-radius: 8px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     display: flex;
@@ -392,7 +388,7 @@ const typeClass = {
 
 .act-view {
     padding: 7px 14px;
-    border-radius: 9px;
+    border-radius: 6px;
     border: 1px solid #e2e8f0;
     background: #fff;
     color: #64748b;
@@ -412,7 +408,7 @@ const typeClass = {
 
 .act-approve {
     padding: 7px 14px;
-    border-radius: 9px;
+    border-radius: 6px;
     border: none;
     background: #22c55e;
     color: #fff;
@@ -431,7 +427,7 @@ const typeClass = {
 
 .act-reject {
     padding: 7px 14px;
-    border-radius: 9px;
+    border-radius: 6px;
     border: none;
     background: #fef2f2;
     color: #ef4444;
@@ -481,7 +477,7 @@ const typeClass = {
 
 .modal-box {
     background: #fff;
-    border-radius: 20px;
+    border-radius: 10px;
     width: 520px;
     max-width: 92vw;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
@@ -510,7 +506,7 @@ const typeClass = {
 .modal-close {
     width: 32px;
     height: 32px;
-    border-radius: 8px;
+    border-radius: 6px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -529,7 +525,7 @@ const typeClass = {
     width: 100%;
     height: 140px;
     background: #f8fafc;
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid #e2e8f0;
     display: flex;
     flex-direction: column;
@@ -584,7 +580,7 @@ const typeClass = {
     width: 100%;
     padding: 10px;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 6px;
     font-size: 13px;
     resize: none;
     outline: none;
@@ -605,7 +601,7 @@ const typeClass = {
 .btn-cancel {
     flex: 1;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: 1px solid #e2e8f0;
     background: #fff;
     color: #64748b;
@@ -617,7 +613,7 @@ const typeClass = {
 .btn-reject-confirm {
     flex: 1;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: none;
     background: #fef2f2;
     color: #ef4444;
@@ -638,7 +634,7 @@ const typeClass = {
 .btn-approve-confirm {
     flex: 2;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 6px;
     border: none;
     background: #7c3aed;
     color: #fff;

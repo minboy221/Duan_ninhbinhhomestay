@@ -8,27 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Room extends Model
 {
-    use HasFactory;
-
-    protected $fillable = [
-        'property_id',
-        'floor_id',
-        'room_number',
-        'address',
-        'price',
-        'area',
-        'capacity',
-        'status',
-        'images',
-    ];
-
-    protected $casts = [
-        'images' => 'array',
-    ];
-
-    /**
-     * Danh sách trạng thái hợp lệ
-     */
     public const STATUSES = [
         'available',
         'rented',
@@ -40,17 +19,71 @@ class Room extends Model
         'under_construction',
     ];
 
+    protected $fillable = [
+        'boarding_house_id',
+        'floor_id',
+        'room_number',
+        'address',
+        'price',
+        'area',
+        'capacity',
+        'current_people',
+        'status',
+        'images',
+    ];
 
-    // quan hệ phòng thuộc về một property
-    public function property()
-    {
-        return $this->belongsTo(Property::class, 'property_id');
+    protected $casts = [
+        'images' => 'array',
+    ];
+
+    protected $appends = [
+        'current_people',
+        'is_frozen',
+    ];
+
+    // hàn tự động tính toán trạng thái đóng băng của phòng
+    public function getIsFrozenAttribute(): bool{
+        $user = auth()->user();
+        if(!$user) return false;
+        return $user->isRoomFrozen($this);
     }
 
-    // Alias để tương thích ngược (deprecated)
+    public function contracts()
+    {
+        return $this->hasMany(Contract::class, 'room_id');
+    }
+
+    //phần thêm người ở ghép
+    public function residents(){
+        return $this->hasMany(RoomResident::class,'room_id')->where('status','active');
+    }
+
+    public function getCurrentPeopleAttribute()
+    {
+        $dbValue = (int) ($this->attributes['current_people'] ?? 0);
+        $activeContractsSum = (int) $this->contracts()
+            ->whereIn('status', ['active', 'signed', 'pending', 'awaiting_upload', 'termination_requested', 'expiring'])
+            ->sum('number_of_tenants');
+            
+        $base = max($dbValue, $activeContractsSum);
+        
+        if (in_array($this->attributes['status'] ?? '', ['rented', 'deposited'])) {
+            return max($base, 1);
+        }
+        
+        return $base;
+    }
+
+
+    // quan hệ phòng thuộc về một boarding house / property
+    public function property()
+    {
+        return $this->belongsTo(BoardingHouse::class, 'boarding_house_id');
+    }
+
     public function boardingHouse()
     {
-        return $this->property();
+        return $this->belongsTo(BoardingHouse::class, 'boarding_house_id');
     }
 
     //quan hệ:phòng thuộc về 1 tầng

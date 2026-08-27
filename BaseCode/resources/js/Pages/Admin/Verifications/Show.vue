@@ -2,6 +2,7 @@
 import { Head, router } from "@inertiajs/vue3";
 import { ref } from "vue";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
+import { showWarning } from "@/Utils/swal";
 
 const props = defineProps({
     user: Object,
@@ -9,18 +10,69 @@ const props = defineProps({
     boardingHouse: Object,
 });
 
+// Hàm chuẩn hóa danh sách ảnh (xử lý array, chuỗi json hoặc phần tử rỗng/false)
+const normalizeImages = (images) => {
+    if (!images) return [];
+    if (typeof images === "string") {
+        try {
+            const parsed = JSON.parse(images);
+            return normalizeImages(parsed);
+        } catch (e) {
+            return images.trim() && images !== "false" ? [images] : [];
+        }
+    }
+    if (Array.isArray(images)) {
+        return images
+            .flatMap((item) => normalizeImages(item))
+            .filter((item) => item && typeof item === "string" && item !== "false");
+    }
+    return [];
+};
+
 // Hàm lấy URL ảnh private
 const getPrivateImageUrl = (path, type) => {
-    if (!path) return "https://placehold.co/400x300?text=No+Image";
+    if (!path || typeof path !== "string" || path === "false") {
+        return "https://placehold.co/400x300?text=No+Image";
+    }
+    if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("blob:")) {
+        return path;
+    }
     const filename = path.replace(/\\/g, "/").split("/").pop();
     return route("admin.files.private", { type: type, filename: filename });
 };
 
 // Phần lưu video
 const isVideo = (path) => {
-    if (!path) return false;
+    if (!path || typeof path !== "string") return false;
     const ext = path.split(".").pop().toLowerCase();
     return ["mp4", "mov", "avi"].includes(ext);
+};
+
+// --- QUẢN LÝ BẢN ĐỒ VÀ TỌA ĐỘ GPS ---
+const activeMapLayer = ref("osm"); // 'osm' | 'google' | 'satellite'
+const copiedGps = ref(false);
+
+const copyGpsCoordinates = () => {
+    if (!props.boardingHouse?.latitude || !props.boardingHouse?.longitude) return;
+    const text = `${props.boardingHouse.latitude}, ${props.boardingHouse.longitude}`;
+    navigator.clipboard.writeText(text).then(() => {
+        copiedGps.value = true;
+        setTimeout(() => {
+            copiedGps.value = false;
+        }, 2000);
+    });
+};
+
+const toDMS = (deg, isLat) => {
+    if (deg === null || deg === undefined || isNaN(deg)) return "";
+    const num = Number(deg);
+    const absolute = Math.abs(num);
+    const degrees = Math.floor(absolute);
+    const minutesNotTruncated = (absolute - degrees) * 60;
+    const minutes = Math.floor(minutesNotTruncated);
+    const seconds = ((minutesNotTruncated - minutes) * 60).toFixed(1);
+    const direction = isLat ? (num >= 0 ? "N" : "S") : (num >= 0 ? "E" : "W");
+    return `${degrees}°${minutes}'${seconds}"${direction}`;
 };
 
 // --- QUẢN LÝ MODAL ---
@@ -42,7 +94,7 @@ const openImage = (url) => {
 // Xử lý gửi request
 const submitAction = (action) => {
     if (action === "reject" && !rejectReason.value.trim()) {
-        alert("Vui lòng nhập lý do từ chối!");
+        showWarning("Thiếu lý do", "Vui lòng nhập lý do từ chối!");
         return;
     }
 
@@ -353,9 +405,8 @@ const formatDate = (dateString) => {
                         <i class="bi bi-file-earmark-text-fill text-gray-400"></i>
                         Giấy tờ pháp lý / Hợp đồng:
                     </h4>
-                    <div class="grid grid-cols-3 gap-3" v-if="boardingHouse?.contract_images?.length">
-                        <div v-for="(path, index
-                            ) in boardingHouse.contract_images" :key="'contract-' + index"
+                    <div class="grid grid-cols-3 gap-3" v-if="normalizeImages(boardingHouse?.contract_images).length">
+                        <div v-for="(path, index) in normalizeImages(boardingHouse.contract_images)" :key="'contract-' + index"
                             class="relative group overflow-hidden rounded-lg border shadow-sm cursor-pointer aspect-[4/3]"
                             @click="
                                 openImage(getPrivateImageUrl(path, 'contracts'))
@@ -381,8 +432,8 @@ const formatDate = (dateString) => {
                     </h4>
 
                     <!-- Media Grid -->
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3" v-if="boardingHouse?.room_images?.length">
-                        <div v-for="(path, index) in boardingHouse.room_images" :key="'room-' + index"
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3" v-if="normalizeImages(boardingHouse?.room_images).length">
+                        <div v-for="(path, index) in normalizeImages(boardingHouse.room_images)" :key="'room-' + index"
                             class="relative group overflow-hidden rounded-lg border shadow-sm bg-black cursor-pointer aspect-square">
                             <!-- Video -->
                             <video v-if="isVideo(path)" :src="getPrivateImageUrl(path, 'rooms')" controls
@@ -411,48 +462,128 @@ const formatDate = (dateString) => {
                         Không có ảnh/video không gian trọ nào.
                     </p>
 
-                    <!-- GPS Map -->
-                    <div class="space-y-2 border-t pt-4 mt-4" v-if="
-                        boardingHouse?.latitude && boardingHouse?.longitude
+                    <!-- GPS Map Section -->
+                    <div class="space-y-3 border-t pt-4 mt-4" v-if="
+                        Number(boardingHouse?.latitude) && Number(boardingHouse?.longitude)
                     ">
-                        <h4 class="text-sm font-bold text-green-700 flex items-center gap-2">
-                            <i class="bi bi-geo-alt-fill"></i>
-                            Tọa độ chụp thực tế
-                        </h4>
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-emerald-700 flex items-center gap-2">
+                                <i class="bi bi-geo-alt-fill text-emerald-600"></i>
+                                Tọa độ định vị chính xác từ ảnh
+                            </h4>
+                            <span class="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300">
+                                Độ chính xác cao
+                            </span>
+                        </div>
 
-                        <p class="text-xs text-blue-600 font-bold bg-blue-50 p-2 rounded">
-                            Tọa độ ảnh chụp thực tế:
-                            {{ boardingHouse.latitude }} ,
-                            {{ boardingHouse.longitude }}
-                        </p>
+                        <!-- Coordinate Details Box -->
+                        <div class="bg-emerald-50/80 p-3 rounded-xl border border-emerald-200 space-y-2">
+                            <div class="flex items-center justify-between text-xs">
+                                <div class="space-y-0.5">
+                                    <p class="font-bold text-emerald-950">
+                                        Thập phân: <span class="font-mono text-emerald-700 font-bold">{{ Number(boardingHouse.latitude).toFixed(7) }}, {{ Number(boardingHouse.longitude).toFixed(7) }}</span>
+                                    </p>
+                                    <p class="text-emerald-800 text-[11px] font-medium">
+                                        DMS: {{ toDMS(boardingHouse.latitude, true) }} , {{ toDMS(boardingHouse.longitude, false) }}
+                                    </p>
+                                </div>
+                                <button type="button" @click="copyGpsCoordinates"
+                                    class="px-2.5 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold shadow-xs transition flex items-center gap-1">
+                                    <i class="bi" :class="copiedGps ? 'bi-check-lg text-emerald-600' : 'bi-clipboard'"></i>
+                                    {{ copiedGps ? 'Đã sao chép' : 'Sao chép' }}
+                                </button>
+                            </div>
 
-                        <div class="rounded-xl overflow-hidden border border-green-200 shadow-sm mt-2">
-                            <iframe width="100%" height="250" style="border: 0" loading="lazy" :src="'https://maps.google.com/maps?q=' +
-                                boardingHouse.latitude +
-                                ',' +
-                                boardingHouse.longitude +
-                                '&hl=vi&z=16&output=embed'
-                                ">
+                            <!-- Map Layer Switcher Tabs -->
+                            <div class="flex items-center gap-1.5 pt-1 border-t border-emerald-200/60 text-xs">
+                                <span class="text-gray-500 text-[11px] mr-1">Chế độ xem:</span>
+                                <button type="button" @click="activeMapLayer = 'osm'"
+                                    :class="activeMapLayer === 'osm' ? 'bg-emerald-700 text-white font-bold' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'"
+                                    class="px-2 py-1 rounded-md text-[11px] transition shadow-xs">
+                                    Ghim chi tiết (OSM)
+                                </button>
+                                <button type="button" @click="activeMapLayer = 'satellite'"
+                                    :class="activeMapLayer === 'satellite' ? 'bg-emerald-700 text-white font-bold' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'"
+                                    class="px-2 py-1 rounded-md text-[11px] transition shadow-xs">
+                                    Vệ tinh HD (Google)
+                                </button>
+                                <button type="button" @click="activeMapLayer = 'google'"
+                                    :class="activeMapLayer === 'google' ? 'bg-emerald-700 text-white font-bold' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'"
+                                    class="px-2 py-1 rounded-md text-[11px] transition shadow-xs">
+                                    Bản đồ Google
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Map Frame -->
+                        <div class="rounded-xl overflow-hidden border border-emerald-200 shadow-sm relative h-64 bg-gray-100">
+                            <!-- OpenStreetMap with Marker Pinpoint -->
+                            <iframe v-if="activeMapLayer === 'osm'" width="100%" height="100%" style="border: 0" loading="lazy"
+                                :src="'https://www.openstreetmap.org/export/embed.html?bbox=' +
+                                    (Number(boardingHouse.longitude) - 0.0035) + '%2C' + (Number(boardingHouse.latitude) - 0.0022) + '%2C' +
+                                    (Number(boardingHouse.longitude) + 0.0035) + '%2C' + (Number(boardingHouse.latitude) + 0.0022) +
+                                    '&layer=mapnik&marker=' + boardingHouse.latitude + '%2C' + boardingHouse.longitude">
+                            </iframe>
+
+                            <!-- Google Maps Satellite HD -->
+                            <iframe v-else-if="activeMapLayer === 'satellite'" width="100%" height="100%" style="border: 0" loading="lazy"
+                                :src="'https://maps.google.com/maps?q=' + boardingHouse.latitude + ',' + boardingHouse.longitude + '&t=k&z=19&output=embed'">
+                            </iframe>
+
+                            <!-- Google Maps Standard -->
+                            <iframe v-else width="100%" height="100%" style="border: 0" loading="lazy"
+                                :src="'https://maps.google.com/maps?q=' + boardingHouse.latitude + ',' + boardingHouse.longitude + '&z=18&output=embed'">
                             </iframe>
                         </div>
 
-                        <p class="text-xs text-gray-500 italic">
-                            * Tọa độ được trích xuất từ dữ liệu GPS trong ảnh
-                            nhằm hỗ trợ đối chiếu tính xác thực của hình ảnh
-                            đăng tải.
-                        </p>
+                        <!-- Action External Links -->
+                        <div class="flex flex-wrap items-center gap-2 pt-1">
+                            <a :href="'https://www.google.com/maps?q=' + boardingHouse.latitude + ',' + boardingHouse.longitude"
+                                target="_blank"
+                                class="text-xs bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition">
+                                <i class="bi bi-box-arrow-up-right text-emerald-600"></i> Mở Google Maps
+                            </a>
+                            <a :href="'https://www.google.com/maps/dir/?api=1&destination=' + boardingHouse.latitude + ',' + boardingHouse.longitude"
+                                target="_blank"
+                                class="text-xs bg-white hover:bg-blue-50 text-blue-800 border border-blue-200 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition">
+                                <i class="bi bi-compass text-blue-600"></i> Chỉ đường tới đây
+                            </a>
+                            <a :href="'https://www.google.com/maps/@' + boardingHouse.latitude + ',' + boardingHouse.longitude + ',19z/data=!3m1!1e3'"
+                                target="_blank"
+                                class="text-xs bg-white hover:bg-purple-50 text-purple-800 border border-purple-200 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition">
+                                <i class="bi bi-globe-americas text-purple-600"></i> Xem vệ tinh 3D
+                            </a>
+                        </div>
                     </div>
 
-                    <!-- Warning -->
-                    <div v-else-if="boardingHouse?.room_images?.length"
-                        class="mt-4 p-3 bg-yellow-50 text-yellow-700 text-sm rounded-lg border border-yellow-200 flex items-start gap-2">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    <!-- Warning & Address-based Fallback Map -->
+                    <div v-else class="space-y-3 border-t pt-4 mt-4">
+                        <div class="p-3 bg-amber-50 text-amber-800 text-xs rounded-lg border border-amber-200 flex items-start gap-2">
+                            <i class="bi bi-exclamation-triangle-fill text-amber-600 text-base mt-0.5"></i>
+                            <div>
+                                <p class="font-bold">Không trích xuất được tọa độ GPS từ ảnh chụp.</p>
+                                <p class="text-amber-700 mt-0.5">
+                                    Ảnh tải lên có thể đã bị xóa dữ liệu EXIF/GPS khi gửi qua Zalo/Facebook, chụp màn hình hoặc chỉnh sửa.
+                                </p>
+                            </div>
+                        </div>
 
-                        <span>
-                            Không trích xuất được tọa độ thực tế. Ảnh có thể đã
-                            bị xóa dữ liệu GPS khi gửi qua Zalo/Facebook hoặc
-                            chỉnh sửa.
-                        </span>
+                        <!-- Fallback Map from Address -->
+                        <div v-if="boardingHouse?.address_detail || boardingHouse?.district" class="space-y-2">
+                            <h4 class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                <i class="bi bi-map-fill text-blue-600"></i>
+                                Vị trí tham khảo theo địa chỉ khai báo:
+                            </h4>
+                            <p class="text-xs text-gray-600 font-medium">
+                                {{ [boardingHouse?.address_detail, boardingHouse?.district, 'Ninh Bình'].filter(Boolean).join(', ') }}
+                            </p>
+                            <div class="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                                <iframe width="100%" height="220" style="border: 0" loading="lazy" :src="'https://maps.google.com/maps?q=' +
+                                    encodeURIComponent([boardingHouse?.address_detail, boardingHouse?.district, 'Ninh Bình'].filter(Boolean).join(', ')) +
+                                    '&hl=vi&z=15&output=embed'">
+                                </iframe>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

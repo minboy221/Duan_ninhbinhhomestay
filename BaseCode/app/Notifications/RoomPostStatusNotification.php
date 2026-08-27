@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\RoomPost;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use App\Channels\FcmChannel;
 
 class RoomPostStatusNotification extends Notification
 {
@@ -30,7 +31,7 @@ class RoomPostStatusNotification extends Notification
     //Khai báo kênh thông báo: lưu vào bảng notifications
     public function via($notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
     }
     /**
      * Cấu hình mảng dữ liệu: Laravel sẽ tự động ép mảng này thành chuỗi JSON 
