@@ -274,6 +274,17 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::delete('/rooms/{id}', [LandlordController::class, 'deleteRoom'])->name('landlord.rooms.delete');
 
     //CRUD tin đăng phòng trọ
+    Route::get('/listings', [RoomListingController::class, 'index'])->name('landlord.listings.index');
+    Route::get('/listings/create', [RoomListingController::class, 'create'])->name('landlord.listings.create');
+    // Route lấy chi tiết phòng để đăng tin
+    Route::get('/rooms/{id}/details-for-listing', [RoomListingController::class, 'getRoomDetails'])->name('landlord.rooms.details');
+    Route::post('/listings', [RoomListingController::class, 'store'])->name('landlord.listings.store');
+    Route::get('/listings/{id}/edit', [RoomListingController::class, 'edit'])->name('landlord.listings.edit');
+    Route::put('/listings/{id}', [RoomListingController::class, 'update'])->name('landlord.listings.update');
+    Route::delete('/listings/{id}', [RoomListingController::class, 'destroy'])->name('landlord.listings.destroy');
+    Route::post('/listings/{id}/close',[RoomListingController::class,'close'])->name('landlord.listings.close');
+    Route::post('/listings/{id}/bump', [RoomListingController::class, 'bump'])->name('landlord.listings.bump');
+    Route::post('/listings/buy-package', [RoomListingController::class, 'buyPackage'])->name('landlord.listings.buy-package');
     Route::middleware('check_manager_permissions:manage_listings')->group(function () {
         Route::get('/listings', [RoomListingController::class, 'index'])->name('landlord.listings.index');
         Route::get('/listings/create', [RoomListingController::class, 'create'])->name('landlord.listings.create');
