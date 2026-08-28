@@ -42,6 +42,17 @@ const filteredAreas = computed(() => {
     return (props.areas || []).filter(area => area.name.toLowerCase().includes(q));
 });
 
+const uniqueAmenities = computed(() => {
+    const list = props.amenities || [];
+    const seen = new Set();
+    return list.filter(item => {
+        const nameKey = item.name ? item.name.trim().toLowerCase() : item.id;
+        if (seen.has(nameKey)) return false;
+        seen.add(nameKey);
+        return true;
+    });
+});
+
 const safeListings = computed(() => {
     if (!props.listings) {
         return { data: [], links: [], total: 0, current_page: 1, last_page: 1 };
@@ -297,7 +308,7 @@ function submitSearch() {
                         </div>
 
                         <!-- Tiện ích (Dữ liệu từ DB) -->
-                        <div class="select_option" v-if="amenities.length">
+                        <div class="select_option" v-if="uniqueAmenities.length">
                             <div class="flex items-center justify-between cursor-pointer py-1 mb-2 border-b border-slate-100" @click="isAmenitiesCollapsed = !isAmenitiesCollapsed">
                                 <h3 class="!mb-0 font-semibold text-slate-800 flex items-center gap-1.5">
                                     Tiện ích:
@@ -307,7 +318,7 @@ function submitSearch() {
                                 </button>
                             </div>
                             <div v-show="!isAmenitiesCollapsed" class="feature_list transition-all duration-300">
-                                <label v-for="amenity in amenities" :key="amenity.id">
+                                <label v-for="amenity in uniqueAmenities" :key="amenity.id">
                                     <input type="checkbox" :value="amenity.id" v-model="form.amenities">
                                     <i :class="['bi', amenity.icon || 'bi-check-circle']"></i> {{ amenity.name }}
                                 </label>

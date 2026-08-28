@@ -79,4 +79,14 @@ class BoardingHouse extends Model
     public function propertyManager(){
         return $this->hasOne(PropertyManager::class,'boarding_house_id');
     }
+
+    public function propertyManagers()
+    {
+        return $this->hasMany(PropertyManager::class, 'boarding_house_id');
+    }
+
+    public function managers()
+    {
+        return $this->hasMany(PropertyManager::class, 'boarding_house_id');
+    }
 }

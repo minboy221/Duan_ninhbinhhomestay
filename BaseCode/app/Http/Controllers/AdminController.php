@@ -776,11 +776,18 @@ class AdminController extends Controller
         $banners = $request->input('banners', []);
         $files = $request->file('banners');
 
+        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+
         if (is_array($files)) {
             foreach ($banners as $index => &$banner) {
                 if (isset($files[$index]['file']) && $files[$index]['file']->isValid()) {
                     $path = $files[$index]['file']->store('banners', $disk);
-                    $banner['img'] = '/storage/' . $path;
+                    if ($useR2 && !empty($r2Url)) {
+                        $banner['img'] = $r2Url . '/' . ltrim($path, '/');
+                    } else {
+                        $banner['img'] = '/storage/' . ltrim($path, '/');
+                    }
                 }
             }
         }

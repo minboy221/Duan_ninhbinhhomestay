@@ -122,5 +122,4 @@ const submit = () => {
 </template>
 
 <style scoped>
-/* Không cần custom css phức tạp vì đã dùng TailwindCSS */
 </style>
