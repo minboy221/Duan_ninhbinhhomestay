@@ -51,7 +51,7 @@ class AdminVerificationController extends Controller
             $actionText = $request->action === 'approve' ? 'Phê duyệt' : 'Từ chối';
             //tìm thông tin email của người dùng bị tác động
             $targetUser = \App\Models\User::find($userId);
-            $email = $targetUser ? $targetUser->email : 'ID # {$userId}';
+            $email = $targetUser ? $targetUser->email : "ID # {$userId}";
             $reasonText = $request->reason ? "(Lý do: " . $request->reason . ")" : "";
             \App\Services\AuditLogger::log(
                 $action,

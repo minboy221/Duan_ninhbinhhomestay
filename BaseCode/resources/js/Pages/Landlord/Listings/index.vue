@@ -2,15 +2,20 @@
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { ref, computed } from "vue";
 import { Link, usePage, router } from "@inertiajs/vue3";
-import { showConfirm } from "@/Utils/swal";
+import { showConfirm, showWarning } from "@/Utils/swal";
 import { getStatusLabel, getStatusClass } from "@/Utils/statusHelper";
 
 const props = defineProps({
     listings: Object,
 });
 
+const page = usePage();
+const user = computed(() => page.props.auth.user);
+
 const activeTab = ref("all"); // 'all' | 'approved' | 'pending'  | 'draft'
-const flashSuccess = computed(() => usePage().props.flash?.success);
+const selectedPackage = ref("standard");
+
+const flashSuccess = computed(() => page.props.flash?.success);
 const statusMap = {
     approved: {
         label: "Đang Hiển Thị",
@@ -40,6 +45,15 @@ const statusMap = {
 };
 
 const formatMoney = (n) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
+const formatDateTime = (dateStr) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
+    });
+};
 
 const deleteListing = async (id) => {
     const confirmed = await showConfirm(
@@ -79,6 +93,31 @@ const handleDeletePost = async (id) => {
     }
 };
 
+//hàm xử lý đẩy tin lên TOP
+const bumpListing = async (id) => {
+    //check nếu hết lượt đẩy tin -> mua gói
+    if ((user.value?.bump_credits || 0) <= 0) {
+        const confirmBuy = await showConfirm("Hết lượt đẩy tin!",
+            "Tài khoản của bạn đã hết lượt đẩy tin. Bạn có muốn chuyển sang trang Gói Dịch vụ để nâng cấp thêm lượt không?",
+            "Nâng cấp gói ngay",
+            "Để sau"
+        );
+        if (confirmBuy) {
+            router.get(route("landlord.subscriptions.index"));
+        }
+        return;
+    }
+    //nếu còn lượt -> xác nhận đẩy tin
+    const confirmed = await showConfirm(
+        "Xác nhận Đẩy Tin lên TOP",
+        "Thao tác này sẽ trừ 1 lượt đẩy tin và ngay lập tức đưa bài đăng lên vị trí đầu trang chủ.",
+        "Đẩy tin ngay",
+        "Huỷ"
+    );
+    if (confirmed) {
+        router.post(route("landlord.listings.bump", id));
+    }
+};
 //hàm kiểm tra phòng đã lấp đầy
 const isRoomFull = (ls) => {
     if (!ls || !ls.room) return false;
@@ -86,6 +125,25 @@ const isRoomFull = (ls) => {
     const currentPeople = ls.room.current_people || 0;
     return currentPeople >= capacity;
 };
+
+// Quản lý Modal Lịch sử Đẩy tin
+const showHistoryModal = ref(false);
+const bumpLogs = ref([]);
+const isLoadingLogs = ref(false);
+
+const fetchBumpHistory = async () => {
+    showHistoryModal.value = true;
+    isLoadingLogs.value = true;
+    try {
+        const res = await axios.get(route('landlord.listings.bump-history'));
+        bumpLogs.value = res.data;
+    } catch (err) {
+        console.error("Lỗi lấy lịch sử đẩy tin:", err);
+    } finally {
+        isLoadingLogs.value = false;
+    }
+};
+import axios from "axios";
 </script>
 
 <template>
@@ -118,6 +176,44 @@ const isRoomFull = (ls) => {
                     <i class="bi bi-plus-lg"></i>
                     Đăng tin mới
                 </Link>
+            </div>
+
+            <!-- Gói Đẩy Tin Card -->
+            <div
+                class="p-6 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl text-white shadow-xl shadow-emerald-500/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span
+                            class="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                            {{ user?.package_name || 'Gói mặc định' }}
+                        </span>
+                    </div>
+                    <h3 class="text-lg font-extrabold flex items-center gap-1">
+                        Số lượt đẩy tin còn lại:
+                        <span class="text-yellow-300 text-2xl font-black ml-1">
+                            {{ user?.bump_credits || 0 }}
+                        </span> lượt
+                    </h3>
+                    <p class="text-[11px] text-emerald-100/90 max-w-xl leading-relaxed">
+                        Đẩy tin giúp bài đăng của bạn đưa lên đầu danh sách trang chủ Ninh Bình Homestay và trang tìm
+                        kiếm để tiếp cận nhiều khách thuê hơn.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <!-- Nút xem Lịch sử đẩy tin -->
+                    <button @click="fetchBumpHistory" type="button"
+                        class="px-3.5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-2xl font-bold text-xs transition-all flex items-center gap-1.5 border border-white/20 shadow-sm">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Lịch sử đẩy tin</span>
+                    </button>
+
+                    <!-- Nút bấm mở trang Mua Gói Dịch Vụ chính thức -->
+                    <Link :href="route('landlord.subscriptions.index')"
+                        class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center gap-2">
+                        <i class="bi bi-gem font-bold"></i>
+                        <span>Mua thêm gói lượt đẩy</span>
+                    </Link>
+                </div>
             </div>
 
             <!-- Filter Tabs -->
@@ -228,7 +324,7 @@ const isRoomFull = (ls) => {
                         </div>
 
                         <!-- View Stats -->
-                        <div class="flex items-center gap-4 text-[10px] text-slate-400 font-bold">
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-400 font-bold">
                             <span><i class="bi bi-eye mr-1"></i>
                                 {{ ls.view_count }} lượt xem</span>
                             <span><i class="bi bi-calendar3 mr-1"></i> Ngày tạo:
@@ -237,6 +333,13 @@ const isRoomFull = (ls) => {
                                         "vi-VN",
                                     )
                                 }}</span>
+                            <span v-if="ls.bump_count > 0"
+                                class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1">
+                                <i class="bi bi-arrow-up-circle"></i> Đã đẩy {{ ls.bump_count }} lần
+                            </span>
+                            <span v-if="ls.bumped_at" class="text-slate-500 flex items-center gap-1">
+                                <i class="bi bi-clock-history"></i> Đẩy cuối: {{ formatDateTime(ls.bumped_at) }}
+                            </span>
                         </div>
                     </div>
 
@@ -263,6 +366,13 @@ const isRoomFull = (ls) => {
                             <i class="bi bi-lock-fill"></i> Đã đủ người
                         </span>
 
+                        <!-- Đẩy Tin Button -->
+                        <button v-if="ls.status === 'approved'" type="button" @click="bumpListing(ls.id)"
+                            class="flex-1 md:flex-none px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-emerald-200/40">
+                            <i class="bi bi-arrow-up-circle-fill text-emerald-500"></i>
+                            Đẩy tin
+                        </button>
+
                         <button v-if="ls.status === 'approved'" type="button" @click="closeListing(ls.id, ls.title)"
                             class="flex-1 md:flex-none px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 border border-amber-200/40">
                             <i class="bi bi-lock-fill"></i>
@@ -288,6 +398,47 @@ const isRoomFull = (ls) => {
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
                     !link.url && 'opacity-50 cursor-not-allowed',
                 ]" />
+        </div>
+
+        <!-- Modal Popup Lịch sử đẩy tin -->
+        <div v-if="showHistoryModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        <i class="bi bi-clock-history text-emerald-600"></i>
+                        Nhật Ký Đẩy Tin Đăng
+                    </h3>
+                    <button @click="showHistoryModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                </div>
+
+                <div v-if="isLoadingLogs" class="py-8 text-center text-slate-400 text-xs font-semibold">
+                    <i class="bi bi-arrow-repeat animate-spin text-xl block mb-2"></i> Đang tải lịch sử...
+                </div>
+                
+                <div v-else-if="bumpLogs.length === 0" class="py-8 text-center text-slate-400 text-xs">
+                    Chưa có lịch sử đẩy tin nào.
+                </div>
+
+                <div v-else class="max-h-80 overflow-y-auto space-y-2.5 pr-1">
+                    <div v-for="log in bumpLogs" :key="log.id" class="p-3 bg-slate-50 rounded-2xl flex items-center justify-between gap-3 text-xs border border-slate-100">
+                        <div class="space-y-1 flex-1">
+                            <p class="font-bold text-slate-800 line-clamp-1">{{ log.title }}</p>
+                            <span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md font-semibold border border-emerald-100">
+                                {{ log.package_name }}
+                            </span>
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold flex items-center gap-1 shrink-0">
+                            <i class="bi bi-calendar-event"></i> {{ log.bumped_at }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="pt-2 text-right">
+                    <button @click="showHistoryModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">
+                        Đóng
+                    </button>
+                </div>
+            </div>
         </div>
     </LandlordLayout>
 </template>

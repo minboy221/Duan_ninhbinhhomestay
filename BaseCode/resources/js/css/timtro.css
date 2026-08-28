@@ -335,10 +335,13 @@ input[type="radio"]:checked::after {
 /* phần hiển thị trọ */
 .room {
     flex: 1;
+    min-width: 0;
+    width: 100%;
 }
 
 .baoroom {
-    width: 810px;
+    width: 100%;
+    max-width: 100%;
 }
 
 .item_room {
@@ -378,6 +381,17 @@ input[type="radio"]:checked::after {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    min-width: 0;
+}
+
+.infor_room .infor,
+.infor_room .infor_detail {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    width: 100% !important;
+    gap: 8px !important;
+    padding: 0 !important;
 }
 
 /* tiêu đề */

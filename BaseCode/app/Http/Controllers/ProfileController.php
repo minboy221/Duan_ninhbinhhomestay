@@ -11,9 +11,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use App\Models\RoommateRequest;
+use App\Models\Contract;
+use App\Models\RoomResident;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use function Safe\strtotime;
+use Illuminate\Support\Facades\DB;
 
 class ProfileController extends Controller
 {
@@ -240,7 +244,12 @@ class ProfileController extends Controller
      */
     public function appointments(Request $request): Response
     {
-        $appointments = \App\Models\Appointment::with(['room.boardingHouse.landlord'])
+        $appointments = \App\Models\Appointment::with([
+            'room.boardingHouse.landlord',
+            'room.roomPosts' => function ($q) {
+                $q->orderBy('created_at', 'desc');
+            }
+        ])
             ->where('user_id', $request->user()->id)
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')
@@ -288,6 +297,15 @@ class ProfileController extends Controller
             } else if ($pastResident) {
                 $apt->status = 'roommate_removed';
             }
+
+            // Lấy slug_with_hash của RoomPost liên quan đến phòng
+            $roomPost = \App\Models\RoomPost::where('room_id', $roomId)->latest()->first();
+            if (!$roomPost && $apt->room) {
+                $roomPost = \App\Models\RoomPost::whereHas('room', function ($q) use ($apt) {
+                    $q->where('boarding_house_id', $apt->room->boarding_house_id);
+                })->latest()->first();
+            }
+            $apt->post_slug_or_id = $roomPost ? ($roomPost->slug_with_hash ?: $roomPost->id) : null;
         }
 
         $favoriteRoomIds = $request->user()->favoriteRooms()->pluck('rooms.id')->toArray();
@@ -720,6 +738,95 @@ class ProfileController extends Controller
             $user->update(['fcm_token' => $request->fcm_token]);
         }
         return response()->json(['messeage' => 'Cập nhật FCM Token thành công!']);
+    }
+
+    //hàm hiển thị trang cài đặt
+    public function settings(Request $request)
+    {
+        $sessions = [];
+        if (config('session.driver') === 'database') {
+            $sessions = DB::table('sessions')
+                ->where('user_id', $request->user()->id)
+                ->orderBy('last_activity', 'desc')
+                ->get()
+                ->map(function ($session) use ($request) {
+                    $agent = $this->parseUserAgent($session->user_agent);
+                    return [
+                        'id' => $session->id,
+                        'device' => $agent['device'],
+                        'platform' => $agent['platform'],
+                        'browser' => $agent['browser'],
+                        'ip_address' => $session->ip_address,
+                        'is_current_device' => $session->id === $request->session()->getId(),
+                        'last_active' => \Carbon\Carbon::createFromTimestamp($session->last_activity)->diffForHumans(),
+                    ];
+                });
+        }
+        return Inertia::render('Profile/caidat', [
+            'sessions' => $sessions,
+        ]);
+    }
+    //hàm phân tích thông tin trình duyệt & thiết bị từ user
+    private function parseUserAgent($ua)
+    {
+        $browser = 'Trình duyệt';
+        if (str_contains($ua, 'Chrome'))
+            $browser = 'Chrome';
+        elseif (str_contains($ua, 'Safari'))
+            $browser = 'Safari';
+        elseif (str_contains($ua, 'Firefox'))
+            $browser = 'Firefox';
+        elseif (str_contains($ua, 'Edge'))
+            $browser = 'Edge';
+        $platform = 'Máy tính';
+        if (str_contains($ua, 'iPhone') || str_contains($ua, 'iPad'))
+            $platform = 'iOS';
+        elseif (str_contains($ua, 'Android'))
+            $platform = 'Android';
+        elseif (str_contains($ua, 'Windows'))
+            $platform = 'Windows';
+        elseif (str_contains($ua, 'Macintosh'))
+            $platform = 'Mac';
+        return [
+            'device' => (str_contains($ua, 'Mobile') ? 'Điện thoại' : 'Máy tính'),
+            'platform' => $platform,
+            'browser' => $browser,
+        ];
+    }
+    //hàm xoá tài khoản (yêu cầu xác nhận mật khẩu hiện tại)
+    public function destroyAccount(Request $request)
+    {
+        //xác minh mật khẩu hiện tại
+        $request->validate([
+            'password' => ['required', 'current_password'],
+        ], [
+            'password.required' => 'Vui lòng nhập mật khẩu hiện tại để xác nhận',
+            'password.current_password' => 'Mật khẩu xác nhận không chính xác',
+        ]);
+        $userId = $request->user()->id;
+        //check hợp đồng nếu clien đang có hợp đồng hiệu lực
+        $hasActiveContract = Contract::where('tenant_id', $userId)
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+            ->exists();
+        //check người dùng là thành viên ở ghép đang hoạt động
+        $hasActiveResidency = RoomResident::where('user_id', $userId)
+            ->where('status', 'active')
+            ->exists();
+        if ($hasActiveContract || $hasActiveResidency) {
+            throw ValidationException::withMessages([
+                'password' => 'Tài khoản của bạn hiện đang có hợp đồng hoặc phòng trọ còn hiệu lực! Bạn không thể xóa tài khoản. Vui lòng thanh lý hợp đồng và trả phòng trước khi xóa.',
+            ]);
+        }
+        //đăng xuất người dùng
+        Auth::logout();
+        //xoá tài khoản khỏi database
+        $user = $request->user();
+        Auth::logout();
+        $user ->delete();
+        //huỷ session
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect('/')->with('success', 'Tài khoản của bạn đã được xóa thành công.');
     }
 }
 

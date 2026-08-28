@@ -29,8 +29,18 @@ class SubscriptionController extends Controller
         $activeSubscription = $user->activeSubscription()->with('plan.features')->first();
         // Tính số ngày còn lại
         $daysRemaining = 0;
-        if ($activeSubscription && $activeSubscription->end_date) {
-            $daysRemaining = max(0, now()->startOfDay()->diffInDays($activeSubscription->end_date->startOfDay(), false));
+        if ($activeSubscription) {
+            if (!$activeSubscription->end_date && $activeSubscription->plan && $activeSubscription->plan->duration_days > 0) {
+                $calculatedEnd = \Carbon\Carbon::parse($activeSubscription->start_date ?? now())
+                    ->addDays($activeSubscription->plan->duration_days)
+                    ->toDateString();
+                $activeSubscription->update(['end_date' => $calculatedEnd]);
+                $activeSubscription->refresh();
+            }
+            //tính số ngày còn lại
+            if ($activeSubscription->end_date) {
+                $daysRemaining = max(0, now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($activeSubscription->end_date)->startOfDay(), false));
+            }
         }
         // Lấy danh sách các gói dịch vụ có sẵn
         $plans = SubscriptionPlan::with('features')

@@ -65,20 +65,17 @@ class HandleInertiaRequests extends Middleware
         $managerPermissions = [];
 
         if ($user && $user->role === 'landlord') {
-            //lấy danh sách ID cơ sở do chủ trọ sở hữu
-            $ownerHouseIds = \App\Models\BoardingHouse::where('user_id', $user->id)->where('status', 'approved')
-                ->pluck('id')
-                ->toArray();
-            //lấy danh sách Id cơ sở chủ trọ được làm quản lý phụ
-            $managedHouseIds = \App\Models\PropertyManager::where('user_id', $user->id)
-                ->pluck('boarding_house_id')
-                ->toArray();
-            //gộp tất cả các id
-            $allHouseIds = array_unique(array_merge($ownerHouseIds, $managedHouseIds));
-            //lấy thông tin cơ sở
-            $boardingHouses = \App\Models\BoardingHouse::whereIn('id', $allHouseIds)
-                ->where('status', 'approved')
-                ->get(['id', 'name', 'address_detail', 'district', 'latitude', 'longitude']);
+            $userId = $user->id;
+
+            // Lấy tất cả cơ sở trọ (Sở hữu chính + Được phân quyền phụ) trong 1 QUERY duy nhất
+            $boardingHouses = \App\Models\BoardingHouse::where('status', 'approved')
+                ->where(function ($query) use ($userId) {
+                    $query->where('user_id', $userId)
+                        ->orWhereHas('managers', function ($q) use ($userId) {
+                            $q->where('user_id', $userId);
+                        });
+                })
+                ->get(['id', 'name', 'address_detail', 'district', 'latitude', 'longitude', 'user_id']);
             //tự động chọn cơ sở đầu tiên trong session chưa lưu cơ sở nào
             if (!$selectedBoardingHouseId && $boardingHouses->isNotEmpty()) {
                 $selectedBoardingHouseId = $boardingHouses->first()->id;
@@ -94,12 +91,12 @@ class HandleInertiaRequests extends Middleware
                 } else {
                     //nếu là tài khoản phụ -> lấy mảng permissions từ bảng PropertyManager
                     $manager = \App\Models\PropertyManager::where('boarding_house_id', $selectedBoardingHouseId)
-                    ->where('user_id', $user->idi)
-                    ->first();
-                    if($manager){
+                        ->where('user_id', $user->id)
+                        ->first();
+                    if ($manager) {
                         $perms = $manager->permissions;
                         $managerPermissions = is_array($perms) ? $perms : (is_string($perms) ? json_decode($perms, true) ?: explode(',', $perms) : []);
-                    }else{
+                    } else {
                         $managerPermissions = [];
                     }
                 }
@@ -109,25 +106,61 @@ class HandleInertiaRequests extends Middleware
         $userData = null;
         if ($user) {
             $user->load('verification');
-            $activeSub = $user->activeSubscription;
-            $hasVipFrame = false;
+
+            // 1. Xác định tài khoản mục tiêu (Nếu là Quản lý phụ -> Lấy Chủ Trọ Chính)
+            $targetUser = $user;
+            if ($selectedBoardingHouseId) {
+                    $currentHouse = \App\Models\BoardingHouse::find($selectedBoardingHouseId);
+                if ($currentHouse && $currentHouse->user_id !== $user->id) {
+                    $targetUser = $currentHouse->user;
+                }
+            }
+
+            // 2. Đọc gói active kèm danh sách tính năng features
+            $activeSub = $targetUser ? $targetUser->activeSubscription()->with('plan.features')->first() : null;
+
+            $packageName = ($activeSub && $activeSub->plan)
+                ? $activeSub->plan->name
+                : ($targetUser->package_name ?? 'Gói Cơ Bản');
+
+            // 3. Đọc tính năng đẩy tin 'priority_listing' do Admin cấu hình cho Gói này
+            $bumpCredits = $targetUser ? ($targetUser->bump_credits ?? 0) : 0;
 
             if ($activeSub && $activeSub->plan) {
-                $frameFeat = $activeSub->plan->features->where('feature_code', 'avatar_frame')->first();
+                $pFeature = $activeSub->plan->features->firstWhere('feature_code', 'priority_listing');
+                $pVal = $pFeature ? (string) $pFeature->pivot->feature_value : null;
+
+                if ($pVal === '-1') {
+                    // Nếu gói là Vô Hạn lượt đẩy tin (Gói VIP / Dùng thử 60 ngày VIP)
+                    $bumpCredits = 'Vô hạn';
+                } elseif (is_numeric($pVal) && (int) $pVal > 0 && (int) $bumpCredits <= 0) {
+                    // Nếu gói có số lượt cụ thể mà DB chưa có -> Tự động cập nhật DB
+                    $bumpCredits = (int) $pVal;
+                    $targetUser->update(['bump_credits' => $bumpCredits]);
+                }
+            }
+
+            $hasVipFrame = false;
+            if ($activeSub && $activeSub->plan) {
+                $frameFeat = $activeSub->plan->features->firstWhere('feature_code', 'avatar_frame');
                 $hasVipFrame = $frameFeat && in_array($frameFeat->pivot->feature_value, ['gold', 'true', '1']);
             }
 
+            // 4. Truyền dữ liệu sang Vue Frontend
             $userData = array_merge($user->toArray(), [
+                'package_name' => $packageName,
+                'bump_credits' => $bumpCredits,
                 'has_vip_frame' => $hasVipFrame,
                 'features' => [
-                    'manage_invoices'  => $user->hasFeature('manage_invoices'),
+                    'manage_invoices' => $user->hasFeature('manage_invoices'),
                     'manage_contracts' => $user->hasFeature('manage_contracts'),
                     'manage_roommates' => $user->hasFeature('manage_roommates'),
-                    'manage_reports'   => $user->hasFeature('manage_reports'),
-                    'manage_managers'  => $user->hasFeature('manage_managers'),
+                    'manage_reports' => $user->hasFeature('manage_reports'),
+                    'manage_managers' => $user->hasFeature('manage_managers'),
                 ],
             ]);
         }
+
 
         $notifications = [];
         if ($user) {
@@ -145,8 +178,8 @@ class HandleInertiaRequests extends Middleware
                     ->whereIn('status', ['active', 'signed', 'expiring', 'awaiting_upload'])
                     ->exists()
                     || \App\Models\RoomResident::where('user_id', $user->id)
-                    ->where('status', 'active')
-                    ->exists();
+                        ->where('status', 'active')
+                        ->exists();
             } catch (\Throwable $e) {
                 $hasActiveContract = false;
             }
@@ -182,20 +215,14 @@ class HandleInertiaRequests extends Middleware
                     ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $user->id)->exists() : false,
                 'has_active_contract' => $hasActiveContract,
                 'notifications' => $notifications,
-                'pending_appointments_count' => $user && $user->role === 'landlord'
-                    ? \App\Models\Appointment::where('landlord_id', $user->id)
-                        ->where('status', 'pending')
-                        ->whereHas('room', function ($q) use ($selectedBoardingHouseId) {
-                            $q->where('boarding_house_id', $selectedBoardingHouseId);
-                        })->count() : 0,
-                'pending_landlord_reports_count' => 0,
-                'admin_counts' => $user && $user->role === 'admin' ? [
-                    'reports' => \App\Models\Report::where('status', 'pending')->count(),
-                    'verifications' => \App\Models\UserVerification::where('kyc_status', 'pending')->count(),
-                    'room_posts' => \App\Models\RoomPost::where('status', 'pending')->count(),
-                    'boarding_houses' => \App\Models\BoardingHouse::where('status', 'pending')->count(),
-                    'latest_audit_log_id' => \App\Models\AuditLog::max('id') ?? 0,
-                ] : null,
+                'pending_appointments_count' => ($user && $user->role === 'landlord' && $selectedBoardingHouseId)
+                    ? \Illuminate\Support\Facades\Cache::remember("pending_apt_{$user->id}_{$selectedBoardingHouseId}", 30, function () use ($user, $selectedBoardingHouseId) {
+                        return \App\Models\Appointment::where('landlord_id', $user->id)
+                            ->where('status', 'pending')
+                            ->whereHas('room', function ($q) use ($selectedBoardingHouseId) {
+                                $q->where('boarding_house_id', $selectedBoardingHouseId);
+                            })->count();
+                    }) : 0,
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

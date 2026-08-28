@@ -7,30 +7,30 @@
 }
 
 .dieuhuong {
-    position: absolute !important;
-    top: calc(100% - 1px) !important;
+    position: fixed !important;
+    top: 79px !important;
     left: 35px !important;
-    transform: none !important;
     width: auto;
-    position: fixed;
-    backdrop-filter: blur(19px);
-    box-shadow: rgba(0, 0, 0, 0.25) 0px 8px 32px;
-    z-index: 999;
-    padding: 15px;
+    padding: 15px 25px;
+    z-index: 999 !important;
     background: rgba(255, 255, 255, 0.15);
-    border-radius: 5px 0px 30px 30px;
-    border-width: 1px;
-    border-style: solid;
-    border-color: rgba(255, 255, 255, 0.25);
-    border-image: none;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 5px 0 30px 30px;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.18),
+        inset 0 0 10px rgba(255, 255, 255, 0.35);
 }
 
 
-.baodieuhuong a {
-    text-decoration: none;
-    color: #333;
-    text-align: center;
-    transition: 0.3s;
+/* Nội dung bên trong */
+.baodieuhuong {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+    z-index: 1;
 }
 
 .baodieuhuong a:hover {

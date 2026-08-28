@@ -204,7 +204,7 @@ class AdminController extends Controller
                 //lấy kết quả từ thuộc tính rooms_count được tự động đếm sẵn
                 $roomCount = $user->boardingHouse->rooms_count ?? 0;
                 //lấy tên gói dịch vụ miễn phí
-                $planName = $user->activateSubscription->plan->name ?? 'Miễn phí';
+                $planName = $user->activeSubscription->plan->name ?? 'Miễn phí';
                 return [
                     'id' => $user->id,
                     'avatar' => $user->avatar,
@@ -683,7 +683,7 @@ class AdminController extends Controller
         if ($request->filled('search')) {
             $q = $request->search;
             $query->where(function ($sub) use ($q) {
-                $sub->where('target', 'like', "%{$q}")->orWhere('ip_address', 'like', "%{$q}")->orWhereHas('user', function ($u) use ($q) {
+                $sub->where('target', 'like', "%{$q}%")->orWhere('ip_address', 'like', "%{$q}%")->orWhereHas('user', function ($u) use ($q) {
                     $u->where('name', 'like', "%{$q}%");
                 });
             });

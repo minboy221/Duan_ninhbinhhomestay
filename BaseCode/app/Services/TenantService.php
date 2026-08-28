@@ -45,7 +45,9 @@ class TenantService
                 'room' => $room ? $room->room_number : 'N/A',
                 'floor_id' => $floor ? $floor->id : null,
                 'floor' => $floor ? $floor->name : 'N/A',
-                'moveIn' => $r->start_date ?? $r->created_at->format('Y-m-d'),
+                'moveIn' => $r->start_date
+                    ? Carbon::parse($r->start_date)->format('Y-m-d')
+                    : ($r->created_at ? $r->created_at->format('Y-m-d') : 'N/A'),
                 'role' => 'Ở ghép',
                 'status' => $status,
                 'contract_pdf' => null,
@@ -81,7 +83,9 @@ class TenantService
                 'room' => $room ? $room->room_number : 'N/A',
                 'floor_id' => $floor ? $floor->id : null,
                 'floor' => $floor ? $floor->name : 'N/A',
-                'moveIn' => $c->start_date ? $c->start_date->format('Y-m-d') : 'N/A',
+                'moveIn' => $c->start_date
+                    ? Carbon::parse($c->start_date)->format('Y-m-d')
+                    : ($c->created_at ? $c->created_at->format('Y-m-d') : 'N/A'),
                 'role' => 'Chủ hợp đồng',
                 'status' => $status,
                 'contract_id' => $c->id,

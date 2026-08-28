@@ -1,6 +1,6 @@
 <script setup>
 import MainLayout from '@/Layouts/MainLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 </script>
 
 <template>
@@ -12,7 +12,9 @@ import { Head } from '@inertiajs/vue3';
             <img src="/anh/banner.png" alt="banner">
             <div class="banner-text">
                 <h1>Giới Thiệu</h1>
-                <p><a href="index.html">Trang Chủ</a> / Giới Thiệu</p>
+                <p>
+                    <Link :href="route('home')">Trang Chủ</Link>
+                     / Giới Thiệu</p>
             </div>
         </div>
         <div class="baonoidung">

@@ -46,6 +46,12 @@ function handleFileChange(e) {
     }
 }
 
+function clearImage() {
+    form.image_file = null
+    form.image_url = ''
+    imagePreviewSrc.value = null
+}
+
 // HTML editor helper
 const contentTextarea = ref(null)
 const activeTab = ref('write') // 'write' or 'preview'
@@ -63,7 +69,6 @@ function insertTag(startTag, endTag = '') {
 
     form.content = text.substring(0, startPos) + replacement + text.substring(endPos)
 
-    // Keep focus and select newly wrapped text
     setTimeout(() => {
         el.focus()
         el.setSelectionRange(startPos + startTag.length, startPos + startTag.length + selectedText.length)
@@ -79,158 +84,223 @@ function submit() {
     <Head title="Admin - Viết Bài Mới" />
     <AdminLayout>
         <template #header-title>
-            <div>
-                <h1 class="page-title">Viết Bài Mới</h1>
-                <p class="page-sub">Tạo bài viết và phát hành lên trang tin tức Ninh Bình Homestay</p>
+            <div class="flex items-center gap-3">
+                <Link :href="route('admin.posts.index')" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all" title="Quay lại danh sách">
+                    <i class="bi bi-arrow-left text-lg"></i>
+                </Link>
+                <div>
+                    <h1 class="text-xl font-black text-slate-900 leading-tight">Viết Bài Mới</h1>
+                    <p class="text-xs text-slate-500 font-medium">Tạo bài viết và phát hành lên trang tin tức Ninh Bình Homestay</p>
+                </div>
             </div>
         </template>
 
-        <div class="editor-container">
-            <form @submit.prevent="submit" class="editor-form">
-                <div class="form-grid">
-                    <!-- Left section: Form fields -->
-                    <div class="form-left">
-                        <div class="card">
-                            <div class="form-group">
-                                <label for="title" class="form-label">Tiêu đề bài viết <span class="required">*</span></label>
-                                <input v-model="form.title" type="text" id="title" class="form-control" placeholder="Nhập tiêu đề hấp dẫn..." required />
-                                <span v-if="form.errors.title" class="error-msg">{{ form.errors.title }}</span>
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6">
+            <form @submit.prevent="submit" class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <!-- Left Section: Form fields -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Title & Summary Card -->
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+                        <!-- Tiêu đề -->
+                        <div>
+                            <label for="title" class="block text-xs font-extrabold uppercase text-slate-700 tracking-wider mb-2">
+                                Tiêu đề bài viết <span class="text-rose-500">*</span>
+                            </label>
+                            <input v-model="form.title" type="text" id="title"
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400 placeholder:font-normal"
+                                placeholder="Nhập tiêu đề hấp dẫn bài viết..." required />
+                            <span v-if="form.errors.title" class="text-xs text-rose-500 font-bold block mt-1.5">{{ form.errors.title }}</span>
+                        </div>
+
+                        <!-- Tóm tắt -->
+                        <div>
+                            <label for="summary" class="block text-xs font-extrabold uppercase text-slate-700 tracking-wider mb-2">
+                                Tóm tắt bài viết
+                            </label>
+                            <textarea v-model="form.summary" id="summary" rows="3"
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                                placeholder="Tóm tắt ngắn gọn nội dung hiển thị ở danh sách bài viết..."></textarea>
+                            <span v-if="form.errors.summary" class="text-xs text-rose-500 font-bold block mt-1.5">{{ form.errors.summary }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Content Editor Card -->
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                            <label class="block text-xs font-extrabold uppercase text-slate-700 tracking-wider">
+                                Nội dung bài viết <span class="text-rose-500">*</span>
+                            </label>
+                            
+                            <!-- Tab switch: Write / Preview -->
+                            <div class="flex p-1 bg-slate-100 rounded-xl gap-1">
+                                <button type="button" 
+                                    @click="activeTab = 'write'"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                                    :class="activeTab === 'write' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'">
+                                    <i class="bi bi-pencil-square"></i> Soạn thảo
+                                </button>
+                                <button type="button" 
+                                    @click="activeTab = 'preview'"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                                    :class="activeTab === 'preview' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'">
+                                    <i class="bi bi-eye-fill"></i> Xem trước
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Editor Pane -->
+                        <div v-show="activeTab === 'write'" class="border border-slate-200 rounded-xl overflow-hidden focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                            <!-- Toolbar -->
+                            <div class="flex items-center gap-1.5 p-2 bg-slate-50/80 border-b border-slate-200 flex-wrap">
+                                <button type="button" @click="insertTag('<b>', '</b>')" class="p-2 hover:bg-slate-200/70 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer" title="In đậm">
+                                    <i class="bi bi-type-bold text-sm"></i>
+                                </button>
+                                <button type="button" @click="insertTag('<i>', '</i>')" class="p-2 hover:bg-slate-200/70 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer" title="In nghiêng">
+                                    <i class="bi bi-type-italic text-sm"></i>
+                                </button>
+                                <div class="w-px h-4 bg-slate-300 mx-1"></div>
+                                <button type="button" @click="insertTag('<h4>', '</h4>')" class="p-2 hover:bg-slate-200/70 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer" title="Tiêu đề H4">
+                                    <i class="bi bi-type-h4 text-sm"></i>
+                                </button>
+
+                                <button type="button" @click="insertTag('<p>', '</p>')" class="p-2 hover:bg-slate-200/70 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer" title="Đoạn văn">
+                                    <i class="bi bi-paragraph text-sm"></i>
+                                </button>
+                                <div class="w-px h-4 bg-slate-300 mx-1"></div>
+                                <button type="button" @click="insertTag('<ul>\n  <li>', '</li>\n</ul>')" class="p-2 hover:bg-slate-200/70 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer" title="Danh sách">
+                                    <i class="bi bi-list-ul text-sm"></i>
+                                </button>
+                                <button type="button" @click="insertTag('  <li>', '</li>\n')" class="p-2 hover:bg-slate-200/70 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer" title="Mục trong danh sách">
+                                    <i class="bi bi-list-task text-sm"></i>
+                                </button>
+                                <div class="w-px h-4 bg-slate-300 mx-1"></div>
+                                <button type="button" @click="insertTag('<a href=\x22#\x22 target=\x22_blank\x22>', '</a>')" class="p-2 hover:bg-slate-200/70 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer" title="Chèn đường dẫn">
+                                    <i class="bi bi-link-45deg text-sm"></i>
+                                </button>
+                            </div>
+                            <!-- Textarea -->
+                            <textarea 
+                                ref="contentTextarea" 
+                                v-model="form.content" 
+                                rows="16" 
+                                class="w-full p-4 text-sm font-mono text-slate-800 bg-white focus:outline-none resize-y leading-relaxed" 
+                                placeholder="Nhập nội dung chi tiết bài viết (Hỗ trợ thẻ HTML)..."
+                                required
+                            ></textarea>
+                        </div>
+
+                        <!-- Preview Pane -->
+                        <div v-show="activeTab === 'preview'" class="border border-slate-200 rounded-xl p-6 bg-slate-50/50 min-h-[380px] max-h-[550px] overflow-y-auto">
+                            <div v-if="form.content" class="post-content-body prose prose-slate max-w-none" v-html="form.content"></div>
+                            <div v-else class="flex flex-col items-center justify-center h-64 text-slate-400 space-y-2">
+                                <i class="bi bi-file-earmark-richtext text-4xl text-slate-300"></i>
+                                <p class="text-xs italic">Nội dung xem trước đang trống. Hãy nhập nội dung ở tab Soạn thảo...</p>
+                            </div>
+                        </div>
+
+                        <span v-if="form.errors.content" class="text-xs text-rose-500 font-bold block mt-1.5">{{ form.errors.content }}</span>
+                    </div>
+                </div>
+
+                <!-- Right Section: Settings & Actions Cards -->
+                <div class="space-y-6">
+                    <!-- Card 1: Cấu hình bài đăng -->
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+                        <h3 class="text-sm font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-2">
+                            <i class="bi bi-sliders text-indigo-600"></i> Cấu hình bài đăng
+                        </h3>
+
+                        <!-- Danh mục -->
+                        <div>
+                            <label for="category" class="block text-xs font-extrabold uppercase text-slate-700 tracking-wider mb-2">
+                                Danh mục <span class="text-rose-500">*</span>
+                            </label>
+                            <select id="category" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer" @change="handleCategoryChange">
+                                <option v-for="cat in categories" :key="cat" :value="cat">
+                                    {{ cat }}
+                                </option>
+                                <option value="custom">-- Danh mục tùy chỉnh --</option>
+                            </select>
+
+                            <!-- Custom Category Input -->
+                            <div v-if="showCustomCategory" class="mt-2">
+                                <input 
+                                    v-model="customCategory" 
+                                    type="text" 
+                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" 
+                                    placeholder="Nhập danh mục mới..." 
+                                    @input="handleCustomCategoryInput"
+                                    required
+                                />
+                            </div>
+                            <span v-if="form.errors.category" class="text-xs text-rose-500 font-bold block mt-1.5">{{ form.errors.category }}</span>
+                        </div>
+
+                        <!-- Từ khóa Tags -->
+                        <div>
+                            <label for="tags" class="block text-xs font-extrabold uppercase text-slate-700 tracking-wider mb-2">
+                                Từ khóa (Tags)
+                            </label>
+                            <input v-model="form.tags" type="text" id="tags"
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                placeholder="Ví dụ: Ninh Binh, Du Lich..." />
+                            <p class="text-[10px] text-slate-400 font-medium mt-1">Phân tách các từ khóa bằng dấu phẩy (,)</p>
+                            <span v-if="form.errors.tags" class="text-xs text-rose-500 font-bold block mt-1.5">{{ form.errors.tags }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Ảnh bìa -->
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+                        <h3 class="text-sm font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-2">
+                            <i class="bi bi-image-fill text-indigo-600"></i> Ảnh bìa bài viết
+                        </h3>
+
+                        <div class="space-y-3">
+                            <!-- File Upload Area -->
+                            <label for="image_file" class="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-xl bg-slate-50 hover:bg-indigo-50/30 cursor-pointer transition-all text-center group">
+                                <i class="bi bi-cloud-arrow-up text-2xl text-slate-400 group-hover:text-indigo-600 transition-colors mb-1"></i>
+                                <span class="text-xs font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">Tải ảnh từ máy tính</span>
+                                <span class="text-[10px] text-slate-400 font-medium">PNG, JPG, WEBP tối đa 5MB</span>
+                            </label>
+                            <input type="file" id="image_file" accept="image/*" @change="handleFileChange" class="hidden" />
+
+                            <div class="flex items-center gap-2 my-2">
+                                <div class="h-px bg-slate-200 flex-1"></div>
+                                <span class="text-[10px] uppercase font-bold text-slate-400">Hoặc URL</span>
+                                <div class="h-px bg-slate-200 flex-1"></div>
                             </div>
 
-                            <div class="form-group">
-                                <label for="summary" class="form-label">Mô tả ngắn (Tóm tắt)</label>
-                                <textarea v-model="form.summary" id="summary" rows="3" class="form-control" placeholder="Tóm tắt ngắn gọn nội dung bài viết hiển thị ở danh sách bài viết..."></textarea>
-                                <span v-if="form.errors.summary" class="error-msg">{{ form.errors.summary }}</span>
+                            <!-- URL Input -->
+                            <input v-model="form.image_url" type="url"
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                placeholder="Dán link ảnh https://..." />
+
+                            <span v-if="form.errors.image_file" class="text-xs text-rose-500 font-bold block mt-1.5">{{ form.errors.image_file }}</span>
+                        </div>
+
+                        <!-- Image Preview -->
+                        <div v-if="imagePreviewSrc || form.image_url" class="space-y-2 pt-2 border-t border-slate-100">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-700">Xem trước ảnh bìa:</span>
+                                <button type="button" @click="clearImage" class="text-xs text-rose-500 hover:text-rose-700 font-bold cursor-pointer">Xóa ảnh</button>
                             </div>
-
-                            <!-- Content Editor with Custom Toolbar -->
-                            <div class="form-group">
-                                <div class="editor-header">
-                                    <label class="form-label">Nội dung bài viết <span class="required">*</span></label>
-                                    <div class="tab-buttons">
-                                        <button type="button" :class="['tab-btn', activeTab === 'write' ? 'tab-active' : '']" @click="activeTab = 'write'">
-                                            <i class="bi bi-pencil"></i> Soạn thảo
-                                        </button>
-                                        <button type="button" :class="['tab-btn', activeTab === 'preview' ? 'tab-active' : '']" @click="activeTab = 'preview'">
-                                            <i class="bi bi-eye"></i> Xem trước
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Editor Pane -->
-                                <div v-show="activeTab === 'write'" class="editor-pane">
-                                    <div class="editor-toolbar">
-                                        <button type="button" class="tool-btn" @click="insertTag('<b>', '</b>')" title="In đậm">
-                                            <i class="bi bi-type-bold"></i>
-                                        </button>
-                                        <button type="button" class="tool-btn" @click="insertTag('<i>', '</i>')" title="In nghiêng">
-                                            <i class="bi bi-type-italic"></i>
-                                        </button>
-                                        <button type="button" class="tool-btn" @click="insertTag('<h4>', '</h4>')" title="Tiêu đề (H4)">
-                                            <i class="bi bi-type-h4"></i>
-                                        </button>
-                                        <button type="button" class="tool-btn" @click="insertTag('<p>', '</p>')" title="Đoạn văn">
-                                            <i class="bi bi-paragraph"></i>
-                                        </button>
-                                        <button type="button" class="tool-btn" @click="insertTag('<ul>\n  <li>', '</li>\n</ul>')" title="Danh sách không thứ tự">
-                                            <i class="bi bi-list-ul"></i>
-                                        </button>
-                                        <button type="button" class="tool-btn" @click="insertTag('  <li>', '</li>\n')" title="Mục danh sách">
-                                            <i class="bi bi-list-task"></i>
-                                        </button>
-                                        <button type="button" class="tool-btn" @click="insertTag('<a href=\x22#\x22 target=\x22_blank\x22>', '</a>')" title="Liên kết URL">
-                                            <i class="bi bi-link-45deg"></i>
-                                        </button>
-                                    </div>
-                                    <textarea 
-                                        ref="contentTextarea" 
-                                        v-model="form.content" 
-                                        rows="15" 
-                                        class="editor-textarea" 
-                                        placeholder="Nhập nội dung chi tiết bài viết dưới dạng HTML..."
-                                        required
-                                    ></textarea>
-                                </div>
-
-                                <!-- Preview Pane -->
-                                <div v-show="activeTab === 'preview'" class="preview-pane">
-                                    <div v-if="form.content" class="post-content-body" v-html="form.content"></div>
-                                    <div v-else class="preview-empty text-gray">Nội dung xem trước trống. Hãy viết điều gì đó...</div>
-                                </div>
-                                <span v-if="form.errors.content" class="error-msg">{{ form.errors.content }}</span>
+                            <div class="rounded-xl overflow-hidden border border-slate-200 max-h-40 bg-slate-900/5">
+                                <img :src="imagePreviewSrc || form.image_url" class="w-full h-full object-cover" alt="Ảnh bìa bài viết" />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Right section: Settings card -->
-                    <div class="form-right">
-                        <div class="card">
-                            <h3 class="card-title">Cấu hình bài đăng</h3>
+                    <!-- Card 3: Thao tác chính -->
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-3">
+                        <button type="submit" :disabled="form.processing"
+                            class="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-bold text-sm shadow-md shadow-indigo-500/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                            <i class="bi bi-send-fill text-base"></i>
+                            <span>{{ form.processing ? 'Đang lưu...' : 'Đăng Bài Viết' }}</span>
+                        </button>
 
-                            <div class="form-group">
-                                <label for="category" class="form-label">Danh mục <span class="required">*</span></label>
-                                <select id="category" class="form-control" @change="handleCategoryChange">
-                                    <option v-for="cat in categories" :key="cat" :value="cat">
-                                        {{ cat }}
-                                    </option>
-                                    <option value="custom">-- Danh mục tùy chỉnh --</option>
-                                </select>
-
-                                <!-- Custom input if custom selected -->
-                                <div v-if="showCustomCategory" class="custom-category-group mt-2">
-                                    <input 
-                                        v-model="customCategory" 
-                                        type="text" 
-                                        class="form-control" 
-                                        placeholder="Nhập danh mục mới..." 
-                                        @input="handleCustomCategoryInput"
-                                        required
-                                    />
-                                </div>
-                                <span v-if="form.errors.category" class="error-msg">{{ form.errors.category }}</span>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="tags" class="form-label">Từ khóa (Tags)</label>
-                                <input v-model="form.tags" type="text" id="tags" class="form-control" placeholder="Ninh Binh, Du Lich, Homestay..." />
-                                <small class="form-hint">Phân tách các từ khóa bằng dấu phẩy</small>
-                                <span v-if="form.errors.tags" class="error-msg">{{ form.errors.tags }}</span>
-                            </div>
-
-                            <!-- Cover Image Selectors -->
-                            <div class="form-group">
-                                <label class="form-label">Ảnh bìa bài viết</label>
-                                <div class="image-selector-tabs">
-                                    <div class="image-upload-area">
-                                        <label for="image_file" class="image-upload-label">
-                                            <i class="bi bi-cloud-arrow-up"></i> Chọn file ảnh từ máy
-                                        </label>
-                                        <input type="file" id="image_file" accept="image/*" @change="handleFileChange" class="hidden-input" />
-                                    </div>
-                                    
-                                    <div class="divider-text">hoặc dán đường dẫn ảnh có sẵn</div>
-                                    
-                                    <input v-model="form.image_url" type="url" class="form-control" placeholder="https://example.com/image.jpg" />
-                                </div>
-                                <span v-if="form.errors.image_file" class="error-msg">{{ form.errors.image_file }}</span>
-                            </div>
-
-                            <!-- Image Preview Thumbnail -->
-                            <div class="form-group" v-if="imagePreviewSrc || form.image_url">
-                                <label class="form-label">Xem trước ảnh bìa</label>
-                                <div class="preview-thumb-container">
-                                    <img :src="imagePreviewSrc || form.image_url" class="preview-thumb-img" alt="Cover preview" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Actions block -->
-                        <div class="actions-card mt-3">
-                            <button type="submit" :disabled="form.processing" class="btn-submit">
-                                <i class="bi bi-check2-circle"></i> Đăng bài viết
-                            </button>
-                            <Link :href="route('admin.posts.index')" class="btn-cancel-link">Hủy bỏ</Link>
-                        </div>
+                        <Link :href="route('admin.posts.index')" class="w-full py-2.5 text-center text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors block">
+                            Hủy bỏ & Quay lại
+                        </Link>
                     </div>
                 </div>
             </form>
@@ -239,74 +309,9 @@ function submit() {
 </template>
 
 <style scoped>
-.page-title { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-.page-sub   { font-size: 12px; color: #94a3b8; margin: 2px 0 0; }
-
-.editor-container { margin-top: 20px; }
-.form-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
-
-@media (max-width: 992px) {
-    .form-grid { grid-template-columns: 1fr; }
-}
-
-.card { background: #fff; border-radius: 16px; border: 1px solid #f1f5f9; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-.card-title { font-size: 15px; font-weight: 700; color: #1e293b; margin: 0 0 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
-
-.form-group { margin-bottom: 20px; }
-.form-group:last-child { margin-bottom: 0; }
-.form-label { display: block; font-size: 13.5px; font-weight: 600; color: #334155; margin-bottom: 8px; }
-.required { color: #ef4444; }
-
-.form-control { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; color: #0f172a; outline: none; background: #fff; box-sizing: border-box; }
-.form-control:focus { border-color: #166ea9; box-shadow: 0 0 0 3px rgba(22, 110, 169, 0.08); }
-textarea.form-control { resize: vertical; }
-
-.form-hint { font-size: 11px; color: #94a3b8; display: block; margin-top: 4px; }
-.error-msg { font-size: 12px; color: #ef4444; display: block; margin-top: 6px; font-weight: 500; }
-
-/* Editor custom styling */
-.editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.tab-buttons { display: flex; gap: 4px; background: #f1f5f9; padding: 3px; border-radius: 8px; }
-.tab-btn { padding: 6px 12px; border: none; background: none; font-size: 12px; font-weight: 600; color: #64748b; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.tab-active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-
-.editor-pane { border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #fff; }
-.editor-toolbar { display: flex; gap: 4px; padding: 8px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
-.tool-btn { width: 32px; height: 32px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
-.tool-btn:hover { background: #f1f5f9; color: #166ea9; border-color: #166ea9; }
-
-.editor-textarea { width: 100%; border: none; outline: none; padding: 14px; font-family: 'Courier New', Courier, monospace; font-size: 14px; color: #0f172a; background: #fff; resize: vertical; box-sizing: border-box; }
-
-.preview-pane { border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; background: #f8fafc; min-height: 350px; max-height: 480px; overflow-y: auto; box-sizing: border-box; }
-.preview-empty { display: flex; align-items: center; justify-content: center; height: 300px; font-style: italic; }
-
-/* Preview rendered html formatting */
-.post-content-body { font-size: 15px; line-height: 1.6; color: #334155; }
-.post-content-body :deep(h4) { font-size: 17px; font-weight: 700; color: #0f172a; margin-top: 20px; margin-bottom: 10px; }
-.post-content-body :deep(p) { margin-bottom: 12px; }
-.post-content-body :deep(ul) { padding-left: 20px; margin-bottom: 12px; list-style-type: disc; }
-.post-content-body :deep(li) { margin-bottom: 4px; }
-.post-content-body :deep(a) { color: #166ea9; text-decoration: underline; }
-
-/* Image Upload UI */
-.image-selector-tabs { background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; gap: 10px; }
-.image-upload-area { text-align: center; }
-.image-upload-label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #475569; transition: all 0.15s; }
-.image-upload-label:hover { border-color: #166ea9; color: #166ea9; background: rgba(22, 110, 169, 0.02); }
-.hidden-input { display: none; }
-.divider-text { text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin: 4px 0; }
-
-.preview-thumb-container { border-radius: 10px; overflow: hidden; border: 1px solid #cbd5e1; margin-top: 6px; }
-.preview-thumb-img { width: 100%; height: auto; display: block; max-height: 160px; object-fit: cover; }
-
-/* Actions Card */
-.actions-card { background: #fff; border-radius: 16px; border: 1px solid #f1f5f9; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-.btn-submit { width: 100%; padding: 12px; border: none; border-radius: 10px; background: #166ea9; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.btn-submit:hover { background: #0f4f7a; }
-.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-cancel-link { text-align: center; font-size: 13.5px; font-weight: 600; color: #64748b; text-decoration: none; display: block; padding: 6px; }
-.btn-cancel-link:hover { color: #ef4444; }
-
-.mt-2 { margin-top: 8px; }
-.mt-3 { margin-top: 12px; }
+.post-content-body :deep(h4) { font-size: 1.15rem; font-weight: 700; color: #0f172a; margin-top: 1rem; margin-bottom: 0.5rem; }
+.post-content-body :deep(p) { margin-bottom: 0.75rem; line-height: 1.6; }
+.post-content-body :deep(ul) { padding-left: 1.25rem; margin-bottom: 0.75rem; list-style-type: disc; }
+.post-content-body :deep(li) { margin-bottom: 0.25rem; }
+.post-content-body :deep(a) { color: #2563eb; text-decoration: underline; font-weight: 600; }
 </style>

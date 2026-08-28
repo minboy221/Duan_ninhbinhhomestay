@@ -224,120 +224,124 @@ onUnmounted(() => {
     <Head title="Quản Lý Khiếu Nại | Chủ Trọ" />
 
     <LandlordLayout>
-        <div class="p-6 bg-white rounded-xl shadow border border-slate-200">
-            <h2 class="text-xl font-bold text-slate-800 mb-2">
+        <div class="p-4 sm:p-6 bg-white rounded-xl shadow border border-slate-200">
+            <h2 class="text-lg sm:text-xl font-bold text-slate-800 mb-2">
                 Danh Sách Khiếu Nại & Báo Cáo
             </h2>
 
-            <p class="text-sm text-slate-500 mb-6">
+            <p class="text-xs sm:text-sm text-slate-500 mb-6">
                 Tiếp nhận và phản hồi các khiếu nại trực tiếp từ khách thuê
                 trước khi Admin can thiệp.
             </p>
 
-            <table class="w-full text-sm text-left border-collapse">
-                <thead>
-                    <tr class="bg-slate-50 border-b border-slate-200">
-                        <th class="p-3 font-semibold text-slate-700">
-                            Khách thuê
-                        </th>
-                        <th class="p-3 font-semibold text-slate-700">
-                            Phòng
-                        </th>
-                        <th class="p-3 font-semibold text-slate-700">
-                            Lý do khiếu nại
-                        </th>
+            <div class="overflow-x-auto -mx-4 sm:mx-0">
+                <table class="w-full text-sm text-left border-collapse min-w-[700px]">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200">
+                            <th class="p-3 font-semibold text-slate-700">
+                                Khách thuê
+                            </th>
+                            <th class="p-3 font-semibold text-slate-700">
+                                Lý do khiếu nại
+                            </th>
+                            <th class="p-3 font-semibold text-slate-700">
+                                Phòng
+                            </th>
 
-                        <th class="p-3 font-semibold text-slate-700">
-                            Thời hạn thương lượng
-                        </th>
+                            <th class="p-3 font-semibold text-slate-700">
+                                Thời hạn thương lượng
+                            </th>
 
-                        <th class="p-3 font-semibold text-slate-700 text-center">
-                            Trạng thái
-                        </th>
+                            <th class="p-3 font-semibold text-slate-700 text-center">
+                                Trạng thái
+                            </th>
 
-                        <th class="p-3 font-semibold text-slate-700 text-center">
-                            Hành động
-                        </th>
-                    </tr>
-                </thead>
+                            <th class="p-3 font-semibold text-slate-700 text-center">
+                                Hành động
+                            </th>
+                        </tr>
+                    </thead>
 
-                <tbody>
-                    <tr v-if="reports.data.length === 0">
-                        <td colspan="6" class="p-6 text-center text-slate-400">
-                            Không có khiếu nại nào dành cho bạn.
-                        </td>
-                    </tr>
+                    <tbody>
+                        <tr v-if="reports.data.length === 0">
+                            <td colspan="6" class="p-6 text-center text-slate-400">
+                                Không có khiếu nại nào dành cho bạn.
+                            </td>
+                        </tr>
 
-                    <tr v-for="r in reports.data" :key="r.id" class="border-b border-slate-100 hover:bg-slate-50">
-                        <td class="p-3">
-                            <p class="font-semibold text-slate-800">
-                                {{ r.reporter?.name }}
-                            </p>
+                        <tr v-for="r in reports.data" :key="r.id" class="border-b border-slate-100 hover:bg-slate-50">
+                            <td class="p-3">
+                                <p class="font-semibold text-slate-800">
+                                    {{ r.reporter?.name }}
+                                </p>
 
-                            <p class="text-xs text-slate-400">
-                                {{ r.reporter?.email }}
-                            </p>
-                        </td>
+                                <p class="text-xs text-slate-400">
+                                    {{ r.reporter?.email }}
+                                </p>
+                            </td>
 
-                        <td class="p-3">
-                            <p class="font-medium text-slate-800">
-                                {{ r.reason }}
-                            </p>
+                            <td class="p-3">
+                                <p class="font-medium text-slate-800">
+                                    {{ r.reason }}
+                                </p>
 
-                            <p class="text-xs text-slate-500 mt-1">
-                                {{ r.description }}
-                            </p>
-                        </td>
-                        <td class="p-3">
-                            <span v-if="r.room_number"
-                                class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold">
-                                {{ r.floor_name ? r.floor_name + ' - ' : '' }}Phòng {{ r.room_number }}
-                            </span>
-                            <span v-else class="text-slate-450 text-xs italic">
-                                N/A
-                            </span>
-                        </td>
+                                <p class="text-xs text-slate-500 mt-1">
+                                    {{ r.description }}
+                                </p>
+                            </td>
+                            <td class="p-3">
+                                <span v-if="r.room_number"
+                                    class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold whitespace-nowrap">
+                                    {{ r.floor_name ? r.floor_name + ' - ' : '' }}Phòng {{ r.room_number }}
+                                </span>
+                                <span v-else class="text-slate-450 text-xs italic">
+                                    N/A
+                                </span>
+                            </td>
 
-                        <td class="p-3 text-xs text-slate-500">
-                            {{
-                                r.negotiation_deadline
-                                    ? new Date(
-                                        r.negotiation_deadline,
-                                    ).toLocaleString("vi-VN")
-                                    : "N/A"
-                            }}
+                            <td class="p-3 text-xs text-slate-500">
+                                {{
+                                    r.negotiation_deadline
+                                        ? new Date(
+                                            r.negotiation_deadline,
+                                        ).toLocaleString("vi-VN")
+                                        : "N/A"
+                                }}
 
-                            <span v-if="
-                                r.status === 'pending' &&
-                                isExpired(r.negotiation_deadline)
-                            " class="block text-rose-600 font-bold mt-1">
-                                (Quá hạn - Chờ Admin can thiệp)
-                            </span>
-                        </td>
+                                <span v-if="
+                                    r.status === 'pending' &&
+                                    isExpired(r.negotiation_deadline)
+                                " class="block text-rose-600 font-bold mt-1">
+                                    (Quá hạn - Chờ Admin can thiệp)
+                                </span>
+                            </td>
 
-                        <td class="p-3 text-center">
-                            <span :class="['px-2.5 py-1 rounded-full text-xs font-semibold', getLandlordStatusClass(r)]">
-                                {{ getLandlordStatusText(r) }}
-                            </span>
-                        </td>
-                        <td class="p-3 text-center flex items-center justify-center gap-2">
-                            <!-- Nút Xem chi tiết (Luôn hiển thị) -->
-                            <button @click="openResolveModal(r, true)"
-                                class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold transition flex items-center gap-1">
-                                <i class="bi bi-eye"></i> Chi tiết
-                            </button>
+                            <td class="p-3 text-center">
+                                <span :class="['px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap', getLandlordStatusClass(r)]">
+                                    {{ getLandlordStatusText(r) }}
+                                </span>
+                            </td>
+                            <td class="p-3 text-center">
+                                <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                                    <!-- Nút Xem chi tiết (Luôn hiển thị) -->
+                                    <button @click="openResolveModal(r, true)"
+                                        class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold transition flex items-center gap-1">
+                                        <i class="bi bi-eye"></i> Chi tiết
+                                    </button>
 
-                            <!-- Nút phản hồi (Chỉ hiển thị khi chờ xử lý và chưa quá hạn) -->
-                            <button
-                                v-if="r.status === 'investigating' && !r.target_resolved && !isExpired(r.negotiation_deadline)"
-                                @click="openResolveModal(r, false)"
-                                class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold transition flex items-center gap-1">
-                                <i class="bi bi-reply-fill"></i> Phản hồi
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                                    <!-- Nút phản hồi (Chỉ hiển thị khi chờ xử lý và chưa quá hạn) -->
+                                    <button
+                                        v-if="r.status === 'investigating' && !r.target_resolved && !isExpired(r.negotiation_deadline)"
+                                        @click="openResolveModal(r, false)"
+                                        class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold transition flex items-center gap-1">
+                                        <i class="bi bi-reply-fill"></i> Phản hồi
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Phân trang -->
@@ -364,9 +368,9 @@ onUnmounted(() => {
 
         <!-- Modal chi tiết dành cho chủ trọ-->
         <div v-if="showResolveModal && selectedReport"
-            class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-slate-200"
-                style="max-height: 85vh; overflow-y: auto">
+            class="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200"
+                style="max-height: 88vh; overflow-y: auto">
                 <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-1.5 border-b pb-2">
                     <i class="bi bi-flag-fill text-indigo-500"></i>
                     {{

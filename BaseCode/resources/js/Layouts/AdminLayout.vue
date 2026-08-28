@@ -297,7 +297,8 @@ const getMenuBadge = (item) => {
         <div v-if="mobileMenuOpen" class="mobile-overlay" @click="mobileMenuOpen = false"></div>
 
         <!-- Sidebar -->
-        <aside :class="[sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed', mobileMenuOpen ? 'mobile-show' : '']" class="admin-sidebar">
+        <aside :class="[sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed', mobileMenuOpen ? 'mobile-show' : '']"
+            class="admin-sidebar">
             <!-- Brand -->
             <div class="sidebar-brand">
                 <div class="brand-icon">
@@ -357,7 +358,7 @@ const getMenuBadge = (item) => {
                             </div>
                             <span v-if="sidebarOpen" class="nav-label">{{
                                 item.label
-                            }}</span>
+                                }}</span>
                             <span v-if="sidebarOpen && getMenuBadge(item) > 0" class="w-2 h-2 bg-red-500 rounded-full"
                                 style="
                                     background-color: #ef4444;
@@ -466,7 +467,7 @@ const getMenuBadge = (item) => {
                 </div>
                 <div class="header-right">
                     <!-- Bell -->
-                    <div class="relative">
+                    <div class="relative" v-click-outside="() => notifOpen = false">
                         <button class="header-btn" @click="notifOpen = !notifOpen">
                             <i class="bi bi-bell"></i>
                             <span v-if="

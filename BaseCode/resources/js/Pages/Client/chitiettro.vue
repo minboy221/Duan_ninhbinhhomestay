@@ -564,7 +564,7 @@ const roomMapUrl = computed(() => {
                                     room.status === "available"
                                         ? "ĐANG TRỐNG / ĐÃ KIỂM CHỨNG"
                                         : "ĐÃ ĐƯỢC KIỂM CHỨNG"
-                                    }}</span>
+                                }}</span>
                             </div>
                             <div v-if="room.current_people > 0 || room.status === 'rented'" class="theloai"
                                 style="background: #ecfdf5; color: #059669; border-color: #a7f3d0; margin-left: 6px;">
@@ -641,11 +641,18 @@ const roomMapUrl = computed(() => {
 
                 <section class="info_chutro">
                     <div class="baochutro">
-                        <div class="avatar1">
-                            <div class="avatar-img">
-                                <img :src="getAvatarUrl(room.boardingHouse?.user?.avatar)"
-                                    @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
-                                    alt="Avatar" />
+                        <div class="avatar1 flex items-center gap-4">
+                            <div class="relative inline-block shrink-0">
+                                <div :class="[
+                                    'w-16 h-16 rounded-full p-[3px] flex items-center justify-center transition-all duration-300',
+                                    room.boardingHouse?.user?.has_vip_frame
+                                        ? 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-600 shadow-md shadow-amber-500/30 ring-2 ring-amber-400/40'
+                                        : 'bg-slate-200'
+                                ]">
+                                    <img :src="getAvatarUrl(room.boardingHouse?.user?.avatar)"
+                                        @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
+                                        alt="Avatar" class="w-full h-full rounded-full object-cover bg-white" />
+                                </div>
                                 <span :class="[
                                     'status1',
                                     room.boardingHouse?.user?.is_online
@@ -654,28 +661,27 @@ const roomMapUrl = computed(() => {
                                 ]"></span>
                             </div>
                             <div class="name_chutro">
-                                <h3>
-                                    {{
-                                        room.boardingHouse?.user?.name || "Chủ trọ"
-                                    }}
-                                    <span style="
-                                        font-size: 12px;
-                                        font-weight: normal;
-                                        display: block;
-                                        margin-bottom: 10px;
-                                    " :style="{
-                                        color: room.boardingHouse?.user
-                                            ?.is_online
+                                <h3 class="flex items-center gap-1.5 font-bold text-slate-800 text-base mb-0.5">
+                                    {{ room.boardingHouse?.user?.name || "Chủ trọ" }}
+                                    <i v-if="room.boardingHouse?.user?.has_vip_frame"
+                                        class="bi bi-patch-check-fill text-amber-500 text-base" title="Chủ trọ VIP"></i>
+                                </h3>
+                                <p class="text-xs font-semibold mb-2 flex items-center gap-1.5" :style="{
+                                    color: room.boardingHouse?.user?.is_online
+                                        ? '#22c55e'
+                                        : '#94a3b8',
+                                }">
+                                    <span class="w-2 h-2 rounded-full inline-block" :style="{
+                                        backgroundColor: room.boardingHouse?.user?.is_online
                                             ? '#22c55e'
                                             : '#94a3b8',
-                                    }">
-                                        ({{
-                                            room.boardingHouse?.user?.is_online
-                                                ? "Đang hoạt động"
-                                                : "Ngoại tuyến"
-                                        }})
-                                    </span>
-                                </h3>
+                                    }"></span>
+                                    ({{
+                                        room.boardingHouse?.user?.is_online
+                                            ? "Đang hoạt động"
+                                            : "Ngoại tuyến"
+                                    }})
+                                </p>
 
                                 <div class="kiem_chung">
                                     <i class="bi bi-check-circle-fill"></i>
@@ -792,16 +798,20 @@ const roomMapUrl = computed(() => {
 
                         <!-- Danh sách bình luận -->
                         <div v-if="room.reviews && room.reviews.length > 0" class="sidebar-reviews-list">
-                            <div v-for="rev in room.reviews" :key="rev.id" :class="['sidebar-review-item', { 'is-notice': rev.is_notice }]">
+                            <div v-for="rev in room.reviews" :key="rev.id"
+                                :class="['sidebar-review-item', { 'is-notice': rev.is_notice }]">
                                 <div class="sidebar-review-header">
                                     <div class="sidebar-review-author">
                                         <div class="sidebar-review-avatar">
-                                            <img v-if="rev.tenant_avatar" :src="rev.tenant_avatar.startsWith('http') || rev.tenant_avatar.startsWith('/') ? rev.tenant_avatar : `/storage/${rev.tenant_avatar}`" />
-                                            <span v-else>{{ rev.tenant_name ? rev.tenant_name[0].toUpperCase() : 'U' }}</span>
+                                            <img v-if="rev.tenant_avatar"
+                                                :src="rev.tenant_avatar.startsWith('http') || rev.tenant_avatar.startsWith('/') ? rev.tenant_avatar : `/storage/${rev.tenant_avatar}`" />
+                                            <span v-else>{{ rev.tenant_name ? rev.tenant_name[0].toUpperCase() : 'U'
+                                            }}</span>
                                         </div>
                                         <div>
                                             <div class="sidebar-review-author-info">
-                                                <p :class="['sidebar-review-author-name', { 'is-notice': rev.is_notice }]">
+                                                <p
+                                                    :class="['sidebar-review-author-name', { 'is-notice': rev.is_notice }]">
                                                     {{ rev.tenant_name || 'Khách hàng' }}
                                                 </p>
                                                 <span v-if="rev.is_notice" class="sidebar-review-badge-notice">
@@ -820,7 +830,8 @@ const roomMapUrl = computed(() => {
                                         </div>
                                     </div>
                                     <div v-if="!rev.is_notice" class="sidebar-review-rating">
-                                        <i v-for="s in 5" :key="s" :class="s <= rev.rating ? 'bi bi-star-fill' : 'bi bi-star'"></i>
+                                        <i v-for="s in 5" :key="s"
+                                            :class="s <= rev.rating ? 'bi bi-star-fill' : 'bi bi-star'"></i>
                                     </div>
                                 </div>
                                 <p class="sidebar-review-comment">
@@ -840,16 +851,25 @@ const roomMapUrl = computed(() => {
                             </h4>
                             <form @submit.prevent="submitDirectReview">
                                 <div v-if="!isNoticeSender" style="margin-bottom: 12px;">
-                                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Đánh giá (Sao)</label>
+                                    <label
+                                        style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Đánh
+                                        giá (Sao)</label>
                                     <div class="sidebar-review-rating-picker">
-                                        <i v-for="s in 5" :key="s" :class="s <= reviewForm.rating ? 'bi bi-star-fill text-yellow-400' : 'bi bi-star'" @click="reviewForm.rating = s" style="transition: color 0.2s;"></i>
+                                        <i v-for="s in 5" :key="s"
+                                            :class="s <= reviewForm.rating ? 'bi bi-star-fill text-yellow-400' : 'bi bi-star'"
+                                            @click="reviewForm.rating = s" style="transition: color 0.2s;"></i>
                                     </div>
                                 </div>
                                 <div style="margin-bottom: 12px;">
-                                    <textarea v-model="reviewForm.comment" rows="3" :placeholder="isNoticeSender ? 'Nhập nội dung thông báo (sẽ được ghim lên đầu)...' : 'Chia sẻ trải nghiệm của bạn khi ở phòng này...'" class="sidebar-review-textarea"></textarea>
-                                    <span v-if="reviewForm.errors.comment" style="color: #ef4444; font-size: 11px; margin-top: 4px; display: block;">{{ reviewForm.errors.comment }}</span>
+                                    <textarea v-model="reviewForm.comment" rows="3"
+                                        :placeholder="isNoticeSender ? 'Nhập nội dung thông báo (sẽ được ghim lên đầu)...' : 'Chia sẻ trải nghiệm của bạn khi ở phòng này...'"
+                                        class="sidebar-review-textarea"></textarea>
+                                    <span v-if="reviewForm.errors.comment"
+                                        style="color: #ef4444; font-size: 11px; margin-top: 4px; display: block;">{{
+                                            reviewForm.errors.comment }}</span>
                                 </div>
-                                <button type="submit" :disabled="reviewForm.processing" :class="['sidebar-review-submit-btn', { 'is-notice': isNoticeSender }]">
+                                <button type="submit" :disabled="reviewForm.processing"
+                                    :class="['sidebar-review-submit-btn', { 'is-notice': isNoticeSender }]">
                                     <span v-if="reviewForm.processing" class="spinner-border spinner-border-sm"></span>
                                     <i v-else :class="isNoticeSender ? 'bi bi-megaphone-fill' : 'bi bi-send-fill'"></i>
                                     {{ isNoticeSender ? 'Đăng thông báo' : 'Gửi đánh giá' }}

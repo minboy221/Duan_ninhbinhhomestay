@@ -1318,8 +1318,9 @@ const getAutoCoordinates = () => {
                                         <span class="text-xs font-bold text-slate-700"><i
                                                 class="bi bi-cash-stack mr-1 text-slate-500"></i>
                                             Giá thuê</span>
-                                        <span class="text-sm sm:text-base font-black text-emerald-700">{{ fmtMoney(room.price)
-                                        }}</span>
+                                        <span class="text-sm sm:text-base font-black text-emerald-700">{{
+                                            fmtMoney(room.price)
+                                            }}</span>
                                     </div>
                                     <div class="flex items-center justify-between">
                                         <span class="text-xs font-bold text-slate-700"><i
@@ -1371,15 +1372,14 @@ const getAutoCoordinates = () => {
                                             P
                                         </div>
                                         <div class="min-w-0">
-                                            <h4 class="text-xs font-black text-slate-900 truncate"
-                                                :title="room.name">
+                                            <h4 class="text-xs font-black text-slate-900 truncate" :title="room.name">
                                                 {{ room.name }}
                                             </h4>
                                         </div>
                                     </div>
                                     <span
                                         class="text-[10px] text-slate-600 font-extrabold uppercase tracking-wider truncate max-w-[45px]">{{
-                                        room.floor_name }}</span>
+                                            room.floor_name }}</span>
                                 </div>
 
                                 <!-- Trạng thái phòng gọn nhẹ -->
@@ -1406,7 +1406,7 @@ const getAutoCoordinates = () => {
                                 <!-- Giá gọn nhẹ -->
                                 <div class="bg-slate-100/80 border border-slate-200/50 rounded-xl p-2 text-center">
                                     <span class="text-xs font-black text-emerald-700 block">{{ fmtMoney(room.price)
-                                        }}</span>
+                                    }}</span>
                                 </div>
                             </div>
 
@@ -1463,7 +1463,8 @@ const getAutoCoordinates = () => {
                                 class="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                                 <span class="text-xs font-bold text-slate-600 sm:hidden">Giá thuê:</span>
                                 <div class="flex items-center gap-3">
-                                    <span class="text-sm sm:text-base font-black text-emerald-700">{{ fmtMoney(room.price)
+                                    <span class="text-sm sm:text-base font-black text-emerald-700">{{
+                                        fmtMoney(room.price)
                                         }}</span>
                                     <span :class="[
                                         'px-2.5 py-1 rounded-md text-xs font-black border flex items-center gap-1 w-fit',
@@ -1488,8 +1489,10 @@ const getAutoCoordinates = () => {
                     <div v-if="floor.totalPages > 1"
                         class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 mt-4 text-xs sm:text-sm">
                         <span class="text-slate-600 font-bold">
-                            Hiển thị <span class="font-black text-slate-900">{{ floor.paginatedRooms.length }}</span> / {{ floor.totalRooms }} phòng
-                            (Trang <span class="font-black text-slate-900">{{ floor.currentPage }}</span> / {{ floor.totalPages }})
+                            Hiển thị <span class="font-black text-slate-900">{{ floor.paginatedRooms.length }}</span> /
+                            {{ floor.totalRooms }} phòng
+                            (Trang <span class="font-black text-slate-900">{{ floor.currentPage }}</span> / {{
+                            floor.totalPages }})
                         </span>
 
                         <div class="flex items-center gap-1.5">
@@ -1498,13 +1501,12 @@ const getAutoCoordinates = () => {
                                 class="px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed font-extrabold transition shadow-2xs">
                                 « Trước
                             </button>
-                            <button v-for="p in floor.totalPages" :key="p" @click="setFloorPage(floor.id, p)"
-                                :class="[
-                                    'w-8 h-8 rounded-xl text-xs font-black transition flex items-center justify-center',
-                                    floor.currentPage === p
-                                        ? 'bg-indigo-600 text-white shadow-xs font-black scale-105'
-                                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                                ]">
+                            <button v-for="p in floor.totalPages" :key="p" @click="setFloorPage(floor.id, p)" :class="[
+                                'w-8 h-8 rounded-xl text-xs font-black transition flex items-center justify-center',
+                                floor.currentPage === p
+                                    ? 'bg-indigo-600 text-white shadow-xs font-black scale-105'
+                                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                            ]">
                                 {{ p }}
                             </button>
                             <button @click="setFloorPage(floor.id, floor.currentPage + 1)"
@@ -1517,43 +1519,43 @@ const getAutoCoordinates = () => {
                 </div>
             </div>
 
-                <!-- Floor List Settings at bottom -->
-                <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Cấu trúc các tầng
-                    </h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        <div v-for="fl in floors" :key="fl.id"
-                            class="p-4 bg-slate-50/50 border border-slate-100 rounded-2xl flex items-center justify-between">
-                            <div class="space-y-1">
-                                <h4 class="text-xs font-bold text-slate-800">
-                                    {{ fl.name }}
-                                </h4>
-                                <p class="text-[10px] text-slate-400 font-semibold">
-                                    {{ fl.rooms.length }} phòng
-                                </p>
-                            </div>
-                            <div class="flex items-center gap-1.5">
-                                <button @click="openAddRoomForFloor(fl.id)"
-                                    class="w-7 h-7 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center"
-                                    title="Thêm phòng vào tầng này">
-                                    <i class="bi bi-plus-lg"></i>
-                                </button>
-                                <button @click="openEditFloor(fl)"
-                                    class="w-7 h-7 hover:bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center"
-                                    title="Sửa tầng này">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button @click="delFloor(fl)"
-                                    class="w-7 h-7 hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center"
-                                    title="Xóa tầng này">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
+            <!-- Floor List Settings at bottom -->
+            <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Cấu trúc các tầng
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div v-for="fl in floors" :key="fl.id"
+                        class="p-4 bg-slate-50/50 border border-slate-100 rounded-2xl flex items-center justify-between">
+                        <div class="space-y-1">
+                            <h4 class="text-xs font-bold text-slate-800">
+                                {{ fl.name }}
+                            </h4>
+                            <p class="text-[10px] text-slate-400 font-semibold">
+                                {{ fl.rooms.length }} phòng
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button @click="openAddRoomForFloor(fl.id)"
+                                class="w-7 h-7 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center"
+                                title="Thêm phòng vào tầng này">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                            <button @click="openEditFloor(fl)"
+                                class="w-7 h-7 hover:bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center"
+                                title="Sửa tầng này">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button @click="delFloor(fl)"
+                                class="w-7 h-7 hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center"
+                                title="Xóa tầng này">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
         <!-- Modals -->
         <Teleport to="body">
@@ -1708,7 +1710,7 @@ const getAutoCoordinates = () => {
                             <span class="text-xs font-bold text-slate-400">Giá thuê:</span>
                             <span class="text-xs font-bold text-slate-800">{{
                                 fmtMoney(selRoom.price)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
                             <span class="text-xs font-bold text-slate-400">Diện tích:</span>
@@ -1718,7 +1720,7 @@ const getAutoCoordinates = () => {
                             <span class="text-xs font-bold text-slate-400">Số người:</span>
                             <span class="text-xs font-bold text-slate-800">{{ getEffectiveOccupants(selRoom) }}/{{
                                 selRoom.capacity
-                                }}
+                            }}
                                 người</span>
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
@@ -1757,7 +1759,7 @@ const getAutoCoordinates = () => {
                                     <div class="flex flex-col">
                                         <span class="text-[10px] font-bold text-slate-700">{{ srv.name }}</span>
                                         <span class="text-[9px] font-semibold text-slate-500">{{ fmtMoney(srv.price)
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                 </div>
                             </div>

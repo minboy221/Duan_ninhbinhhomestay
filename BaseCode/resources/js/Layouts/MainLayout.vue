@@ -207,38 +207,39 @@ const formatDateTime = (dateString) => {
                     <transition name="slide-fade">
                         <div v-if="showNotification" id="notificationBox" class="notification-box"
                             :class="{ show: true }" @click.stop>
-                            <div class="flex items-center justify-between px-3 py-2 border-b">
+                            <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/80">
                                 <p class="title mb-0">Thông báo</p>
                                 <button v-if="auth.notifications && auth.notifications.length > 0"
                                     @click.stop="router.post(route('notifications.read-all'), {}, { preserveScroll: true })"
-                                    class="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                                    class="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors">
                                     Đọc tất cả
                                 </button>
                             </div>
-                            <ul v-if="auth.notifications && auth.notifications.length > 0">
-                                <li v-for="notif in auth.notifications" :key="notif.id" class="group relative"
-                                    style="padding: 12px; border-bottom: 1px solid #eee;">
-                                    <Link :href="notif.data.url"
-                                        style="display: flex; flex-direction: column; color: inherit; text-decoration: none; padding-right: 24px;">
-                                        <strong style="color: #0f172a; font-size: 14px; margin-bottom: 4px;">{{
-                                            notif.data.title }}</strong>
+                            <ul v-if="auth.notifications && auth.notifications.length > 0" class="notif-list">
+                                <li v-for="notif in auth.notifications" :key="notif.id" class="group relative hover:bg-slate-50 transition-colors"
+                                    style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9;">
+                                    <Link :href="notif.data?.url || '#'"
+                                        style="display: flex; flex-direction: column; color: inherit; text-decoration: none; padding-right: 28px;">
+                                        <strong style="color: #0f172a; font-size: 13px; font-weight: 700; margin-bottom: 4px; line-height: 1.4;">
+                                            {{ notif.data?.title || 'Thông báo hệ thống' }}
+                                        </strong>
                                         <span
-                                            style="font-size: 12px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{
-                                                notif.data.message }}</span>
+                                            style="font-size: 12px; color: #64748b; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                            {{ notif.data?.message || notif.data?.content || '' }}
+                                        </span>
                                     </Link>
                                     <button type="button"
                                         @click.stop="router.post(route('notifications.read', notif.id), {}, { preserveScroll: true })"
-                                        class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 rounded flex items-center justify-center"
-                                        style="width: 24px; height: 24px; border: none; cursor: pointer;"
+                                        class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-white hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-md border border-slate-200 shadow-2xs flex items-center justify-center"
+                                        style="width: 24px; height: 24px; cursor: pointer;"
                                         title="Đánh dấu đã đọc">
                                         <i class="bi bi-check2"></i>
                                     </button>
                                 </li>
                             </ul>
-                            <ul v-else
-                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0;">
-                                <img src="/anh/thongbao.png" alt="" style="width: 80px; margin-bottom: 10px;">
-                                <span style="color: #64748b; font-size: 13px;">Hiện chưa có thông báo nào!</span>
+                            <ul v-else class="empty-notif">
+                                <img src="/anh/thongbao.png" alt="" style="width: 75px; margin-bottom: 8px;">
+                                <span>Hiện chưa có thông báo nào!</span>
                             </ul>
                         </div>
                     </transition>

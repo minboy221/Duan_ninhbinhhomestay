@@ -112,6 +112,10 @@ const handleClickOutside = (event) => {
 };
 
 onMounted(() => {
+    // Mặc định thu gọn bộ lọc trên màn hình nhỏ (Mobile/Tablet < 1024px)
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        isFilterCollapsed.value = true;
+    }
     window.addEventListener('click', handleClickOutside);
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -214,7 +218,7 @@ function submitSearch() {
                         </button>
                     </div>
 
-                    <div class="filter-body" :class="{ 'collapsed': isFilterCollapsed }">
+                    <div class="filter-body transition-all duration-300" v-show="!isFilterCollapsed" :class="{ 'collapsed': isFilterCollapsed }">
                         <!-- Khu vực (Searchable Dropdown) -->
                         <div class="select_box relative" ref="areaDropdownRef">
                             <div class="select cursor-pointer flex items-center justify-between"
@@ -339,57 +343,86 @@ function submitSearch() {
                                     @error="$event.target.src = '/anh/banner_tro.png'">
                             </Link>
                         </div>
-                        <div class="infor_room">
-                            <div class="title_room">
-                                <h2 style="overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                        <div class="infor_room flex flex-col justify-between p-4 sm:p-5 flex-1 min-w-0">
+                            <!-- Tiêu đề bài đăng -->
+                            <div class="title_room mb-2">
+                                <h2 class="text-base sm:text-lg font-bold text-slate-900 leading-snug line-clamp-2">
                                     <Link :href="'/chitiettro/' + (post.slug_with_hash || post.id)" class="hover:text-blue-600 transition-colors">
                                         {{ post.title }}
                                     </Link>
                                 </h2>
                             </div>
-                            <div class="infor">
-                                <p>{{ new Intl.NumberFormat('vi-VN').format(post.room?.price || 0) }} đ/tháng</p>
-                                <p>{{ post.room?.area }}m<sup>2</sup></p>
-                                <p style="overflow: hidden; text-overflow: ellipsis; max-width: 250px;"
+
+                            <!-- Thông tin chi tiết phòng (Giá, Diện tích, Địa chỉ, Badges, Mô tả) -->
+                            <div class="infor_detail space-y-2 py-1 flex-1">
+                                <!-- Giá tiền & Diện tích -->
+                                <div class="flex items-center gap-3 flex-wrap">
+                                    <span class="text-base sm:text-lg font-black text-blue-600">
+                                        {{ new Intl.NumberFormat('vi-VN').format(post.room?.price || 0) }} đ/tháng
+                                    </span>
+                                    <span class="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                        <i class="bi bi-aspect-ratio text-slate-500"></i> {{ post.room?.area }} m²
+                                    </span>
+                                </div>
+
+                                <!-- Địa chỉ -->
+                                <p class="text-xs text-slate-500 flex items-center gap-1.5 truncate max-w-full"
                                     :title="post.room?.boarding_house?.address_detail || 'Ninh Bình'">
-                                    <span><i class="bi bi-geo-alt"></i></span>
-                                    {{ post.room?.boarding_house?.address_detail || 'Ninh Bình' }}
+                                    <i class="bi bi-geo-alt-fill text-blue-500 shrink-0"></i>
+                                    <span class="truncate font-medium">{{ post.room?.boarding_house?.address_detail || 'Ninh Bình' }}</span>
                                 </p>
 
                                 <!-- BADGE TRẠNG THÁI & THÔNG TIN PHÒNG -->
-                                <div v-if="post.room?.status" style="margin-top: 6px;">
-                                    <div class="flex items-center gap-2 flex-wrap">
+                                <div v-if="post.room?.status" class="pt-1 space-y-2">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
                                         <span :class="[
-                                            'inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold border shadow-sm transition-all',
+                                            'inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-2xs transition-all',
                                             getStatusClass(post.room.status)
                                         ]">
-                                            <i class="bi bi-circle-fill text-[6px] mr-1.5 opacity-80"></i>
+                                            <i class="bi bi-circle-fill text-[5px] mr-1.5 opacity-80"></i>
                                             {{ getStatusLabel(post.room.status) }}
                                         </span>
                                         <span v-if="post.room?.current_people > 0 || post.room?.status === 'rented'"
-                                            class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-sm">
-                                            <i class="bi bi-person-check-fill text-emerald-600 mr-1 text-[13px]"></i> Đã có {{ post.room?.current_people || 1 }} người ở
+                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+                                            <i class="bi bi-person-check-fill text-emerald-600 mr-1 text-[12px]"></i> Đã có {{ post.room?.current_people || 1 }} người ở
                                         </span>
                                         <span v-if="post.room?.boarding_house?.average_rating > 0" 
-                                            class="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 shadow-sm">
-                                            <i class="bi bi-star-fill text-amber-500 mr-1 text-[12px]"></i> {{ post.room.boarding_house.average_rating }}
+                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
+                                            <i class="bi bi-star-fill text-amber-500 mr-1 text-[11px]"></i> {{ post.room.boarding_house.average_rating }}
                                         </span>
                                     </div>
-                                    <div class="about_room">
-                                        <p
-                                            v-html="post.description ? (post.description.length > 80 ? post.description.substring(0, 80) + '...' : post.description) : 'Không có mô tả'">
-                                        </p>
+
+                                    <!-- Mô tả phòng -->
+                                    <div class="about_room text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                        <p v-html="post.description ? (post.description.length > 90 ? post.description.substring(0, 90) + '...' : post.description) : 'Không có mô tả'"></p>
                                     </div>
                                 </div>
                             </div>
-                            <div style="display: flex; align-items: center; justify-content: space-between;">
-                                <div class="user_room">
-                                    <img :src="getAvatarUrl(post.landlord?.avatar)" alt="" style="object-fit: cover;">
-                                    <h4>{{ post.landlord?.name || 'Chủ trọ' }}</h4>
-                                    <p>cập nhật {{ timeAgo(post.updated_at) }}</p>
+
+                            <!-- Chủ trọ & Nút xem chi tiết -->
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 mt-3">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="relative inline-block shrink-0" :title="post.landlord?.has_vip_frame ? `Chủ trọ VIP` : (post.landlord?.name || 'Chủ trọ')">
+                                        <div :class="[
+                                            'w-9 h-9 rounded-full p-[2px] flex items-center justify-center transition-all duration-300',
+                                            post.landlord?.has_vip_frame 
+                                                ? 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-600 shadow-md shadow-amber-500/30 ring-2 ring-amber-400/40' 
+                                                : 'bg-slate-200'
+                                        ]">
+                                            <img :src="getAvatarUrl(post.landlord?.avatar)" alt="" style="object-fit: cover;" class="w-full h-full rounded-full bg-white">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 class="flex items-center gap-1 font-bold text-slate-800 text-xs">
+                                            {{ post.landlord?.name || 'Chủ trọ' }}
+                                            <i v-if="post.landlord?.has_vip_frame" class="bi bi-patch-check-fill text-amber-500 text-xs" title="Chủ trọ VIP"></i>
+                                        </h4>
+                                        <p class="text-[10px] text-slate-400">Cập nhật {{ timeAgo(post.updated_at) }}</p>
+                                    </div>
                                 </div>
-                                <Link :href="'/chitiettro/' + (post.slug_with_hash || post.id)" class="btn" style="position: unset;">
-                                    Xem chi tiết
+                                <Link :href="'/chitiettro/' + (post.slug_with_hash || post.id)" style="background: linear-gradient(90deg, #102a6d, #45abe6);" class="px-5 py-3 hover:opacity-95 text-white rounded-xl font-bold text-sm shadow-md transition-all text-center flex items-center justify-center gap-2 w-full sm:w-auto shrink-0">
+                                    <span>Xem chi tiết</span>
+                                    <i class="bi bi-arrow-right-short text-lg"></i>
                                 </Link>
                             </div>
                         </div>

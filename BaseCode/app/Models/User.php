@@ -32,6 +32,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'google_id',
         'last_profile_update_at',
+        'bump_credits',
+        'package_name',
         'bank_name',
         'bank_account_no',
         'bank_account_name',
@@ -40,7 +42,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'fcm_token'
     ];
 
-    protected $appends = ['is_online'];
+    protected $appends = ['is_online', 'has_vip_frame'];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -150,7 +152,20 @@ class User extends Authenticatable implements MustVerifyEmail
     // Hàm check lấy giá trị của feature_code từ gói dịch vụ đang hoạt động
     public function getFeatureValue(string $featureCode)
     {
-        $activeSub = $this->activeSubscription()->with('plan.features')->first();
+        $targetUser = $this;
+        //nếu là tài khoản phụ Lấy Chủ Trọ Chính của Cơ sở trọ đang chọn
+        $selectedHouseId = session('selected_boarding_house_id');
+        if ($selectedHouseId) {
+            $house = \App\Models\BoardingHouse::find($selectedHouseId);
+            //nếu cơ sở trọ thuộc về chủ trọ chính khác -> lấy gói của chủ trọ chính
+            if ($house && $house->user_id !== $this->id) {
+                $targetUser = $house->user;
+            }
+        }
+        if (!$targetUser) {
+            return null;
+        }
+        $activeSub = $targetUser->activeSubscription()->with('plan.features')->first();
         // Nếu chủ trọ không có gói active nào -> tự động lấy cấu hình của gói miễn phí
         if (!$activeSub || !$activeSub->plan) {
             $freePlan = \App\Models\SubscriptionPlan::where('price', 0)->with('features')->first();
@@ -183,6 +198,22 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $val = $this->getFeatureValue($featureCode);
         return $val === 'true' || $val === true || $val === 'gold';
+    }
+    // Kiểm tra xem Chủ trọ có được sử dụng Vô Hạn lượt đẩy tin hay không 
+    public function hasUnlimitedBump(): bool
+    {
+        return (string) $this->getFeatureValue('priority_listing') === '-1';
+    }
+
+    // Kiểm tra xem Chủ trọ có đang sở hữu Khung VIP hay không
+    public function getHasVipFrameAttribute(): bool
+    {
+        $activeSub = $this->activeSubscription()->with('plan.features')->first();
+        if (!$activeSub || !$activeSub->plan) {
+            return false;
+        }
+        $frameFeat = $activeSub->plan->features->firstWhere('feature_code', 'avatar_frame');
+        return $frameFeat && in_array($frameFeat->pivot->feature_value, ['gold', 'true', '1']);
     }
 
     // Check tài khoản của chủ trọ có bị đóng băng do vượt hạn mức của gói không

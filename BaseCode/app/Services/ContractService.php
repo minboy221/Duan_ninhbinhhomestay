@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\RoommateRequest;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\TestStatus\Notice;
 
 class ContractService
@@ -46,8 +47,8 @@ class ContractService
                         $q->orWhere('email', $actualEmail);
                     })
                     ->first();
-
-                $plainPassword = '12345678';
+                //sinh mật khẩu ngẫu nhiên
+                $plainPassword = Str::random(10);
 
                 // Nếu chưa có tài khoản -> Tự động khởi tạo tài khoản mới
                 if (!$actualTenant) {
@@ -239,14 +240,14 @@ class ContractService
             // - Nếu là Thuê mới -> success_matched (Đã ký Hợp đồng & Đóng cọc)
             $newApptStatus = $isAlreadyResident ? 'became_main_tenant' : 'success_matched';
             //cập nhật chính xác lịch hẹn được chọn tạo HĐ
-            if($appointment){
+            if ($appointment) {
                 $appointment->update(['status' => $newApptStatus]);
             }
             //cập nhật trạng thái lịch hẹn
-            if($tenant){
-                \App\Models\Appointment::where('room_id',$room->id)
-                ->where('user_id', $tenant->id)
-                ->update(['status' => $newApptStatus]);
+            if ($tenant) {
+                \App\Models\Appointment::where('room_id', $room->id)
+                    ->where('user_id', $tenant->id)
+                    ->update(['status' => $newApptStatus]);
             }
         });
     }
@@ -465,13 +466,14 @@ class ContractService
 
                 // Nếu B chưa có tài khoản trên hệ thống -> Tự động khởi tạo tài khoản mới cho B
                 if (!$user) {
+                    $randomPassword = \Illuminate\Support\Str::random(10);
                     $user = User::create([
                         'name' => $request->new_resident_name ?: 'Thành viên ở ghép',
                         'phone' => $request->new_resident_phone,
                         'email' => $request->new_resident_email,
                         'cccd_number' => $request->new_resident_cccd,
                         'role' => 'tenant',
-                        'password' => \Illuminate\Support\Facades\Hash::make('12345678'), // Mật khẩu mặc định, B có thể tự đổi / tạo lại sau
+                        'password' => \Illuminate\Support\Facades\Hash::make($randomPassword),
                     ]);
                 } else {
                     // Cập nhật SĐT và CCCD nếu tài khoản B đã tồn tại nhưng còn thiếu

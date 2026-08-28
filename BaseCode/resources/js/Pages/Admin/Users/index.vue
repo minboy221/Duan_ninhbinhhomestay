@@ -31,8 +31,8 @@ const paginated  = computed(() => {
     return filtered.value.slice(start, start + perPage)
 })
 
-const roleLabel = { tenant: 'Người thuê', user: 'Người thuê', landlord: 'Chủ trọ', staff: 'Nhân viên', admin: 'Admin' }
-const roleClass = { tenant: 'role-blue', user: 'role-blue', landlord: 'role-purple', staff: 'role-green', admin: 'role-red' }
+const roleLabel = { tenant: 'Người thuê', user: 'Người thuê', landlord: 'Chủ trọ'}
+const roleClass = { tenant: 'role-blue', user: 'role-blue', landlord: 'role-purple' }
 
 function formatDate(dateStr) {
     if (!dateStr) return 'N/A'
@@ -112,8 +112,6 @@ function resetFilters() {
                 <option value="all">Tất cả loại TK</option>
                 <option value="tenant">Người thuê</option>
                 <option value="landlord">Chủ trọ</option>
-                <option value="staff">Nhân viên</option>
-                <option value="admin">Admin</option>
             </select>
             <select v-model="statusFilter" @change="currentPage=1" class="filter-select">
                 <option value="all">Tất cả trạng thái</option>

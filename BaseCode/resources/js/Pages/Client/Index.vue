@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from "vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import { Head, router } from "@inertiajs/vue3";
 import HomePopup from "@/Components/HomePopup.vue";
-import { getAvatarUrl, DEFAULT_AVATAR } from "@/Utils/media";
+import { getAvatarUrl, getRoomImageUrl, DEFAULT_AVATAR } from "@/Utils/media";
 
 // Props nhận dữ liệu danh mục từ Server (DB → Repository → Service → Route → Inertia)
 const props = defineProps({
@@ -370,12 +370,10 @@ const scrollReview = (direction) => {
                 </div>
 
                 <div v-for="(room, index) in featuredRooms" :key="room.id" class="pt-slide"
-                    :class="{ active: currentPtSlide === index }" :style="room.image
-                            ? `background-image: url('${room.image.startsWith('/') ? room.image : '/storage/' + room.image}')`
-                            : `background-image: url('/anh/phong1.jpg')`
-                        ">
-                    <div class="landlord-avatar-badge" :title="'Đăng bởi: ' + (room.landlord_name || 'Chủ trọ')
-                        ">
+                    :class="{ active: currentPtSlide === index }" 
+                    :style="`background-image: url('${getRoomImageUrl(room.image)}')`">
+                    <div :class="['landlord-avatar-badge', { 'is-vip': room.has_vip_frame }]"
+                         :title="room.has_vip_frame ? `Chủ trọ VIP - Đăng bởi: ${room.landlord_name || 'Chủ trọ'}` : `Đăng bởi: ${room.landlord_name || 'Chủ trọ'}`">
                         <img :src="getAvatarUrl(room.landlord_avatar)" @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR" alt="Avatar" />
                     </div>
 
@@ -614,16 +612,23 @@ const scrollReview = (direction) => {
     position: absolute;
     top: 25px;
     right: 25px;
-    width: 45px;
-    height: 45px;
+    width: 46px;
+    height: 46px;
     border-radius: 50%;
     border: 2px solid #ffffff;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
     z-index: 10;
-    overflow: hidden;
     background: #ffffff;
     transition: transform 0.3s ease;
     cursor: pointer;
+    box-sizing: border-box;
+}
+
+.landlord-avatar-badge.is-vip {
+    border: 3px solid transparent;
+    background: linear-gradient(#ffffff, #ffffff) padding-box,
+                linear-gradient(135deg, #f59e0b, #fbbf24, #d97706) border-box;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
 }
 
 .landlord-avatar-badge:hover {
@@ -634,5 +639,23 @@ const scrollReview = (direction) => {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 50%;
+    display: block;
+}
+
+.vip-crown-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    font-size: 10px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border: 1.5px solid #ffffff;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 </style>

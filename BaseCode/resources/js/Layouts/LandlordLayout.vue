@@ -374,23 +374,6 @@ const closePopup = () => {
         );
     }
 };
-
-//phần gửi thông báo của Firebase
-const requestAndSaveFcmToken = async () => {
-    try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            //lấy token thiết bị điện thoại từ Firebase
-            const token = await getToken(messaging, { vapidKey: VAPID_KEY });
-            if (token) {
-                //gửi token lên laravel để lưu vào db của user
-                await axios.post(route('user.update-fcm-token'), { fcm_token: token });
-            }
-        }
-    } catch (err) {
-        console.error('Lỗi lấy FCM token:', err);
-    }
-};
 </script>
 
 <template>
@@ -631,7 +614,7 @@ const requestAndSaveFcmToken = async () => {
         <div class="flex flex-col flex-1 overflow-hidden min-w-0">
             <!-- Header -->
             <header
-                class="bg-[#f1f5f9] border-b border-slate-100/80 h-16 flex items-center justify-between px-6 flex-shrink-0 z-10 shadow-[0_2px_12px_rgba(0,0,0,0.005)]">
+                class="bg-[#f1f5f9] border-b border-slate-100/80 h-16 flex items-center justify-between px-6 flex-shrink-0 z-30 shadow-[0_2px_12px_rgba(0,0,0,0.005)]">
                 <div class="flex items-center gap-4">
                     <!-- Hamburger menu (mobile only) -->
                     <button class="md:hidden text-slate-500 hover:bg-slate-50 p-2 rounded-xl"
@@ -643,7 +626,7 @@ const requestAndSaveFcmToken = async () => {
                 <!-- Right header tools -->
                 <div class="flex items-center gap-4">
                     <!-- Property selector Dropdown -->
-                    <div class="relative">
+                    <div class="relative z-50" v-click-outside="() => propertyDropdownOpen = false">
                         <button @click="
                             propertyDropdownOpen = !propertyDropdownOpen
                             "
@@ -655,7 +638,7 @@ const requestAndSaveFcmToken = async () => {
 
                         <!-- Dropdown menu -->
                         <div v-if="propertyDropdownOpen"
-                            class="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-fade-in">
+                            class="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-[9999] animate-fade-in">
                             <div class="px-4 py-1.5 text-[9px] font-bold text-slate-400/80 tracking-widest uppercase">
                                 Chọn Cơ Sở
                             </div>
@@ -668,7 +651,7 @@ const requestAndSaveFcmToken = async () => {
                     </div>
 
                     <!-- Notifications -->
-                    <div class="relative">
+                    <div class="relative z-50" v-click-outside="() => notifOpen = false">
                         <button @click="notifOpen = !notifOpen"
                             class="relative w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500 hover:bg-slate-100/80 hover:text-slate-800 transition-all shadow-[0_2px_6px_rgba(0,0,0,0.005)]">
                             <i class="bi bi-bell text-sm"></i>
@@ -690,7 +673,7 @@ const requestAndSaveFcmToken = async () => {
                             leave-active-class="transition ease-in duration-150"
                             leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-1">
                             <div v-if="notifOpen"
-                                class="fixed md:absolute left-4 right-4 md:left-auto md:right-0 top-16 md:top-auto md:mt-2 w-auto md:w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
+                                class="fixed md:absolute left-4 right-4 md:left-auto md:right-0 top-16 md:top-auto md:mt-2 w-auto md:w-80 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-[9999]">
                                 <div
                                     class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                                     <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">

@@ -3,6 +3,8 @@ import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import { ref } from 'vue'
 
+import { showSuccess, showError, showConfirm } from '@/Utils/swal'
+
 const props = defineProps({
     reasons: Array
 })
@@ -38,24 +40,39 @@ function submitForm() {
         form.put(route('admin.report-reasons.update', editingId.value), {
             onSuccess: () => {
                 showModal.value = false
-                alert('Cập nhật lý do thành công!')
+                showSuccess('Thành công', 'Cập nhật lý do thành công!')
+            },
+            onError: (errors) => {
+                showError('Lỗi', Object.values(errors).join('\n'))
             }
         })
     } else {
         form.post(route('admin.report-reasons.store'), {
             onSuccess: () => {
                 showModal.value = false
-                alert('Thêm lý do mới thành công!')
+                showSuccess('Thành công', 'Thêm lý do mới thành công!')
+            },
+            onError: (errors) => {
+                showError('Lỗi', Object.values(errors).join('\n'))
             }
         })
     }
 }
 
-function deleteItem(id) {
-    if (confirm('Bạn có chắc chắn muốn xóa lý do báo cáo này không?')) {
+async function deleteItem(id) {
+    const confirmed = await showConfirm(
+        'Xác nhận xóa',
+        'Bạn có chắc chắn muốn xóa lý do báo cáo này không?',
+        'Xóa',
+        'Hủy'
+    )
+    if (confirmed) {
         form.delete(route('admin.report-reasons.destroy', id), {
             onSuccess: () => {
-                alert('Xóa lý do thành công!')
+                showSuccess('Thành công', 'Xóa lý do thành công!')
+            },
+            onError: (errors) => {
+                showError('Lỗi', Object.values(errors).join('\n'))
             }
         })
     }

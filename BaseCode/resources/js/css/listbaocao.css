@@ -285,3 +285,30 @@
     line-height: 1.5;
     font-weight: 500;
 }
+
+/* Responsive Media Queries */
+@media (max-width: 768px) {
+    .bao_item {
+        border-radius: 24px;
+        padding: 16px;
+        margin-bottom: 60px;
+    }
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .data-table-custom {
+        min-width: 580px;
+    }
+    .modal-content-box {
+        width: 95%;
+        max-height: 90vh;
+    }
+    .modal-body-custom {
+        padding: 16px;
+        gap: 14px;
+    }
+    .action-buttons-grid {
+        flex-direction: column;
+    }
+}
