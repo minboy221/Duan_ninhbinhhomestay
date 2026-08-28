@@ -416,8 +416,10 @@ input[type="radio"]:checked::after {
 
 /* mô tả */
 .about_room {
-    width: 200px;
+    width: 100%;
     margin-top: 10px;
+    display: flex;
+    flex-direction: column;
 }
 
 .about_room p {
@@ -432,6 +434,7 @@ input[type="radio"]:checked::after {
     -webkit-line-clamp: 2;
     overflow: hidden;
     text-overflow: ellipsis;
+    width: 100%;
 }
 
 /* user */
@@ -608,6 +611,10 @@ input[type="radio"]:checked::after {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: pointer;
+    user-select: none;
+    width: 100%;
+    padding-bottom: 5px;
 }
 
 .filter-title-wrapper h2,
@@ -616,53 +623,43 @@ input[type="radio"]:checked::after {
 }
 
 .filter-toggle-btn {
-    display: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(90deg, #102a6d, #45abe6);
+    border: 1px solid #e2e8f0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-title-wrapper:hover .filter-toggle-btn {
+    background: linear-gradient(90deg, #0e245c, #3b9bd3);
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.filter-body {
+    transition: max-height 0.35s ease-in-out, opacity 0.25s ease-in-out;
+    max-height: 2500px;
+    opacity: 1;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+.filter-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    pointer-events: none;
 }
 
 @media (max-width: 1023px) {
-    .filter-title-wrapper {
-        cursor: pointer;
-        user-select: none;
-        width: 100%;
-        padding-bottom: 5px;
-    }
-
-    .filter-toggle-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(90deg, #102a6d, #45abe6);
-        border: 1px solid #e2e8f0;
-        width: 34px;
-        height: 34px;
-        border-radius: 50px;
-        color: #fff;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .filter-title-wrapper:hover .filter-toggle-btn {
-        background: linear-gradient(90deg, #102a6d, #45abe6);
-        color: #fff;
-    }
-
     .baofilter {
         display: block !important;
-    }
-
-    .filter-body {
-        transition: max-height 0.35s ease-in-out, opacity 0.25s ease-in-out;
-        max-height: 2500px;
-        opacity: 1;
-        overflow: hidden;
-        margin-top: 15px;
-    }
-
-    .filter-body.collapsed {
-        max-height: 0;
-        opacity: 0;
-        margin-top: 0;
-        pointer-events: none;
     }
 }
 
@@ -685,55 +682,64 @@ input[type="radio"]:checked::after {
 
 /* ===== BADGES TRẠNG THÁI PHÒNG TRỌ PREMIER ===== */
 .room-badge-available {
-    background-color: #ecfdf5 !important;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
     color: #047857 !important;
     border-color: #a7f3d0 !important;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.12) !important;
 }
 
 .room-badge-deposited {
-    background-color: #fffbeb !important;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
     color: #b45309 !important;
     border-color: #fde68a !important;
+    box-shadow: 0 1px 3px rgba(245, 158, 11, 0.12) !important;
 }
 
 .room-badge-rented {
-    background-color: #f1f5f9 !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
     color: #334155 !important;
     border-color: #cbd5e1 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
 }
 
 .room-badge-maintenance {
-    background-color: #fff1f2 !important;
+    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%) !important;
     color: #be123c !important;
     border-color: #fecdd3 !important;
+    box-shadow: 0 1px 3px rgba(244, 63, 94, 0.12) !important;
 }
 
 .room-badge-construction {
-    background-color: #eef2ff !important;
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%) !important;
     color: #4338ca !important;
     border-color: #c7d2fe !important;
+    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.12) !important;
 }
 
 .room-badge-renewal {
-    background-color: #f5f3ff !important;
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%) !important;
     color: #6d28d9 !important;
     border-color: #ddd6fe !important;
+    box-shadow: 0 1px 3px rgba(139, 92, 246, 0.12) !important;
 }
 
 .room-badge-suspended {
-    background-color: #f4f4f5 !important;
+    background: linear-gradient(135deg, #f4f4f5 0%, #e4e4e7 100%) !important;
     color: #52525b !important;
-    border-color: #e4e4e7 !important;
+    border-color: #d4d4d8 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
 }
 
 .room-badge-pending {
-    background-color: #fefce8 !important;
+    background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%) !important;
     color: #a16207 !important;
     border-color: #fef08a !important;
+    box-shadow: 0 1px 3px rgba(234, 179, 8, 0.12) !important;
 }
 
 .room-badge-approved {
-    background-color: #f0f9ff !important;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
     color: #0369a1 !important;
     border-color: #bae6fd !important;
+    box-shadow: 0 1px 3px rgba(14, 165, 233, 0.12) !important;
 }

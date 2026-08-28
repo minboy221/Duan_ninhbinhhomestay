@@ -170,6 +170,8 @@
     }
 
     .noidung {
+        display: flex;
+        flex-direction: column;
         max-width: 100%;
         text-align: center;
     }
@@ -615,6 +617,8 @@
     }
 
     .noidung {
+        display: flex;
+        flex-direction: column;
         max-width: 100%;
         text-align: center;
     }
@@ -780,4 +784,9 @@
     .pt-price {
         font-size: 20px;
     }
+}
+
+/* Ẩn hoàn toàn khung thông báo lỗi debug trên điện thoại */
+#mobile-debug-error {
+    display: none !important;
 }

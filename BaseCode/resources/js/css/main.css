@@ -570,6 +570,8 @@ body {
 
 /* nội dung */
 .noidung {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     max-width: 580px;
     line-height: 1.7;

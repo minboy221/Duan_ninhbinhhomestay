@@ -206,6 +206,7 @@ function submitSearch() {
 </script>
 
 <template>
+
     <Head title="Tìm Phòng Trọ | Ninh Bình HomeStay" />
     <MainLayout>
         <!-- BANNER -->
@@ -229,7 +230,8 @@ function submitSearch() {
                         </button>
                     </div>
 
-                    <div class="filter-body transition-all duration-300" v-show="!isFilterCollapsed" :class="{ 'collapsed': isFilterCollapsed }">
+                    <div class="filter-body transition-all duration-300" v-show="!isFilterCollapsed"
+                        :class="{ 'collapsed': isFilterCollapsed }">
                         <!-- Khu vực (Searchable Dropdown) -->
                         <div class="select_box relative" ref="areaDropdownRef">
                             <div class="select cursor-pointer flex items-center justify-between"
@@ -271,7 +273,8 @@ function submitSearch() {
 
                         <!-- Khoảng giá -->
                         <div class="select_option">
-                            <div class="flex items-center justify-between cursor-pointer py-1 mb-2 border-b border-slate-100" @click="isPriceCollapsed = !isPriceCollapsed">
+                            <div class="flex items-center justify-between cursor-pointer py-1 mb-2 border-b border-slate-100"
+                                @click="isPriceCollapsed = !isPriceCollapsed">
                                 <h3 class="!mb-0 font-semibold text-slate-800 flex items-center gap-1.5">
                                     Khoảng giá:
                                 </h3>
@@ -280,17 +283,23 @@ function submitSearch() {
                                 </button>
                             </div>
                             <div v-show="!isPriceCollapsed" class="price_list transition-all duration-300">
-                                <label><input type="radio" name="price" :value="null" v-model="form.price"> Tất cả mức giá</label>
-                                <label><input type="radio" name="price" value="duoi-1-trieu" v-model="form.price"> Dưới 1 triệu</label>
-                                <label><input type="radio" name="price" value="1-2-trieu" v-model="form.price"> 1 - 2 triệu</label>
-                                <label><input type="radio" name="price" value="2-3-trieu" v-model="form.price"> 2 - 3 triệu</label>
-                                <label><input type="radio" name="price" value="tren-3-trieu" v-model="form.price"> Trên 3 triệu</label>
+                                <label><input type="radio" name="price" :value="null" v-model="form.price"> Tất cả mức
+                                    giá</label>
+                                <label><input type="radio" name="price" value="duoi-1-trieu" v-model="form.price"> Dưới
+                                    1 triệu</label>
+                                <label><input type="radio" name="price" value="1-2-trieu" v-model="form.price"> 1 - 2
+                                    triệu</label>
+                                <label><input type="radio" name="price" value="2-3-trieu" v-model="form.price"> 2 - 3
+                                    triệu</label>
+                                <label><input type="radio" name="price" value="tren-3-trieu" v-model="form.price"> Trên
+                                    3 triệu</label>
                             </div>
                         </div>
 
                         <!-- Diện tích -->
                         <div class="select_option">
-                            <div class="flex items-center justify-between cursor-pointer py-1 mb-2 border-b border-slate-100" @click="isDientichCollapsed = !isDientichCollapsed">
+                            <div class="flex items-center justify-between cursor-pointer py-1 mb-2 border-b border-slate-100"
+                                @click="isDientichCollapsed = !isDientichCollapsed">
                                 <h3 class="!mb-0 font-semibold text-slate-800 flex items-center gap-1.5">
                                     Diện Tích:
                                 </h3>
@@ -299,17 +308,23 @@ function submitSearch() {
                                 </button>
                             </div>
                             <div v-show="!isDientichCollapsed" class="price_list transition-all duration-300">
-                                <label><input type="radio" name="dientich" :value="null" v-model="form.dientich"> Tất cả diện tích</label>
-                                <label><input type="radio" name="dientich" value="duoi-20" v-model="form.dientich"> Dưới 20m<sup>2</sup></label>
-                                <label><input type="radio" name="dientich" value="20-30" v-model="form.dientich"> 20 - 30m<sup>2</sup></label>
-                                <label><input type="radio" name="dientich" value="30-50" v-model="form.dientich"> 30 - 50m<sup>2</sup></label>
-                                <label><input type="radio" name="dientich" value="tren-50" v-model="form.dientich"> Trên 50m<sup>2</sup></label>
+                                <label><input type="radio" name="dientich" :value="null" v-model="form.dientich"> Tất cả
+                                    diện tích</label>
+                                <label><input type="radio" name="dientich" value="duoi-20" v-model="form.dientich"> Dưới
+                                    20m<sup>2</sup></label>
+                                <label><input type="radio" name="dientich" value="20-30" v-model="form.dientich"> 20 -
+                                    30m<sup>2</sup></label>
+                                <label><input type="radio" name="dientich" value="30-50" v-model="form.dientich"> 30 -
+                                    50m<sup>2</sup></label>
+                                <label><input type="radio" name="dientich" value="tren-50" v-model="form.dientich"> Trên
+                                    50m<sup>2</sup></label>
                             </div>
                         </div>
 
                         <!-- Tiện ích (Dữ liệu từ DB) -->
                         <div class="select_option" v-if="uniqueAmenities.length">
-                            <div class="flex items-center justify-between cursor-pointer py-1 mb-2 border-b border-slate-100" @click="isAmenitiesCollapsed = !isAmenitiesCollapsed">
+                            <div class="flex items-center justify-between cursor-pointer py-1 mb-2 border-b border-slate-100"
+                                @click="isAmenitiesCollapsed = !isAmenitiesCollapsed">
                                 <h3 class="!mb-0 font-semibold text-slate-800 flex items-center gap-1.5">
                                     Tiện ích:
                                 </h3>
@@ -358,7 +373,8 @@ function submitSearch() {
                             <!-- Tiêu đề bài đăng -->
                             <div class="title_room mb-2">
                                 <h2 class="text-base sm:text-lg font-bold text-slate-900 leading-snug line-clamp-2">
-                                    <Link :href="'/chitiettro/' + (post.slug_with_hash || post.id)" class="hover:text-blue-600 transition-colors">
+                                    <Link :href="'/chitiettro/' + (post.slug_with_hash || post.id)"
+                                        class="hover:text-blue-600 transition-colors">
                                         {{ post.title }}
                                     </Link>
                                 </h2>
@@ -371,7 +387,8 @@ function submitSearch() {
                                     <span class="text-base sm:text-lg font-black text-blue-600">
                                         {{ new Intl.NumberFormat('vi-VN').format(post.room?.price || 0) }} đ/tháng
                                     </span>
-                                    <span class="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                    <span
+                                        class="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                                         <i class="bi bi-aspect-ratio text-slate-500"></i> {{ post.room?.area }} m²
                                     </span>
                                 </div>
@@ -380,60 +397,85 @@ function submitSearch() {
                                 <p class="text-xs text-slate-500 flex items-center gap-1.5 truncate max-w-full"
                                     :title="post.room?.boarding_house?.address_detail || 'Ninh Bình'">
                                     <i class="bi bi-geo-alt-fill text-blue-500 shrink-0"></i>
-                                    <span class="truncate font-medium">{{ post.room?.boarding_house?.address_detail || 'Ninh Bình' }}</span>
+                                    <span class="truncate font-medium">{{ post.room?.boarding_house?.address_detail ||
+                                        'Ninh Bình' }}</span>
                                 </p>
 
                                 <!-- BADGE TRẠNG THÁI & THÔNG TIN PHÒNG -->
                                 <div v-if="post.room?.status" class="pt-1 space-y-2">
-                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                    <div class="flex items-center gap-2 flex-wrap">
+
+                                        <!-- Trạng thái phòng -->
                                         <span :class="[
-                                            'inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-2xs transition-all',
+                                            'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all duration-200',
                                             getStatusClass(post.room.status)
                                         ]">
-                                            <i class="bi bi-circle-fill text-[5px] mr-1.5 opacity-80"></i>
-                                            {{ getStatusLabel(post.room.status) }}
+                                            <i class="bi bi-circle-fill text-[6px] opacity-90"></i>
+                                            <span>{{ getStatusLabel(post.room.status) }}</span>
                                         </span>
+
+
+                                        <!-- Số người đang ở -->
                                         <span v-if="post.room?.current_people > 0 || post.room?.status === 'rented'"
-                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-                                            <i class="bi bi-person-check-fill text-emerald-600 mr-1 text-[12px]"></i> Đã có {{ post.room?.current_people || 1 }} người ở
+                                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold
+               bg-emerald-50 text-emerald-700
+               border border-emerald-200
+               transition-all duration-200">
+                                            <i class="bi bi-people-fill text-[12px] text-emerald-600"></i>
+                                            <span>
+                                                Đã có {{ post.room?.current_people || 1 }} người ở
+                                            </span>
                                         </span>
-                                        <span v-if="post.room?.boarding_house?.average_rating > 0" 
-                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
-                                            <i class="bi bi-star-fill text-amber-500 mr-1 text-[11px]"></i> {{ post.room.boarding_house.average_rating }}
+                                        <!-- Đánh giá -->
+                                        <span v-if="post.room?.boarding_house?.average_rating > 0" class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold
+               bg-amber-50 text-amber-700
+               border border-amber-200
+               transition-all duration-200">
+                                            <i class="bi bi-star-fill text-[11px] text-amber-500"></i>
+                                            <span>
+                                                {{ Number(post.room.boarding_house.average_rating).toFixed(1) }}
+                                            </span>
                                         </span>
                                     </div>
 
                                     <!-- Mô tả phòng -->
                                     <div class="about_room text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                                        <p v-html="post.description ? (post.description.length > 90 ? post.description.substring(0, 90) + '...' : post.description) : 'Không có mô tả'"></p>
+                                        <p
+                                            v-html="post.description ? (post.description.length > 90 ? post.description.substring(0, 90) + '...' : post.description) : 'Không có mô tả'">
+                                        </p>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Chủ trọ & Nút xem chi tiết -->
-                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 mt-3">
+                            <div
+                                class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 mt-3">
                                 <div class="flex items-center gap-2.5">
-                                    <div class="relative inline-block shrink-0" :title="post.landlord?.has_vip_frame ? `Chủ trọ VIP` : (post.landlord?.name || 'Chủ trọ')">
+                                    <div class="relative inline-block shrink-0"
+                                        :title="post.landlord?.has_vip_frame ? `Chủ trọ VIP` : (post.landlord?.name || 'Chủ trọ')">
                                         <div :class="[
                                             'w-9 h-9 rounded-full p-[2px] flex items-center justify-center transition-all duration-300',
-                                            post.landlord?.has_vip_frame 
-                                                ? 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-600 shadow-md shadow-amber-500/30 ring-2 ring-amber-400/40' 
+                                            post.landlord?.has_vip_frame
+                                                ? 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-600 shadow-md shadow-amber-500/30 ring-2 ring-amber-400/40'
                                                 : 'bg-slate-200'
                                         ]">
-                                            <img :src="getAvatarUrl(post.landlord?.avatar)" alt="" style="object-fit: cover;" class="w-full h-full rounded-full bg-white">
+                                            <img :src="getAvatarUrl(post.landlord?.avatar)" alt=""
+                                                style="object-fit: cover;" class="w-full h-full rounded-full bg-white">
                                         </div>
                                     </div>
                                     <div>
                                         <h4 class="flex items-center gap-1 font-bold text-slate-800 text-xs">
                                             {{ post.landlord?.name || 'Chủ trọ' }}
-                                            <i v-if="post.landlord?.has_vip_frame" class="bi bi-patch-check-fill text-amber-500 text-xs" title="Chủ trọ VIP"></i>
+                                            <i v-if="post.landlord?.has_vip_frame"
+                                                class="bi bi-patch-check-fill text-amber-500 text-xs"
+                                                title="Chủ trọ VIP"></i>
                                         </h4>
-                                        <p class="text-[10px] text-slate-400">Cập nhật {{ timeAgo(post.updated_at) }}</p>
+                                        <p class="text-[10px] text-slate-400">Cập nhật {{ timeAgo(post.updated_at) }}
+                                        </p>
                                     </div>
                                 </div>
-                                <Link :href="'/chitiettro/' + (post.slug_with_hash || post.id)" style="background: linear-gradient(90deg, #102a6d, #45abe6);" class="px-5 py-3 hover:opacity-95 text-white rounded-xl font-bold text-sm shadow-md transition-all text-center flex items-center justify-center gap-2 w-full sm:w-auto shrink-0">
+                                <Link :href="'/chitiettro/' + (post.slug_with_hash || post.id)" class="btn">
                                     <span>Xem chi tiết</span>
-                                    <i class="bi bi-arrow-right-short text-lg"></i>
                                 </Link>
                             </div>
                         </div>
