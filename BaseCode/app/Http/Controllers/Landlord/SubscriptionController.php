@@ -42,11 +42,26 @@ class SubscriptionController extends Controller
                 $daysRemaining = max(0, now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($activeSubscription->end_date)->startOfDay(), false));
             }
         }
-        // Lấy danh sách các gói dịch vụ có sẵn
-        $plans = SubscriptionPlan::with('features')
-            ->where('is_active', true)
-            ->orderBy('sort_order', 'asc')
-            ->get();
+        // Check xem chủ trọ này đã từng sử dụng gói dùng thử VIP chưa
+        $hasUsedTrial = LandlordSubscription::where('user_id', $user->id)
+            ->whereHas('plan', function ($q) {
+                $q->where('badge', 'LIKE', '%DÙNG THỬ%')
+                    ->orWhere('name', 'LIKE', '%Dùng Thử%');
+            })->exists();
+
+        // Truy vấn danh sách dịch vụ có sẵn
+        $plansQuery = SubscriptionPlan::with('features')
+            ->where('is_active', true);
+
+        // Nếu đã sử dụng gói dùng thử -> Ẩn gói dùng thử VIP khỏi danh sách mua
+        if ($hasUsedTrial) {
+            $plansQuery->where(function ($q) {
+                $q->where('price', '>', 0)
+                    ->orWhere('badge', 'CƠ BẢN')
+                    ->orWhere('name', 'LIKE', '%Cơ Bản%');
+            });
+        }
+        $plans = $plansQuery->orderBy('sort_order', 'asc')->get();
         // Lịch sử đăng ký gói
         $history = LandlordSubscription::with('plan')
             ->where('user_id', $user->id)
@@ -166,5 +181,18 @@ class SubscriptionController extends Controller
         return Inertia::render('Landlord/Subscriptions/History', [
             'history' => $history,
         ]);
+    }
+    //huỷ đơn mua gói đang chờ thanh toán
+    public function cancel($id)
+    {
+        $subscription = LandlordSubscription::where('user_id', auth()->id())
+            ->where('status', 'pending')
+            ->findOrFail($id);
+        $subscription->update([
+            'status' => 'rejected',
+            'admin_note' => 'Chủ trọ đã chủ động huỷ đơn thanh toán.',
+        ]);
+        AuditLogger::log('Hủy đơn mua gói dịch vụ', "Chủ trọ \"" . auth()->user()->name . "\" vừa hủy đơn đăng ký mua gói {$subscription->plan->name} (Mã GD: {$subscription->payment_code})");
+        return redirect()->back()->with('success', 'Đã huỷ đơn thanh toán gói dịch vụ thành công!');
     }
 }

@@ -44,6 +44,24 @@ const buyPlan = (plan) => {
     );
 };
 
+//nút huỷ đơn mua hàng
+const cancelPendingSubscription = () => {
+    if (!props.pendingSubscription)
+        return;
+    if (confirm("Bạn có chắc chắn muốn huỷ đơn mua gói này không!")) {
+        router.post(
+            route("landlord.subscriptions.cancel", props.pendingSubscription.id),
+            {},
+            {
+                onSuccess: () => {
+                    showQRModal.value = false;
+                    triggerToast("Đã huỷ đơn thanh toán thành công!", "info");
+                },
+            }
+        );
+    }
+};
+
 const getVietQRUrl = (sub) => {
     const bank = props.adminBank.bank_code || props.adminBank.bank_name;
     const acc = props.adminBank.account_no;
@@ -174,7 +192,8 @@ const formatDate = (dateStr) => {
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Quản Lý Gói Dịch Vụ</h1>
-                    <p class="text-xs sm:text-sm text-slate-500 mt-1">Nâng cấp gói dịch vụ để mở rộng quy mô kinh doanh phòng trọ của bạn.</p>
+                    <p class="text-xs sm:text-sm text-slate-500 mt-1">Nâng cấp gói dịch vụ để mở rộng quy mô kinh doanh
+                        phòng trọ của bạn.</p>
                 </div>
                 <Link :href="route('landlord.subscriptions.history')"
                     class="w-full sm:w-auto px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 border border-slate-200 shadow-2xs">
@@ -182,12 +201,37 @@ const formatDate = (dateStr) => {
                 </Link>
             </div>
 
+            <!-- Banner cảnh báo gói dịch vụ sắp hết hạn trong 3 ngày -->
+            <div v-if="activeSubscription && daysRemaining !== null && daysRemaining <= 3"
+                class="p-4 sm:p-5 bg-amber-50/90 border border-amber-300/80 rounded-2xl flex items-center justify-between gap-4 text-amber-900 shadow-sm">
+                <div class="flex items-center gap-3.5">
+                    <div
+                        class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-sm">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-extrabold text-sm sm:text-base text-amber-950">Gói dịch vụ của bạn sắp hết hạn!
+                        </h4>
+                        <p class="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                            Gói dịch vụ hiện tại còn <strong class="text-rose-600 font-black text-sm">{{ daysRemaining
+                                }} ngày</strong> nữa là hết hạn (Hạn dùng: {{ activeSubscription.end_date ?
+                                    formatDate(activeSubscription.end_date) : '' }}). Vui lòng gia hạn hoặc chọn gói dịch vụ bên
+                            dưới để không bị gián đoạn hoạt động kinh doanh.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Banner Gói hiện tại -->
-            <div class="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-white shadow-xl relative overflow-hidden">
-                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div
+                class="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-white shadow-xl relative overflow-hidden">
+                <div
+                    class="absolute -right-10 -bottom-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none">
+                </div>
                 <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div class="space-y-2">
-                        <span class="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] sm:text-xs font-semibold uppercase tracking-wider">
+                        <span
+                            class="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] sm:text-xs font-semibold uppercase tracking-wider">
                             Gói Dịch Vụ Của Bạn
                         </span>
                         <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
@@ -198,7 +242,8 @@ const formatDate = (dateStr) => {
                                 Gói dịch vụ của bạn đang có hiệu lực. Bạn có thể nâng cấp gói cao hơn bất kỳ lúc nào.
                             </template>
                             <template v-else>
-                                Gói cũ của bạn đã hết hạn. Bạn đang sử dụng <strong>Gói Cơ Bản (Miễn phí)</strong> của hệ thống. Vui lòng nâng cấp gói VIP để mở khóa thêm tài nguyên!
+                                Gói cũ của bạn đã hết hạn. Bạn đang sử dụng <strong>Gói Cơ Bản (Miễn phí)</strong> của
+                                hệ thống. Vui lòng nâng cấp gói VIP để mở khóa thêm tài nguyên!
                             </template>
                         </p>
                     </div>
@@ -206,7 +251,8 @@ const formatDate = (dateStr) => {
                     <div v-if="activeSubscription"
                         class="w-full md:w-auto bg-white/10 backdrop-blur-md border border-white/20 p-4 sm:p-5 rounded-2xl text-center min-w-[200px]">
                         <span class="text-xs text-indigo-200 block font-medium">Thời gian còn lại</span>
-                        <span class="text-3xl sm:text-4xl font-extrabold text-white my-1 block">{{ daysRemaining }}</span>
+                        <span class="text-3xl sm:text-4xl font-extrabold text-white my-1 block">{{ daysRemaining
+                        }}</span>
                         <span class="text-xs text-indigo-200">
                             {{ daysRemaining === 0 ? "(Ngày cuối cùng - Hết hạn: " : "ngày (Hết hạn: " }}
                             {{ activeSubscription.end_date ? formatDate(activeSubscription.end_date) : 'Vĩnh viễn' }}
@@ -235,7 +281,8 @@ const formatDate = (dateStr) => {
                                 plan.badge === 'Đặc quyền VIP',
                         }">
                         <div v-if="plan.badge" class="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                            <span class="px-3.5 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[11px] font-bold rounded-full shadow-md whitespace-nowrap">
+                            <span
+                                class="px-3.5 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[11px] font-bold rounded-full shadow-md whitespace-nowrap">
                                 {{ plan.badge }}
                             </span>
                         </div>
@@ -273,7 +320,8 @@ const formatDate = (dateStr) => {
                             <ul class="space-y-2.5 text-xs sm:text-sm border-t border-slate-100 pt-5">
                                 <li v-for="feat in plan.features" :key="feat.id"
                                     class="flex items-center gap-2 text-slate-700">
-                                    <i class="bi bi-check-circle-fill text-emerald-500 text-sm sm:text-base shrink-0"></i>
+                                    <i
+                                        class="bi bi-check-circle-fill text-emerald-500 text-sm sm:text-base shrink-0"></i>
                                     <span>{{ feat.name }}:
                                         <strong class="text-slate-900 font-bold">{{
                                             formatFeatureValue(
@@ -326,7 +374,8 @@ const formatDate = (dateStr) => {
             <!-- Modal Quét Mã VietQR Chuyển Khoản Admin -->
             <div v-if="showQRModal && pendingSubscription"
                 class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
-                <div class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 relative my-auto max-h-[92vh] overflow-y-auto">
+                <div
+                    class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 relative my-auto max-h-[92vh] overflow-y-auto">
                     <!-- Nút đóng -->
                     <button @click="showQRModal = false" type="button"
                         class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors">
@@ -335,7 +384,8 @@ const formatDate = (dateStr) => {
 
                     <!-- Tiêu đề -->
                     <div class="text-center">
-                        <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] sm:text-xs font-bold rounded-full">
+                        <span
+                            class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] sm:text-xs font-bold rounded-full">
                             Thanh toán chuyển khoản VietQR
                         </span>
 
@@ -410,7 +460,7 @@ const formatDate = (dateStr) => {
 
                         <div class="flex justify-between items-center gap-3">
                             <span class="text-slate-500 shrink-0">
-                                Nội dung CK:
+                                Nội dung Chuyển Khoản:
                             </span>
 
                             <div
@@ -421,7 +471,8 @@ const formatDate = (dateStr) => {
                                     copyText(
                                         pendingSubscription.payment_code,
                                     )
-                                    " type="button" class="text-xs text-slate-400 hover:text-rose-600 p-0.5" title="Sao chép">
+                                    " type="button" class="text-xs text-slate-400 hover:text-rose-600 p-0.5"
+                                    title="Sao chép">
                                     <i class="bi bi-copy"></i>
                                 </button>
                             </div>
@@ -434,13 +485,18 @@ const formatDate = (dateStr) => {
                             Tải ảnh bill chuyển khoản nếu chưa được duyệt tự động:
                         </label>
 
-                        <form @submit.prevent="uploadProof" class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                        <form @submit.prevent="uploadProof"
+                            class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                             <input type="file" @change="onFileChange" accept="image/*"
                                 class="text-[11px] w-full min-w-0 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
 
                             <button type="submit"
                                 class="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold whitespace-nowrap hover:bg-slate-900 transition-colors shadow-2xs">
                                 Tải bill
+                            </button>
+                            <button type="button" @click="cancelPendingSubscription"
+                                class="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors border border-rose-200 flex items-center justify-center gap-1.5">
+                                <i class="bi bi-x-circle-fill"></i> Hủy Đơn Thanh Toán Này
                             </button>
                         </form>
                     </div>

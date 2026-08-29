@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use \Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 class BoardingHouse extends Model
 {
@@ -66,7 +66,7 @@ class BoardingHouse extends Model
     {
         return $this->hasManyThrough(Review::class, Room::class, 'boarding_house_id', 'room_id')
             ->where('reviews.tenant_id', '!=', $this->user_id)
-            ->whereHas('tenant', function($q) {
+            ->whereHas('tenant', function ($q) {
                 $q->where('role', '!=', 'admin');
             });
     }
@@ -76,7 +76,13 @@ class BoardingHouse extends Model
         return $this->realReviews()->count() > 0 ? round($this->realReviews()->avg('rating'), 1) : 0;
     }
 
-    public function propertyManager(){
-        return $this->hasOne(PropertyManager::class,'boarding_house_id');
+    public function propertyManager()
+    {
+        return $this->hasOne(PropertyManager::class, 'boarding_house_id');
+    }
+
+    public function managers()
+    {
+        return $this->hasMany(PropertyManager::class, 'boarding_house_id');
     }
 }

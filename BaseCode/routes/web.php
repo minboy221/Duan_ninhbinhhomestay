@@ -384,6 +384,9 @@ Route::middleware(['auth', 'landlord'])->prefix('landlord')->group(function () {
     Route::get('/subscriptions/{id}/status', [SubscriptionController::class, 'checkStatus'])->name('landlord.subscriptions.status');
     //phần lịch sử mua gói dịch vụ của chủ trọ
     Route::get('/subscriptions/history', [SubscriptionController::class, 'history'])->name('landlord.subscriptions.history');
+    //phần huỷ mua gói dịch vụ của chủ trọ
+    Route::post('/landlord/subscriptions/{id}/cancel', [App\Http\Controllers\Landlord\SubscriptionController::class, 'cancel'])
+        ->name('landlord.subscriptions.cancel');
 });
 // Route cho phần xác minh đăng ký chủ trọ và thông báo
 Route::middleware(['auth'])->group(function () {
@@ -444,8 +447,8 @@ Route::get('/manager/invite/accept', [App\Http\Controllers\Owner\InviteControlle
 Route::middleware('guest')->group(function () {
     Route::get('/admin/login', [App\Http\Controllers\AdminAuthController::class, 'create'])->name('admin.login');
     Route::post('/admin/login', [App\Http\Controllers\AdminAuthController::class, 'store'])
-    ->middleware('throttle:5,1')
-    ->name('admin.login.store');
+        ->middleware('throttle:5,1')
+        ->name('admin.login.store');
 });
 //Phần dành cho báo cáo
 Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {

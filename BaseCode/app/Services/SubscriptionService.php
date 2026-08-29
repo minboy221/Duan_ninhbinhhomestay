@@ -32,7 +32,7 @@ class SubscriptionService
             return null;
         }
         // Đọc số ngày dùng thử động do Admin đã cấu hình trên gói
-        $durationDays = $trialPlan->duration_days > 0 ? (int) $trialPlan->duration_days : 60;
+        $durationDays = $trialPlan->duration_days > 0 ? (int) $trialPlan->duration_days : 30;
         // Kích hoạt gói dùng thử theo đúng số ngày Admin cài đặt
         $sub = LandlordSubscription::create([
             'user_id' => $user->id,
@@ -48,7 +48,7 @@ class SubscriptionService
         $this->activateSubscription($sub);
         // Gửi thông báo cho tài khoản chủ trọ mới
         $user->notify(new SubscriptionNotification(
-            "Chúc Mừng 60 ngày dùng thử VIP!",
+            "Chúc Mừng 30 ngày dùng thử VIP!",
             "Tài khoản của bạn được tự động tặng {$durationDays} ngày sử dụng Miễn Phí 100% gói Full VIP cao cấp!",
             route('landlord.subscriptions.index'),
             'success'
@@ -141,8 +141,19 @@ class SubscriptionService
             ->where('status', 'active')
             ->update(['status' => 'expired']);
         // Tìm gói miễn phí (price = 0) trong hệ thống
-        $freePlan = SubscriptionPlan::where('price', 0)->where('is_active', true)->first();
+        $freePlan = SubscriptionPlan::where('price', 0)->where('is_active', true)->where(function ($q){
+            $q->where('badge', 'CƠ BẢN')
+            ->orWhere('name','LIKE','%Cơ Bản%')
+            ->orWhere('duration_days', '>', 30);
+        })->first();
+        //fallback phòng trường hợp không tìm thấy gói theo tiêu chí trên
         if (!$freePlan) {
+            $freePlan = SubscriptionPlan::where('price',0)
+            ->where('is_active', true)
+            ->orderBy('sort_order', 'desc')
+            ->first();
+        }
+        if(!$freePlan){
             return null;
         }
         // Tự động tạo và kích hoạt gói miễn phí mới cho chủ trọ

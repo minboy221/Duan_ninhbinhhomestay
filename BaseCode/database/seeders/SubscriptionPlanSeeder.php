@@ -18,13 +18,13 @@ class SubscriptionPlanSeeder extends Seeder
 
         // Gói 1: Dùng thử 60 ngày (Full VIP)
         $trialPlan = SubscriptionPlan::updateOrCreate(
-            ['name' => 'Gói Dùng Thử 60 Ngày (Full VIP)'],
+            ['name' => 'Gói Dùng Thử 30 Ngày (Full VIP)'],
             [
                 'price' => 0,
-                'duration_days' => 60,
+                'duration_days' => 30,
                 'badge' => 'DÙNG THỬ VIP',
                 'sort_order' => 1,
-                'description' => 'Miễn Phí 100% toàn bộ tính năng cao cấp trong 60 ngày đầu tiên.',
+                'description' => 'Miễn Phí 100% toàn bộ tính năng cao cấp trong 30 ngày đầu tiên.',
                 'is_active' => true,
             ]
         );

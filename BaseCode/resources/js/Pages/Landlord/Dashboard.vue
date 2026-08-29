@@ -20,7 +20,7 @@ onMounted(() => {
     if (page.props.flash?.is_new_registration) {
         showSuccess(
             "🎉 Chúc Mừng Bạn Đăng Ký Thành Công!",
-            "Hệ thống đã tự động kích hoạt 60 Ngày Dùng Thử MIỄN PHÍ 100% Gói Full VIP với đầy đủ tính năng cao cấp cho bạn!"
+            "Hệ thống đã tự động kích hoạt 30 Ngày Dùng Thử MIỄN PHÍ 100% Gói Full VIP với đầy đủ tính năng cao cấp cho bạn!"
         );
     }
 });
