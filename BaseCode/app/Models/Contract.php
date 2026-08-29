@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Traits\Hashidable;
+use Illuminate\Support\Facades\Storage;
+
 class Contract extends Model
 {
     use HasFactory, Hashidable;
@@ -55,7 +57,7 @@ class Contract extends Model
         'number_of_tenants' => 'integer',
     ];
 
-    protected $appends = ['hash_id'];
+    protected $appends = ['hash_id', 'contract_file_url'];
 
     /**
      * Boot function from Laravel.
@@ -81,6 +83,23 @@ class Contract extends Model
             }
         });
     }
+
+    //hàm từ động sinh link PDF cloudflare R2
+    public function getContractFileUrlAttribute(){
+        if(!$this->contract_file_path){
+            return null;
+        }
+        if(str_starts_with($this->contract_file_path, 'http://') || str_starts_with($this->contract_file_path, 'https://')){
+            return $this->contract_file_path;
+        }
+        //tạo link đầy đủ từ đĩa cloudflare
+        try{
+            return Storage::disk('r2_private')->url($this->contract_file_path);
+        }catch(\Exception $e){
+            return Storage::urrl($this->contract_file_path);
+        }
+    }
+    
 
     /**
      * Khách thuê

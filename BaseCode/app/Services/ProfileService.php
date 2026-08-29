@@ -52,6 +52,11 @@ class ProfileService
      */
     public function updateProfile(User $user, array $data): ?User
     {
+        // Chặn cập nhật nếu đã từng cập nhật thông tin 1 lần trước đó
+        if (!is_null($user->last_profile_update_at)) {
+            throw new \Exception('Bạn chỉ được phép cập nhật thông tin cá nhân 1 lần duy nhất để bảo đảm tính pháp lý hợp đồng. Vui lòng liên hệ Admin nếu cần hỗ trợ thay đổi!');
+        }
+
         // 1. Số điện thoại: Chỉ cho phép nhập 1 lần duy nhất khi đang trống
         if (!empty($user->phone)) {
             unset($data['phone']);

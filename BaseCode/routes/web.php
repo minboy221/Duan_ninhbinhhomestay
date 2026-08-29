@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/tranguser', [ProfileController::class, 'index'])->name('tranguser');
     Route::post('/tranguser', [ProfileController::class, 'updateProfile'])->name('tranguser.update');
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
+    Route::post('/profile/request-unlock', [ProfileController::class, 'requestUnlockProfile'])->name('profile.request-unlock');
     Route::get('/quanlynoio', [ProfileController::class, 'quanlynoio'])->name('quanlynoio');
     Route::post('/contracts/{contract}/request-termination', [ProfileController::class, 'requestTermination'])->name('contracts.request-termination');
     Route::get('/lichsuthanhtoan', [ProfileController::class, 'lichsuthanhtoan'])->name('lichsuthanhtoan');
@@ -161,6 +162,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/boarding-houses/{id}/reject', [\App\Http\Controllers\AdminBoardingHouseController::class, 'reject'])->name('admin.boarding-houses.reject');
 
     Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
+    Route::patch('/users/{id}/unlock-profile', [AdminController::class, 'unlockUserProfile'])->name('admin.users.unlock-profile');
+    Route::patch('/users/{id}/reject-unlock', [AdminController::class, 'rejectUnlockProfile'])->name('admin.users.reject-unlock');
     Route::patch('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus'])->name('admin.users.toggle-status');
     Route::delete('/users/{id}', [AdminController::class, 'deleteUser'])->name('admin.users.delete');
     Route::get('/landlords', [AdminController::class, 'landlords'])->name('admin.landlords');

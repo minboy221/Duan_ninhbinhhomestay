@@ -611,7 +611,14 @@ const delFloor = (f) => {
         `Xóa tầng "${f.name}" và toàn bộ phòng thuộc tầng?`,
         "danger",
         () => {
-            router.delete(route("landlord.floors.delete", f.id));
+            router.delete(route("landlord.floors.delete", f.id),{
+                onSuccess: () => {
+                    showSuccess("Thành công", `Đã xoá tầng "${f.name}" thành công!`);
+                },
+                onError: () => {
+                    showError("Lỗi", "Không thể xoá tầng này. Vui lòng thử lại!");
+                }
+            });
         },
     );
 };
@@ -837,7 +844,10 @@ const delRoom = (room) => {
         "danger",
         () => {
             router.delete(route("landlord.rooms.delete", room.id), {
-                onSuccess: () => (showDetail.value = false),
+                onSuccess: () => {
+                    showDetail.value = false
+                    showSuccess("Lỗi", "Không thể xoá phòng này. Vui lòng thử lại!");
+                }
             });
         },
     );
@@ -1228,7 +1238,7 @@ const getAutoCoordinates = () => {
                                 title="Sửa tầng này">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
-                            <button @click="openDeleteFloor(floor.id)"
+                            <button @click="delFloor(floor)"
                                 class="w-8 h-8 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition"
                                 title="Xóa tầng này">
                                 <i class="bi bi-trash"></i>
@@ -1320,7 +1330,7 @@ const getAutoCoordinates = () => {
                                             Giá thuê</span>
                                         <span class="text-sm sm:text-base font-black text-emerald-700">{{
                                             fmtMoney(room.price)
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="flex items-center justify-between">
                                         <span class="text-xs font-bold text-slate-700"><i
@@ -1406,7 +1416,7 @@ const getAutoCoordinates = () => {
                                 <!-- Giá gọn nhẹ -->
                                 <div class="bg-slate-100/80 border border-slate-200/50 rounded-xl p-2 text-center">
                                     <span class="text-xs font-black text-emerald-700 block">{{ fmtMoney(room.price)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </div>
 
@@ -1465,7 +1475,7 @@ const getAutoCoordinates = () => {
                                 <div class="flex items-center gap-3">
                                     <span class="text-sm sm:text-base font-black text-emerald-700">{{
                                         fmtMoney(room.price)
-                                        }}</span>
+                                    }}</span>
                                     <span :class="[
                                         'px-2.5 py-1 rounded-md text-xs font-black border flex items-center gap-1 w-fit',
                                         statusConfig[room.status]?.cls ||
@@ -1492,7 +1502,7 @@ const getAutoCoordinates = () => {
                             Hiển thị <span class="font-black text-slate-900">{{ floor.paginatedRooms.length }}</span> /
                             {{ floor.totalRooms }} phòng
                             (Trang <span class="font-black text-slate-900">{{ floor.currentPage }}</span> / {{
-                            floor.totalPages }})
+                                floor.totalPages }})
                         </span>
 
                         <div class="flex items-center gap-1.5">
@@ -1710,7 +1720,7 @@ const getAutoCoordinates = () => {
                             <span class="text-xs font-bold text-slate-400">Giá thuê:</span>
                             <span class="text-xs font-bold text-slate-800">{{
                                 fmtMoney(selRoom.price)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
                             <span class="text-xs font-bold text-slate-400">Diện tích:</span>
@@ -1720,7 +1730,7 @@ const getAutoCoordinates = () => {
                             <span class="text-xs font-bold text-slate-400">Số người:</span>
                             <span class="text-xs font-bold text-slate-800">{{ getEffectiveOccupants(selRoom) }}/{{
                                 selRoom.capacity
-                            }}
+                                }}
                                 người</span>
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
@@ -1759,7 +1769,7 @@ const getAutoCoordinates = () => {
                                     <div class="flex flex-col">
                                         <span class="text-[10px] font-bold text-slate-700">{{ srv.name }}</span>
                                         <span class="text-[9px] font-semibold text-slate-500">{{ fmtMoney(srv.price)
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                 </div>
                             </div>

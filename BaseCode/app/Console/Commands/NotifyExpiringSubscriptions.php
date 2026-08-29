@@ -28,27 +28,41 @@ class NotifyExpiringSubscriptions extends Command
      */
     public function handle()
     {
-        // Lấy ngày mục tiêu là đúng 3 ngày sau
-        $targetDate = Carbon::now()->addDays(3)->toDateString();
+        $today = Carbon::now()->startOfDay()->toDateString();
+        $targetDate = Carbon::now()->startOfDay()->addDays(3)->toDateString();
 
+        // Lấy tất cả các gói active sắp hết hạn trong vòng 3 ngày tới (từ hôm nay đến 3 ngày sau)
         $expiringSubs = LandlordSubscription::with(['user', 'plan'])
             ->where('status', 'active')
             ->whereNotNull('end_date')
-            ->whereDate('end_date', $targetDate)
+            ->whereDate('end_date', '>=', $today)
+            ->whereDate('end_date', '<=', $targetDate)
             ->get();
 
+        $count = 0;
         foreach ($expiringSubs as $sub) {
             if ($sub->user && $sub->plan) {
-                $endDateStr = Carbon::parse($sub->end_date)->format('d/m/Y');
-                $sub->user->notify(new SubscriptionNotification(
-                    'Gói dịch vụ sắp hết hạn!',
-                    "Gói \"{$sub->plan->name}\" của bạn sẽ hết hạn sau 3 ngày nữa (vào ngày {$endDateStr}). Vui lòng gia hạn để duy trì dịch vụ.",
-                    route('landlord.subscriptions.index'),
-                    'warning'
-                ));
+                // Kiểm tra xem người dùng đã nhận thông báo sắp hết hạn chưa
+                $alreadyNotified = $sub->user->unreadNotifications()
+                    ->where('type', 'App\Notifications\SubscriptionNotification')
+                    ->where('data->title', 'Gói Dịch Vụ Sắp Hết Hạn')
+                    ->exists();
+
+                if (!$alreadyNotified) {
+                    $endDateStr = Carbon::parse($sub->end_date)->format('d/m/Y');
+                    $daysLeft = max(0, (int) Carbon::now()->startOfDay()->diffInDays(Carbon::parse($sub->end_date)->startOfDay(), false));
+
+                    $sub->user->notify(new SubscriptionNotification(
+                        'Gói Dịch Vụ Sắp Hết Hạn',
+                        "Gói \"{$sub->plan->name}\" của bạn sẽ hết hạn vào ngày {$endDateStr} (Còn {$daysLeft} ngày). Vui lòng gia hạn để duy trì dịch vụ.",
+                        route('landlord.subscriptions.index'),
+                        'warning'
+                    ));
+                    $count++;
+                }
             }
         }
 
-        $this->info("Đã gửi thông báo sắp hết hạn cho " . $expiringSubs->count() . " gói dịch vụ.");
+        $this->info("Đã gửi thông báo sắp hết hạn cho {$count} chủ trọ.");
     }
 }

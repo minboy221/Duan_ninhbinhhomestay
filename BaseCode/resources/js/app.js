@@ -10,31 +10,6 @@ import { vClickOutside } from './Directives/vClickOutside';
 
 // const appName = import.meta.env.VITE_APP_NAME || 'null';
 
-// Hiển thị khung thông báo lỗi trực tiếp trên màn hình di động (giúp phát hiện chính xác nguyên nhân nếu bị trắng màn hình)
-if (typeof window !== 'undefined') {
-    window.addEventListener('error', (event) => {
-        let errDiv = document.getElementById('mobile-debug-error');
-        if (!errDiv) {
-            errDiv = document.createElement('div');
-            errDiv.id = 'mobile-debug-error';
-            errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#dc2626;color:white;padding:16px;font-size:13px;word-break:break-all;box-shadow:0 4px 12px rgba(0,0,0,0.5);font-family:monospace;';
-            document.body.appendChild(errDiv);
-        }
-        errDiv.innerHTML = `<strong>LỖI TRÊN ĐIỆN THOẠI:</strong><br>${event.message} <br><small>tại ${event.filename}:${event.lineno}</small>`;
-    });
-
-    window.addEventListener('unhandledrejection', (event) => {
-        let errDiv = document.getElementById('mobile-debug-error');
-        if (!errDiv) {
-            errDiv = document.createElement('div');
-            errDiv.id = 'mobile-debug-error';
-            errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#dc2626;color:white;padding:16px;font-size:13px;word-break:break-all;box-shadow:0 4px 12px rgba(0,0,0,0.5);font-family:monospace;';
-            document.body.appendChild(errDiv);
-        }
-        errDiv.innerHTML = `<strong>LỖI PROMISE / MODULE TRÊN ĐIỆN THOẠI:</strong><br>${event.reason}`;
-    });
-}
-
 createInertiaApp({
     title: (title) => `${title}`,
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
@@ -42,15 +17,7 @@ createInertiaApp({
         const app = createApp({ render: () => h(App, props) });
         app.directive('click-outside', vClickOutside);
         app.config.errorHandler = (err, instance, info) => {
-            console.error('Vue Mobile Error:', err, info);
-            let errDiv = document.getElementById('mobile-debug-error');
-            if (!errDiv) {
-                errDiv = document.createElement('div');
-                errDiv.id = 'mobile-debug-error';
-                errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#dc2626;color:white;padding:16px;font-size:13px;word-break:break-all;box-shadow:0 4px 12px rgba(0,0,0,0.5);font-family:monospace;';
-                document.body.appendChild(errDiv);
-            }
-            errDiv.innerHTML = `<strong>LỖI VUE COMPONENT:</strong><br>${err.message || err}`;
+            console.error('Vue Error:', err, info);
         };
         return app.use(plugin).use(ZiggyVue).mount(el);
     },

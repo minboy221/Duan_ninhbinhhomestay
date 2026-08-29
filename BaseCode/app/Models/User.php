@@ -32,6 +32,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'google_id',
         'last_profile_update_at',
+        'profile_unlock_reason',
+        'profile_unlock_requested_at',
         'bump_credits',
         'package_name',
         'bank_name',

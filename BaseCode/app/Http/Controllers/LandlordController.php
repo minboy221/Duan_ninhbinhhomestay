@@ -1178,15 +1178,15 @@ class LandlordController extends Controller
     //hàm kiểm tra gói và gửi thông báo nhắc gia hạn gói nếu còn dưới 3 ngày
     protected function checkSubscriptionExpiryWarning($user)
     {
-        $activeSub = $user->activateSubscription;
+        $activeSub = $user->activeSubscription;
         if (!$activeSub || !$activeSub->end_date)
             return;
         $daysRemaining = now()->startOfDay()->diffInDays($activeSub->end_date->startOfDay(), false);
-        //nếu còn từ 1 -> 3 ngày và chưa gửi thông báo
+        //nếu còn từ 0 -> 3 ngày và chưa gửi thông báo
         if ($daysRemaining >= 0 && $daysRemaining <= 3) {
             $alreadyNotified = $user->unreadNotifications()
                 ->where('type', 'App\Notifications\SubscriptionNotification')
-                ->where('data->title', 'Gói dịch vụ sắp hết hạn')
+                ->where('data->title', 'Gói Dịch Vụ Sắp Hết Hạn')
                 ->exists();
             if (!$alreadyNotified) {
                 $user->notify(new SubscriptionNotification(

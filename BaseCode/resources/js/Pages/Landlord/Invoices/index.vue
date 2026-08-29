@@ -1,8 +1,10 @@
 <script setup>
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
-import { useForm, router } from '@inertiajs/vue3'
+import { useForm, router, usePage } from '@inertiajs/vue3'
 import { showSuccess, showError, showWarning, showConfirm, showToast } from '@/Utils/swal'
+
+const page = usePage()
 
 const props = defineProps({
     invoices: {
@@ -31,7 +33,7 @@ const props = defineProps({
     }
 })
 
-// Tự động làm mới dữ liệu Hóa đơn mỗi 5s để cập nhật ngay khi khách thanh toán
+// Tự động làm mới dữ liệu Hóa đơn theo thời gian thực (Real-time Push + Interval)
 let autoRefreshTimer = null
 onMounted(() => {
     autoRefreshTimer = setInterval(() => {
@@ -39,6 +41,15 @@ onMounted(() => {
             router.reload({ preserveScroll: true, only: ['invoices', 'archivedInvoices'] })
         }
     }, 60000)
+
+    const userId = page.props.auth?.user?.id
+    if (userId && window.Echo) {
+        window.Echo.private(`App.Models.User.${userId}`).notification((notification) => {
+            if (notification.type?.includes('Invoice') || notification.data?.url?.includes('invoices')) {
+                router.reload({ preserveScroll: true, only: ['invoices', 'archivedInvoices'] })
+            }
+        })
+    }
 
     if (billingHousesToAlert.value && billingHousesToAlert.value.length > 0) {
         showBillingReminderModal.value = true
@@ -49,6 +60,10 @@ onUnmounted(() => {
     if (autoRefreshTimer) {
         clearInterval(autoRefreshTimer)
         autoRefreshTimer = null
+    }
+    const userId = page.props.auth?.user?.id
+    if (userId && window.Echo) {
+        window.Echo.leave(`App.Models.User.${userId}`)
     }
 })
 
@@ -743,6 +758,18 @@ const selectedPaymentInvoice = ref(null)
 const paymentMode = ref('full') // 'full' | 'partial'
 const partialAmountInput = ref(0)
 
+const displayPartialAmountInput = computed({
+    get() {
+        const val = partialAmountInput.value
+        if (val === null || val === undefined || val === '') return ''
+        return new Intl.NumberFormat('en-US').format(val)
+    },
+    set(v) {
+        const raw = String(v).replace(/\D/g, '')
+        partialAmountInput.value = raw ? parseInt(raw, 10) : 0
+    }
+})
+
 const openPaymentModal = (inv) => {
     selectedPaymentInvoice.value = inv
     paymentMode.value = 'full'
@@ -753,15 +780,24 @@ const openPaymentModal = (inv) => {
 
 const submitPaymentStatus = () => {
     if (!selectedPaymentInvoice.value) return
-    const status = paymentMode.value === 'full' ? 'paid' : 'partially_paid'
-    const amount = paymentMode.value === 'full'
-        ? (Number(selectedPaymentInvoice.value.total_amount || 0) - Number(selectedPaymentInvoice.value.paid_amount || 0))
-        : Number(partialAmountInput.value)
+    const remaining = Number(selectedPaymentInvoice.value.total_amount || 0) - Number(selectedPaymentInvoice.value.paid_amount || 0)
 
-    if (paymentMode.value === 'partial' && (!amount || amount <= 0)) {
-        showError('Lỗi', 'Vui lòng nhập số tiền thu thực tế hợp lệ!')
-        return
+    if (paymentMode.value === 'partial') {
+        const amount = Number(partialAmountInput.value || 0)
+        if (amount < 100000) {
+            showError('Số tiền không hợp lệ', 'Số tiền thu thực tế mỗi đợt phải từ 100,000 VNĐ trở lên!')
+            return
+        }
+        if (amount > remaining) {
+            showError('Số tiền vượt quá', `Số tiền thu thực tế (${new Intl.NumberFormat('vi-VN').format(amount)} đ) không được vượt quá số tiền còn phải thu (${new Intl.NumberFormat('vi-VN').format(remaining)} đ)!`)
+            return
+        }
     }
+
+    const status = paymentMode.value === 'full' ? 'paid' : (Number(partialAmountInput.value) >= remaining ? 'paid' : 'partially_paid')
+    const amount = paymentMode.value === 'full'
+        ? remaining
+        : Number(partialAmountInput.value)
 
     const statusForm = useForm({
         status: status,
@@ -2426,13 +2462,16 @@ const goToCreateForContract = (contractId) => {
                     </div>
 
                     <!-- Partial Amount Input -->
-                    <div v-if="paymentMode === 'partial'" class="space-y-1 animate-fade-in">
+                    <div v-if="paymentMode === 'partial'" class="space-y-1.5 animate-fade-in">
                         <label class="text-xs font-bold text-slate-600 block">Số tiền thu thực tế đợt này (VNĐ)</label>
-                        <input type="number" v-model="partialAmountInput" placeholder="Nhập số tiền khách vừa trả..."
-                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all" />
-                        <p class="text-[11px] text-slate-400 italic mt-1">
-                            Hóa đơn sẽ tự động chuyển sang trạng thái "Thanh
-                            toán 1 phần".
+                        <div class="relative">
+                            <input type="text" v-model="displayPartialAmountInput" placeholder="Ví dụ: 500,000"
+                                class="w-full px-4 py-2.5 border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 rounded-xl text-sm font-black text-slate-800 outline-none transition-all pr-12" />
+                            <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">VNĐ</span>
+                        </div>
+                        <p class="text-[11px] text-amber-700 font-semibold mt-1 flex items-center gap-1">
+                            <i class="bi bi-info-circle-fill text-amber-500"></i>
+                            <span>Yêu cầu số tiền thu đợt này từ 100,000 VNĐ trở lên.</span>
                         </p>
                     </div>
                 </div>

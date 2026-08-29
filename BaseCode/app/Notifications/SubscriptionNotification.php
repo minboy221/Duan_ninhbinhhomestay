@@ -6,6 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 use App\Channels\FcmChannel;
 
 class SubscriptionNotification extends Notification
@@ -21,7 +22,7 @@ class SubscriptionNotification extends Notification
      */
     public function __construct(string $title, string $message, string $url = '#', string $type = 'info')
     {
-        $this->title= $title;
+        $this->title = $title;
         $this->message = $message;
         $this->url = $url;
         $this->type = $type;
@@ -34,7 +35,7 @@ class SubscriptionNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database', FcmChannel::class];
+        return ['database', 'broadcast', FcmChannel::class];
     }
 
     /**
@@ -43,9 +44,9 @@ class SubscriptionNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-                    ->line('The introduction to the notification.')
-                    ->action('Notification Action', url('/'))
-                    ->line('Thank you for using our application!');
+            ->line('The introduction to the notification.')
+            ->action('Notification Action', url('/'))
+            ->line('Thank you for using our application!');
     }
 
     /**
@@ -57,9 +58,27 @@ class SubscriptionNotification extends Notification
     {
         return [
             'title' => $this->title,
-            'messeage' => $this->message,
+            'message' => $this->message,
             'url' => $this->url,
             'type' => $this->type,
         ];
+    }
+
+    /**
+     * Get the broadcast representation of the notification.
+     */
+    public function toBroadcast(object $notifiable): BroadcastMessage
+    {
+        return new BroadcastMessage([
+            'id' => $this->id,
+            'data' => [
+                'title' => $this->title,
+                'message' => $this->message,
+                'type' => $this->type,
+                'url' => $this->url,
+            ],
+            'read_at' => null,
+            'created_at' => now()->toIso8601String(),
+        ]);
     }
 }

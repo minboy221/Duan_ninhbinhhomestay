@@ -2,6 +2,7 @@
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Head, router } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
+import CustomSwal, { showSuccess, showError } from '@/Utils/swal'
 import Swal from 'sweetalert2'
 import { getAvatarUrl, DEFAULT_AVATAR } from '@/Utils/media'
 
@@ -9,29 +10,46 @@ const props = defineProps({
     users: { type: Array, default: () => [] }
 })
 
-const search    = ref('')
-const roleFilter   = ref('all')
+const search = ref('')
+const roleFilter = ref('all')
 const statusFilter = ref('all')
-const currentPage  = ref(1)
+const currentPage = ref(1)
 const perPage = 10
+
+import { onMounted } from 'vue'
+
+onMounted(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const unlockUserId = urlParams.get('user_id') || urlParams.get('unlock_user_id');
+    if (unlockUserId) {
+        const targetUser = props.users.find(u => String(u.id) === String(unlockUserId));
+        if (targetUser) {
+            handleUnlockProfile(targetUser);
+        }
+    }
+});
 
 const filtered = computed(() => {
     return props.users.filter(u => {
         const q = search.value.toLowerCase()
-        const matchSearch = !q || (u.name && u.name.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q))
-        const matchRole   = roleFilter.value === 'all' || u.role === roleFilter.value || (roleFilter.value === 'tenant' && u.role === 'user')
-        const matchStatus = statusFilter.value === 'all' || (u.status || 'active') === statusFilter.value
+        const matchSearch = !q || (u.name && u.name.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q)) || (u.phone && u.phone.includes(q))
+        const matchRole = roleFilter.value === 'all' || u.role === roleFilter.value || (roleFilter.value === 'tenant' && u.role === 'user')
+        const matchStatus = statusFilter.value === 'all'
+            ? true
+            : statusFilter.value === 'unlock_requested'
+                ? !!u.profile_unlock_reason
+                : (u.status || 'active') === statusFilter.value
         return matchSearch && matchRole && matchStatus
     })
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
-const paginated  = computed(() => {
+const paginated = computed(() => {
     const start = (currentPage.value - 1) * perPage
     return filtered.value.slice(start, start + perPage)
 })
 
-const roleLabel = { tenant: 'Người thuê', user: 'Người thuê', landlord: 'Chủ trọ'}
+const roleLabel = { tenant: 'Người thuê', user: 'Người thuê', landlord: 'Chủ trọ' }
 const roleClass = { tenant: 'role-blue', user: 'role-blue', landlord: 'role-purple' }
 
 function formatDate(dateStr) {
@@ -47,24 +65,91 @@ function formatDate(dateStr) {
 }
 
 // Action modal
-const showModal    = ref(false)
-const modalUser    = ref(null)
-const modalAction  = ref('')
-const lockReason   = ref('')
+const showModal = ref(false)
+const modalUser = ref(null)
+const modalAction = ref('')
+const lockReason = ref('')
 const lockReasonError = ref('')
 
 function openAction(user, action) {
-    modalUser.value  = user
+    modalUser.value = user
     modalAction.value = action
     lockReason.value = ''
     lockReasonError.value = ''
-    showModal.value  = true
+    showModal.value = true
 }
+
+function handleUnlockProfile(user) {
+    const reasonHtml = user.profile_unlock_reason
+        ? `<div style="font-family: 'Poppins', 'Inter', sans-serif; padding: 12px; background-color: #fffbe6; border-radius: 12px; text-align: left; font-size: 13px; color: #78350f; border: 1px solid #fde68a; margin-top: 12px;">
+             <i class="bi bi-chat-quote-fill" style="color: #d97706;"></i> <b>Lý do xin sửa:</b><br/><span style="font-style: italic; font-weight: 500;">"${user.profile_unlock_reason}"</span>
+           </div>`
+        : '';
+
+    CustomSwal.fire({
+        title: 'Duyệt mở khóa sửa hồ sơ?',
+        html: `<div style="font-family: 'Poppins', 'Inter', sans-serif; font-size: 13px; color: #475569; line-height: 1.6; font-weight: 400;">
+                 Bạn có chắc muốn cấp quyền cho người dùng <b style="color: #0f172a; font-weight: 700;">${user.name}</b> được phép cập nhật lại thông tin cá nhân 1 lần nữa?
+               </div>${reasonHtml}`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Đồng ý mở khóa',
+        cancelButtonText: 'Hủy',
+        buttonsStyling: false,
+        customClass: {
+            popup: 'swal2-poppins-popup',
+            title: 'swal2-poppins-title',
+            htmlContainer: 'swal2-poppins-html',
+            confirmButton: 'swal2-poppins-confirm-amber',
+            cancelButton: 'swal2-poppins-cancel'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.patch(route('admin.users.unlock-profile', user.id), {}, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    showSuccess('Thành công', `Đã mở khóa cho tài khoản ${user.name} thành công!`);
+                }
+            });
+        }
+    });
+}
+
+function handleRejectUnlockProfile(user) {
+    CustomSwal.fire({
+        title: 'Từ chối yêu cầu?',
+        html: `<div style="font-family: 'Poppins', 'Inter', sans-serif; font-size: 13px; color: #475569; line-height: 1.6; font-weight: 400;">
+                 Bạn có chắc muốn từ chối yêu cầu xin mở khóa sửa hồ sơ của người dùng <b style="color: #0f172a; font-weight: 700;">${user.name}</b>?
+               </div>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Từ chối yêu cầu',
+        cancelButtonText: 'Hủy',
+        buttonsStyling: false,
+        customClass: {
+            popup: 'swal2-poppins-popup',
+            title: 'swal2-poppins-title',
+            htmlContainer: 'swal2-poppins-html',
+            confirmButton: 'swal2-poppins-confirm-rose',
+            cancelButton: 'swal2-poppins-cancel'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.patch(route('admin.users.reject-unlock', user.id), {}, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    showSuccess('Thành công', `Đã từ chối yêu cầu xin sửa hồ sơ của ${user.name}!`);
+                }
+            });
+        }
+    });
+}
+
 
 function confirmAction() {
     if (modalAction.value === 'toggle') {
         const isLocking = (modalUser.value.status || 'active') === 'active';
-        
+
         if (isLocking && !lockReason.value.trim()) {
             lockReasonError.value = 'Vui lòng nhập lý do khóa tài khoản!';
             return;
@@ -76,12 +161,7 @@ function confirmAction() {
             preserveScroll: true,
             onSuccess: () => {
                 showModal.value = false;
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Thành công',
-                    text: isLocking ? 'Đã khóa tài khoản thành công.' : 'Đã mở khóa tài khoản thành công.',
-                    confirmButtonText: 'Đóng'
-                });
+                showSuccess('Thành công', isLocking ? 'Đã khóa tài khoản thành công.' : 'Đã mở khóa tài khoản thành công.');
             }
         });
     }
@@ -93,6 +173,7 @@ function resetFilters() {
 </script>
 
 <template>
+
     <Head title="Admin - Quản Lý Người Dùng" />
     <AdminLayout>
         <template #header-title>
@@ -106,17 +187,19 @@ function resetFilters() {
         <div class="filter-bar">
             <div class="search-wrap">
                 <i class="bi bi-search search-icon"></i>
-                <input v-model="search" @input="currentPage=1" type="text" placeholder="Tìm theo tên, email..." class="search-input" />
+                <input v-model="search" @input="currentPage = 1" type="text" placeholder="Tìm theo tên, email..."
+                    class="search-input" />
             </div>
-            <select v-model="roleFilter" @change="currentPage=1" class="filter-select">
+            <select v-model="roleFilter" @change="currentPage = 1" class="filter-select">
                 <option value="all">Tất cả loại TK</option>
                 <option value="tenant">Người thuê</option>
                 <option value="landlord">Chủ trọ</option>
             </select>
-            <select v-model="statusFilter" @change="currentPage=1" class="filter-select">
+            <select v-model="statusFilter" @change="currentPage = 1" class="filter-select">
                 <option value="all">Tất cả trạng thái</option>
                 <option value="active">Hoạt động</option>
                 <option value="locked">Bị khóa</option>
+                <option value="unlock_requested">Cần duyệt sửa hồ sơ</option>
             </select>
             <button @click="resetFilters" class="btn-reset">
                 <i class="bi bi-x-circle"></i> Reset
@@ -133,7 +216,7 @@ function resetFilters() {
                         <th>Loại tài khoản</th>
                         <th>Ngày đăng ký</th>
                         <th>Trạng thái</th>
-                        <th style="width:100px;text-align:center">Hành động</th>
+                        <th style="width:120px;text-align:center">Hành động</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -147,13 +230,11 @@ function resetFilters() {
                         <td class="idx">{{ (currentPage - 1) * perPage + i + 1 }}</td>
                         <td>
                             <div class="user-cell">
-                                <div class="user-ava" :style="u.avatar ? 'overflow: hidden; background: #f1f5f9; padding: 0;' : `background: hsl(${(u.id * 57) % 360}, 65%, 55%)`">
-                                    <img v-if="u.avatar"
-                                        :src="getAvatarUrl(u.avatar)" 
+                                <div class="user-ava"
+                                    :style="u.avatar ? 'overflow: hidden; background: #f1f5f9; padding: 0;' : `background: hsl(${(u.id * 57) % 360}, 65%, 55%)`">
+                                    <img v-if="u.avatar" :src="getAvatarUrl(u.avatar)"
                                         @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
-                                        :alt="u.name"
-                                        style="width: 100%; height: 100%; object-fit: cover;"
-                                    />
+                                        :alt="u.name" style="width: 100%; height: 100%; object-fit: cover;" />
                                     <template v-else>
                                         {{ u.name ? u.name[0] : 'U' }}
                                     </template>
@@ -161,6 +242,11 @@ function resetFilters() {
                                 <div>
                                     <p class="user-name">{{ u.name }}</p>
                                     <p class="user-email">{{ u.email }}</p>
+                                    <div v-if="u.profile_unlock_reason"
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 mt-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-[10px] font-extrabold"
+                                        :title="u.profile_unlock_reason">
+                                        <i class="bi bi-exclamation-circle-fill text-amber-500"></i> Xin sửa hồ sơ
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -181,11 +267,23 @@ function resetFilters() {
                                 <button class="act-btn act-view" title="Xem chi tiết" @click="openAction(u, 'view')">
                                     <i class="bi bi-eye"></i>
                                 </button>
-                                <button
-                                    :class="['act-btn', u.status === 'locked' ? 'act-unlock' : 'act-lock']"
+                                <button v-if="u.profile_unlock_reason || u.last_profile_update_at"
+                                    :class="['act-btn relative', u.profile_unlock_reason ? 'animate-pulse' : '']"
+                                    :style="{ backgroundColor: u.profile_unlock_reason ? '#d97706' : '#f59e0b', color: 'white', border: 'none' }"
+                                    :title="u.profile_unlock_reason ? 'Duyệt mở khóa - Lý do: ' + u.profile_unlock_reason : 'Mở khóa cho phép sửa lại thông tin cá nhân'"
+                                    @click="handleUnlockProfile(u)">
+                                    <i class="bi bi-unlock-fill"></i>
+                                    <span v-if="u.profile_unlock_reason"
+                                        class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
+                                </button>
+                                <button v-if="u.profile_unlock_reason" class="act-btn"
+                                    style="background-color: #ef4444; color: white; border: none;"
+                                    title="Từ chối yêu cầu xin sửa hồ sơ" @click="handleRejectUnlockProfile(u)">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                </button>
+                                <button :class="['act-btn', u.status === 'locked' ? 'act-unlock' : 'act-lock']"
                                     :title="u.status === 'locked' ? 'Mở khóa tài khoản' : 'Khóa tài khoản'"
-                                    @click="openAction(u, 'toggle')"
-                                >
+                                    @click="openAction(u, 'toggle')">
                                     <i :class="['bi', u.status === 'locked' ? 'bi-unlock-fill' : 'bi-lock-fill']"></i>
                                 </button>
                             </div>
@@ -199,11 +297,8 @@ function resetFilters() {
                 <button :disabled="currentPage === 1" @click="currentPage--" class="page-btn">
                     <i class="bi bi-chevron-left"></i>
                 </button>
-                <button
-                    v-for="p in totalPages" :key="p"
-                    @click="currentPage = p"
-                    :class="['page-btn', currentPage === p ? 'page-active' : '']"
-                >{{ p }}</button>
+                <button v-for="p in totalPages" :key="p" @click="currentPage = p"
+                    :class="['page-btn', currentPage === p ? 'page-active' : '']">{{ p }}</button>
                 <button :disabled="currentPage === totalPages" @click="currentPage++" class="page-btn">
                     <i class="bi bi-chevron-right"></i>
                 </button>
@@ -212,37 +307,37 @@ function resetFilters() {
 
         <!-- Confirm / View Modal -->
         <Teleport to="body">
-            <div v-if="showModal" class="modal-overlay" @click.self="showModal=false">
+            <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
                 <!-- Toggle status modal -->
                 <div v-if="modalAction === 'toggle'" class="modal-box">
                     <div class="modal-icon icon-orange">
-                        <i :class="['bi', (modalUser?.status || 'active') === 'active' ? 'bi-lock-fill' : 'bi-unlock-fill']"></i>
+                        <i
+                            :class="['bi', (modalUser?.status || 'active') === 'active' ? 'bi-lock-fill' : 'bi-unlock-fill']"></i>
                     </div>
                     <h3 class="modal-title">
                         {{ (modalUser?.status || 'active') === 'active' ? 'Khóa tài khoản?' : 'Mở khóa tài khoản?' }}
                     </h3>
                     <p class="modal-desc">
-                        {{ `Bạn có muốn ${(modalUser?.status || 'active') === 'active' ? 'khóa' : 'mở khóa'} tài khoản "${modalUser?.name}"?` }}
+                        {{ `Bạn có muốn ${(modalUser?.status || 'active') === 'active' ? 'khóa' : 'mở khóa'} tài khoản
+                        "${modalUser?.name}"?` }}
                     </p>
 
                     <div v-if="(modalUser?.status || 'active') === 'active'" style="text-align: left; margin: 15px 0;">
-                        <label style="font-size: 13px; font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">
+                        <label
+                            style="font-size: 13px; font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">
                             Lý do khóa tài khoản <span style="color: #ef4444;">*</span>:
                         </label>
-                        <textarea
-                            v-model="lockReason"
-                            @input="lockReasonError = ''"
-                            rows="3"
+                        <textarea v-model="lockReason" @input="lockReasonError = ''" rows="3"
                             placeholder="Nhập chi tiết lý do khóa tài khoản (ví dụ: Vi phạm điều khoản, giả mạo thông tin, spam...)"
-                            style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; font-size: 13px; outline: none; resize: vertical;"
-                        ></textarea>
-                        <p v-if="lockReasonError" style="color: #ef4444; font-size: 12px; margin: 4px 0 0 0; font-weight: 500;">
+                            style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; font-size: 13px; outline: none; resize: vertical;"></textarea>
+                        <p v-if="lockReasonError"
+                            style="color: #ef4444; font-size: 12px; margin: 4px 0 0 0; font-weight: 500;">
                             {{ lockReasonError }}
                         </p>
                     </div>
 
                     <div class="modal-actions">
-                        <button @click="showModal=false" class="btn-cancel">Hủy</button>
+                        <button @click="showModal = false" class="btn-cancel">Hủy</button>
                         <button @click="confirmAction" class="btn-confirm btn-warning">
                             Xác nhận
                         </button>
@@ -251,8 +346,11 @@ function resetFilters() {
 
                 <!-- User Detail Modal -->
                 <div v-else-if="modalAction === 'view'" class="modal-box">
-                    <div class="user-detail-ava" :style="modalUser?.avatar ? 'overflow: hidden; background: #f1f5f9;' : `background: hsl(${((modalUser?.id || 1) * 57) % 360}, 65%, 55%)`">
-                        <img v-if="modalUser?.avatar" :src="getAvatarUrl(modalUser.avatar)" @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR" :alt="modalUser?.name" style="width:100%;height:100%;object-fit:cover;" />
+                    <div class="user-detail-ava"
+                        :style="modalUser?.avatar ? 'overflow: hidden; background: #f1f5f9;' : `background: hsl(${((modalUser?.id || 1) * 57) % 360}, 65%, 55%)`">
+                        <img v-if="modalUser?.avatar" :src="getAvatarUrl(modalUser.avatar)"
+                            @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
+                            :alt="modalUser?.name" style="width:100%;height:100%;object-fit:cover;" />
                         <template v-else>{{ modalUser?.name ? modalUser.name[0] : 'U' }}</template>
                     </div>
                     <h3 class="modal-title" style="margin-top:10px;">{{ modalUser?.name }}</h3>
@@ -261,11 +359,13 @@ function resetFilters() {
                     <div class="detail-list">
                         <div class="detail-row">
                             <span class="detail-lbl">Loại tài khoản:</span>
-                            <span :class="['role-badge', roleClass[modalUser?.role] || 'role-blue']">{{ roleLabel[modalUser?.role] || modalUser?.role }}</span>
+                            <span :class="['role-badge', roleClass[modalUser?.role] || 'role-blue']">{{
+                                roleLabel[modalUser?.role] || modalUser?.role }}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-lbl">Trạng thái:</span>
-                            <span :class="['status-badge', modalUser?.status === 'locked' ? 'badge-locked' : 'badge-active']">
+                            <span
+                                :class="['status-badge', modalUser?.status === 'locked' ? 'badge-locked' : 'badge-active']">
                                 <span class="dot"></span>
                                 {{ modalUser?.status === 'locked' ? 'Bị khóa' : 'Hoạt động' }}
                             </span>
@@ -274,6 +374,14 @@ function resetFilters() {
                             <span class="detail-lbl">Lý do khóa:</span>
                             <span class="detail-val" style="color: #ef4444; font-weight: 600;">
                                 {{ modalUser?.lock_reason || 'Không ghi rõ lý do' }}
+                            </span>
+                        </div>
+                        <div v-if="modalUser?.profile_unlock_reason" class="detail-row"
+                            style="align-items: flex-start; background: #fffbe6; padding: 10px; border-radius: 8px; border: 1px solid #ffe58f; margin: 8px 0;">
+                            <span class="detail-lbl" style="color: #d48806; font-weight: 700;">Lý do xin sửa hồ
+                                sơ:</span>
+                            <span class="detail-val" style="color: #d48806; font-weight: 700;">
+                                "{{ modalUser.profile_unlock_reason }}"
                             </span>
                         </div>
                         <div class="detail-row">
@@ -287,7 +395,7 @@ function resetFilters() {
                     </div>
 
                     <div class="modal-actions" style="margin-top:20px;">
-                        <button @click="showModal=false" class="btn-cancel" style="width:100%;">Đóng</button>
+                        <button @click="showModal = false" class="btn-cancel" style="width:100%;">Đóng</button>
                     </div>
                 </div>
             </div>
@@ -296,84 +404,553 @@ function resetFilters() {
 </template>
 
 <style scoped>
-.page-title { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-.page-sub   { font-size: 12px; color: #94a3b8; margin: 2px 0 0; }
+.page-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.page-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 2px 0 0;
+}
 
 /* Filter */
-.filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-.search-wrap { position: relative; flex: 1; min-width: 200px; }
-.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px; }
-.search-input { width: 100%; padding: 9px 12px 9px 36px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #0f172a; background:#fff; outline:none; transition: border 0.15s; box-sizing: border-box; }
-.search-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.08); }
-.filter-select { padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #334155; background:#fff; outline:none; cursor:pointer; }
-.filter-select:focus { border-color: #7c3aed; }
-.btn-reset { padding: 9px 14px; border-radius: 6px; border: 1px solid #e2e8f0; background:#fff; color:#64748b; font-size:13px; cursor:pointer; display:flex;align-items:center;gap:5px; }
-.btn-reset:hover { background: #f8fafc; }
+.filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 9px 12px 9px 36px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #0f172a;
+    background: #fff;
+    outline: none;
+    transition: border 0.15s;
+    box-sizing: border-box;
+}
+
+.search-input:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+.filter-select {
+    padding: 9px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #334155;
+    background: #fff;
+    outline: none;
+    cursor: pointer;
+}
+
+.filter-select:focus {
+    border-color: #7c3aed;
+}
+
+.btn-reset {
+    padding: 9px 14px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-reset:hover {
+    background: #f8fafc;
+}
 
 /* Table card */
-.table-card { background: #fff; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 4px rgba(0,0,0,0.05); overflow: hidden; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; padding: 14px 16px; background: #f8fafc; border-bottom: 1px solid #f1f5f9; }
-.data-table td { padding: 13px 16px; border-bottom: 1px solid #f8fafc; vertical-align: middle; }
-.table-row:last-child td { border-bottom: none; }
-.table-row:hover td { background: #fafbff; }
-.idx { color: #cbd5e1; font-weight: 600; font-size: 12px; }
+.table-card {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
 
-.empty-row { text-align: center; padding: 48px !important; color: #94a3b8; }
-.empty-row i { display: block; font-size: 40px; margin-bottom: 8px; }
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
 
-.user-cell  { display: flex; align-items: center; gap: 10px; }
-.user-ava   { width: 34px; height: 34px; border-radius: 6px; display:flex;align-items:center;justify-content:center; color:#fff; font-size:14px; font-weight:700; flex-shrink:0; }
-.user-name  { font-size: 13px; font-weight: 600; color: #0f172a; margin: 0; }
-.user-email { font-size: 11px; color: #94a3b8; margin: 0; }
-.text-gray  { color: #64748b; }
+.data-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #f1f5f9;
+}
 
-.role-badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
-.role-blue   { background: #eff6ff; color: #2563eb; }
-.role-purple { background: #faf5ff; color: #7c3aed; }
-.role-green  { background: #f0fdf4; color: #16a34a; }
-.role-red    { background: #fef2f2; color: #dc2626; }
+.data-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid #f8fafc;
+    vertical-align: middle;
+}
 
-.status-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:99px; }
-.dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
-.badge-active .dot  { background: #22c55e; }
-.badge-locked .dot  { background: #ef4444; }
-.badge-active  { background: #f0fdf4; color: #16a34a; }
-.badge-locked  { background: #fef2f2; color: #dc2626; }
+.table-row:last-child td {
+    border-bottom: none;
+}
 
-.action-btns { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.act-btn { width: 30px; height: 30px; border-radius: 6px; border: none; cursor: pointer; display:flex;align-items:center;justify-content:center; font-size: 14px; transition: all 0.15s; }
-.act-view   { background: #eff6ff; color: #3b82f6; }
-.act-view:hover   { background: #3b82f6; color: #fff; }
-.act-lock   { background: #fff7ed; color: #f97316; }
-.act-lock:hover   { background: #f97316; color: #fff; }
-.act-unlock { background: #f0fdf4; color: #22c55e; }
-.act-unlock:hover { background: #22c55e; color: #fff; }
+.table-row:hover td {
+    background: #fafbff;
+}
+
+.idx {
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.empty-row {
+    text-align: center;
+    padding: 48px !important;
+    color: #94a3b8;
+}
+
+.empty-row i {
+    display: block;
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-ava {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0;
+}
+
+.user-email {
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.text-gray {
+    color: #64748b;
+}
+
+.role-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 99px;
+}
+
+.role-blue {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.role-purple {
+    background: #faf5ff;
+    color: #7c3aed;
+}
+
+.role-green {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.role-red {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 99px;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.badge-active .dot {
+    background: #22c55e;
+}
+
+.badge-locked .dot {
+    background: #ef4444;
+}
+
+.badge-active {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.badge-locked {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.action-btns {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.act-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.15s;
+}
+
+.act-view {
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
+.act-view:hover {
+    background: #3b82f6;
+    color: #fff;
+}
+
+.act-lock {
+    background: #fff7ed;
+    color: #f97316;
+}
+
+.act-lock:hover {
+    background: #f97316;
+    color: #fff;
+}
+
+.act-unlock {
+    background: #f0fdf4;
+    color: #22c55e;
+}
+
+.act-unlock:hover {
+    background: #22c55e;
+    color: #fff;
+}
 
 /* Pagination */
-.pagination { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 16px; border-top: 1px solid #f1f5f9; }
-.page-btn { min-width: 32px; height: 32px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; font-size: 13px; cursor: pointer; display:flex;align-items:center;justify-content:center; transition: all 0.15s; }
-.page-btn:hover:not(:disabled) { border-color: #7c3aed; color: #7c3aed; }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-active { background: #7c3aed; border-color: #7c3aed; color: #fff; font-weight: 700; }
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 16px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.page-btn {
+    min-width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+    border-color: #7c3aed;
+    color: #7c3aed;
+}
+
+.page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.page-active {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    color: #fff;
+    font-weight: 700;
+}
 
 /* Modal */
-.modal-overlay { position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px); }
-.modal-box { background:#fff;border-radius:10px;padding:32px;width:380px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.15); }
-.modal-icon { width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px; }
-.icon-orange { background:#fff7ed;color:#f97316; }
-.modal-title { font-size:17px;font-weight:700;color:#0f172a;margin:0 0 8px; }
-.modal-desc  { font-size:13px;color:#64748b;margin:0 0 24px;line-height:1.5; }
-.modal-actions { display:flex;gap:10px; }
-.btn-cancel  { flex:1;padding:10px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:13px;font-weight:600;cursor:pointer; }
-.btn-confirm { flex:1;padding:10px;border-radius:6px;border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer; }
-.btn-warning { background:#f97316; }
-.btn-warning:hover { background:#ea580c; }
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+.modal-box {
+    background: #fff;
+    border-radius: 10px;
+    padding: 32px;
+    width: 380px;
+    max-width: 90vw;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.modal-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin: 0 auto 16px;
+}
+
+.icon-orange {
+    background: #fff7ed;
+    color: #f97316;
+}
+
+.modal-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 8px;
+}
+
+.modal-desc {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0 0 24px;
+    line-height: 1.5;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-cancel {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-confirm {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    border: none;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-warning {
+    background: #f97316;
+}
+
+.btn-warning:hover {
+    background: #ea580c;
+}
 
 /* Detail modal styles */
-.user-detail-ava { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 700; margin: 0 auto; }
-.detail-list { display: flex; flex-direction: column; gap: 12px; text-align: left; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #f1f5f9; }
-.detail-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-.detail-lbl { color: #64748b; font-weight: 500; }
-.detail-val { color: #0f172a; font-weight: 600; }
+.user-detail-ava {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 auto;
+}
+
+.detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #f1f5f9;
+}
+
+.detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+}
+
+.detail-lbl {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.detail-val {
+    color: #0f172a;
+    font-weight: 600;
+}
+</style>
+
+<style>
+.swal2-poppins-popup {
+    font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    border-radius: 24px !important;
+    padding: 24px !important;
+    max-width: 400px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18) !important;
+}
+
+.swal2-poppins-title {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    margin-bottom: 8px !important;
+    padding: 0 !important;
+}
+
+.swal2-poppins-html {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-size: 13px !important;
+    color: #475569 !important;
+    line-height: 1.6 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.swal2-poppins-confirm-amber {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    background-color: #f59e0b !important;
+    color: #ffffff !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 14px !important;
+    padding: 10px 22px !important;
+    margin: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.swal2-poppins-confirm-amber:hover {
+    background-color: #d97706 !important;
+}
+
+.swal2-poppins-confirm-rose {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    background-color: #e11d48 !important;
+    color: #ffffff !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 14px !important;
+    padding: 10px 22px !important;
+    margin: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.swal2-poppins-cancel {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 14px !important;
+    padding: 10px 22px !important;
+    margin: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.swal2-poppins-cancel:hover {
+    background-color: #e2e8f0 !important;
+}
 </style>

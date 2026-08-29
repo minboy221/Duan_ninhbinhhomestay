@@ -376,7 +376,7 @@ class ContractService
                 $newEndDateFormatted = date('d/m/Y', strtotime($data['new_end_date']));
                 $roomNum = $contract->room->room_number ?? '';
                 $tenant->notify(new \App\Notifications\AdminNotification(
-                    'Hợp đồng đã đượ gia hạn thành công',
+                    'Hợp đồng đã được gia hạn thành công',
                     "Hợp đồng thuê phòng {$roomNum} của bạn đã được chủ trọ phê duyệt gia hạn đến ngày {$newEndDateFormatted}.",
                     route('quanlynoio')
                 ));

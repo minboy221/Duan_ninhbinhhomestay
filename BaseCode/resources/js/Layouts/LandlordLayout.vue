@@ -439,16 +439,19 @@ const closePopup = () => {
                                                     : 'text-slate-400 group-hover:text-slate-700',
                                             ]"></i>
                                             <span v-if="
-                                                item.label === 'Khiếu Nại' &&
-                                                page.props.auth
-                                                    ?.pending_landlord_reports_count >
-                                                0 &&
-                                                !sidebarOpen
-                                            "
+                                                 (item.label === 'Khiếu Nại' && page.props.auth?.pending_landlord_reports_count > 0 && !sidebarOpen) ||
+                                                 (item.label === 'Gói Dịch Vụ' && page.props.auth?.user?.subscription_expiring && !sidebarOpen)
+                                             "
                                                 class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white"></span>
                                         </div>
                                         <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{
                                             item.label }}</span>
+
+                                        <!-- Badge cảnh báo Sắp Hết Hạn cho Gói Dịch Vụ -->
+                                        <span v-if="item.label === 'Gói Dịch Vụ' && page.props.auth?.user?.subscription_expiring && sidebarOpen"
+                                             class="ml-auto px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200/80 rounded-full uppercase animate-pulse flex items-center gap-1">
+                                             <i class="bi bi-exclamation-circle-fill"></i> Hết hạn
+                                        </span>
 
                                         <!-- Huy hiệu VIP mờ cho mục Menu bị khóa -->
                                         <span v-if="isFeatureLocked(item.feature) && sidebarOpen"

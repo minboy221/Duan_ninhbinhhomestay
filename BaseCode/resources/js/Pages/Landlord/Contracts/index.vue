@@ -9,8 +9,7 @@ import CustomSwal, {
     showPrompt,
     showError,
 } from "@/Utils/swal";
-import axios from "axios";
-import { array } from "firebase/firestore/pipelines";
+
 
 const props = defineProps({
     dbContracts: Array,
@@ -513,6 +512,20 @@ const getInitialAddForm = (appointmentId = "") => {
 
 const addForm = ref(getInitialAddForm());
 
+const getContractUrl = (contractObj) => {
+    if (!contractObj) return '#';
+    const target = contractObj.original_contract || contractObj;
+    if (target.contract_file_url) return target.contract_file_url;
+    const path = target.contract_file_path || target.signed_contract_image;
+    if (!path) return '#';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    const baseUrl = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL;
+    if (baseUrl) {
+        return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+    }
+    return `/storage/${path}`;
+};
+
 const minEndDate = computed(() => {
     if (!addForm.value?.start_date) {
         const today = new Date();
@@ -635,13 +648,21 @@ watch(selectedBoardingHouseId, () => {
     addForm.value.tenant_id = "";
 });
 
+const changeCreationMode = (mode) => {
+    if (creationMode.value === mode) return;
+    creationMode.value = mode;
+    activeStep.value = 1;
+};
+
 watch(creationMode, () => {
+    activeStep.value = 1;
     selectedBoardingHouseId.value =
         props.selectedBoardingHouseId || props.boardingHouses?.[0]?.id || "";
     addForm.value.room_id = "";
     addForm.value.room = "";
     addForm.value.appointment_id = "";
     addForm.value.tenant_id = "";
+    addForm.value.tenant_cccd_input = "";
     selectedResidentId.value = "";
     selectedDirectUser.value = null;
     searchQuery.value = "";
@@ -955,7 +976,7 @@ const isStep1Valid = computed(() => {
     } else if (creationMode.value === "roommate") {
         return (
             !!addForm.value.room_id &&
-            !!addForm.value.tenant_id &&
+            (!!selectedResidentId.value || !!addForm.value.tenant_id) &&
             isCccdValid.value &&
             !tenantCountErrorMsg.value
         );
@@ -981,10 +1002,10 @@ const goToNextStep = () => {
                 return;
             }
         } else if (creationMode.value === "roommate") {
-            if (!addForm.value.room_id || !addForm.value.tenant_id) {
+            if (!addForm.value.room_id || (!selectedResidentId.value && !addForm.value.tenant_id)) {
                 showWarning(
-                    "Bắt buộc chọn khách thuê & phòng trọ",
-                    "Vui lòng chọn khách thuê và phòng trọ trước khi tiếp tục!",
+                    "Bắt buộc chọn phòng trọ & cư dân ở ghép",
+                    "Vui lòng chọn phòng trọ và thành viên ở ghép thăng chức trước khi tiếp tục!",
                 );
                 return;
             }
@@ -1000,7 +1021,7 @@ const goToNextStep = () => {
         if (!isCccdValid.value) {
             showError(
                 "Lỗi CCCD",
-                "Khách thuê chưa cập nhật đúng số CCCD 12 số trong profile. Không thể tiếp tục.",
+                "Khách thuê chưa cập nhật đúng số CCCD 12 số chuẩn. Không thể tiếp tục.",
             );
             return;
         }
@@ -1039,15 +1060,23 @@ const goToStep = (step) => {
             if (!addForm.value.appointment_id) {
                 showWarning(
                     "Bắt buộc chọn người thuê",
-                    "Vui lòng chọn khách thuê trước.",
+                    "Vui lòng chọn khách thuê từ Lịch hẹn trước khi sang Bước 2.",
                 );
                 return;
             }
-        } else {
-            if (!addForm.value.room_id || !addForm.value.tenant_id) {
+        } else if (creationMode.value === "roommate") {
+            if (!addForm.value.room_id || (!selectedResidentId.value && !addForm.value.tenant_id)) {
                 showWarning(
-                    "Bắt buộc chọn khách thuê & phòng trọ",
-                    "Vui lòng chọn phòng và khách thuê trước.",
+                    "Bắt buộc chọn cư dân ở ghép",
+                    "Vui lòng chọn phòng và thành viên ở ghép thăng chức trước khi sang Bước 2.",
+                );
+                return;
+            }
+        } else if (creationMode.value === "direct") {
+            if (!addForm.value.room_id || !selectedDirectUser.value) {
+                showWarning(
+                    "Bắt buộc chọn khách thuê",
+                    "Vui lòng chọn phòng và tìm tài khoản khách thuê trước khi sang Bước 2.",
                 );
                 return;
             }
@@ -1055,8 +1084,12 @@ const goToStep = (step) => {
         if (!isCccdValid.value) {
             showError(
                 "Lỗi CCCD",
-                "Khách thuê chưa cập nhật đúng số CCCD 12 số trong profile.",
+                "Khách thuê chưa cập nhật đúng số CCCD 12 số chuẩn.",
             );
+            return;
+        }
+        if (tenantCountErrorMsg.value) {
+            showError("Vượt quá sức chứa phòng", tenantCountErrorMsg.value);
             return;
         }
     }
@@ -1064,7 +1097,7 @@ const goToStep = (step) => {
         if (!addForm.value.start_date || !addForm.value.end_date) {
             showWarning(
                 "Thiếu thông tin",
-                "Vui lòng điền đầy đủ thời hạn hợp đồng ở Bước 2.",
+                "Vui lòng điền đầy đủ thời hạn hợp đồng ở Bước 2 trước khi sang Bước 3.",
             );
             return;
         }
@@ -1487,7 +1520,7 @@ const getDepositBadgeConfig = (c) => {
 };
 
 const handleFileUpload = (e) => {
-    const files = array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []);
     if (files.length > 0) {
         addForm.value.contract_file = files;
     }
@@ -1503,7 +1536,7 @@ const removeRoommate = async (r) => {
         const roomId =
             selectedContract.value?.original_contract?.room_id ||
             selectedContract.value?.room_id;
-        router.deleter(
+        router.delete(
             route("landlord.rooms.remove_resident", {
                 id: roomId,
                 residentId: r.id,
@@ -1523,6 +1556,32 @@ const removeRoommate = async (r) => {
         );
     }
 };
+
+// Khóa cuộn trang nền khi có Modal mở (tránh đơ màn hình / đơ đứng yên trên điện thoại khi vuốt nền)
+watch(
+    [
+        showAddModal,
+        showPendingRequestsModal,
+        showModal,
+        showAddResidentModal,
+        showPendingRoommateModal,
+        showLiquidationModal,
+        showExtendModal,
+    ],
+    (modalStates) => {
+        const isAnyModalOpen = modalStates.some((state) => !!state);
+        if (typeof document !== "undefined") {
+            if (isAnyModalOpen) {
+                document.body.style.overflow = "hidden";
+                document.body.style.touchAction = "none";
+            } else {
+                document.body.style.overflow = "";
+                document.body.style.touchAction = "";
+            }
+        }
+    },
+    { immediate: true }
+);
 </script>
 
 <template>
@@ -1568,7 +1627,7 @@ const removeRoommate = async (r) => {
                         <i class="bi bi-person-plus-fill"></i>
                         <span>Yêu cầu ở ghép ({{
                             props.pendingRoommateRequests?.length || 0
-                            }})</span>
+                        }})</span>
                         <span v-if="props.pendingRoommateRequests?.length > 0"
                             class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
                             <span
@@ -1775,8 +1834,8 @@ const removeRoommate = async (r) => {
                                         </button>
                                         <a v-if="
                                             c.original_contract
-                                                ?.contract_file_path
-                                        " :href="`/storage/${c.original_contract.contract_file_path}`" target="_blank"
+                                                ?.contract_file_path || c.contract_file_url
+                                        " :href="getContractUrl(c)" target="_blank"
                                             class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center transition-colors"
                                             title="Tải/Xem File"><i class="bi bi-file-earmark-pdf"></i></a>
                                         <button v-if="
@@ -1826,13 +1885,13 @@ const removeRoommate = async (r) => {
                             <span class="text-slate-400 font-bold uppercase text-[9px]">Người thuê:</span>
                             <span class="text-slate-700 font-bold">{{
                                 c.tenant
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-400 font-bold uppercase text-[9px]">SĐT:</span>
                             <span class="text-slate-700 font-bold">{{
                                 c.phone
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-400 font-bold uppercase text-[9px]">Thời hạn:</span>
@@ -1867,13 +1926,13 @@ const removeRoommate = async (r) => {
                     )" :key="p" @click="
                         typeof p === 'number' ? (contractPage = p) : null
                         " :class="[
-                                'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all border',
-                                contractPage === p
-                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
-                                    : p === '...'
-                                        ? 'border-transparent text-slate-400 cursor-default'
-                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50',
-                            ]">
+                            'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all border',
+                            contractPage === p
+                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
+                                : p === '...'
+                                    ? 'border-transparent text-slate-400 cursor-default'
+                                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                        ]">
                         {{ p }}
                     </button>
                     <button @click="
@@ -1890,7 +1949,7 @@ const removeRoommate = async (r) => {
             <div class="space-y-0">
                 <!-- Contract Detail Modal -->
                 <div v-if="showModal && selectedContract"
-                    class="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen bg-slate-800/40 backdrop-blur-xs flex items-center justify-center z-[99999] p-4"
+                    class="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen bg-slate-800/40 backdrop-blur-xs flex items-center justify-center z-[999] p-4"
                     @click.self="closeModal">
                     <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] shadow-2xl overflow-hidden">
                         <div
@@ -1953,7 +2012,7 @@ const removeRoommate = async (r) => {
                                         <p class="text-slate-800 font-bold text-xs">
                                             {{
                                                 selectedContract.tenant_cccd ||
-                                                "⚠️ Chưa cập nhật CCCD"
+                                                "Chưa cập nhật CCCD"
                                             }}
                                         </p>
                                     </div>
@@ -2063,13 +2122,13 @@ const removeRoommate = async (r) => {
                                     Ngày hiệu lực:
                                     <span class="text-slate-700 font-bold">{{
                                         formatDate(selectedContract.start)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                                 <div>
                                     Ngày kết thúc:
                                     <span class="text-slate-700 font-bold">{{
                                         formatDate(selectedContract.end)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </div>
 
@@ -2090,9 +2149,9 @@ const removeRoommate = async (r) => {
 
                             <div v-if="
                                 selectedContract.original_contract
-                                    ?.contract_file_path
+                                    ?.contract_file_path || selectedContract.contract_file_url
                             " class="pt-2">
-                                <a :href="`/storage/${selectedContract.original_contract.contract_file_path}`"
+                                <a :href="getContractUrl(selectedContract)"
                                     target="_blank"
                                     class="w-full py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-xl border border-slate-200 hover:border-emerald-250 flex items-center justify-center gap-1.5 transition-all text-xs font-bold">
                                     <i class="bi bi-file-earmark-pdf-fill"></i>
@@ -2149,10 +2208,10 @@ const removeRoommate = async (r) => {
 
                 <!-- Create Contract Modal -->
                 <div v-if="showAddModal"
-                    class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-2 sm:p-4"
+                    class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-[1000] p-3 sm:p-4 overscroll-contain"
                     @click.self="showAddModal = false">
                     <div
-                        class="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[92vh] transition-all duration-300 mx-auto">
+                        class="bg-white rounded-2xl sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[90vh] my-auto transition-all duration-300">
                         <div
                             class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                             <div class="space-y-0.5">
@@ -2172,14 +2231,14 @@ const removeRoommate = async (r) => {
                         <div class="px-6 pt-3 pb-1 flex bg-slate-50/50 border-b border-slate-50 gap-2">
                             <div
                                 class="flex bg-slate-100 p-1 rounded-xl gap-1 text-[11px] font-bold text-slate-500 w-full">
-                                <button type="button" @click="creationMode = 'appointment'" :class="creationMode === 'appointment'
+                                <button type="button" @click="changeCreationMode('appointment')" :class="creationMode === 'appointment'
                                     ? 'bg-white text-slate-800 shadow-xs'
                                     : 'hover:text-slate-800'
                                     " class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer">
                                     <i class="bi bi-calendar-event"></i> Ký từ
                                     Lịch hẹn
                                 </button>
-                                <button type="button" @click="creationMode = 'roommate'" :class="creationMode === 'roommate'
+                                <button type="button" @click="changeCreationMode('roommate')" :class="creationMode === 'roommate'
                                     ? 'bg-white text-slate-800 shadow-xs'
                                     : 'hover:text-slate-800'
                                     " class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer">
@@ -2241,7 +2300,7 @@ const removeRoommate = async (r) => {
                                             0
                                         "
                                             class="text-[11px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100 mt-1">
-                                            ⚠️ Hiện chưa có Lịch hẹn xem phòng
+                                            Hiện chưa có Lịch hẹn xem phòng
                                             nào (mà khách đã bấm "ƯNG") đang chờ
                                             tạo hợp đồng tại cơ sở này.
                                         </p>
@@ -2290,7 +2349,7 @@ const removeRoommate = async (r) => {
                                             activeRoomResidents.length === 0
                                         "
                                             class="text-[11px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100 mt-1">
-                                            ⚠️ Phòng trọ này hiện chưa ghi nhận
+                                            Phòng trọ này hiện chưa ghi nhận
                                             thành viên ở ghép nào được thêm từ
                                             Giai đoạn 1.
                                         </p>
@@ -2401,7 +2460,7 @@ const removeRoommate = async (r) => {
                                                 <i class="bi bi-patch-check-fill text-emerald-500 text-sm"></i>
                                                 <span>Hợp lệ ({{
                                                     tenantCccd
-                                                    }})</span>
+                                                }})</span>
                                             </div>
                                             <div v-else class="space-y-2 mt-1">
                                                 <input v-model="addForm.tenant_cccd_input
@@ -2537,11 +2596,61 @@ const removeRoommate = async (r) => {
                                                     "
                                             class="w-full px-3.5 py-2.5 border rounded-xl text-xs outline-none transition-all disabled:bg-slate-50 disabled:cursor-not-allowed" />
                                     </div>
-                                    <p v-if="tenantCountErrorMsg"
-                                        class="col-span-2 text-[11px] text-rose-600 font-bold flex items-center gap-1.5 mt-1 p-2 bg-rose-50 border border-rose-200 rounded-xl">
-                                        <i class="bi bi-exclamation-triangle-fill text-rose-500"></i>
-                                        <span>{{ tenantCountErrorMsg }}</span>
-                                    </p>
+                                    <!-- CỤM CHỈ SỐ ĐIỆN NƯỚC BÀN GIAO BAN ĐẦU (FULL WIDTH & PHÓNG TO CSS) -->
+                                    <div
+                                        class="col-span-2 p-4 sm:p-5 bg-gradient-to-br from-emerald-50/90 via-emerald-50/50 to-teal-50/40 border border-emerald-200/90 rounded-2xl space-y-4 mt-2 shadow-xs">
+                                        <div
+                                            class="flex items-center justify-between pb-3 border-b border-emerald-200/70">
+                                            <h4
+                                                class="text-xs sm:text-sm font-extrabold text-emerald-900 uppercase tracking-wide flex items-center gap-2">
+                                                <div
+                                                    class="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm shadow-xs">
+                                                    <i class="bi bi-speedometer2"></i>
+                                                </div>
+                                                <span>Chỉ số điện & nước bàn giao ban đầu (Mốc nhận phòng)</span>
+                                            </h4>
+                                            <span
+                                                class="px-2.5 py-1 bg-emerald-100/80 text-emerald-800 text-[10px] font-bold rounded-lg border border-emerald-200 shrink-0">
+                                                Khai báo ban đầu
+                                            </span>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div class="space-y-1.5">
+                                                <label
+                                                    class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                                    <span>Chỉ số điện bàn giao (kWh)</span>
+                                                </label>
+                                                <div class="relative">
+                                                    <input v-model.number="addForm.entry_elec_index" type="number"
+                                                        min="0" placeholder="Ví dụ: 150"
+                                                        class="w-full px-4 py-3 border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-sm font-black text-slate-800 outline-none bg-white transition-all shadow-xs pr-12" />
+                                                    <span
+                                                        class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">kWh</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="space-y-1.5">
+                                                <label
+                                                    class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                                    <span>Chỉ số nước bàn giao (m³)</span>
+                                                </label>
+                                                <div class="relative">
+                                                    <input v-model.number="addForm.entry_water_index" type="number"
+                                                        min="0" placeholder="Ví dụ: 40"
+                                                        class="w-full px-4 py-3 border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-sm font-black text-slate-800 outline-none bg-white transition-all shadow-xs pr-10" />
+                                                    <span
+                                                        class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">m³</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p
+                                            class="text-[11px] text-emerald-800 font-semibold flex items-center gap-1.5 bg-white/70 p-2.5 rounded-xl border border-emerald-100">
+                                            <span>Số điện/nước này sẽ tự động làm mốc "Chỉ số Cũ" cho đợt tính hóa đơn
+                                                đầu tiên của hợp đồng.</span>
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                             <!-- Step 2: Nhập thời hạn & Tiền đặt cọc -->
@@ -2662,36 +2771,6 @@ const removeRoommate = async (r) => {
                                     </label>
                                 </div>
                             </div>
-
-                            <div class="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3">
-                                <h4
-                                    class="text-xs font-bold text-emerald-800 uppercase tracking-wider pb-2 border-b border-emerald-200 flex items-center gap-1.5">
-                                    <i class="bi bi-speedometer2 text-emerald-600 text-base"></i>
-                                    Chỉ số điện & nước bàn giao ban đầu (Mốc
-                                    nhận phòng)
-                                </h4>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div class="space-y-1">
-                                        <label class="text-xs font-bold text-slate-600">Chỉ số điện bàn giao
-                                            (kWh)</label>
-                                        <input v-model.number="addForm.entry_elec_index
-                                            " type="number" min="0" placeholder="Ví dụ: 150"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none" />
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-xs font-bold text-slate-600">Chỉ số nước bàn giao
-                                            (m³)</label>
-                                        <input v-model.number="addForm.entry_water_index
-                                            " type="number" min="0" placeholder="Ví dụ: 40"
-                                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-700 outline-none" />
-                                    </div>
-                                </div>
-                                <p class="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
-                                    <span>💡 Số điện/nước này sẽ tự động làm mốc
-                                        "Chỉ số Cũ" cho đợt tính hóa đơn đầu
-                                        tiên của hợp đồng.</span>
-                                </p>
-                            </div>
                         </div>
 
                         <div
@@ -2734,31 +2813,30 @@ const removeRoommate = async (r) => {
 
                 <!-- Modal Danh sách User ấn ưng / Hợp đồng đang chờ -->
                 <div v-if="showPendingRequestsModal"
-                    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+                    class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overscroll-contain"
+                    @click.self="showPendingRequestsModal = false">
                     <div
-                        class="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                        class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[85vh] my-auto">
                         <div
-                            class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                            class="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-amber-500 to-orange-500 text-white">
                             <div class="flex items-center gap-2">
-                                <i class="bi bi-heart-fill text-xl"></i>
+                                <i class="bi bi-heart-fill text-lg sm:text-xl"></i>
                                 <div>
-                                    <h3 class="text-sm font-bold">
-                                        Danh sách Hợp đồng đang chờ (Khách đã ấn
-                                        ưng)
+                                    <h3 class="text-xs sm:text-sm font-bold">
+                                        Danh sách Hợp đồng đang chờ (Khách đã ấn ưng)
                                     </h3>
-                                    <p class="text-[11px] text-amber-100">
-                                        Các khách hàng đã nhấn quan tâm / đăng
-                                        ký thuê nhưng chưa tạo hợp đồng
+                                    <p class="text-[10px] sm:text-[11px] text-amber-100">
+                                        Các khách hàng đã nhấn quan tâm / đăng ký thuê nhưng chưa tạo hợp đồng
                                     </p>
                                 </div>
                             </div>
                             <button @click="showPendingRequestsModal = false"
-                                class="text-amber-100 hover:text-white transition-colors cursor-pointer">
-                                <i class="bi bi-x-lg text-lg"></i>
+                                class="text-amber-100 hover:text-white transition-colors cursor-pointer p-1">
+                                <i class="bi bi-x-lg text-base sm:text-lg"></i>
                             </button>
                         </div>
 
-                        <div class="p-5 overflow-y-auto space-y-3 flex-1">
+                        <div class="p-3.5 sm:p-5 overflow-y-auto space-y-3 flex-1">
                             <div v-if="
                                 !props.appointments ||
                                 props.appointments.length === 0
@@ -2770,22 +2848,22 @@ const removeRoommate = async (r) => {
                                 </p>
                             </div>
                             <div v-else v-for="apt in props.appointments" :key="apt.id"
-                                class="p-4 bg-slate-50 hover:bg-amber-50/40 border border-slate-200 hover:border-amber-300 rounded-2xl flex items-center justify-between transition-all">
-                                <div class="space-y-1">
-                                    <div class="flex items-center gap-2">
+                                class="p-3.5 sm:p-4 bg-slate-50 hover:bg-amber-50/40 border border-slate-200 hover:border-amber-300 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 transition-all">
+                                <div class="space-y-1.5 min-w-0 flex-1">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         <span
-                                            class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg">Phòng
+                                            class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg shrink-0">Phòng
                                             {{ apt.room?.room_number }}</span>
-                                        <span class="text-xs font-bold text-slate-800">{{
+                                        <span class="text-xs font-bold text-slate-800 truncate">{{
                                             apt.user?.name || "Khách thuê"
-                                            }}</span>
+                                        }}</span>
                                         <span :class="apt.user?.cccd_number &&
                                             String(apt.user.cccd_number)
                                                 .length === 12
                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                             : 'bg-rose-50 text-rose-700 border-rose-200'
                                             "
-                                            class="px-2 py-0.5 border text-[10px] font-bold rounded-full inline-flex items-center gap-1 whitespace-nowrap">
+                                            class="px-2 py-0.5 border text-[10px] font-bold rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0">
                                             <i :class="apt.user?.cccd_number &&
                                                 String(apt.user.cccd_number)
                                                     .length === 12
@@ -2801,26 +2879,28 @@ const removeRoommate = async (r) => {
                                             }}</span>
                                         </span>
                                     </div>
-                                    <div class="text-[11px] text-slate-500 flex items-center gap-3">
+                                    <div class="text-[11px] text-slate-500 flex items-center gap-3 flex-wrap">
                                         <span><i class="bi bi-telephone"></i>
                                             {{
                                                 apt.user?.phone || "Chưa có SĐT"
                                             }}</span>
-                                        <span v-if="apt.room?.boarding_house"><i class="bi bi-geo-alt"></i>
+                                        <span v-if="apt.room?.boarding_house" class="truncate"><i
+                                                class="bi bi-geo-alt"></i>
                                             {{
                                                 apt.room.boarding_house.name
                                             }}</span>
                                     </div>
                                 </div>
 
-                                <div class="flex items-center gap-2">
+                                <div
+                                    class="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60 shrink-0">
                                     <button @click="openContractForAppointment(apt)"
-                                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                                        class="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap">
                                         <i class="bi bi-file-earmark-plus"></i>
                                         Tạo hợp đồng ngay
                                     </button>
                                     <button @click="rejectAppointment(apt.id)"
-                                        class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                                        class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
                                         title="Hủy / Loại bỏ khỏi danh sách">
                                         <i class="bi bi-x-circle-fill"></i> Hủy
                                     </button>
@@ -3151,13 +3231,13 @@ const removeRoommate = async (r) => {
                     )" :key="p" @click="
                         typeof p === 'number' ? (roommatePage = p) : null
                         " :class="[
-                                'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
-                                roommatePage === p
-                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
-                                    : p === '...'
-                                        ? 'border-transparent text-slate-400 cursor-default'
-                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50',
-                            ]">
+                            'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
+                            roommatePage === p
+                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                                : p === '...'
+                                    ? 'border-transparent text-slate-400 cursor-default'
+                                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                        ]">
                         {{ p }}
                     </button>
                     <button @click="

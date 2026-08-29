@@ -1,7 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
-import { router, useForm, Link } from "@inertiajs/vue3";
+import { router, Link } from "@inertiajs/vue3";
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
+import { showSuccess, showError, showToast } from "@/Utils/swal";
 
 const props = defineProps({
     activeSubscription: Object,
@@ -23,6 +24,7 @@ const formatFeatureValue = (val) => {
 
 const showQRModal = ref(false);
 const proofFile = ref(null);
+const isUploading = ref(false);
 let statusInterval = null;
 
 const formatMoney = (val) =>
@@ -55,7 +57,7 @@ const cancelPendingSubscription = () => {
             {
                 onSuccess: () => {
                     showQRModal.value = false;
-                    triggerToast("Đã huỷ đơn thanh toán thành công!", "info");
+                    showToast("Đã huỷ đơn thanh toán thành công!", "info");
                 },
             }
         );
@@ -71,22 +73,9 @@ const getVietQRUrl = (sub) => {
     return `https://img.vietqr.io/image/${bank}-${acc}-compact2.png?amount=${amount}&addInfo=${memo}&accountName=${name}`;
 };
 
-const toastMessage = ref("");
-const toastType = ref("success");
-const showToast = ref(false);
-
-const triggerToast = (msg, type = "success") => {
-    toastMessage.value = msg;
-    toastType.value = type;
-    showToast.value = true;
-    setTimeout(() => {
-        showToast.value = false;
-    }, 4000);
-};
-
 const copyText = (txt) => {
     navigator.clipboard.writeText(txt);
-    triggerToast(`Đã sao chép nội dung: ${txt}`, "info");
+    showToast(`Đã sao chép: ${txt}`, "info");
 };
 
 const onFileChange = (e) => {
@@ -94,43 +83,51 @@ const onFileChange = (e) => {
 };
 
 const uploadProof = () => {
-    //ràng buộc: bứat buộc chọn tệp ảnh trước khi bẩm tải bill
     if (!proofFile.value) {
-        triggerToast("Vui lòng chọn ảnh hóa đơn chuyển khoản trước khi bấm Tải bill!", "error");
+        showError("Lỗi", "Vui lòng chọn ảnh hóa đơn chuyển khoản trước khi bấm Tải bill!");
         return;
     }
     if (!props.pendingSubscription) return;
 
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-    if (!allowedTypes.includes(proofFile.value.type)) {
-        triggerToast("Tệp tải lên không phải là ảnh hợp lệ (Chỉ chấp nhận JPG,PNG,WEBP)!", "error");
+    const fileExt = proofFile.value.name.split('.').pop().toLowerCase();
+    const allowedExts = ['jpeg', 'png', 'jpg', 'webp', 'heic', 'heif'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/heic', 'image/heif'];
+
+    if (!allowedExts.includes(fileExt) && !allowedTypes.includes(proofFile.value.type)) {
+        showError("Lỗi", "Tệp tải lên không phải là ảnh hợp lệ (Hỗ trợ JPG, PNG, WEBP, HEIC, HEIF)!");
         return;
     }
-    // Kiểm tra dung lượng ảnh (tối đa 5MB)
-    if (proofFile.value.size > 5 * 1024 * 1024) {
-        triggerToast("Dung lượng ảnh vượt quá 5MB. Vui lòng chọn ảnh dung lượng nhỏ hơn!", "error");
+    if (proofFile.value.size > 15 * 1024 * 1024) {
+        showError("Lỗi", "Dung lượng ảnh vượt quá 15MB. Vui lòng chọn ảnh dung lượng nhỏ hơn!");
         return;
     }
 
-    const form = useForm({ proof_image: proofFile.value });
-    form.post(
+    isUploading.value = true;
+    router.post(
         route(
             "landlord.subscriptions.upload-proof",
-            props.pendingSubscription.id,
+            props.pendingSubscription.id
         ),
+        { proof_image: proofFile.value },
         {
+            forceFormData: true,
             onSuccess: () => {
-                triggerToast(
-                    "Đã tải ảnh hóa đơn thành công! Vui lòng chờ Admin kiểm tra và duyệt.",
-                    "success"
+                isUploading.value = false;
+                proofFile.value = null;
+                showSuccess(
+                    "Thành công",
+                    "Đã tải ảnh hóa đơn thành công! Vui lòng chờ Admin kiểm tra và duyệt."
                 );
             },
             onError: (errs) => {
+                isUploading.value = false;
                 if (errs.proof_image) {
-                    triggerToast(errs.proof_image, "error");
+                    showError("Lỗi", errs.proof_image);
+                } else {
+                    showError("Lỗi", "Không thể tải ảnh bill lên, vui lòng thử lại!");
                 }
             }
-        },
+        }
     );
 };
 
@@ -202,7 +199,7 @@ const formatDate = (dateStr) => {
             </div>
 
             <!-- Banner cảnh báo gói dịch vụ sắp hết hạn trong 3 ngày -->
-            <div v-if="activeSubscription && daysRemaining !== null && daysRemaining <= 3"
+            <div v-if="activeSubscription && activeSubscription.end_date && daysRemaining !== null && daysRemaining <= 3"
                 class="p-4 sm:p-5 bg-amber-50/90 border border-amber-300/80 rounded-2xl flex items-center justify-between gap-4 text-amber-900 shadow-sm">
                 <div class="flex items-center gap-3.5">
                     <div
@@ -214,7 +211,7 @@ const formatDate = (dateStr) => {
                         </h4>
                         <p class="text-xs text-amber-800 mt-0.5 leading-relaxed">
                             Gói dịch vụ hiện tại còn <strong class="text-rose-600 font-black text-sm">{{ daysRemaining
-                                }} ngày</strong> nữa là hết hạn (Hạn dùng: {{ activeSubscription.end_date ?
+                            }} ngày</strong> nữa là hết hạn (Hạn dùng: {{ activeSubscription.end_date ?
                                     formatDate(activeSubscription.end_date) : '' }}). Vui lòng gia hạn hoặc chọn gói dịch vụ bên
                             dưới để không bị gián đoạn hoạt động kinh doanh.
                         </p>
@@ -250,14 +247,54 @@ const formatDate = (dateStr) => {
 
                     <div v-if="activeSubscription"
                         class="w-full md:w-auto bg-white/10 backdrop-blur-md border border-white/20 p-4 sm:p-5 rounded-2xl text-center min-w-[200px]">
-                        <span class="text-xs text-indigo-200 block font-medium">Thời gian còn lại</span>
-                        <span class="text-3xl sm:text-4xl font-extrabold text-white my-1 block">{{ daysRemaining
-                        }}</span>
-                        <span class="text-xs text-indigo-200">
-                            {{ daysRemaining === 0 ? "(Ngày cuối cùng - Hết hạn: " : "ngày (Hết hạn: " }}
-                            {{ activeSubscription.end_date ? formatDate(activeSubscription.end_date) : 'Vĩnh viễn' }}
-                        </span>
+                        <span class="text-xs text-indigo-200 block font-medium">Thời gian sử dụng</span>
+
+                        <template v-if="!activeSubscription.end_date || activeSubscription.plan?.duration_days == -1 || activeSubscription.plan?.duration_days >= 3650 || daysRemaining > 3000">
+                            <span class="text-2xl sm:text-3xl font-extrabold text-white my-1 block">Vĩnh viễn</span>
+                            <span class="text-xs text-emerald-300 font-semibold">Gói Miễn Phí Vĩnh Viễn</span>
+                        </template>
+
+                        <template v-else>
+                            <span class="text-3xl sm:text-4xl font-extrabold text-white my-1 block">{{ daysRemaining }}</span>
+                            <span class="text-xs text-indigo-200">
+                                {{ daysRemaining === 0 ? "(Ngày cuối cùng - Hết hạn: " : "ngày (Hết hạn: " }}
+                                {{ activeSubscription.end_date ? formatDate(activeSubscription.end_date) : 'Vĩnh viễn' }})
+                            </span>
+                        </template>
                     </div>
+                </div>
+            </div>
+
+            <!-- Banner Đơn mua gói đang chờ thanh toán -->
+            <div v-if="pendingSubscription"
+                class="p-4 sm:p-5 bg-amber-50/90 border border-amber-300/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-amber-900 shadow-sm">
+                <div class="flex items-center gap-3.5">
+                    <div
+                        class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-sm animate-pulse">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-extrabold text-sm sm:text-base text-amber-950">
+                            Đơn đăng ký mua gói "{{ pendingSubscription.plan?.name }}" đang chờ thanh toán
+                        </h4>
+                        <p class="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                            Mã giao dịch: <strong class="font-extrabold text-slate-900">{{
+                                pendingSubscription.payment_code
+                                }}</strong> &bull;
+                            Số tiền: <strong class="font-extrabold text-indigo-700">{{
+                                formatMoney(pendingSubscription.price_at_purchase) }}</strong>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    <button @click="showQRModal = true"
+                        class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 w-1/2 sm:w-auto cursor-pointer">
+                        <i class="bi bi-qr-code-scan"></i> Xem QR
+                    </button>
+                    <button @click="cancelPendingSubscription"
+                        class="px-4 py-2.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 w-1/2 sm:w-auto cursor-pointer">
+                        <i class="bi bi-x-circle-fill"></i> Hủy Đơn
+                    </button>
                 </div>
             </div>
 
@@ -335,10 +372,16 @@ const formatDate = (dateStr) => {
                         <div class="mt-6 sm:mt-8">
                             <!-- TRƯỜNG HỢP 1: Đang có đơn Mua gói CHỜ THANH TOÁN (pendingSubscription) -->
                             <template v-if="pendingSubscription">
-                                <button v-if="pendingSubscription.plan_id === plan.id" @click="showQRModal = true"
-                                    class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer animate-pulse">
-                                    <i class="bi bi-qr-code-scan text-base"></i> Xem QR Thanh Toán (Đang Chờ)
-                                </button>
+                                <div v-if="pendingSubscription.plan_id === plan.id" class="space-y-2">
+                                    <button @click="showQRModal = true"
+                                        class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer animate-pulse">
+                                        <i class="bi bi-qr-code-scan text-base"></i> Xem QR Thanh Toán (Đang Chờ)
+                                    </button>
+                                    <button @click="cancelPendingSubscription"
+                                        class="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl font-bold text-xs border border-rose-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                                        <i class="bi bi-x-circle-fill"></i> Hủy Đơn Đang Chờ Này
+                                    </button>
+                                </div>
                                 <button v-else disabled
                                     class="w-full py-3 bg-slate-100 text-slate-400 rounded-2xl font-bold text-xs border border-slate-200 cursor-not-allowed flex items-center justify-center gap-2">
                                     <i class="bi bi-clock-history"></i> Đang Có Đơn Chờ Xử Lý
@@ -370,135 +413,145 @@ const formatDate = (dateStr) => {
                     </div>
                 </div>
             </div>
+            <div class="space-y-6">
+                <!-- Modal Quét Mã VietQR Chuyển Khoản Admin -->
+                <div v-if="showQRModal && pendingSubscription"
+                    class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+                    <div
+                        class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 relative my-auto max-h-[92vh] overflow-y-auto">
+                        <!-- Nút đóng -->
+                        <button @click="showQRModal = false" type="button"
+                            class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors">
+                            <i class="bi bi-x-lg text-base"></i>
+                        </button>
 
-            <!-- Modal Quét Mã VietQR Chuyển Khoản Admin -->
-            <div v-if="showQRModal && pendingSubscription"
-                class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
-                <div
-                    class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 relative my-auto max-h-[92vh] overflow-y-auto">
-                    <!-- Nút đóng -->
-                    <button @click="showQRModal = false" type="button"
-                        class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors">
-                        <i class="bi bi-x-lg text-base"></i>
-                    </button>
-
-                    <!-- Tiêu đề -->
-                    <div class="text-center">
-                        <span
-                            class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] sm:text-xs font-bold rounded-full">
-                            Thanh toán chuyển khoản VietQR
-                        </span>
-
-                        <h3 class="text-base sm:text-lg font-bold text-slate-800 mt-2">
-                            Quét Mã QR Thanh Toán Gói
-                        </h3>
-
-                        <p class="text-[11px] sm:text-xs text-slate-500 mt-1">
-                            Hệ thống sẽ tự động kích hoạt gói sau khi nhận chuyển khoản
-                        </p>
-                    </div>
-
-                    <!-- QR -->
-                    <div class="my-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                        <img :src="getVietQRUrl(pendingSubscription)" alt="VietQR Code"
-                            class="w-full max-w-[280px] h-auto mx-auto object-contain rounded-lg shadow-2xs border border-white" />
-
-                        <div
-                            class="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-600 animate-pulse">
-                            <i class="bi bi-arrow-repeat text-sm"></i>
-                            Đang chờ xác nhận chuyển khoản...
-                        </div>
-                    </div>
-
-                    <!-- Thông tin ngân hàng -->
-                    <div class="space-y-2 text-xs bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100">
-                        <div class="flex justify-between items-center gap-3">
-                            <span class="text-slate-500 shrink-0">
-                                Ngân hàng:
+                        <!-- Tiêu đề -->
+                        <div class="text-center">
+                            <span
+                                class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] sm:text-xs font-bold rounded-full">
+                                Thanh toán chuyển khoản VietQR
                             </span>
-                            <span class="font-bold text-slate-800 text-right">
-                                {{ adminBank.bank_name }}
-                            </span>
+
+                            <h3 class="text-base sm:text-lg font-bold text-slate-800 mt-2">
+                                Quét Mã QR Thanh Toán Gói
+                            </h3>
+
+                            <p class="text-[11px] sm:text-xs text-slate-500 mt-1">
+                                Hệ thống sẽ tự động kích hoạt gói sau khi nhận chuyển khoản
+                            </p>
                         </div>
 
-                        <div class="flex justify-between items-center gap-3">
-                            <span class="text-slate-500 shrink-0">
-                                Số tài khoản:
-                            </span>
-
-                            <div class="flex items-center gap-1.5 font-bold text-indigo-700">
-                                <span>{{ adminBank.account_no }}</span>
-
-                                <button @click="copyText(adminBank.account_no)" type="button"
-                                    class="text-xs text-slate-400 hover:text-indigo-600 p-0.5" title="Sao chép">
-                                    <i class="bi bi-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="flex justify-between items-center gap-3">
-                            <span class="text-slate-500 shrink-0">
-                                Chủ tài khoản:
-                            </span>
-
-                            <span class="font-bold text-slate-800 uppercase text-right truncate">
-                                {{ adminBank.account_name }}
-                            </span>
-                        </div>
-
-                        <div class="flex justify-between items-center border-t border-indigo-100/80 pt-2 gap-3">
-                            <span class="text-slate-500"> Số tiền: </span>
-
-                            <span class="font-black text-indigo-600 text-sm">
-                                {{
-                                    formatMoney(
-                                        pendingSubscription.price_at_purchase,
-                                    )
-                                }}
-                            </span>
-                        </div>
-
-                        <div class="flex justify-between items-center gap-3">
-                            <span class="text-slate-500 shrink-0">
-                                Nội dung Chuyển Khoản:
-                            </span>
+                        <!-- QR -->
+                        <div class="my-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                            <img :src="getVietQRUrl(pendingSubscription)" alt="VietQR Code"
+                                class="w-full max-w-[280px] h-auto mx-auto object-contain rounded-lg shadow-2xs border border-white" />
 
                             <div
-                                class="flex items-center gap-1.5 font-extrabold text-rose-600 bg-white px-2 py-0.5 rounded border border-rose-200">
-                                <span>{{ pendingSubscription.payment_code }}</span>
-
-                                <button @click="
-                                    copyText(
-                                        pendingSubscription.payment_code,
-                                    )
-                                    " type="button" class="text-xs text-slate-400 hover:text-rose-600 p-0.5"
-                                    title="Sao chép">
-                                    <i class="bi bi-copy"></i>
-                                </button>
+                                class="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-600 animate-pulse">
+                                <i class="bi bi-arrow-repeat text-sm"></i>
+                                Đang chờ xác nhận chuyển khoản...
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Upload bill -->
-                    <div class="mt-3.5 pt-3.5 border-t border-slate-100">
-                        <label class="block text-[11px] font-semibold text-slate-600 mb-1.5">
-                            Tải ảnh bill chuyển khoản nếu chưa được duyệt tự động:
-                        </label>
+                        <!-- Thông tin ngân hàng -->
+                        <div class="space-y-2 text-xs bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100">
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-slate-500 shrink-0">
+                                    Ngân hàng:
+                                </span>
+                                <span class="font-bold text-slate-800 text-right">
+                                    {{ adminBank.bank_name }}
+                                </span>
+                            </div>
 
-                        <form @submit.prevent="uploadProof"
-                            class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                            <input type="file" @change="onFileChange" accept="image/*"
-                                class="text-[11px] w-full min-w-0 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-slate-500 shrink-0">
+                                    Số tài khoản:
+                                </span>
 
-                            <button type="submit"
-                                class="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold whitespace-nowrap hover:bg-slate-900 transition-colors shadow-2xs">
-                                Tải bill
+                                <div class="flex items-center gap-1.5 font-bold text-indigo-700">
+                                    <span>{{ adminBank.account_no }}</span>
+
+                                    <button @click="copyText(adminBank.account_no)" type="button"
+                                        class="text-xs text-slate-400 hover:text-indigo-600 p-0.5" title="Sao chép">
+                                        <i class="bi bi-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-slate-500 shrink-0">
+                                    Chủ tài khoản:
+                                </span>
+
+                                <span class="font-bold text-slate-800 uppercase text-right truncate">
+                                    {{ adminBank.account_name }}
+                                </span>
+                            </div>
+
+                            <div class="flex justify-between items-center border-t border-indigo-100/80 pt-2 gap-3">
+                                <span class="text-slate-500"> Số tiền: </span>
+
+                                <span class="font-black text-indigo-600 text-sm">
+                                    {{
+                                        formatMoney(
+                                            pendingSubscription.price_at_purchase,
+                                        )
+                                    }}
+                                </span>
+                            </div>
+
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-slate-500 shrink-0">
+                                    Nội dung CK:
+                                </span>
+
+                                <div
+                                    class="flex items-center gap-1.5 font-extrabold text-rose-600 bg-white px-2 py-0.5 rounded border border-rose-200">
+                                    <span>{{ pendingSubscription.payment_code }}</span>
+
+                                    <button @click="
+                                        copyText(
+                                            pendingSubscription.payment_code,
+                                        )
+                                        " type="button" class="text-xs text-slate-400 hover:text-rose-600 p-0.5"
+                                        title="Sao chép">
+                                        <i class="bi bi-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload bill -->
+                        <div class="mt-3.5 pt-3.5 border-t border-slate-100">
+                            <label class="block text-[11px] font-semibold text-slate-600 mb-1.5">
+                                Tải ảnh bill chuyển khoản nếu chưa được duyệt tự động:
+                            </label>
+
+                            <form @submit.prevent="uploadProof"
+                                class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                                <input type="file" @change="onFileChange" accept="image/*,.heic,.heif"
+                                    class="text-[11px] w-full min-w-0 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+
+                                <button type="submit" :disabled="isUploading"
+                                    class="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold whitespace-nowrap hover:bg-slate-900 transition-colors shadow-2xs disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer">
+                                    <span v-if="isUploading"><i class="bi bi-arrow-repeat animate-spin"></i> Đang tải...</span>
+                                    <span v-else><i class="bi bi-upload"></i> Tải bill</span>
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Nút Hủy đơn mua gói trong Modal -->
+                        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <button type="button" @click="showQRModal = false"
+                                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors">
+                                Đóng
                             </button>
                             <button type="button" @click="cancelPendingSubscription"
-                                class="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors border border-rose-200 flex items-center justify-center gap-1.5">
+                                class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors border border-rose-200 flex items-center gap-1.5 cursor-pointer">
                                 <i class="bi bi-x-circle-fill"></i> Hủy Đơn Thanh Toán Này
                             </button>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>

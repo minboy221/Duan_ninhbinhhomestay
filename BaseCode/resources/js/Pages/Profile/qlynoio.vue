@@ -115,8 +115,15 @@ const formatDate = (dateStr) => {
 };
 
 const getContractUrl = () => {
-    if (!props.contract?.contract_file_path) return null;
-    return "/storage/" + props.contract.contract_file_path;
+    if (props.contract?.contract_file_url) return props.contract.contract_file_url;
+    const path = props.contract?.contract_file_path;
+    if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    const baseUrl = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL;
+    if (baseUrl) {
+        return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+    }
+    return "/storage/" + path;
 };
 
 const isImage = (path) => {
@@ -370,135 +377,6 @@ const submitReport = () => {
                     <h2>THÔNG TIN NƠI Ở</h2>
                     <div class="status" :style="{ background: getStatusBg }">
                         <p>{{ getStatusLabel }}</p>
-                    </div>
-                </div>
-
-                <!-- THÔNG BÁO / KHỐI CHỐT SỐ ĐIỆN NƯỚC LÚC BÀN GIAO PHÒNG -->
-                <div v-if="contract" class="entry-meter-card" :style="{
-                    margin: '15px 0 25px 0',
-                    padding: '14px 18px',
-                    borderRadius: '12px',
-                    border: contract.entry_readings_submitted_at
-                        ? '1px solid #a7f3d0'
-                        : '1px solid #fde68a',
-                    background: contract.entry_readings_submitted_at
-                        ? '#ecfdf5'
-                        : '#fffbeb',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                }">
-                    <div style="
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            flex-wrap: wrap;
-                            gap: 12px;
-                        ">
-                        <div style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                min-width: 250px;
-                            ">
-                            <div :style="{
-                                width: '38px',
-                                height: '38px',
-                                borderRadius: '10px',
-                                background:
-                                    contract.entry_readings_submitted_at
-                                        ? '#10b981'
-                                        : '#f59e0b',
-                                color: '#fff',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '18px',
-                                flexShrink: 0,
-                            }">
-                                <i :class="contract.entry_readings_submitted_at
-                                    ? 'bi bi-check-circle-fill'
-                                    : 'bi bi-lightning-charge-fill'
-                                    "></i>
-                            </div>
-                            <div>
-                                <h4 style="
-                                        font-weight: 700;
-                                        font-size: 14px;
-                                        color: #1e293b;
-                                        margin: 0 0 2px 0;
-                                    ">
-                                    {{
-                                        contract.entry_readings_submitted_at
-                                            ? "Chỉ số điện/nước lúc nhận phòng"
-                                            : "⚡ Chưa chốt chỉ số điện/nước lúc nhận phòng"
-                                    }}
-                                </h4>
-                                <p v-if="contract.entry_readings_submitted_at" style="
-                                        font-size: 12px;
-                                        color: #475569;
-                                        margin: 0;
-                                    ">
-                                    Điện:
-                                    <strong style="color: #059669">{{
-                                        contract.entry_elec_index
-                                        }}
-                                        kWh</strong>
-                                    | Nước:
-                                    <strong style="color: #2563eb">{{
-                                        contract.entry_water_index
-                                        }}
-                                        m³</strong>
-                                    <span style="
-                                            font-size: 11px;
-                                            color: #94a3b8;
-                                            margin-left: 8px;
-                                        ">(Xác nhận:
-                                        {{
-                                            formatDate(
-                                                contract.entry_readings_submitted_at,
-                                            )
-                                        }})</span>
-                                </p>
-                                <p v-else style="
-                                        font-size: 12px;
-                                        color: #b45309;
-                                        margin: 0;
-                                    ">
-                                    Vui lòng nhập chỉ số điện, nước & ảnh chụp
-                                    lúc mới nhận phòng để tránh thiệt thòi tháng
-                                    đầu.
-                                </p>
-                            </div>
-                        </div>
-                        <button type="button" @click="showEntryModal = true" :style="{
-                            padding: '8px 16px',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            borderRadius: '8px',
-                            border: contract.entry_readings_submitted_at
-                                ? '1px solid #059669'
-                                : 'none',
-                            background: contract.entry_readings_submitted_at
-                                ? '#ffffff'
-                                : '#d97706',
-                            color: contract.entry_readings_submitted_at
-                                ? '#059669'
-                                : '#ffffff',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            transition: 'all 0.2s',
-                            flexShrink: 0,
-                        }">
-                            <i class="bi bi-camera"></i>
-                            <span>{{
-                                contract.entry_readings_submitted_at
-                                    ? "Xem / Cập nhật lại"
-                                    : "Cập nhật chỉ số ngay"
-                            }}</span>
-                        </button>
                     </div>
                 </div>
 
@@ -840,7 +718,7 @@ const submitReport = () => {
                 position: fixed;
                 inset: 0;
                 background: rgba(0, 0, 0, 0.5);
-                z-index: 9999;
+                z-index: 999;
                 justify-content: center;
                 align-items: center;
             ">
@@ -1005,7 +883,7 @@ const submitReport = () => {
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, 0.5);
-        z-index: 9999;
+        z-index: 999;
         justify-content: center;
         align-items: center;
     ">

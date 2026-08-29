@@ -182,26 +182,26 @@ const formatDate = (dateSrt) => {
                 <!-- Component Phân Trang (Pagination) -->
                 <div v-if="subscriptions.links && subscriptions.links.length > 3"
                     class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
-                    
+
                     <!-- Số lượng bản ghi -->
                     <div class="text-xs text-slate-500">
-                        Hiển thị từ <span class="font-bold text-slate-800">{{ subscriptions.from || 0 }}</span> 
-                        đến <span class="font-bold text-slate-800">{{ subscriptions.to || 0 }}</span> 
-                        trong tổng số <span class="font-bold text-slate-800">{{ subscriptions.total || 0 }}</span> đơn mua gói
+                        Hiển thị từ <span class="font-bold text-slate-800">{{ subscriptions.from || 0 }}</span>
+                        đến <span class="font-bold text-slate-800">{{ subscriptions.to || 0 }}</span>
+                        trong tổng số <span class="font-bold text-slate-800">{{ subscriptions.total || 0 }}</span> đơn
+                        mua gói
                     </div>
 
                     <!-- Nút chuyển trang -->
                     <div class="flex items-center gap-1 flex-wrap">
                         <template v-for="(link, key) in subscriptions.links" :key="key">
-                            <div v-if="link.url === null" 
+                            <div v-if="link.url === null"
                                 class="px-3 py-1.5 text-xs text-slate-300 rounded-xl border border-slate-200 cursor-not-allowed select-none"
                                 v-html="link.label" />
 
-                            <Link v-else 
-                                :href="link.url"
+                            <Link v-else :href="link.url"
                                 class="px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer"
-                                :class="link.active 
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200' 
+                                :class="link.active
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
                                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-indigo-600'"
                                 v-html="link.label" />
                         </template>
@@ -210,45 +210,48 @@ const formatDate = (dateSrt) => {
             </div>
 
             <!-- Modal Phóng to Ảnh Bill -->
-            <div v-if="previewImage" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80"
-                @click="previewImage = null">
-                <img :src="previewImage" class="max-w-full max-h-[90vh] rounded-2xl shadow-2xl" />
+            <div class="space-y-6">
+                <div v-if="previewImage" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80"
+                    @click="previewImage = null">
+                    <img :src="previewImage" class="max-w-full max-h-[90vh] rounded-2xl shadow-2xl" />
+                </div>
             </div>
+            <div class="space-y-6">
+                <!-- Modal Từ chối -->
+                <div v-if="rejectModalSub"
+                    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+                        <h3 class="font-bold text-slate-800 text-lg mb-2">Từ chối đơn mua gói</h3>
+                        <p class="text-xs text-slate-500 mb-4">Mã GD: {{ rejectModalSub.payment_code }} - Gói: {{
+                            rejectModalSub.plan?.name }}</p>
 
-            <!-- Modal Từ chối -->
-            <div v-if="rejectModalSub"
-                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-                    <h3 class="font-bold text-slate-800 text-lg mb-2">Từ chối đơn mua gói</h3>
-                    <p class="text-xs text-slate-500 mb-4">Mã GD: {{ rejectModalSub.payment_code }} - Gói: {{
-                        rejectModalSub.plan?.name }}</p>
-
-                    <form @submit.prevent="submitReject">
-                        <textarea v-model="rejectForm.admin_note" rows="3"
-                            class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 focus:border-rose-500"
-                            placeholder="Nhập lý do từ chối (Ví dụ: Không tìm thấy giao dịch ngân hàng...)"></textarea>
-                        <!-- Hiển thị validate lỗi -->
-                        <p v-if="rejectForm.errors.admin_note"
-                            class="text-rose-500 text-xs font-semibold mt-1 flex items-center gap-1">
-                            <i class="bi bi-exclamation-circle-fill"></i>
-                            <span>{{ rejectForm.errors.admin_note }}</span>
-                        </p>
-                        <div class="flex justify-end gap-3 mt-4">
-                            <button type="button" @click="rejectModalSub = null"
-                                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-all cursor-pointer">
-                                Hủy
-                            </button>
-                            <button type="submit" :disabled="rejectForm.processing"
-                                class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-medium shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2">
-                                <span v-if="rejectForm.processing">Đang từ chối...</span>
-                                <span v-else>Xác nhận Từ chối</span>
-                            </button>
-                        </div>
-                    </form>
+                        <form @submit.prevent="submitReject">
+                            <textarea v-model="rejectForm.admin_note" rows="3"
+                                class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 focus:border-rose-500"
+                                placeholder="Nhập lý do từ chối (Ví dụ: Không tìm thấy giao dịch ngân hàng...)"></textarea>
+                            <!-- Hiển thị validate lỗi -->
+                            <p v-if="rejectForm.errors.admin_note"
+                                class="text-rose-500 text-xs font-semibold mt-1 flex items-center gap-1">
+                                <i class="bi bi-exclamation-circle-fill"></i>
+                                <span>{{ rejectForm.errors.admin_note }}</span>
+                            </p>
+                            <div class="flex justify-end gap-3 mt-4">
+                                <button type="button" @click="rejectModalSub = null"
+                                    class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-all cursor-pointer">
+                                    Hủy
+                                </button>
+                                <button type="submit" :disabled="rejectForm.processing"
+                                    class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-medium shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2">
+                                    <span v-if="rejectForm.processing">Đang từ chối...</span>
+                                    <span v-else>Xác nhận Từ chối</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
-        <!-- Modal Xác Nhận Duyệt Gói Cho Admin (Thay thế confirm thô) -->
+        <!-- Modal Xác Nhận Duyệt Gói Cho Admin -->
         <div v-if="subToApprove"
             class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div

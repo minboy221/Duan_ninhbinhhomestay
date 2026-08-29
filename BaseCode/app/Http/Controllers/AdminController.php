@@ -99,9 +99,10 @@ class AdminController extends Controller
     public function users()
     {
         $users = User::where('role', '!=', 'admin')
-            ->select(['id', 'name', 'email', 'phone', 'avatar', 'role', 'status', 'lock_reason', 'created_at'])
+            ->select(['id', 'name', 'email', 'phone', 'avatar', 'role', 'status', 'lock_reason', 'last_profile_update_at', 'profile_unlock_reason', 'profile_unlock_requested_at', 'created_at'])
             ->orderBy('created_at', 'desc')
             ->get();
+
         return Inertia::render('Admin/Users/index', [
             'users' => $users
         ]);
@@ -166,6 +167,50 @@ class AdminController extends Controller
         \App\Services\AuditLogger::log($action, $logMsg, true);
 
         return redirect()->back()->with('success', 'Đã cập nhật trạng thái người dùng thành công.');
+    }
+    //cấp quyền cho phép tài khoàn người dùng cập nhật lại thông tin cá nhân
+    public function unlockUserProfile($id)
+    {
+        $user = User::findOrFail($id);
+
+        $user->update([
+            'last_profile_update_at' => null,
+            'profile_unlock_reason' => null,
+            'profile_unlock_requested_at' => null,
+        ]);
+
+        // Gửi thông báo cho người dùng
+        try {
+            $user->notify(new \App\Notifications\ProfileUnlockedNotification());
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Gửi thông báo mở khóa hồ sơ thất bại: " . $e->getMessage());
+        }
+
+        \App\Services\AuditLogger::log(
+            'unlock_user_profile',
+            "Admin cấp quyền cho tài khoản {$user->email} ({$user->name}) được phép cập nhật lại thông tin cá nhân 1 lần nữa.",
+            true
+        );
+
+        return redirect()->back()->with('success', "Đã mở khóa cho tài khoản {$user->name} cập nhật lại thông tin cá nhân!");
+    }
+
+    public function rejectUnlockProfile($id)
+    {
+        $user = User::findOrFail($id);
+
+        $user->update([
+            'profile_unlock_reason' => null,
+            'profile_unlock_requested_at' => null,
+        ]);
+
+        \App\Services\AuditLogger::log(
+            'reject_unlock_profile',
+            "Admin từ chối yêu cầu xin mở khóa thông tin cá nhân của tài khoản {$user->email} ({$user->name}).",
+            true
+        );
+
+        return redirect()->back()->with('success', "Đã từ chối yêu cầu xin sửa thông tin của tài khoản {$user->name}!");
     }
 
     public function deleteUser($id)
@@ -776,11 +821,18 @@ class AdminController extends Controller
         $banners = $request->input('banners', []);
         $files = $request->file('banners');
 
+        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+
         if (is_array($files)) {
             foreach ($banners as $index => &$banner) {
                 if (isset($files[$index]['file']) && $files[$index]['file']->isValid()) {
                     $path = $files[$index]['file']->store('banners', $disk);
-                    $banner['img'] = '/storage/' . $path;
+                    if ($useR2 && !empty($r2Url)) {
+                        $banner['img'] = $r2Url . '/' . ltrim($path, '/');
+                    } else {
+                        $banner['img'] = '/storage/' . ltrim($path, '/');
+                    }
                 }
             }
         }
@@ -803,10 +855,5 @@ class AdminController extends Controller
         );
 
         return redirect()->back()->with('success', 'Đã cập nhật cấu hình giao diện website thành công!');
-    }
-
-    public function ads()
-    {
-        return Inertia::render('Admin/Ads/index');
     }
 }

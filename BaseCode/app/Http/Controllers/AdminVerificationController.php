@@ -122,6 +122,35 @@ class AdminVerificationController extends Controller
             return response()->file($publicMatches[0]);
         }
 
+        // Thêm kiểm tra trên Cloudflare R2 (r2_private, r2_public, r2)
+        $r2Disks = ['r2_private', 'r2_public', 'r2', 'private', 'public'];
+        $r2RelativePaths = [
+            "kyc/{$type}/{$cleanFilename}",
+            "kyc/{$cleanFilename}",
+            "properties/{$type}/{$cleanFilename}",
+            "boarding_houses/{$type}/{$cleanFilename}",
+            "{$type}/{$cleanFilename}",
+            $cleanFilename,
+        ];
+
+        foreach ($r2Disks as $r2Disk) {
+            if (!config("filesystems.disks.{$r2Disk}.key")) continue;
+            try {
+                foreach ($r2RelativePaths as $relPath) {
+                    if (Storage::disk($r2Disk)->exists($relPath)) {
+                        $mimeType = Storage::disk($r2Disk)->mimeType($relPath) ?: 'image/jpeg';
+                        $content = Storage::disk($r2Disk)->get($relPath);
+                        return response($content, 200, [
+                            'Content-Type' => $mimeType,
+                            'Cache-Control' => 'private, max-age=86400',
+                        ]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Tiếp tục thử disk khác nếu ném exception
+            }
+        }
+
         abort(404, 'Không tìm thấy file ảnh thực tế trên hệ thống.');
     }
 }

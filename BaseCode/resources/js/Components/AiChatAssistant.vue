@@ -533,8 +533,8 @@ onMounted(() => {
    ============================================= */
 .ai-assistant-root {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 15px;
+    right: 20px;
     z-index: 99990;
     font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -1365,22 +1365,22 @@ onMounted(() => {
 }
 
 /* Responsive Mobile */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .ai-assistant-root {
         bottom: 16px;
-        right: 16px;
+        right: 12px;
     }
     .ai-chatbox-window {
-        width: calc(100vw - 32px);
-        height: calc(100vh - 100px);
-        max-height: 560px;
+        width: calc(100vw - 24px);
+        height: calc(100vh - 110px);
+        max-height: 520px;
         bottom: 74px;
         right: 0;
     }
     .ai-greeting-bubble {
         right: 0;
         bottom: 76px;
-        max-width: 240px;
+        max-width: 230px;
     }
 }
 </style>

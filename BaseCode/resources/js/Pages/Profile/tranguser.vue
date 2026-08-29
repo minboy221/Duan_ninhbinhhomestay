@@ -1,6 +1,6 @@
 <script setup>
 import UserLayout from "@/Layouts/UserLayout.vue";
-import { Head, usePage, useForm } from "@inertiajs/vue3";
+import { Head, usePage, useForm, router } from "@inertiajs/vue3";
 import { computed, ref, onMounted } from "vue";
 
 const { props } = usePage();
@@ -14,6 +14,45 @@ const canUpdateProfile = computed(
 const daysUntilNextUpdate = computed(
     () => pageProps.value.daysUntilNextUpdate || 0,
 );
+
+// Biển kiểm tra trạng thái khoá
+const isProfileLocked = computed(() => {
+    return !!user.value?.last_profile_update_at;
+});
+
+import { showSuccess, showError } from "@/Utils/swal";
+
+const showRequestModal = ref(false);
+const requestReason = ref("");
+const requestProcessing = ref(false);
+
+const submitUnlockRequest = () => {
+    if (!requestReason.value || requestReason.value.trim().length < 10) {
+        showError("Thiếu thông tin", "Vui lòng nhập lý do cụ thể (tối thiểu 10 ký tự)!");
+        return;
+    }
+    requestProcessing.value = true;
+    router.post(
+        route("profile.request-unlock"),
+        {
+            reason: requestReason.value.trim(),
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                showRequestModal.value = false;
+                requestReason.value = "";
+                requestProcessing.value = false;
+                showSuccess("Thành công", "Đã gửi yêu cầu xin mở khóa chỉnh sửa thông tin tới Admin!");
+            },
+            onError: (err) => {
+                requestProcessing.value = false;
+                const firstErr = Object.values(err)[0];
+                showError("Lỗi", firstErr || "Không thể gửi yêu cầu. Vui lòng thử lại!");
+            },
+        }
+    );
+};
 
 // Kiểm tra xem CCCD đã được cập nhật chưa (Khóa nếu đã có 12 số)
 const hasCccd = computed(() => {
@@ -177,23 +216,42 @@ const submit = () => {
                     <div v-if="$page.props.flash && $page.props.flash.success" class="text-green-600 mb-4 font-medium">
                         {{ $page.props.flash.success }}
                     </div>
+
+                    <!-- Banner Cảnh báo Khóa thông tin cá nhân -->
+                    <div v-if="isProfileLocked" class="!p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-xs font-bold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5 shadow-xs">
+                        <div class="flex items-start gap-2.5">
+                            <i class="bi bi-lock-fill text-amber-600 text-lg shrink-0 mt-0.5"></i>
+                            <div>
+                                <p class="font-bold text-amber-900">Thông tin cá nhân của bạn đã được khóa (Chỉ được chỉnh sửa 1 lần duy nhất để phục vụ tính pháp lý hợp đồng).</p>
+                                <p v-if="user.profile_unlock_reason" class="text-[11px] text-amber-700 italic mt-1 font-semibold">
+                                    <i class="bi bi-clock-history"></i> Yêu cầu đang chờ Admin duyệt: "{{ user.profile_unlock_reason }}"
+                                </p>
+                            </div>
+                        </div>
+                        <button type="button" @click="showRequestModal = true"
+                            class="!px-3.5 !py-3 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs shrink-0 flex items-center gap-1.5 cursor-pointer self-stretch sm:self-auto justify-center">
+                            <i class="bi bi-pencil-square"></i>
+                            <span>Xin chỉnh sửa thông tin</span>
+                        </button>
+                    </div>
+
                     <form @submit.prevent="submit">
                         <div class="row">
                             <div class="form-group">
                                 <label>Họ và Tên:</label>
-                                <input type="text" v-model="form.name" placeholder="Họ và Tên" />
+                                <input type="text" v-model="form.name" placeholder="Họ và Tên" :disabled="isProfileLocked" />
                                 <span v-if="form.errors.name" class="text-red-500 text-sm">{{ form.errors.name }}</span>
                             </div>
 
                             <div class="form-group">
                                 <label>SĐT
                                     {{
-                                        user.phone
+                                        isProfileLocked || user.phone
                                             ? "(Không thể thay đổi)"
                                             : "(Chỉ được nhập 1 lần duy nhất)"
                                     }}:</label>
                                 <input type="text" v-model="form.phone" placeholder="Số điện thoại"
-                                    :disabled="!!user.phone" />
+                                    :disabled="isProfileLocked || !!user.phone" />
                                 <span v-if="form.errors.phone" class="text-red-500 text-sm">{{ form.errors.phone
                                     }}</span>
                             </div>
@@ -201,7 +259,7 @@ const submit = () => {
                         <div class="row">
                             <div class="form-group" style="margin-bottom: 20px">
                                 <label>Tỉnh / Thành phố:</label>
-                                <select v-model="selectedProvinceCode" @change="onProvinceChange">
+                                <select v-model="selectedProvinceCode" @change="onProvinceChange" :disabled="isProfileLocked">
                                     <option value="">
                                         -- Chọn Tỉnh / Thành phố --
                                     </option>
@@ -213,7 +271,7 @@ const submit = () => {
 
                             <div class="form-group" style="margin-bottom: 20px">
                                 <label>Phường / Xã / Thị trấn:</label>
-                                <select v-model="selectedWardCode" @change="updateAddressField" :disabled="!selectedProvinceCode">
+                                <select v-model="selectedWardCode" @change="updateAddressField" :disabled="isProfileLocked || !selectedProvinceCode">
                                     <option value="">
                                         -- Chọn Phường / Xã / Thị trấn --
                                     </option>
@@ -227,7 +285,7 @@ const submit = () => {
                         <div class="form-group" style="margin-bottom: 20px">
                             <label>Thôn / Xóm / Số nhà / Đường:</label>
                             <input type="text" v-model="addressDetail" @input="updateAddressField"
-                                placeholder="Nhập thôn, xóm, số nhà, tên đường..." />
+                                placeholder="Nhập thôn, xóm, số nhà, tên đường..." :disabled="isProfileLocked" />
                             <span v-if="form.errors.address" class="text-red-500 text-sm">{{ form.errors.address
                                 }}</span>
                         </div>
@@ -236,31 +294,31 @@ const submit = () => {
                         <div class="form-group" style="margin-bottom: 20px">
                             <label>Số Căn cước công dân (CCCD - 12 chữ số)
                                 {{
-                                    hasCccd
+                                    isProfileLocked || hasCccd
                                         ? "(Không thể thay đổi)"
                                         : "(Chỉ được nhập 1 lần duy nhất)"
                                 }}
                                 <span class="text-red-500">*</span>:</label>
                             <input type="text" v-model="form.cccd_number" maxlength="12" placeholder="Nhập 12 số CCCD"
-                                :disabled="hasCccd" />
+                                :disabled="isProfileLocked || hasCccd" />
                             <span v-if="form.errors.cccd_number" class="text-red-500 text-sm">{{ form.errors.cccd_number
                                 }}</span>
                         </div>
                         <div class="row">
                             <div class="form-group" style="margin-bottom: 20px">
                                 <label>Nghề Nghiệp Hiện Tại:</label>
-                                <input type="text" v-model="form.job" placeholder="Nghề nghiệp" />
+                                <input type="text" v-model="form.job" placeholder="Nghề nghiệp" :disabled="isProfileLocked" />
                                 <span v-if="form.errors.job" class="text-red-500 text-sm">{{ form.errors.job }}</span>
                             </div>
                             <div class="form-group" style="margin-bottom: 20px">
                                 <label>Ngày sinh:</label>
-                                <input type="date" v-model="form.dob" />
+                                <input type="date" v-model="form.dob" :disabled="isProfileLocked" />
                                 <span v-if="form.errors.dob" class="text-red-500 text-sm">{{ form.errors.dob }}</span>
                             </div>
                         </div>
                         <div class="form-group">
                             <label>Giới tính:</label>
-                            <select v-model="form.gender">
+                            <select v-model="form.gender" :disabled="isProfileLocked">
                                 <option value="">-- Chọn Giới Tính --</option>
                                 <option value="male">Nam</option>
                                 <option value="female">Nữ</option>
@@ -268,13 +326,49 @@ const submit = () => {
                             <span v-if="form.errors.gender" class="text-red-500 text-sm">{{ form.errors.gender
                             }}</span>
                         </div>
-                        <button class="btn_save" type="submit" :disabled="form.processing">
+                        <button v-if="!isProfileLocked" class="btn_save" type="submit" :disabled="form.processing">
                             Lưu thay đổi
                         </button>
                     </form>
                 </div>
             </div>
         </div>
+
+        <!-- Modal Xin mở khóa chỉnh sửa thông tin cá nhân -->
+        <Teleport to="body">
+            <div v-if="showRequestModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in" @click.self="showRequestModal = false">
+                <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 class="font-black text-sm text-slate-800 flex items-center gap-2">
+                            <i class="bi bi-shield-lock-fill text-amber-500 text-base"></i>
+                            Xin mở khóa chỉnh sửa thông tin
+                        </h3>
+                        <button @click="showRequestModal = false" class="text-slate-400 hover:text-slate-600 text-base font-bold cursor-pointer">
+                            &times;
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        Vui lòng nhập lý do cụ thể cần thay đổi thông tin (VD: Nhầm số CCCD, thay đổi địa chỉ sinh sống...) để gửi tới Ban Quản Trị (Admin) xem xét phê duyệt:
+                    </p>
+                    <div class="space-y-1">
+                        <textarea v-model="requestReason" rows="3" placeholder="Nhập lý do chi tiết (tối thiểu 10 ký tự)..."
+                            class="w-full p-3 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"></textarea>
+                        <p class="text-[11px] text-slate-400 italic">Admin sẽ nhận được thông báo quả chuông và xem xét lý do của bạn.</p>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button @click="showRequestModal = false"
+                            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                            Hủy
+                        </button>
+                        <button @click="submitUnlockRequest" :disabled="requestProcessing"
+                            class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
+                            <i class="bi bi-send-fill"></i>
+                            <span>Gửi yêu cầu</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </UserLayout>
 </template>
 <style scoped>

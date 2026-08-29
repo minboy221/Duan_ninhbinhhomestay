@@ -822,12 +822,33 @@ class ProfileController extends Controller
         //xoá tài khoản khỏi database
         $user = $request->user();
         Auth::logout();
-        $user ->delete();
+        $user->delete();
         //huỷ session
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         return redirect('/')->with('success', 'Tài khoản của bạn đã được xóa thành công.');
     }
+    public function requestUnlockProfile(Request $request)
+    {
+        $user = $request->user();
+        $request->validate([
+            'reason' => 'required|string|min:10|max:1000'
+        ], [
+            'reason.required' => 'Vui lòng nhập lý do cần chỉnh sửa thông tin cá nhân.',
+            'reason.min' => 'Nội dung lý do phải có ít nhất 10 ký tự.'
+        ]);
+        $user->update([
+            'profile_unlock_reason' => $request->reason,
+            'profile_unlock_requested_at' => now(),
+        ]);
+        //gửi thông báo
+        $admins = \App\Models\User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new \App\Notifications\ProfileUnlockRequestedNotification($user, $request->reason));
+        }
+        return redirect()->back()->with('success', 'Đã gửi yêu cầu xin chỉnh sửa thông tin đến Admin thành công!');
+    }
+
 }
 
 

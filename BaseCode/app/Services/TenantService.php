@@ -70,9 +70,9 @@ class TenantService
             //đường dẫn pdf hợp đồng
             $contractPdfUrl = null;
             if ($c->contract_file_path) {
-                $contractPdfUrl = Storage::url($c->contract_file_path);
+                $contractPdfUrl = Storage::disk('r2_private')->url($c->contract_file_path);
             } else if ($c->signed_contract_image) {
-                $contractPdfUrl = Storage::url($c->signed_contract_image);
+                $contractPdfUrl = Storage::disk('r2_private')->url($c->signed_contract_image);
             }
             $rawList->push([
                 'user_id' => $c->tenant_id,

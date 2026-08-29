@@ -110,7 +110,7 @@ class HandleInertiaRequests extends Middleware
             // 1. Xác định tài khoản mục tiêu (Nếu là Quản lý phụ -> Lấy Chủ Trọ Chính)
             $targetUser = $user;
             if ($selectedBoardingHouseId) {
-                    $currentHouse = \App\Models\BoardingHouse::find($selectedBoardingHouseId);
+                $currentHouse = \App\Models\BoardingHouse::find($selectedBoardingHouseId);
                 if ($currentHouse && $currentHouse->user_id !== $user->id) {
                     $targetUser = $currentHouse->user;
                 }
@@ -125,19 +125,20 @@ class HandleInertiaRequests extends Middleware
 
             // 3. Đọc tính năng đẩy tin 'priority_listing' do Admin cấu hình cho Gói này
             $bumpCredits = $targetUser ? ($targetUser->bump_credits ?? 0) : 0;
-
             if ($activeSub && $activeSub->plan) {
                 $pFeature = $activeSub->plan->features->firstWhere('feature_code', 'priority_listing');
-                $pVal = $pFeature ? (string) $pFeature->pivot->feature_value : null;
-
+                $pVal = $pFeature ? (string) $pFeature->pivot->feature_value : '0';
                 if ($pVal === '-1') {
-                    // Nếu gói là Vô Hạn lượt đẩy tin (Gói VIP / Dùng thử 60 ngày VIP)
                     $bumpCredits = 'Vô hạn';
-                } elseif (is_numeric($pVal) && (int) $pVal > 0 && (int) $bumpCredits <= 0) {
-                    // Nếu gói có số lượt cụ thể mà DB chưa có -> Tự động cập nhật DB
-                    $bumpCredits = (int) $pVal;
-                    $targetUser->update(['bump_credits' => $bumpCredits]);
+                } elseif (is_numeric($pVal) && (int) $pVal > 0) {
+                    // Nếu gói có số lượt cố định -> lấy số nhỏ hơn giữa DB và Gói
+                    $bumpCredits = min((int) $targetUser->bump_credits, (int) $pVal);
+                } else {
+                    // Nếu gói không cấu hình lượt đẩy tin
+                    $bumpCredits = 0;
                 }
+            } else {
+                $bumpCredits = 0;
             }
 
             $hasVipFrame = false;
@@ -146,11 +147,38 @@ class HandleInertiaRequests extends Middleware
                 $hasVipFrame = $frameFeat && in_array($frameFeat->pivot->feature_value, ['gold', 'true', '1']);
             }
 
+            $subscriptionExpiring = false;
+            $subscriptionDaysRemaining = null;
+            if ($activeSub && $activeSub->end_date) {
+                $daysLeft = (int) now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($activeSub->end_date)->startOfDay(), false);
+                if ($daysLeft >= 0 && $daysLeft <= 3) {
+                    $subscriptionExpiring = true;
+                    $subscriptionDaysRemaining = $daysLeft;
+
+                    $alreadyNotified = $user->unreadNotifications()
+                        ->where('type', 'App\Notifications\SubscriptionNotification')
+                        ->where('data->title', 'Gói Dịch Vụ Sắp Hết Hạn')
+                        ->exists();
+
+                    if (!$alreadyNotified) {
+                        $endDateStr = \Carbon\Carbon::parse($activeSub->end_date)->format('d/m/Y');
+                        $user->notify(new \App\Notifications\SubscriptionNotification(
+                            "Gói Dịch Vụ Sắp Hết Hạn",
+                            "Gói \"{$packageName}\" của bạn sẽ hết hạn vào ngày {$endDateStr} (Còn {$daysLeft} ngày). Vui lòng gia hạn để không bị gián đoạn!",
+                            route('landlord.subscriptions.index'),
+                            'warning'
+                        ));
+                    }
+                }
+            }
+
             // 4. Truyền dữ liệu sang Vue Frontend
             $userData = array_merge($user->toArray(), [
                 'package_name' => $packageName,
                 'bump_credits' => $bumpCredits,
                 'has_vip_frame' => $hasVipFrame,
+                'subscription_expiring' => $subscriptionExpiring,
+                'subscription_days_remaining' => $subscriptionDaysRemaining,
                 'features' => [
                     'manage_invoices' => $user->hasFeature('manage_invoices'),
                     'manage_contracts' => $user->hasFeature('manage_contracts'),
@@ -197,9 +225,29 @@ class HandleInertiaRequests extends Middleware
             $settings = [];
         }
 
+        $adminCounts = null;
+        if ($user && $user->role === 'admin') {
+            try {
+                $adminCounts = [
+                    'users' => \App\Models\User::whereNotNull('profile_unlock_reason')->count(),
+                    'reports' => \App\Models\Report::where('status', 'pending')->count(),
+                    'verifications' => \Illuminate\Support\Facades\DB::table('user_verifications')->where('status', 'pending')->count(),
+                    'room_posts' => \App\Models\RoomPost::where('status', 'pending')->count(),
+                    'boarding_houses' => \App\Models\BoardingHouse::where('status', 'pending')->count(),
+                    'pending_subscriptions' => \App\Models\LandlordSubscription::where('status', 'pending')->whereNotNull('proof_image')->count(),
+                    'contacts' => \Illuminate\Support\Facades\Schema::hasTable('contacts') ? \Illuminate\Support\Facades\DB::table('contacts')->where('status', 'pending')->count() : 0,
+                    'reviews' => \Illuminate\Support\Facades\Schema::hasTable('reviews') ? \App\Models\Review::where('status', 'pending')->count() : 0,
+                    'latest_audit_log_id' => \App\Models\AuditLog::max('id') ?? 0,
+                ];
+            } catch (\Throwable $e) {
+                $adminCounts = [];
+            }
+        }
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $userData,
+                'admin_counts' => $adminCounts,
                 'boarding_houses' => $boardingHouses,
                 'selected_boarding_house_id' => $selectedBoardingHouseId,
                 'is_owner' => $isOwner,
