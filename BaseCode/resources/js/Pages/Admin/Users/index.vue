@@ -251,7 +251,23 @@ function resetFilters() {
                             </div>
                         </td>
                         <td>
-                            <span :class="['role-badge', roleClass[u.role] || 'role-blue']">
+                            <div v-if="u.role === 'landlord'">
+                                <div v-if="u.property_managers && u.property_managers.length > 0">
+                                    <span class="role-badge role-purple font-bold inline-flex items-center gap-1">
+                                        <i class="bi bi-person-badge"></i> Quản Lý Phụ
+                                    </span>
+                                    <div class="text-[10px] text-slate-500 mt-1 leading-tight" v-for="pm in u.property_managers" :key="pm.id">
+                                        <div>Nhà: <strong class="text-slate-700">{{ pm.boarding_house?.name }}</strong></div>
+                                        <div>Chủ: <em class="text-slate-600">{{ pm.boarding_house?.user?.name || 'Chủ trọ chính' }}</em></div>
+                                    </div>
+                                </div>
+                                <div v-else>
+                                    <span class="role-badge role-green font-bold inline-flex items-center gap-1">
+                                        <i class="bi bi-building"></i> Chủ Sở Hữu
+                                    </span>
+                                </div>
+                            </div>
+                            <span v-else :class="['role-badge', roleClass[u.role] || 'role-blue']">
                                 {{ roleLabel[u.role] || u.role }}
                             </span>
                         </td>
@@ -357,10 +373,28 @@ function resetFilters() {
                     <p class="modal-desc" style="margin-bottom:16px;">{{ modalUser?.email }}</p>
 
                     <div class="detail-list">
-                        <div class="detail-row">
+                        <div class="detail-row" style="align-items: flex-start;">
                             <span class="detail-lbl">Loại tài khoản:</span>
-                            <span :class="['role-badge', roleClass[modalUser?.role] || 'role-blue']">{{
-                                roleLabel[modalUser?.role] || modalUser?.role }}</span>
+                            <div>
+                                <div v-if="modalUser?.role === 'landlord'">
+                                    <div v-if="modalUser?.property_managers && modalUser?.property_managers.length > 0">
+                                        <span class="role-badge role-purple font-bold inline-flex items-center gap-1">
+                                            <i class="bi bi-person-badge"></i> Quản Lý Phụ
+                                        </span>
+                                        <div class="text-xs text-slate-600 mt-1" v-for="pm in modalUser.property_managers" :key="pm.id">
+                                            Đồng quản lý: <strong>{{ pm.boarding_house?.name }}</strong> (Thuộc Chủ trọ: <em>{{ pm.boarding_house?.user?.name || 'Chủ trọ chính' }}</em>)
+                                        </div>
+                                    </div>
+                                    <div v-else>
+                                        <span class="role-badge role-green font-bold inline-flex items-center gap-1">
+                                            <i class="bi bi-building"></i> Chủ Sở Hữu
+                                        </span>
+                                    </div>
+                                </div>
+                                <span v-else :class="['role-badge', roleClass[modalUser?.role] || 'role-blue']">
+                                    {{ roleLabel[modalUser?.role] || modalUser?.role }}
+                                </span>
+                            </div>
                         </div>
                         <div class="detail-row">
                             <span class="detail-lbl">Trạng thái:</span>

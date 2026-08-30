@@ -63,6 +63,7 @@ class HandleInertiaRequests extends Middleware
         $selectedBoardingHouseId = session('selected_boarding_house_id');
         $isOwner = false;
         $managerPermissions = [];
+        $targetUser = null;
 
         if ($user && $user->role === 'landlord') {
             $userId = $user->id;
@@ -179,13 +180,13 @@ class HandleInertiaRequests extends Middleware
                 'has_vip_frame' => $hasVipFrame,
                 'subscription_expiring' => $subscriptionExpiring,
                 'subscription_days_remaining' => $subscriptionDaysRemaining,
-                'features' => [
-                    'manage_invoices' => $user->hasFeature('manage_invoices'),
-                    'manage_contracts' => $user->hasFeature('manage_contracts'),
-                    'manage_roommates' => $user->hasFeature('manage_roommates'),
-                    'manage_reports' => $user->hasFeature('manage_reports'),
-                    'manage_managers' => $user->hasFeature('manage_managers'),
-                ],
+                'features' => $targetUser ? [
+                    'manage_invoices' => $targetUser->hasFeature('manage_invoices'),
+                    'manage_contracts' => $targetUser->hasFeature('manage_contracts'),
+                    'manage_roommates' => $targetUser->hasFeature('manage_roommates'),
+                    'manage_reports' => $targetUser->hasFeature('manage_reports'),
+                    'manage_managers' => $targetUser->hasFeature('manage_managers'),
+                ] : [],
             ]);
         }
 
@@ -252,12 +253,12 @@ class HandleInertiaRequests extends Middleware
                 'selected_boarding_house_id' => $selectedBoardingHouseId,
                 'is_owner' => $isOwner,
                 'permissions' => $managerPermissions,
-                'features' => $request->user() ? [
-                    'manage_invoices' => $request->user()->hasFeature('manage_invoices'),
-                    'manage_contracts' => $request->user()->hasFeature('manage_contracts'),
-                    'manage_roommates' => $request->user()->hasFeature('manage_roommates'),
-                    'manage_reports' => $request->user()->hasFeature('manage_reports'),
-                    'manage_managers' => $request->user()->hasFeature('manage_managers'),
+                'features' => $targetUser ? [
+                    'manage_invoices' => $targetUser->hasFeature('manage_invoices'),
+                    'manage_contracts' => $targetUser->hasFeature('manage_contracts'),
+                    'manage_roommates' => $targetUser->hasFeature('manage_roommates'),
+                    'manage_reports' => $targetUser->hasFeature('manage_reports'),
+                    'manage_managers' => $targetUser->hasFeature('manage_managers'),
                 ] : [],
                 'has_submitted_verification' => $user
                     ? \Illuminate\Support\Facades\DB::table('user_verifications')->where('user_id', $user->id)->exists() : false,
@@ -271,6 +272,42 @@ class HandleInertiaRequests extends Middleware
                                 $q->where('boarding_house_id', $selectedBoardingHouseId);
                             })->count();
                     }) : 0,
+                'pending_roommate_requests_count' => ($user && $user->role === 'landlord')
+                    ? \App\Models\RoommateRequest::where('status', 'pending')
+                        ->whereHas('room.boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
+                            $q->where('user_id', $user->id);
+                            if ($selectedBoardingHouseId) {
+                                $q->where('boarding_house_id', $selectedBoardingHouseId);
+                            }
+                        })->count() : 0,
+                'pending_landlord_reports_count' => ($user && $user->role === 'landlord')
+                    ? \App\Models\Report::where('status', 'pending')
+                        ->whereHasMorph(
+                            'reportable',
+                            [
+                                \App\Models\Room::class,
+                                \App\Models\Invoice::class,
+                                \App\Models\Contract::class
+                            ],
+                            function ($query, $type) use ($user, $selectedBoardingHouseId) {
+                                if ($type === \App\Models\Room::class) {
+                                    $query->whereHas('boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
+                                        $q->where('user_id', $user->id);
+                                        if ($selectedBoardingHouseId) $q->where('id', $selectedBoardingHouseId);
+                                    });
+                                } elseif ($type === \App\Models\Invoice::class) {
+                                    $query->whereHas('contract.room.boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
+                                        $q->where('user_id', $user->id);
+                                        if ($selectedBoardingHouseId) $q->where('id', $selectedBoardingHouseId);
+                                    });
+                                } elseif ($type === \App\Models\Contract::class) {
+                                    $query->whereHas('room.boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
+                                        $q->where('user_id', $user->id);
+                                        if ($selectedBoardingHouseId) $q->where('id', $selectedBoardingHouseId);
+                                    });
+                                }
+                            }
+                        )->count() : 0,
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

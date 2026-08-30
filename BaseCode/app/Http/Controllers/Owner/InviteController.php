@@ -8,6 +8,7 @@ use App\Models\PropertyManager;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Services\AuditLogger;
 
 class InviteController extends Controller
 {
@@ -60,6 +61,11 @@ class InviteController extends Controller
             'house' => $boardingHouse->id,
             'permissions' => $permissionString
         ]);
+        AuditLogger::log(
+            'Tạo mã QR phân quyền',
+            "Chủ trọ \"" . auth()->user()->name . "\" vừa tạo mã QR phân quyền quản lý cho nhà trọ \"{$boardingHouse->name}\"",
+            true
+        );
         return response()->json(['url' => $inviteUrl]);
     }
     //người quản lý quét mã QR để nhận quyền
@@ -91,6 +97,13 @@ class InviteController extends Controller
                 'permissions' => $permission
             ]
         );
+        //tự đồng chuyển session san cơ sở trọ vừa nhận quyền
+        session(['selected_boarding_house_id' => $houseId]);
+        AuditLogger::log(
+            'Chấp nhận quyền đồng quản lý',
+            "Tài khoản \"{$user->name}\" vừa chấp nhận quyền đồng quản lý nhà trọ \"{$boardingHouse->name}\" từ chủ trọ \"{$boardingHouse->user->name}\"",
+            true
+        );
         return redirect()->route('landlord.dashboard')->with('success', 'Bạn đã nhận quyền đồng quản lý thành công!');
     }
 
@@ -105,11 +118,16 @@ class InviteController extends Controller
             'permissions' => 'required|array|min:1'
         ]);
         if (count($request->permissions) >= 5) {
-            return redirect()->back()->with('error', 'Tài khoản phị phải giới hạn ít nhất 1 chức năng.');
+            return redirect()->back()->with('error', 'Tài khoản phụ phải giới hạn ít nhất 1 chức năng.');
         }
         $manager->update([
             'permissions' => $request->permissions
         ]);
+        AuditLogger::log(
+            'Cập nhật quyền quản lý phụ',
+            "Chủ trọ vừa cập nhật lại danh sách quyền quản lý của tài khoản \"{$manager->user->name}\" tại nhà trọ \"{$manager->boardingHouse->name}\"",
+            true
+        );
         return redirect()->back()->with('success', 'Cập nhật quyền quản lý thành công!');
     }
     //huỷ quyền quản lý của tài khoản phụ
@@ -120,6 +138,11 @@ class InviteController extends Controller
             abort(403, 'Bạn không có quyền thực hiện hành động này.');
         }
         $manager->delete();
+        AuditLogger::log(
+            'Hủy quyền quản lý phụ',
+            "Chủ trọ vừa hủy quyền đồng quản lý của tài khoản \"{$manager->user->name}\" tại nhà trọ \"{$manager->boardingHouse->name}\"",
+            true
+        );
         return redirect()->back()->with('success', 'Đã huỷ quyền đồng quản lý thành công.');
     }
 }

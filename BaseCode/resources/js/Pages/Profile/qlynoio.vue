@@ -59,7 +59,7 @@ const handleWaterImg = (e) => {
 
 const submitEntryReadings = () => {
     entryForm.post(
-        route("profile.contract.submit-entry-readings", props.contract.hash_id),
+        route("profile.entry-readings.submit", props.contract.hash_id || props.contract.id),
         {
             forceFormData: true,
             onSuccess: () => {
@@ -248,12 +248,15 @@ const extendRequestForm = ref({
     desired_months: 6,
     note: "",
 });
+const isSubmittingExtension = ref(false);
 
 const submitExtendRequest = () => {
     if (!props.contract?.id) {
         showError("Lỗi", "Không tìm thấy thông tin hợp đồng.");
         return;
     }
+
+    isSubmittingExtension.value = true;
 
     router.post(
         route("profile.contracts.request-extension", props.contract.hash_id),
@@ -270,22 +273,22 @@ const submitExtendRequest = () => {
             onError: (errs) => {
                 showError("Lỗi", Object.values(errs).join("\n"));
             },
+            onFinish: () => {
+                isSubmittingExtension.value = false;
+            },
         },
     );
 };
 
 const handleViewPdf = () => {
-    if (!props.isPrimaryTenant) {
-        showError(
-            "Thông báo Hợp đồng",
-            "Bạn là thành viên ở ghép trong phòng. Hợp đồng chính do Chủ hợp đồng (" +
-            (props.contract?.tenant?.name || "đại diện") +
-            ") đứng tên ký kết.",
-        );
+    if (!props.contract || (!props.contract.contract_file_path && !props.contract.contract_file_url)) {
+        showError("Thông báo Hợp đồng", "File hợp đồng của phòng hiện chưa được chủ trọ tải lên.");
         return;
     }
+    // Cho phép cả Chủ hợp đồng lẫn Thành viên ở ghép đều xem được file PDF hợp đồng của phòng
     showPdfModal.value = true;
 };
+
 
 //state & form cho modal báo cáo
 const showReportModal = ref(false);
@@ -777,7 +780,7 @@ const submitReport = () => {
                             font-weight: 600;
                             color: #334155;
                             margin-bottom: 6px;
-                        ">Lý do chấm dứt hợp đồng (*):</label>
+                        ">Lý do chấm dứt hợp đồng <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
                     <textarea v-model="terminateForm.reason" rows="4"
                         placeholder="Ví dụ: Chuyển nơi công tác / Trả phòng do hết nhu cầu thuê..." style="
                             width: 100%;
@@ -841,25 +844,25 @@ const submitReport = () => {
 
                 <form @submit.prevent="submitAcquaintanceRequest">
                     <div class="form-field-group">
-                        <label class="form-field-label">Họ và tên (*)</label>
+                        <label class="form-field-label">Họ và tên <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
                         <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
                             class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
-                        <label class="form-field-label">Số điện thoại (*)</label>
+                        <label class="form-field-label">Số điện thoại <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
                         <input type="text" v-model="acquaintanceForm.new_resident_phone"
                             placeholder="Ví dụ: 0987654321..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
-                        <label class="form-field-label">Email liên hệ (*)</label>
+                        <label class="form-field-label">Email liên hệ <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
                         <input type="email" v-model="acquaintanceForm.new_resident_email"
                             placeholder="Nhập địa chỉ email..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
-                        <label class="form-field-label">Số CCCD/CMND (12 chữ số) (*)</label>
+                        <label class="form-field-label">Số CCCD/CMND (12 chữ số) <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
                         <input type="text" v-model="acquaintanceForm.new_resident_cccd" placeholder="Đúng 12 chữ số..."
                             maxlength="12" class="form-field-input" />
                     </div>
@@ -948,7 +951,7 @@ const submitReport = () => {
                         font-weight: 600;
                         color: #334155;
                         margin-bottom: 6px;
-                    ">Số tháng muốn gia hạn thêm (*):</label>
+                    ">Số tháng muốn gia hạn thêm <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
                     <select v-model="extendRequestForm.desired_months" style="
                         width: 100%;
                         padding: 10px 12px;
@@ -1003,7 +1006,7 @@ const submitReport = () => {
                     ">
                         Hủy bỏ
                     </button>
-                    <button type="submit" :disabled="extendRequestForm?.processing" style="
+                    <button type="submit" :disabled="isSubmittingExtension" style="
                         padding: 9px 18px;
                         background: #059669;
                         color: white;
@@ -1016,7 +1019,8 @@ const submitReport = () => {
                         align-items: center;
                         gap: 6px;
                     ">
-                        <i class="bi bi-send-fill"></i> Gửi Yêu Cầu
+                        <i v-if="isSubmittingExtension" class="bi bi-arrow-repeat animate-spin"></i>
+                        <i v-else class="bi bi-send-fill"></i> Gửi Yêu Cầu
                     </button>
                 </div>
             </form>
@@ -1101,7 +1105,7 @@ const submitReport = () => {
                         font-weight: 600;
                         color: #334155;
                         margin-bottom: 6px;
-                    ">Loại báo cáo (*):</label>
+                    ">Loại báo cáo <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
                     <select v-model="reportForm.reason" style="
                         width: 100%;
                         padding: 10px 12px;
@@ -1136,7 +1140,7 @@ const submitReport = () => {
                         font-weight: 600;
                         color: #334155;
                         margin-bottom: 6px;
-                    ">Mô tả chi tiết (*):</label>
+                    ">Mô tả chi tiết <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
                     <textarea v-model="reportForm.description" rows="4"
                         placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề cần xử lý..." style="
                         width: 100%;

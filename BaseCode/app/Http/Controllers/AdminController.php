@@ -98,11 +98,11 @@ class AdminController extends Controller
 
     public function users()
     {
-        $users = User::where('role', '!=', 'admin')
+        $users = User::with(['propertyManagers.boardingHouse.user'])
+            ->where('role', '!=', 'admin')
             ->select(['id', 'name', 'email', 'phone', 'avatar', 'role', 'status', 'lock_reason', 'last_profile_update_at', 'profile_unlock_reason', 'profile_unlock_requested_at', 'created_at'])
             ->orderBy('created_at', 'desc')
             ->get();
-
         return Inertia::render('Admin/Users/index', [
             'users' => $users
         ]);

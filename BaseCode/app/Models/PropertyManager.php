@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class PropertyManager extends Model
 {
     use HasFactory;
-    protected $appends = ['hash_id'];
     protected $table = 'property_mangagers';
     protected $fillable = [
         'boarding_house_id',

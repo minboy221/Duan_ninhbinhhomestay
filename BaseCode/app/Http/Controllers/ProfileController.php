@@ -56,26 +56,26 @@ class ProfileController extends Controller
     {
         $userId = $request->user()->id;
         $isPrimaryTenant = false;
-        // Tìm hợp đồng của người dùng đứng tên đại diện
+        //ưu tiên tìm hợp đồng do người dùng đững tên đại diện
         $contract = \App\Models\Contract::where('tenant_id', $userId)
-            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested', 'pending'])
             ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices', 'tenant'])
             ->orderBy('created_at', 'desc')
             ->first();
         if ($contract) {
-            $isPrimaryTenant = true; // Là Chủ hợp đồng
+            $isPrimaryTenant = true;
         } else {
-            // Check nếu là thành viên ở ghép
             $resident = \App\Models\RoomResident::where('user_id', $userId)
                 ->where('status', 'active')
                 ->first();
             if ($resident) {
+                //lấy hợp đồng mới nhất của phòng mà cư dân đang ở ghép
                 $contract = \App\Models\Contract::where('room_id', $resident->room_id)
-                    ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+                    ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested', 'pending'])
                     ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices', 'tenant'])
                     ->orderBy('created_at', 'desc')
                     ->first();
-                $isPrimaryTenant = false; // Là Thành viên ở ghép
+                $isPrimaryTenant = false;
             }
         }
         //tự động kiểm tra và đồng bộ số người ở hiện tại của phòng
@@ -89,7 +89,9 @@ class ProfileController extends Controller
                 ->count();
             $realCurrentPeople = max(1, ($hasActiveContract ? 1 : 0) + $activeResidentsCount);
             if ((int) $room->current_people !== $realCurrentPeople) {
+                $room->update(['current_people' => $realCurrentPeople]);
                 $room->current_people = $realCurrentPeople;
+                \App\Models\RoomPost::where('room_id', $room->id)->update(['current_people' => $realCurrentPeople]);
             }
         }
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
@@ -255,50 +257,65 @@ class ProfileController extends Controller
             ->orderBy('time', 'desc')
             ->get();
 
-        // Tự động đồng bộ trạng thái thực tế với Hợp đồng & Cư dân ở ghép
-        foreach ($appointments as $apt) {
-            $userId = $request->user()->id;
-            $roomId = $apt->room_id;
+        // Đồng bộ thông minh: Chỉ cập nhật trạng thái thực tế cho LỊCH HẸN MỚI NHẤT của từng phòng
+        $userId = $request->user()->id;
 
-            // Check xem có hợp đồng đang có hiệu lực / đã ký đứng tên người này không
-            $activeContract = \App\Models\Contract::where('room_id', $roomId)
-                ->where('tenant_id', $userId)
-                ->whereIn('status', ['active', 'signed'])
-                ->latest()
-                ->first();
+        $userActiveContracts = \App\Models\Contract::where('tenant_id', $userId)
+            ->whereIn('status', ['active', 'signed', 'expiring', 'termination_requested'])
+            ->get()
+            ->keyBy('room_id');
 
-            // Check xem có hợp đồng đã thanh lý đứng tên người này không
-            $terminatedContract = \App\Models\Contract::where('room_id', $roomId)
-                ->where('tenant_id', $userId)
-                ->where('status', 'terminated')
-                ->latest()
-                ->first();
+        $userTerminatedContracts = \App\Models\Contract::where('tenant_id', $userId)
+            ->where('status', 'terminated')
+            ->get()
+            ->keyBy('room_id');
 
-            // Check xem người này có đang ở ghép trong phòng không
-            $isResident = \App\Models\RoomResident::where('room_id', $roomId)
-                ->where('user_id', $userId)
-                ->where('status', 'active')
-                ->exists();
+        $activeResidents = \App\Models\RoomResident::where('user_id', $userId)
+            ->where('status', 'active')
+            ->get()
+            ->keyBy('room_id');
 
-            $pastResident = \App\Models\RoomResident::where('room_id', $roomId)
-                ->where('user_id', $userId)
-                ->where('status', 'inactive')
-                ->exists();
+        $inactiveResidents = \App\Models\RoomResident::where('user_id', $userId)
+            ->where('status', 'inactive')
+            ->get()
+            ->keyBy('room_id');
 
-            if ($activeContract) {
-                // Nếu người này đứng tên chính hợp đồng active -> 'success_matched' hoặc 'became_main_tenant'
-                $apt->status = 'success_matched';
-            } else if ($terminatedContract && !$isResident) {
-                // Nếu hợp đồng đã thanh lý và không còn ở trong phòng -> 'terminated'
-                $apt->status = 'terminated';
-            } else if ($isResident) {
-                // Nếu đang là thành viên ở ghép trong phòng -> 'joined_roommate'
-                $apt->status = 'joined_roommate';
-            } else if ($pastResident) {
-                $apt->status = 'roommate_removed';
+        // Nhóm lịch hẹn theo từng phòng (đã được sắp xếp thời gian từ mới đến cũ)
+        $appointmentsByRoom = $appointments->groupBy('room_id');
+
+        foreach ($appointmentsByRoom as $roomId => $roomApts) {
+            $activeContract = $userActiveContracts->get($roomId);
+            $terminatedContract = $userTerminatedContracts->get($roomId);
+            $isResident = $activeResidents->has($roomId);
+            $pastResident = $inactiveResidents->has($roomId);
+
+            // Chỉ cập nhật trạng thái cho LỊCH HẸN MỚI NHẤT của phòng đó
+            $latestApt = $roomApts->first();
+
+            if ($latestApt) {
+                if ($activeContract) {
+                    // Chủ hợp đồng chính active -> 'Đã ký HĐ & Đóng cọc'
+                    $latestApt->status = 'success_matched';
+                } else if ($isResident) {
+                    // Thành viên ở ghép active -> 'Đã tham gia ở ghép'
+                    $latestApt->status = 'joined_roommate';
+                } else if ($terminatedContract && !$isResident) {
+                    // Hợp đồng đã thanh lý -> 'Hợp đồng đã thanh lý'
+                    if (in_array($latestApt->status, ['success_matched', 'became_main_tenant', 'waiting_contract', 'joined_roommate'])) {
+                        $latestApt->status = 'terminated';
+                    }
+                } else if ($pastResident && !$activeContract && !$isResident) {
+                    // Đã rời phòng ở ghép -> 'Đã rời phòng ở ghép'
+                    if (in_array($latestApt->status, ['success_matched', 'became_main_tenant', 'joined_roommate'])) {
+                        $latestApt->status = 'roommate_removed';
+                    }
+                }
             }
+        }
 
-            // Lấy slug_with_hash của RoomPost liên quan đến phòng
+        // Lấy thông tin bài đăng cho từng lịch hẹn để gắn link xem bài đăng
+        foreach ($appointments as $apt) {
+            $roomId = $apt->room_id;
             $roomPost = \App\Models\RoomPost::where('room_id', $roomId)->latest()->first();
             if (!$roomPost && $apt->room) {
                 $roomPost = \App\Models\RoomPost::whereHas('room', function ($q) use ($apt) {

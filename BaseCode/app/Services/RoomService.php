@@ -551,8 +551,14 @@ class RoomService
             'status' => 'inactive',
             'end_date' => now()->format('Y-m-d'),
         ]);
-        // Giảm số lượng người ở thực tế
-        $room->decrement('current_people');
+        // Tính chính xác số người còn lại trong phòng
+        $activeContractsCount = \App\Models\Contract::where('room_id', $roomId)
+        ->whereIn('status',['active', 'signed', 'expiring', 'termination_requested'])
+        ->count();
+        $activeResidentsCount = \App\Models\RoomResident::where('room_id', $roomId)
+        ->where('status', 'active')
+        ->count();
+        $room->update(['current_people' => max(0, $activeContractsCount + $activeResidentsCount)]);
         //gửi thông báo cho user bị xoá khỏi phòng
         $user = $resident->user;
         if ($user) {
