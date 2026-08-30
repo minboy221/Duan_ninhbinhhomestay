@@ -232,9 +232,9 @@ class ContractService
                 'current_people' => $newPeopleCount
             ]);
             //chỉ ẩn/ chuyển tin đăn sang 'rented' khi phòng đã đẩy đủ sức chứa
-            if ($newPeopleCount >= $room->capacity) {
-                RoomPost::where('room_id', $room->id)->update(['status' => 'rented']);
-            }
+                if ($newPeopleCount >= $room->capacity) {
+                    RoomPost::where('room_id', $room->id)->update(['status' => 'hidden']);
+                }
             // Cập nhật trạng thái lịch hẹn:
             // - Nếu là Cư dân ở ghép lên làm Chủ hợp đồng -> became_main_tenant (Đã đứng tên Hợp đồng)
             // - Nếu là Thuê mới -> success_matched (Đã ký Hợp đồng & Đóng cọc)
@@ -550,15 +550,13 @@ class ContractService
                     // Tổng số người = Số chủ hợp đồng active + số cư dân ở ghép active
                     $newCurrentPeople = max(1, ($activeContractsCount > 0 ? 1 : 0) + $activeResidentsCount);
 
-                    // Cập nhật đồng bộ vào CẢ 2 bảng rooms VÀ room_posts
+                    // Cập nhật số người ở hiện tại của phòng
                     $request->room->update(['current_people' => $newCurrentPeople]);
                     $request->room->current_people = $newCurrentPeople;
 
-                    \App\Models\RoomPost::where('room_id', $request->room_id)->update(['current_people' => $newCurrentPeople]);
-
                     // Nếu đã đạt hoặc vượt quá sức chứa -> Đổi tin đăng sang đã thuê (rented)
                     if ($newCurrentPeople >= $request->room->capacity) {
-                        \App\Models\RoomPost::where('room_id', $request->room_id)->update(['status' => 'rented']);
+                        \App\Models\RoomPost::where('room_id', $request->room_id)->update(['status' => 'hidden']);
                     }
                 }
                 $request->status = 'approved';

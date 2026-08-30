@@ -136,6 +136,7 @@ Route::middleware('auth')->group(function () {
     //gửi yêu cầu tìm người ghép hoặc giới thiệu từ clien
     Route::post('/profile/roommate-requests/stranger', [ProfileController::class, 'requestStrangerRoommate'])->name('profile.roommate.request_stranger');
     Route::post('/profile/roommate-requests/acquaintance', [ProfileController::class, 'requestAcquaintanceRoommate'])->name('profile.roommate.request_acquaintance');
+    Route::post('/profile/roommate-requests/check-user', [ProfileController::class, 'checkRoommateUser'])->name('profile.roommate.check_user');
 
     //màn hình cài đặt  truyền danh sách thiết bị
     Route::get('/profile/settings', [ProfileController::class, 'settings'])->name('profile.settings');

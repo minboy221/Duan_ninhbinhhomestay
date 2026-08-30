@@ -36,7 +36,7 @@ const getStatusText = (status) => {
 };
 
 const handleApprove = async (req) => {
-    const message = req.type === 'stranger' 
+    const message = req.type === 'stranger'
         ? 'Duyệt yêu cầu này đồng nghĩa với việc bạn đồng ý mở lại tin đăng để tìm người ở ghép cho phòng này. Tiếp tục?'
         : `Bạn có chắc chắn muốn duyệt và thêm cư dân "${req.new_resident_name}" vào phòng trọ không?`;
 
@@ -44,11 +44,15 @@ const handleApprove = async (req) => {
     if (!isConfirmed) return;
 
     router.post(route('landlord.roommate-requests.approve', req.id), {}, {
-        onSuccess: () => {
-            showSuccess('Thành công', 'Đã phê duyệt yêu cầu ở ghép thành công!');
+        onSuccess: (page) => {
+            if (page.props.flash?.error) {
+                showError('Lỗi', page.props.flash.error);
+            } else {
+                showSuccess('Thành công', 'Đã phê duyệt yêu cầu ở ghép thành công!');
+            }
         },
         onError: (err) => {
-            showError('Lỗi', err.message || 'Có lỗi xảy ra khi phê duyệt.');
+            showError('Lỗi', Object.values(err).join('\n'));
         }
     });
 };
@@ -98,26 +102,26 @@ const formatDate = (dateStr) => {
             <div
                 class="flex bg-slate-100 p-1.5 rounded-2xl gap-1 text-xs font-bold text-slate-500 max-w-md shadow-inner">
                 <button type="button" @click="activeTab = 'pending'" :class="activeTab === 'pending'
-                        ? 'bg-white text-slate-800 shadow-sm'
-                        : 'hover:text-slate-800'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'hover:text-slate-800'
                     " class="flex-1 py-2.5 rounded-xl transition-all text-center cursor-pointer">
                     Đang chờ duyệt
                 </button>
                 <button type="button" @click="activeTab = 'approved'" :class="activeTab === 'approved'
-                        ? 'bg-white text-slate-800 shadow-sm'
-                        : 'hover:text-slate-800'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'hover:text-slate-800'
                     " class="flex-1 py-2.5 rounded-xl transition-all text-center cursor-pointer">
                     Đã duyệt
                 </button>
                 <button type="button" @click="activeTab = 'rejected'" :class="activeTab === 'rejected'
-                        ? 'bg-white text-slate-800 shadow-sm'
-                        : 'hover:text-slate-800'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'hover:text-slate-800'
                     " class="flex-1 py-2.5 rounded-xl transition-all text-center cursor-pointer">
                     Đã từ chối
                 </button>
                 <button type="button" @click="activeTab = 'all'" :class="activeTab === 'all'
-                        ? 'bg-white text-slate-800 shadow-sm'
-                        : 'hover:text-slate-800'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'hover:text-slate-800'
                     " class="flex-1 py-2.5 rounded-xl transition-all text-center cursor-pointer">
                     Tất cả
                 </button>
@@ -179,25 +183,25 @@ const formatDate = (dateStr) => {
                                 Thành viên mới:
                                 <strong class="text-slate-800">{{
                                     req.new_resident_name
-                                    }}</strong>
+                                }}</strong>
                             </div>
                             <div>
                                 Số điện thoại:
                                 <strong class="text-slate-800">{{
                                     req.new_resident_phone
-                                    }}</strong>
+                                }}</strong>
                             </div>
                             <div>
                                 Email:
                                 <strong class="text-slate-800">{{
                                     req.new_resident_email
-                                    }}</strong>
+                                }}</strong>
                             </div>
                             <div>
                                 Số CCCD:
                                 <strong class="text-slate-800">{{
                                     req.new_resident_cccd
-                                    }}</strong>
+                                }}</strong>
                             </div>
                         </div>
                     </div>

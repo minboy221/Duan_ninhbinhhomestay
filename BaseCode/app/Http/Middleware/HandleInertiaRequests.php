@@ -68,13 +68,14 @@ class HandleInertiaRequests extends Middleware
         if ($user && $user->role === 'landlord') {
             $userId = $user->id;
 
-            // Lấy tất cả cơ sở trọ (Sở hữu chính + Được phân quyền phụ) trong 1 QUERY duy nhất
-            $boardingHouses = \App\Models\BoardingHouse::where('status', 'approved')
-                ->where(function ($query) use ($userId) {
-                    $query->where('user_id', $userId)
-                        ->orWhereHas('managers', function ($q) use ($userId) {
-                            $q->where('user_id', $userId);
-                        });
+            // Lấy tất cả cơ sở trọ (Sở hữu chính đã duyệt + Được phân quyền phụ) trong 1 QUERY duy nhất
+            $boardingHouses = \App\Models\BoardingHouse::where(function ($query) use ($userId) {
+                    $query->where(function ($q) use ($userId) {
+                        $q->where('user_id', $userId)->where('status', 'approved');
+                    })
+                    ->orWhereHas('managers', function ($q) use ($userId) {
+                        $q->where('user_id', $userId);
+                    });
                 })
                 ->get(['id', 'name', 'address_detail', 'district', 'latitude', 'longitude', 'user_id']);
             //tự động chọn cơ sở đầu tiên trong session chưa lưu cơ sở nào

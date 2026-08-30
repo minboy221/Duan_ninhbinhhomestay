@@ -91,7 +91,6 @@ class ProfileController extends Controller
             if ((int) $room->current_people !== $realCurrentPeople) {
                 $room->update(['current_people' => $realCurrentPeople]);
                 $room->current_people = $realCurrentPeople;
-                \App\Models\RoomPost::where('room_id', $room->id)->update(['current_people' => $realCurrentPeople]);
             }
         }
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
@@ -744,6 +743,72 @@ class ProfileController extends Controller
                 'new_resident_email' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * check tài khoản thêm người ở ghép đã có trong hệ thống chưa
+     */
+    public function checkRoommateUser(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $phone = trim($request->input('phone', ''));
+        $email = trim($request->input('email', ''));
+        $cccd = trim($request->input('cccd', ''));
+
+        if (empty($phone) && empty($email) && empty($cccd)) {
+            return response()->json(['exists' => false]);
+        }
+
+        $user = \App\Models\User::where(function ($q) use ($phone, $email, $cccd) {
+            if (!empty($phone)) $q->orWhere('phone', $phone);
+            if (!empty($email)) $q->orWhere('email', $email);
+            if (!empty($cccd)) $q->orWhere('cccd_number', $cccd);
+        })->first(['id', 'name', 'phone', 'email', 'cccd_number']);
+
+        if (!$user) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Tài khoản mới - Hệ thống sẽ tự tạo tài khoản & gửi mật khẩu khi được chủ trọ duyệt.'
+            ]);
+        }
+
+        // Check if user is primary tenant elsewhere
+        $primaryContract = \App\Models\Contract::where('tenant_id', $user->id)
+            ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'expiring', 'termination_requested'])
+            ->with('room')
+            ->first();
+
+        // Check if user is resident elsewhere
+        $resident = \App\Models\RoomResident::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->with('room')
+            ->first();
+
+        $isRentingElsewhere = false;
+        $rentalInfo = null;
+
+        if ($primaryContract && $primaryContract->room) {
+            $isRentingElsewhere = true;
+            $rentalInfo = "Đang là chủ hợp đồng tại phòng " . ($primaryContract->room->room_number ?? '');
+        } elseif ($resident && $resident->room) {
+            $isRentingElsewhere = true;
+            $rentalInfo = "Đang ở ghép tại phòng " . ($resident->room->room_number ?? '');
+        }
+
+        return response()->json([
+            'exists' => true,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'phone' => $user->phone,
+                'email' => $user->email,
+                'cccd_number' => $user->cccd_number,
+            ],
+            'is_renting_elsewhere' => $isRentingElsewhere,
+            'rental_info' => $rentalInfo,
+            'message' => $isRentingElsewhere 
+                ? "Cảnh báo: Thành viên này hiện {$rentalInfo}!"
+                : "Đã tìm thấy tài khoản \"{$user->name}\" trên hệ thống."
+        ]);
     }
 
     //hàm nhận token từ điện thoại

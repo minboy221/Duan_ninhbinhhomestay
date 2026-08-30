@@ -3191,12 +3191,12 @@ watch(
                                 {{ formatDate(req.created_at) }}
                             </div>
                         </div>
+                        <button @click="openAddResidentFromRequest(req)"
+                            class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center cursor-pointer">
+                            <i class="bi bi-person-plus-fill"></i> Duyệt & Thêm
+                            người ở ghép
+                        </button>
                     </div>
-                    <button @click="openAddResidentFromRequest(req)"
-                        class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center cursor-pointer">
-                        <i class="bi bi-person-plus-fill"></i> Duyệt & Thêm
-                        người ở ghép
-                    </button>
                 </div>
                 <div v-if="
                     !props.pendingRoommateRequests ||

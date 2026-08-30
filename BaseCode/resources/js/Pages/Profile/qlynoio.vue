@@ -183,7 +183,6 @@ const terminateButtonText = computed(() => {
         return "Chấm dứt hợp đồng";
     }
 });
-//trạng thái modal và form gửi yêu cầu ở ghép
 const showAcquaintanceModal = ref(false);
 const acquaintanceForm = useForm({
     new_resident_name: "",
@@ -191,7 +190,53 @@ const acquaintanceForm = useForm({
     new_resident_email: "",
     new_resident_cccd: "",
 });
-//gửi yêu cầu tìm người lạ ở ghép
+
+const isCheckingRoommateUser = ref(false);
+const roommateUserCheckResult = ref(null);
+let roommateCheckTimeout = null;
+
+const checkRoommateUserInfo = () => {
+    if (roommateCheckTimeout) clearTimeout(roommateCheckTimeout);
+    const phone = acquaintanceForm.new_resident_phone?.trim() || "";
+    const email = acquaintanceForm.new_resident_email?.trim() || "";
+    const cccd = acquaintanceForm.new_resident_cccd?.trim() || "";
+
+    if (!phone && !email && !cccd) {
+        roommateUserCheckResult.value = null;
+        return;
+    }
+
+    roommateCheckTimeout = setTimeout(async () => {
+        isCheckingRoommateUser.value = true;
+        try {
+            const res = await axios.post(route("profile.roommate.check_user"), {
+                phone,
+                email,
+                cccd,
+            });
+            roommateUserCheckResult.value = res.data;
+            if (res.data?.exists && res.data?.user) {
+                if (!acquaintanceForm.new_resident_name && res.data.user.name) {
+                    acquaintanceForm.new_resident_name = res.data.user.name;
+                }
+                if (!acquaintanceForm.new_resident_phone && res.data.user.phone) {
+                    acquaintanceForm.new_resident_phone = res.data.user.phone;
+                }
+                if (!acquaintanceForm.new_resident_email && res.data.user.email) {
+                    acquaintanceForm.new_resident_email = res.data.user.email;
+                }
+                if (!acquaintanceForm.new_resident_cccd && res.data.user.cccd_number) {
+                    acquaintanceForm.new_resident_cccd = res.data.user.cccd_number;
+                }
+            }
+        } catch (e) {
+            roommateUserCheckResult.value = null;
+        } finally {
+            isCheckingRoommateUser.value = false;
+        }
+    }, 400);
+};
+
 //gửi yêu cầu tìm người lạ ở ghép
 const submitStrangerRequest = async () => {
     const isConfirmed = await showConfirm(
@@ -220,10 +265,18 @@ const submitStrangerRequest = async () => {
 
 //gửi yêu cầu giới thiệu người quen vào ở ghép
 const submitAcquaintanceRequest = () => {
+    if (roommateUserCheckResult.value?.is_renting_elsewhere) {
+        showError(
+            "Không thể gửi",
+            roommateUserCheckResult.value.message || "Thành viên này hiện đang thuê trọ ở nơi khác!",
+        );
+        return;
+    }
     acquaintanceForm.post(route("profile.roommate.request_acquaintance"), {
         onSuccess: () => {
             showAcquaintanceModal.value = false;
             acquaintanceForm.reset();
+            roommateUserCheckResult.value = null;
             showSuccess(
                 "Thành công",
                 "Đã gửi thông báo giới thiệu bạn bè vào ở ghép thành công!",
@@ -844,27 +897,48 @@ const submitReport = () => {
 
                 <form @submit.prevent="submitAcquaintanceRequest">
                     <div class="form-field-group">
-                        <label class="form-field-label">Họ và tên <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
-                            class="form-field-input" />
-                    </div>
-
-                    <div class="form-field-group">
                         <label class="form-field-label">Số điện thoại <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_phone"
+                        <input type="text" v-model="acquaintanceForm.new_resident_phone" @input="checkRoommateUserInfo"
                             placeholder="Ví dụ: 0987654321..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
                         <label class="form-field-label">Email liên hệ <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
-                        <input type="email" v-model="acquaintanceForm.new_resident_email"
+                        <input type="email" v-model="acquaintanceForm.new_resident_email" @input="checkRoommateUserInfo"
                             placeholder="Nhập địa chỉ email..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
                         <label class="form-field-label">Số CCCD/CMND (12 chữ số) <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" placeholder="Đúng 12 chữ số..."
+                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" @input="checkRoommateUserInfo" placeholder="Đúng 12 chữ số..."
                             maxlength="12" class="form-field-input" />
+                    </div>
+
+                    <div class="form-field-group">
+                        <label class="form-field-label">Họ và tên <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
+                        <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
+                            class="form-field-input" />
+                    </div>
+
+                    <!-- Real-time check feedback badge -->
+                    <div v-if="isCheckingRoommateUser" style="margin-top: 10px; font-size: 12px; color: #059669; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                        <i class="bi bi-arrow-repeat animate-spin"></i> Đang kiểm tra thông tin tài khoản trên hệ thống...
+                    </div>
+                    <div v-else-if="roommateUserCheckResult" style="margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; display: flex; align-items: flex-start; gap: 8px;"
+                        :style="roommateUserCheckResult.exists 
+                            ? (roommateUserCheckResult.is_renting_elsewhere 
+                                ? 'background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;' 
+                                : 'background: #ecfdf5; border: 1px solid #a7f3d0; color: #059669;')
+                            : 'background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb;'">
+                        <i :class="roommateUserCheckResult.exists 
+                            ? (roommateUserCheckResult.is_renting_elsewhere ? 'bi bi-exclamation-triangle-fill' : 'bi bi-check-circle-fill')
+                            : 'bi bi-info-circle-fill'" style="font-size: 15px; margin-top: 1px;"></i>
+                        <div>
+                            <div>{{ roommateUserCheckResult.message }}</div>
+                            <div v-if="roommateUserCheckResult.exists && roommateUserCheckResult.user" style="font-size: 11px; opacity: 0.9; margin-top: 2px;">
+                                Thành viên: <strong>{{ roommateUserCheckResult.user.name }}</strong> (SĐT: {{ roommateUserCheckResult.user.phone || 'Chưa cập nhật' }})
+                            </div>
+                        </div>
                     </div>
 
                     <div class="modal-footer">

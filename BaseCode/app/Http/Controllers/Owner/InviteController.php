@@ -83,11 +83,12 @@ class InviteController extends Controller
         if ($existingManager && $existingManager->user_id !== $user->id) {
             return redirect()->route('landlord.dashboard')->with('error', 'Cơ sở này đã có tài khoản quản lý phụ rồi.');
         }
-        //nâng cấp vai trò người dùng lên landlord
-        if (in_array($user->role, ['tenant', 'user', 'client'])) {
+        // Nâng cấp vai trò người dùng lên landlord nếu chưa phải landlord/admin
+        if ($user->role !== 'landlord' && $user->role !== 'admin') {
             $user->role = 'landlord';
             $user->save();
         }
+
         PropertyManager::updateOrCreate(
             [
                 'boarding_house_id' => $houseId,
@@ -97,8 +98,12 @@ class InviteController extends Controller
                 'permissions' => $permission
             ]
         );
-        //tự đồng chuyển session san cơ sở trọ vừa nhận quyền
+
+        // Đảm bảo auth user và session được làm mới lập tức cho tài khoản đang đăng nhập
+        \Illuminate\Support\Facades\Auth::setUser($user->fresh());
         session(['selected_boarding_house_id' => $houseId]);
+        session()->save();
+
         AuditLogger::log(
             'Chấp nhận quyền đồng quản lý',
             "Tài khoản \"{$user->name}\" vừa chấp nhận quyền đồng quản lý nhà trọ \"{$boardingHouse->name}\" từ chủ trọ \"{$boardingHouse->user->name}\"",

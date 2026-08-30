@@ -45,12 +45,13 @@ class CheckPropertyManagerPermission
 
             // Nếu vẫn chưa tìm thấy, lấy cơ sở trọ đầu tiên của chủ trọ
             if (!$selectedHouseId && $user->role === 'landlord') {
-                $bh = BoardingHouse::where('status', 'approved')
-                    ->where(function ($q) use ($user) {
-                        $q->where('user_id', $user->id)
-                            ->orWhereHas('managers', function ($m) use ($user) {
-                                $m->where('user_id', $user->id);
-                            });
+                $bh = BoardingHouse::where(function ($q) use ($user) {
+                        $q->where(function ($ownerQ) use ($user) {
+                            $ownerQ->where('user_id', $user->id)->where('status', 'approved');
+                        })
+                        ->orWhereHas('managers', function ($m) use ($user) {
+                            $m->where('user_id', $user->id);
+                        });
                     })->first();
                 if ($bh) {
                     $selectedHouseId = $bh->id;
@@ -87,12 +88,13 @@ class CheckPropertyManagerPermission
             }
 
             if (!$boardingHouse && $user->role === 'landlord') {
-                $boardingHouse = BoardingHouse::where('status', 'approved')
-                    ->where(function ($q) use ($user) {
-                        $q->where('user_id', $user->id)
-                            ->orWhereHas('managers', function ($m) use ($user) {
-                                $m->where('user_id', $user->id);
-                            });
+                $boardingHouse = BoardingHouse::where(function ($q) use ($user) {
+                        $q->where(function ($ownerQ) use ($user) {
+                            $ownerQ->where('user_id', $user->id)->where('status', 'approved');
+                        })
+                        ->orWhereHas('managers', function ($m) use ($user) {
+                            $m->where('user_id', $user->id);
+                        });
                     })->first();
             }
 
