@@ -3,7 +3,7 @@ import { Head, Link, router } from "@inertiajs/vue3";
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { ref, onUnmounted } from "vue";
 import QrcodeVue from "qrcode.vue";
-import { showSuccess, showWarning, showConfirm } from "@/Utils/swal";
+import { showSuccess, showWarning, showConfirm, showError } from "@/Utils/swal";
 import axios from "axios";
 
 const props = defineProps({
@@ -90,21 +90,24 @@ const generateQR = async () => {
 };
 
 // Xóa/Hủy quyền quản lý
-const revokeManager = (manager) => {
-    showConfirm(
-        "Hủy quyền đồng quản lý?",
-        `Tài khoản ${manager.user.name} sẽ không còn quyền quản lý cơ sở ${manager.boarding_house.name}.`,
-        () => {
-            router.delete(route("landlord.managers.destroy", manager.hash_id), {
-                preserveScroll: true,
-                onSuccess: () =>
-                    showSuccess(
-                        "Đã hủy quyền!",
-                        "Hủy quyền quản lý thành công.",
-                    ),
-            });
-        },
+const revokeManager = async (manager) => {
+    const isConfirmed = await showConfirm(
+        "Huỷ quyền đồng quản lý?",
+        `Tài khoản ${manager.user.name} sẽ không còn quyền quản lý cơ sở ${manager.boarding_house.name}. `,
+        "Huỷ quyền",
+        "Huỷ bỏ"
     );
+    if (isConfirmed) {
+        router.delete(route("landlord.managers.destroy", manager.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                showSuccess("Đã huỷ quyền!", "Huỷ quyền quản lý thành công.");
+            },
+            onError: (errs) => {
+                showError("Lỗi", Object.values(errs).join("/n"));
+            }
+        });
+    }
 };
 
 const getPermLabel = (key) => {
@@ -355,6 +358,59 @@ const updateManagerPermissions = () => {
                         class="px-5 py-2 rounded-xl text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 font-bold transition text-sm flex items-center gap-1.5 cursor-pointer">
                         <i class="bi bi-qr-code"></i>
                         {{ isGenerating ? "Đang tạo..." : "Tạo Mã QR" }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- MODAL CHỈNH SỬA QUYỀN HẠN TÀI KHOẢN PHỤ -->
+        <div v-if="showEditModal"
+            class="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            @click.self="showEditModal = false">
+            <div
+                class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+                <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i class="bi bi-pencil-square text-blue-500"></i>
+                        Chỉnh Sửa Quyền - {{ editingManager?.user?.name }}
+                    </h3>
+                    <button @click="showEditModal = false"
+                        class="text-slate-400 hover:text-red-500 font-bold border-none bg-transparent cursor-pointer text-xl">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="p-6 overflow-y-auto space-y-5 flex-1">
+                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+                        Tích chọn các quyền muốn cập nhật cho <strong>{{ editingManager?.user?.name }}</strong>.
+                        Tài khoản phụ phải bị giới hạn ít nhất 1 chức năng.
+                    </p>
+
+                    <div class="space-y-3">
+                        <label v-for="perm in permissionsList" :key="perm.key"
+                            class="flex items-start gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition">
+                            <input type="checkbox" :value="perm.key" v-model="editPermissions"
+                                class="mt-1 rounded text-blue-600 focus:ring-blue-500" />
+                            <div class="ml-2">
+                                <h4 class="text-sm font-bold text-slate-700">
+                                    {{ perm.label }}
+                                </h4>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    {{ perm.desc }}
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                    <button type="button" @click="showEditModal = false"
+                        class="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 bg-white hover:bg-slate-50 font-bold transition text-sm cursor-pointer">
+                        Hủy
+                    </button>
+                    <button type="button" @click="updateManagerPermissions"
+                        class="px-5 py-2 rounded-xl text-white bg-blue-600 hover:bg-blue-700 font-bold transition text-sm flex items-center gap-1.5 cursor-pointer">
+                        <i class="bi bi-check-lg"></i>
+                        Lưu Cập Nhật
                     </button>
                 </div>
             </div>

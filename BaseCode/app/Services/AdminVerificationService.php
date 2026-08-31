@@ -16,10 +16,10 @@ class AdminVerificationService
         return User::query()
             ->where(function ($query) {
                 $query->whereHas('verification')
-                ->orWhereHas('boardingHouse');
+                    ->orWhereHas('boardingHouse');
             })
-            ->with(['verification','boardingHouse'])
-            ->orderBy('id','desc') //đưa các hồ sơ mới nhất lên đầu
+            ->with(['verification', 'boardingHouse'])
+            ->orderBy('id', 'desc') //đưa các hồ sơ mới nhất lên đầu
             ->paginate(10);
     }
     //lấy thông tin chi tiết hồ sơ
@@ -39,14 +39,18 @@ class AdminVerificationService
         DB::beginTransaction();
         try {
             if ($action === 'approve') {
-                //1.Nâng cấp tài khoản thành chủ trọ
+                // 1. Nâng cấp tài khoản thành chủ trọ (Gán thuộc tính trực tiếp)
                 $userToApprove = User::find($userId);
-                $userToApprove->update(['role' => 'landlord']);
-                //Kích hoạt nhà trọ
+                if ($userToApprove) {
+                    $userToApprove->role = 'landlord';
+                    $userToApprove->save();
+                }
+                // Kích hoạt nhà trọ
                 BoardingHouse::where('user_id', $userId)->update(['status' => 'approved']);
-                //Phần đánh dấu hồ sơ Kyc đã được admin  duyệt
+
+                // Đánh dấu hồ sơ Kyc đã được admin duyệt
                 UserVerification::where('user_id', $userId)->update(['kyc_status' => 'approved']);
-                
+
                 // Gửi thông báo
                 $userToApprove->notify(new \App\Notifications\LandlordApproved());
 
@@ -56,7 +60,7 @@ class AdminVerificationService
                 BoardingHouse::where('user_id', $userId)->update(['status' => 'rejected']);
                 //(tuỳ chọn) lưu lý do từ chối vào bảng verifications để hiện thị cho user
                 UserVerification::where('user_id', $userId)->update(['kyc_status' => 'rejected', 'kyc_notes' => $reason]);
-                
+
                 // Gửi thông báo từ chối
                 $userToReject = User::find($userId);
                 if ($userToReject) {

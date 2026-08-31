@@ -1,6 +1,5 @@
 <script setup>
-import { defineProps, defineEmits, ref, onMounted, onUnmounted } from "vue";
-import heic2any from "heic2any";
+import { defineProps, defineEmits, ref, onMounted, onUnmounted, computed } from "vue";
 import { HA_NAM_COMMUNES } from "@/constants/locations.js";
 
 const props = defineProps({
@@ -117,25 +116,25 @@ const handleMultipleFiles = async (e, field) => {
 
         //tạo preview hiển thị
         const reader = new FileReader();
-        if (compressedFile.type === "application/pdf") {
+        if (file.type === "application/pdf") {
             props.form[`${field}_preview`].push({
-                name: compressedFile.name,
-                type: compressedFile.type,
-                size: (compressedFile.size / (1024 * 1024)).toFixed(1) + " MB",
+                name: file.name,
+                type: file.type,
+                size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
                 url: null,
             });
         } else {
             reader.onload = (event) => {
                 props.form[`${field}_preview`].push({
-                    name: compressedFile.name,
-                    type: compressedFile.type,
+                    name: file.name,
+                    type: file.type,
                     sizeL:
-                        (compressedFile.size / (1024 * 1024)).toFixed(1) +
+                        (file.size / (1024 * 1024)).toFixed(1) +
                         " MB",
                     url: event.target.result,
                 });
             };
-            reader.readAsDataURL(compressedFile);
+            reader.readAsDataURL(file);
         }
     }
 };

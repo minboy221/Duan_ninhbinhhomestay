@@ -15,15 +15,26 @@ class LandlordMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // 1. Kiểm tra nếu chưa đăng nhập (Giao diện web thường đã qua middleware auth trước đó)
-        // 2. Hoặc nếu đã đăng nhập nhưng cột 'role' trong bảng users khác 'landlord'
-        if (!auth()->check() || auth()->user()->role !== 'landlord') {
+        $user = auth()->user();
 
-            // Trả về trang lỗi 403 chuẩn HTTP kèm thông báo chặn quyền
-            abort(403, 'Bạn không có quyền truy cập khu vực này.');
+        // 1. Nếu chưa đăng nhập hoặc vai trò không phải landlord -> Đẩy về trang chủ kèm thông báo
+        if (!$user || $user->role !== 'landlord') {
+            return redirect()->route('home')->with('error', 'Bạn không có quyền truy cập khu vực quản lý.');
         }
 
-        // Nếu hợp lệ, cho phép request tiếp tục đi tiếp vào Controller xử lý nghiệp vụ
+        // 2. Kiểm tra nếu người dùng mang vai trò landlord nhưng KHÔNG sở hữu nhà trọ nào VÀ KHÔNG quản lý nhà trọ nào
+        $ownsHouse = \App\Models\BoardingHouse::where('user_id', $user->id)->exists();
+        $managesHouse = \App\Models\PropertyManager::where('user_id', $user->id)->exists();
+
+        if (!$ownsHouse && !$managesHouse) {
+            // Tự động thu hồi vai trò về tenant
+            $user->role = 'tenant';
+            $user->save();
+            \Illuminate\Support\Facades\Auth::setUser($user->fresh());
+
+            return redirect()->route('home')->with('error', 'Quyền đồng quản lý của bạn đã bị chủ trọ hủy bỏ.');
+        }
+
         return $next($request);
     }
 }

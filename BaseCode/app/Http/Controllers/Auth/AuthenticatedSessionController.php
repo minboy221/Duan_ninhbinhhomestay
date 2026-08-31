@@ -79,7 +79,9 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         $user = $request->user();
-        $request->session()->forget('url.intended');
+        if($request->session()->has('url.intended')){
+            return redirect()->intended();
+        }
 
         // chuyển hướng chính xác theo vai trò role của tài khoản
         if ($user && $user->role === 'landlord') {
