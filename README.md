@@ -87,6 +87,7 @@ Nếu bạn muốn chạy ứng dụng trực tiếp bằng môi trường Larag
    ```
 2. Chạy lệnh phía dưới trên Terminal Windows:
    ```bash
+   npm install
    php artisan config:clear
    php artisan migrate
    php artisan serve
