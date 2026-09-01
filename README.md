@@ -111,28 +111,3 @@ php artisan test
 ```
 
 ---
-
-## 👥 PHÂN QUYỀN VÀ NGHỆP VỤ HỆ THỐNG
-
-```mermaid
-graph TD
-    A[Hệ thống Quản lý Homestay] --> B[Client / Khách Thuê]
-    A --> C[Chủ Trọ / Landlord]
-    A --> D[Admin / Quản Trị Viên]
-
-    B --> B1[Tìm phòng bằng AI & Bộ lọc]
-    B --> B2[Đặt lịch xem phòng & Phản hồi]
-    B --> B3[Quản lý Hợp đồng & Hóa đơn]
-    B --> B4[Báo cáo sự cố & Ở ghép]
-
-    C --> C1[Quản lý Phòng trọ & Dịch vụ]
-    C --> C2[Lập Hợp đồng & Tính tiền Prorated]
-    C --> C3[Đọc số điện OCR & Đóng gói PDF]
-    C --> C4[Quản lý Gói dịch vụ Subscription]
-
-    D --> D1[Duyệt cơ sở & Duyệt tin đăng]
-    D --> D2[Thống kê doanh thu & Biểu đồ]
-    D --> D3[Quản lý Người dùng & Khóa tài khoản]
-```
-
----
