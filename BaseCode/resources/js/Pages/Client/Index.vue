@@ -265,6 +265,7 @@ const scrollReview = (direction) => {
                             </li>
                         </ul>
                     </div>
+                </div>
                 <!-- Room Type Dropdown -->
                 <div class="roomtype_select relative" ref="categoryDropdownRef">
                     <label for="">Loại Phòng:</label>

@@ -12,13 +12,15 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 // Hiển thị khung thông báo lỗi trực tiếp trên màn hình di động (giúp phát hiện chính xác nguyên nhân nếu bị trắng màn hình)
 if (typeof window !== 'undefined') {
     const showDebugError = (title, message) => {
-        const msgStr = String(message || '');
-        // Bỏ qua các lỗi không thuộc về app (từ tiện ích mở rộng Chrome/trình duyệt hoặc script ngoài)
+        const msgStr = String(message?.message || message || '');
+        // Bỏ qua các lỗi không thuộc về app (từ tiện ích mở rộng Chrome/trình duyệt, Vue DevTools hoặc script ngoài)
         if (
             msgStr.includes('M_ID') ||
             msgStr.includes('chrome-extension') ||
             msgStr.includes('moz-extension') ||
-            msgStr.includes('ResizeObserver')
+            msgStr.includes('ResizeObserver') ||
+            msgStr.includes('WebSocket') ||
+            msgStr.includes('localhost:undefined')
         ) {
             console.warn('Bỏ qua lỗi từ tiện ích mở rộng trình duyệt:', message);
             return;
