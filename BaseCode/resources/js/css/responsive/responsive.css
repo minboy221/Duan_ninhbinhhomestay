@@ -170,6 +170,8 @@
     }
 
     .noidung {
+        display: flex;
+        flex-direction: column;
         max-width: 100%;
         text-align: center;
     }
@@ -546,10 +548,10 @@
     }
 
     #backToTop {
-        bottom: 92px;
-        right: 28px;
-        width: 38px;
-        height: 38px;
+        bottom: 105px;
+        right: 16px;
+        width: 40px;
+        height: 40px;
         font-size: 16px;
     }
 }
@@ -615,6 +617,8 @@
     }
 
     .noidung {
+        display: flex;
+        flex-direction: column;
         max-width: 100%;
         text-align: center;
     }
@@ -780,4 +784,9 @@
     .pt-price {
         font-size: 20px;
     }
+}
+
+/* Ẩn hoàn toàn khung thông báo lỗi debug trên điện thoại */
+#mobile-debug-error {
+    display: none !important;
 }

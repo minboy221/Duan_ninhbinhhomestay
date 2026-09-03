@@ -29,8 +29,10 @@ const statusMap = {
 const avatarColors = ['#0f766e', '#1d4ed8', '#7c3aed', '#b45309', '#dc2626', '#0891b2']
 const avatarColor = (i) => avatarColors[Math.abs(i) % avatarColors.length]
 const formatDate = (d) => {
-    if (!d || d === 'N/A') return 'N/A'
-    return new Date(d).toLocaleDateString('vi-VN')
+    if (!d || d === 'N/A') return 'N/A';
+    const dateObj = new Date(d);
+    if (isNaN(dateObj.getTime())) return 'N/A';
+    return dateObj.toLocaleDateString('vi-VN');
 }
 
 const filteredTenants = computed(() => {
@@ -74,7 +76,8 @@ const exportTemporaryResidenceList = () => {
     activeTenants.forEach((t, index) => {
         const cccdFormatted = t.cccd ? `'${t.cccd}` : 'Chưa cập nhật';
         const phoneFormatted = t.phone ? `'${t.phone}` : 'N/A';
-        csvContent += `${index + 1},"${t.name}","${cccdFormatted}","${phoneFormatted}","Phòng ${t.room}","${t.floor}","${t.moveIn}","${t.role}"\n`;
+        const moveInFormatted = formatDate(t.moveIn);
+        csvContent += `${index + 1},"${t.name}","${cccdFormatted}","${phoneFormatted}","Phòng ${t.room}","${t.floor}","${moveInFormatted}","${t.role}"\n`;
     });
 
     const encodedUri = encodeURI(csvContent);

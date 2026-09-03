@@ -2,33 +2,35 @@
 
 .chitiettro-container {
     max-width: 1200px;
-    margin: 155px auto 0;
+    margin: 220px auto 0;
     padding: 0 10px;
 }
 
 .dieuhuong {
-    position: absolute !important;
-    top: calc(100% - 2px) !important;
+    position: fixed !important;
+    top: 79px !important;
     left: 35px !important;
-    transform: none !important;
     width: auto;
-    padding: 8px 20px;
-    background: rgba(255, 255, 255, 0.85);
+    padding: 15px 25px;
+    z-index: 999 !important;
+    background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-radius: 0 0 20px 20px;
     border: 1px solid rgba(255, 255, 255, 0.35);
-    border-top: none;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    z-index: 98;
-    white-space: nowrap;
+    border-radius: 5px 0 30px 30px;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.18),
+        inset 0 0 10px rgba(255, 255, 255, 0.35);
 }
 
-.baodieuhuong a {
-    text-decoration: none;
-    color: #333;
-    text-align: center;
-    transition: 0.3s;
+
+/* Nội dung bên trong */
+.baodieuhuong {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+    z-index: 1;
 }
 
 .baodieuhuong a:hover {
@@ -38,10 +40,11 @@
 /* phần layout */
 .layout {
     max-width: 1200px;
-    margin: 0 auto 30px;
     display: flex;
-    gap: 20px;
     align-items: flex-start;
+    margin: 30px auto;
+    gap: 20px;
+    margin-left: -6px;
 }
 
 .room_detail {
@@ -605,7 +608,7 @@ button.next {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 99999;
+    z-index: 1000;
 }
 
 .booking-modal-box {
@@ -1372,4 +1375,221 @@ button.next {
 
 .preview-item:hover .preview-remove {
     opacity: 1;
+}
+
+/* =============================================
+   SIDEBAR REVIEWS CARD (ĐÁNH GIÁ TỪ NGƯỜI THUÊ)
+   ============================================= */
+.sidebar-reviews-card {
+    margin-top: 58px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 0 10px rgba(255, 255, 255, 0.2);
+    border-radius: 14px;
+}
+
+.sidebar-reviews-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar-reviews-title i {
+    color: #7c3aed;
+}
+
+.sidebar-reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.sidebar-review-item {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.sidebar-review-item.is-notice {
+    padding: 12px;
+    background: #fef2f2;
+    border-radius: 12px;
+    border: 1px solid #fee2e2;
+    border-left: 4px solid #ef4444;
+}
+
+.sidebar-review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+}
+
+.sidebar-review-author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-review-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+.sidebar-review-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.sidebar-review-author-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.sidebar-review-author-name {
+    margin: 0;
+    font-weight: 600;
+    font-size: 13px;
+    color: #0f172a;
+}
+
+.sidebar-review-author-name.is-notice {
+    color: #b91c1c;
+}
+
+.sidebar-review-badge-notice {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+.sidebar-review-badge-admin,
+.sidebar-review-badge-owner {
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-weight: 700;
+}
+
+.sidebar-review-time {
+    margin: 0;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.sidebar-review-rating {
+    color: #fbbf24;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.sidebar-review-comment {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #334155;
+}
+
+.sidebar-reviews-empty {
+    text-align: center;
+    padding: 20px 10px;
+    color: #64748b;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-size: 13px;
+}
+
+.sidebar-review-form-container {
+    border-top: 1px solid rgba(226, 232, 240, 0.8);
+    padding-top: 16px;
+}
+
+.sidebar-review-form-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #1e293b;
+}
+
+.sidebar-review-rating-picker {
+    display: flex;
+    gap: 6px;
+    font-size: 20px;
+    cursor: pointer;
+    color: #cbd5e1;
+}
+
+.sidebar-review-textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    outline: none;
+    font-size: 13px;
+    resize: vertical;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.sidebar-review-textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.sidebar-review-submit-btn {
+    background: linear-gradient(90deg, #102a6d, #45abe6);
+    color: #fff;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.sidebar-review-submit-btn:hover {
+    background: linear-gradient(90deg, #0d2258, #3b9cd4);
+}
+
+.sidebar-review-submit-btn.is-notice {
+    background: #ef4444;
+}
+
+.sidebar-review-submit-btn.is-notice:hover {
+    background: #dc2626;
 }

@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
+import axios from 'axios'
 
 defineProps({
     canResetPassword: { type: Boolean },
@@ -10,15 +11,40 @@ defineProps({
 
 const page = usePage()
 
+// State Form Đăng nhập & Khiếu nại
+const loginForm = useForm({
+    email: '',
+    password: '',
+    remember: false,
+})
+
+const showAppealModal = ref(false)
+const appealForm = ref({
+    email: '',
+    phone: '',
+    content: '',
+})
+const isSubmittingAppeal = ref(false)
+
 const showLockedAlert = () => {
     if (page.props.flash && page.props.flash.error) {
+        if (loginForm.email) {
+            appealForm.value.email = loginForm.email;
+        }
         Swal.fire({
             icon: 'error',
             title: 'Tài khoản bị khóa',
             text: page.props.flash.error,
-            confirmButtonText: 'Đã hiểu',
-            confirmButtonColor: '#f97316'
-        })
+            showCancelButton: true,
+            confirmButtonText: '🚨 Gửi Đơn Khiếu Nại Mở Khóa',
+            cancelButtonText: 'Đóng',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                showAppealModal.value = true;
+            }
+        });
     }
 }
 
@@ -41,13 +67,6 @@ const captchaUrl = ref('/captcha/flat?' + Math.random())
 const reloadCaptcha = () => {
     captchaUrl.value = '/captcha/flat?' + Math.random()
 }
-
-// Form đăng nhập
-const loginForm = useForm({
-    email: '',
-    password: '',
-    remember: false,
-})
 
 // Form đăng ký
 const signupForm = useForm({
@@ -79,6 +98,31 @@ const submitSignup = () => {
             reloadCaptcha();
         },
     })
+}
+
+async function submitAppeal() {
+    isSubmittingAppeal.value = true
+    try {
+        const res = await axios.post(route('account.appeal-lock'), appealForm.value)
+        showAppealModal.value = false
+        appealForm.value = { email: '', phone: '', content: '' }
+        Swal.fire({
+            icon: 'success',
+            title: 'Gửi khiếu nại thành công',
+            text: res.data.message,
+            confirmButtonColor: '#00628c',
+        })
+    } catch (err) {
+        const msg = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.'
+        Swal.fire({
+            icon: 'error',
+            title: 'Không thể gửi',
+            text: msg,
+            confirmButtonColor: '#ef4444',
+        })
+    } finally {
+        isSubmittingAppeal.value = false
+    }
 }
 
 const submitForgot = () => {
@@ -395,5 +439,47 @@ const submitForgot = () => {
         <!-- Decorative blobs -->
         <div class="absolute bottom-10 left-10 w-64 h-64 bg-[#57baf6]/20 blur-[100px] rounded-full -z-10"></div>
         <div class="absolute top-20 right-10 w-96 h-96 bg-[#50e1f9]/10 blur-[120px] rounded-full -z-10"></div>
+
+        <!-- Modal Form Khiếu Nại Mở Khóa Tài Khoản -->
+        <div v-if="showAppealModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2 text-rose-600 font-bold text-base">
+                        <span class="material-symbols-outlined">gavel</span>
+                        <h3>Gửi Khiếu Nại Mở Khóa Tài Khoản</h3>
+                    </div>
+                    <button @click="showAppealModal = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitAppeal" class="space-y-3.5 text-left">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Email bị khóa <span class="text-rose-500">*</span></label>
+                        <input v-model="appealForm.email" type="email" required placeholder="nhapemail@gmail.com"
+                               class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#00628c] outline-none transition-all" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Số điện thoại liên hệ <span class="text-rose-500">*</span></label>
+                        <input v-model="appealForm.phone" type="text" required placeholder="0912345678"
+                               class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#00628c] outline-none transition-all" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Nội dung giải trình khiếu nại <span class="text-rose-500">*</span></label>
+                        <textarea v-model="appealForm.content" rows="4" required placeholder="Trình bày chi tiết lý do bạn muốn Admin kiểm tra và khôi phục tài khoản..."
+                                  class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#00628c] outline-none transition-all resize-none"></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2 border-t">
+                        <button type="button" @click="showAppealModal = false" class="px-4 py-2.5 text-xs font-bold bg-slate-100 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">Hủy</button>
+                        <button type="submit" :disabled="isSubmittingAppeal" class="px-5 py-2.5 text-xs font-bold bg-gradient-to-r from-[#00628c] to-[#46ace7] text-white rounded-xl shadow-md hover:opacity-90 transition-opacity">
+                            {{ isSubmittingAppeal ? 'Đang gửi...' : 'Gửi Đơn Khiếu Nại' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </main>
 </template>

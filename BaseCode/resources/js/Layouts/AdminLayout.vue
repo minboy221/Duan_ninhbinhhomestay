@@ -117,8 +117,13 @@ const navGroups = [
         ],
     },
     {
-        label: "Gói Dịch Vụ",
+        label: "Gói Dịch Vụ & Nguồn Thu",
         items: [
+            {
+                label: "Nguồn Thu Doanh Thu",
+                path: "/admin/revenue",
+                icon: "bi-cash-stack",
+            },
             {
                 label: "Cấu Hình Gói",
                 path: "/admin/subscription-plans",
@@ -177,6 +182,9 @@ const getBadgeCount = (path) => {
     const counts = page.props.auth?.admin_counts;
     if (!counts) return 0;
 
+    if (path === "/admin/users") {
+        return counts.users || 0;
+    }
     if (path === "/admin/reports") {
         return counts.reports || 0;
     }
@@ -189,6 +197,9 @@ const getBadgeCount = (path) => {
     if (path === "/admin/boarding-houses") {
         return counts.boarding_houses || 0;
     }
+    if (path === "/admin/landlord-subscriptions") {
+        return counts.pending_subscriptions || 0;
+    }
     if (path === "/admin/auditlog") {
         const latestId = counts.latest_audit_log_id || 0;
         const lastSeenId = parseInt(
@@ -197,6 +208,14 @@ const getBadgeCount = (path) => {
         return latestId > lastSeenId ? 1 : 0;
     }
     return 0;
+};
+
+const getMenuBadge = (item) => {
+    let count = getBadgeCount(item.path);
+    if (item.children && item.children.length > 0) {
+        count += item.children.reduce((acc, child) => acc + getBadgeCount(child.path), 0);
+    }
+    return count;
 };
 
 // Cập nhật last_seen_audit_log_id khi admin xem trang auditlog
@@ -212,24 +231,33 @@ watchEffect(() => {
     }
 });
 
+const showPopupNotification = ref(false);
+const latestNotification = ref(null);
+
 //phần gửi thông báo real-time
 onMounted(() => {
     const userId = page.props.auth?.user?.id;
     if (userId) {
         window.Echo.private(`App.Models.User.${userId}`).notification(
             (notification) => {
+                const notifData = {
+                    id: notification.id,
+                    type: notification.data?.type || notification.type || 'info',
+                    data: {
+                        title: notification.data?.title || 'Thông báo mới',
+                        message: notification.data?.message || notification.data?.messeage || '',
+                        url: notification.data?.url || '#',
+                    },
+                    created_at: notification.created_at || new Date().toISOString(),
+                };
+
                 if (page.props.auth.notifications) {
-                    page.props.auth.notifications.unshift({
-                        id: notification.id,
-                        data: {
-                            title: notification.data.title,
-                            message: notification.data.message,
-                            type: notification.data.type,
-                            url: notification.data.url,
-                        },
-                        created_at: notification.created_at,
-                    });
+                    page.props.auth.notifications.unshift(notifData);
                 }
+
+                latestNotification.value = notifData;
+                showPopupNotification.value = true;
+
                 //âm thanh thông báo
                 try {
                     const audio = new Audio(
@@ -238,7 +266,7 @@ onMounted(() => {
                     audio.volume = 0.5;
                     audio.play();
                 } catch (e) {
-                    console.log("Autoplay audio blogked");
+                    console.log("Autoplay audio blocked");
                 }
             },
         );
@@ -250,21 +278,6 @@ onUnmounted(() => {
         window.Echo.leave(`App.Models.User.${userId}`);
     }
 });
-
-const getMenuBadge = (item) => {
-    let count = getBadgeCount(item.path);
-    if (count > 0) return count;
-
-    if (item.children) {
-        for (const child of item.children) {
-            const childCount = getBadgeCount(child.path);
-            if (childCount > 0) {
-                return childCount;
-            }
-        }
-    }
-    return 0;
-};
 </script>
 
 <template>
@@ -292,7 +305,8 @@ const getMenuBadge = (item) => {
         <div v-if="mobileMenuOpen" class="mobile-overlay" @click="mobileMenuOpen = false"></div>
 
         <!-- Sidebar -->
-        <aside :class="[sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed', mobileMenuOpen ? 'mobile-show' : '']" class="admin-sidebar">
+        <aside :class="[sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed', mobileMenuOpen ? 'mobile-show' : '']"
+            class="admin-sidebar">
             <!-- Brand -->
             <div class="sidebar-brand">
                 <div class="brand-icon">
@@ -360,7 +374,7 @@ const getMenuBadge = (item) => {
                                     width: 8px;
                                     height: 8px;
                                     flex-shrink: 0;
-                                    margin-left: -6px;
+                                    margin-left: 8px;
                                 "></span>
                         </Link>
 
@@ -461,7 +475,7 @@ const getMenuBadge = (item) => {
                 </div>
                 <div class="header-right">
                     <!-- Bell -->
-                    <div class="relative">
+                    <div class="relative" v-click-outside="() => notifOpen = false">
                         <button class="header-btn" @click="notifOpen = !notifOpen">
                             <i class="bi bi-bell"></i>
                             <span v-if="
@@ -536,7 +550,7 @@ const getMenuBadge = (item) => {
                                                     <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed">
                                                         {{
                                                             notification.data
-                                                                .message
+                                                                .message || notification.data.messeage
                                                         }}
                                                     </p>
                                                 </Link>
@@ -594,9 +608,124 @@ const getMenuBadge = (item) => {
             </main>
         </div>
     </div>
+
+    <!-- Popup thông báo góc dưới bên phải giống Chủ trọ -->
+    <Teleport to="body">
+        <Transition name="toast-slide">
+            <div v-if="showPopupNotification && latestNotification" style="
+                    position: fixed;
+                    bottom: 28px;
+                    right: 28px;
+                    z-index: 99999;
+                ">
+                <div style="
+                        background: white;
+                        border-radius: 16px;
+                        width: 380px;
+                        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+                        border: 1px solid #f1f5f9;
+                        overflow: hidden;
+                        position: relative;
+                    ">
+                    <!-- Thanh màu báo hiệu -->
+                    <div :style="latestNotification.data.type === 'error' || latestNotification.data.type === 'warning'
+                        ? 'height: 5px; background: linear-gradient(90deg, #ef4444, #f87171);'
+                        : 'height: 5px; background: linear-gradient(90deg, #3b82f6, #60a5fa);'
+                        "></div>
+
+                    <div style="padding: 20px">
+                        <!-- Nút tắt (X) -->
+                        <button @click="showPopupNotification = false" style="
+                                position: absolute;
+                                top: 14px;
+                                right: 14px;
+                                background: transparent;
+                                border: none;
+                                color: #94a3b8;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                width: 28px;
+                                height: 28px;
+                                border-radius: 50%;
+                            " onmouseover="this.style.color='#ef4444'; this.style.background='#fef2f2';"
+                              onmouseout="this.style.color='#94a3b8'; this.style.background='transparent';">
+                            <i class="bi bi-x-lg" style="font-size: 12px"></i>
+                        </button>
+
+                        <div style="display: flex; gap: 14px; align-items: flex-start">
+                            <!-- Icon -->
+                            <div :style="latestNotification.data.type === 'error' || latestNotification.data.type === 'warning'
+                                ? 'flex-shrink: 0; width: 44px; height: 44px; background: #fef2f2; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #ef4444; font-size: 20px;'
+                                : 'flex-shrink: 0; width: 44px; height: 44px; background: #eff6ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #3b82f6; font-size: 20px;'
+                                ">
+                                <i :class="latestNotification.data.type === 'error' ? 'bi bi-exclamation-triangle-fill' : 'bi bi-bell-fill'"></i>
+                            </div>
+
+                            <!-- Nội dung -->
+                            <div style="flex: 1; min-width: 0; padding-right: 10px;">
+                                <h4 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: #0f172a; line-height: 1.3;">
+                                    {{ latestNotification.data.title }}
+                                </h4>
+                                <p style="margin: 0 0 12px 0; font-size: 13px; color: #64748b; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+                                    {{ latestNotification.data.message || latestNotification.data.messeage }}
+                                </p>
+                                <div style="display: flex; gap: 8px">
+                                    <Link v-if="latestNotification.data.url && latestNotification.data.url !== '#'"
+                                        :href="latestNotification.data.url"
+                                        @click="showPopupNotification = false"
+                                        style="
+                                            padding: 6px 14px;
+                                            border-radius: 8px;
+                                            background: #2563eb;
+                                            color: white;
+                                            font-weight: 700;
+                                            text-decoration: none;
+                                            font-size: 12px;
+                                            transition: all 0.2s;
+                                        ">
+                                        Xem chi tiết
+                                    </Link>
+                                    <button @click="showPopupNotification = false"
+                                        style="
+                                            padding: 6px 14px;
+                                            border-radius: 8px;
+                                            background: #f1f5f9;
+                                            color: #475569;
+                                            font-weight: 700;
+                                            border: none;
+                                            cursor: pointer;
+                                            font-size: 12px;
+                                        ">
+                                        Đóng
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+    </Teleport>
 </template>
 
 <style scoped>
+/* Animation cho toast góc dưới bên phải */
+.toast-slide-enter-active {
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.toast-slide-leave-active {
+    transition: all 0.3s ease-in;
+}
+.toast-slide-enter-from {
+    transform: translateX(120%);
+    opacity: 0;
+}
+.toast-slide-leave-to {
+    transform: translateX(120%);
+    opacity: 0;
+}
 .admin-shell {
     display: flex;
     height: 100vh;

@@ -6,104 +6,38 @@
 /* Mobile */
 @media (max-width: 767px) {
     .banner {
-        height: 220px;
+        height: 200px;
     }
 
     .banner img {
-        border-radius: 0 0 25px 25px;
+        border-radius: 0 0 20px 20px;
     }
 
     .banner-text {
-        top: 38%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        width: 90%;
     }
 
     .banner-text h1 {
-        font-size: 22px;
+        font-size: 24px;
+        margin-bottom: 8px;
     }
 
-    .ai-hero-wrapper {
-        margin: -50px auto 16px auto;
-        padding: 0 10px;
-    }
-
-    .ai-smart-search-wrapper {
-        margin-top: 16px;
-        padding: 0 12px;
-    }
-
-    .ai-smart-search-container {
-        padding: 16px 18px;
-        border-radius: 16px;
-    }
-
-    .ai-smart-search-label {
-        font-size: 12px;
-        margin-bottom: 10px;
-    }
-
-    .ai-suggestions-wrapper {
-        justify-content: flex-start;
-        gap: 6px;
-    }
-
-    .ai-suggestion-chip {
-        font-size: 11px;
-        padding: 5px 10px;
-    }
-
-    .outer-glass-frame {
-        border-radius: 24px;
-        padding: 8px;
-    }
-
-    .inner-search-card {
-        border-radius: 18px;
-        padding: 18px 14px;
-    }
-
-    .ai-search-bar {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 10px 12px;
-        gap: 10px;
-    }
-
-    .ai-search-input-wrapper {
-        min-height: 40px;
-    }
-
-    .ai-search-submit-btn {
-        width: 100%;
-        padding: 11px 16px;
-    }
-
-    .ai-insight-card {
-        padding: 16px 14px;
-        margin-top: 16px;
-        border-radius: 16px;
-    }
-
-    .ai-insight-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-    }
-
-    .ai-insight-info {
-        gap: 12px;
-    }
-
-    .ai-insight-reset-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 10px;
+    .banner-text p {
+        font-size: 13px;
+        margin-bottom: 0;
     }
 
     .layout {
         flex-direction: column;
         padding: 0 12px;
         margin: 20px auto 40px;
-        gap: 20px;
+        gap: 16px;
+        width: 100%;
+        max-width: 100%;
     }
 
     .filter {
@@ -114,50 +48,52 @@
 
     .baofilter {
         width: 100%;
+        max-width: 100%;
         border-radius: 16px;
-        padding: 18px 16px;
+        padding: 16px;
     }
 
-    .btn-apply-filter {
-        min-height: 50px;
-        font-size: 15.5px;
-        border-radius: 12px;
-    }
-
-    .btn-reset-filter {
-        min-height: 44px;
-        font-size: 14.5px;
-        border-radius: 12px;
+    .room {
+        width: 100%;
     }
 
     .item_room {
         flex-direction: column;
-        height: auto !important;
         transform: none !important;
         margin-bottom: 16px;
         border-radius: 16px;
+        width: 100%;
+        overflow: hidden;
     }
 
     .image_room {
         width: 100%;
         min-width: 100%;
-        height: 200px !important;
+        height: 210px;
     }
 
     .infor_room {
         padding: 16px;
         gap: 10px;
-        height: auto !important;
+        width: 100%;
     }
 
     .title_room h2 {
         font-size: 16px;
+        line-height: 1.4;
+    }
+
+    .about_room {
+        width: 100% !important;
+        max-width: 100% !important;
     }
 
     .btn {
         width: 100%;
         justify-content: center;
-        margin-top: 10px;
+        margin-top: 8px;
+        padding: 10px 16px;
+        text-align: center;
     }
 
     .phantrang {
@@ -168,12 +104,15 @@
 /* Tablet */
 @media (min-width: 768px) and (max-width: 1023px) {
     .banner {
-        height: 280px;
+        height: 260px;
     }
 
-    .ai-hero-wrapper {
-        margin: -70px auto 20px auto;
-        padding: 0 16px;
+    .banner-text {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        width: 90%;
     }
 
     .layout {
@@ -181,6 +120,7 @@
         padding: 0 20px;
         margin: 24px auto 40px;
         gap: 24px;
+        width: 100%;
     }
 
     .filter {
@@ -191,15 +131,26 @@
 
     .baofilter {
         width: 100%;
+        max-width: 100%;
+    }
+
+    .room {
+        width: 100%;
     }
 
     .item_room {
         transform: none !important;
+        width: 100%;
     }
 
     .image_room {
-        width: 240px;
-        min-width: 240px;
-        height: 200px;
+        width: 260px;
+        min-width: 260px;
+        height: 220px;
+    }
+
+    .about_room {
+        width: 100% !important;
+        max-width: 100% !important;
     }
 }

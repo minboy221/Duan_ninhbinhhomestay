@@ -10,7 +10,7 @@ trait HandlesStorageFiles
     {
         $uploadedImages = [];
         $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
-        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url', ''), '/');
         foreach ($files as $file) {
             if ($file && $file->isValid()) {
                 if ($useR2) {
@@ -25,30 +25,35 @@ trait HandlesStorageFiles
                     } catch (\Throwable $e) {
                     }
                 }
-                try{
+                try {
                     $path = $file->store($folder, 'public');
                     $uploadedImages[] = '/storage/' . ltrim($path, '/');
-                }catch(\Throwable $ex){}
+                } catch (\Throwable $ex) {
+                }
             }
         }
         return $uploadedImages;
     }
     //Xóa 1 file ảnh trên Cloud R2 hoặc Storage Local
-    protected function deleteSingleImage (?string $url): void {
-        if(empty($url)) return;
-        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''),'/');
+    protected function deleteSingleImage(?string $url): void
+    {
+        if (empty($url))
+            return;
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url', ''), '/');
         //nếu là ảnh lưu trên cloudfare R2
-         if (!empty($r2Url) && str_starts_with($url, $r2Url)) {
+        if (!empty($r2Url) && str_starts_with($url, $r2Url)) {
             $r2Path = ltrim(substr($url, strlen($r2Url)), '/');
             try {
                 Storage::disk('r2_public')->delete($r2Path);
                 return;
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
         }
-         $localPath = str_replace('/storage/', '', parse_url($url, PHP_URL_PATH) ?? $url);
+        $localPath = str_replace('/storage/', '', parse_url($url, PHP_URL_PATH) ?? $url);
         try {
             Storage::disk('public')->delete(ltrim($localPath, '/'));
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
     }
 }
 

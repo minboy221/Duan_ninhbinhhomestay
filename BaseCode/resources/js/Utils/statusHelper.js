@@ -1,7 +1,7 @@
 //phần trạng thái phòng
 export const roomStatusMap = {
     available: { label: 'Còn phòng', class: 'room-badge-available' },
-    rented: { lablel: 'Đã thuê', class: 'room-badge-rented' },
+    rented: { label: 'Đã thuê', class: 'room-badge-rented' },
     maintenance: { label: 'Bảo trì', class: 'room-badge-maintenance' },
     deposited: { label: 'Đã cọc', class: 'room-badge-deposited' },
     expiring_soon: { label: 'Sắp hết hạn', class: 'room-badge-renewal' },
@@ -17,5 +17,5 @@ export const getStatusLabel = (status) => {
     return roomStatusMap[status]?.label || status;
 };
 export const getStatusClass = (status) => {
-    return roomStatusMap[status]?. class || 'room-badge-rented';
+    return roomStatusMap[status]?.class || 'room-badge-available';
 };

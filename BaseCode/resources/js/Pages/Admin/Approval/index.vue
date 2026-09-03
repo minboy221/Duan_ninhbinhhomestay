@@ -1,40 +1,57 @@
 <script setup>
 import AdminLayout from "@/Layouts/AdminLayout.vue";
+import Pagination from "@/Components/Pagination.vue";
 import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 import { showConfirm } from "@/Utils/swal";
 
 const props = defineProps({
-    listings: Array,
+    listings: [Object, Array],
+    counts: Object,
+    currentStatus: { type: String, default: "pending" },
 });
 
-const activeTab = ref("pending");
+const activeTab = ref(props.currentStatus || "pending");
 
-//Phần phân loại dữ liệu tự đông theo tap dựa trên trạng thái
-const filteredPosts = computed(() => {
+function changeTab(key) {
+    activeTab.value = key;
+    router.get(
+        route("admin.listings.index"),
+        { status: key },
+        { preserveState: true, preserveScroll: true }
+    );
+}
+
+// Lấy danh sách bài đăng (tự động xử lý cả Paginator object lẫn Mảng)
+const postsList = computed(() => {
     if (!props.listings) return [];
-    return props.listings.filter((p) => p.status === activeTab.value);
+    if (Array.isArray(props.listings)) return props.listings;
+    return props.listings.data || [];
 });
 
-//Phần cập nhật số lượng hiển thị trên các nhãn tap tự động hiển thị theo
+const paginationLinks = computed(() => {
+    if (props.listings && !Array.isArray(props.listings) && props.listings.links) {
+        return props.listings.links;
+    }
+    return [];
+});
+
+// Cập nhật số lượng trên các nhãn tab từ backend counts hoặc local fallback
 const tabs = computed(() => [
     {
         key: "pending",
         label: "Chờ Duyệt",
-        count:
-            props.listings?.filter((p) => p.status === "pending").length || 0,
+        count: props.counts?.pending ?? (Array.isArray(props.listings) ? props.listings.filter((p) => p.status === "pending").length : 0),
     },
     {
         key: "approved",
         label: "Đã Duyệt",
-        count:
-            props.listings?.filter((p) => p.status === "approved").length || 0,
+        count: props.counts?.approved ?? (Array.isArray(props.listings) ? props.listings.filter((p) => p.status === "approved").length : 0),
     },
     {
         key: "rejected",
         label: "Từ Chối",
-        count:
-            props.listings?.filter((p) => p.status === "rejected").length || 0,
+        count: props.counts?.rejected ?? (Array.isArray(props.listings) ? props.listings.filter((p) => p.status === "rejected").length : 0),
     },
 ]);
 
@@ -112,7 +129,7 @@ const typeClass = {
         </template>
 
         <div class="tabs-bar">
-            <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+            <button v-for="tab in tabs" :key="tab.key" @click="changeTab(tab.key)"
                 :class="['tab-btn', activeTab === tab.key ? 'tab-active' : '']">
                 {{ tab.label }}
                 <span :class="[
@@ -125,14 +142,14 @@ const typeClass = {
         </div>
 
         <div class="post-list">
-            <div v-if="filteredPosts.length === 0" class="empty-state">
+            <div v-if="postsList.length === 0" class="empty-state">
                 <i class="bi bi-inbox text-3xl text-gray-300"></i>
                 <p class="text-sm text-gray-400 mt-2">
                     Không có tin đăng nào trong danh mục này
                 </p>
             </div>
 
-            <div v-for="post in filteredPosts" :key="post.id" class="post-card">
+            <div v-for="post in postsList" :key="post.id" class="post-card">
                 <div class="post-thumb">
                     <img v-if="post.image && post.image.length > 0" :src="post.image[0]"
                         class="w-full h-full object-cover rounded-lg" />
@@ -174,6 +191,9 @@ const typeClass = {
                     <span v-else class="badge-reject">✗ Đã từ chối</span>
                 </div>
             </div>
+
+            <!-- Component Phân Trang -->
+            <Pagination :links="paginationLinks" />
         </div>
     </AdminLayout>
 </template>

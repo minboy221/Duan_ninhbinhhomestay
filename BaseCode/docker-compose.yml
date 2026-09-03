@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+    # 1. Container chạy PHP-FPM Laravel
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datn_app
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    working_dir: /var/www
+    volumes:
+      - .:/var/www
+    networks:
+      - datn_network
+    depends_on:
+      - db
+  # 2. Container Nginx Web Server (Mở cổng 8000 trên máy tính)
+  webserver:
+    image: nginx:alpine
+    container_name: datn_webserver
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+    networks:
+      - datn_network
+    depends_on:
+      - app
+
+   # 3. Container Cơ sở dữ liệu MySQL 8.0 (Mở cổng 3307 trên máy tính)
+  db:
+    image: mysql:8.0
+    container_name: datn_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: datn_homestay
+    ports:
+      - "3307:3306"
+    volumes:
+      - datn_dbdata:/var/lib/mysql
+    networks:
+      - datn_network
+
+
+  # 4. Container Redis Cache & Session
+  redis:
+    image: redis:alpine
+    container_name: datn_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - datn_network
+
+networks:
+  datn_network:
+    driver: bridge
+
+volumes:
+  datn_dbdata:
+    driver: local

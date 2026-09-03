@@ -3,7 +3,6 @@ import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, useForm } from "@inertiajs/vue3";
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { showSuccess, showError } from "@/Utils/swal";
-
 const search = ref("");
 const typeFilter = ref("all");
 const statusFilter = ref("all");
@@ -25,9 +24,6 @@ const settingsForm = useForm({
 function saveSettings() {
     settingsForm.post(route("admin.reports.update-days"), {
         preserveScroll: true,
-        onSuccess: () => {
-            showSuccess("Thành công", "Cập nhật thời hạn thương lượng thành công!");
-        },
     });
 }
 
@@ -39,7 +35,9 @@ const typeMap = {
 };
 const statusMap = {
     pending: { label: "Chờ xử lý", class: "s-orange" },
+    investigating: { label: "Đang thương lượng", class: "s-blue" },
     resolved: { label: "Đã xử lý", class: "s-green" },
+    rejected: { label: "Từ chối", class: "s-red" },
     ignored: { label: "Bỏ qua", class: "s-gray" },
 };
 
@@ -80,6 +78,15 @@ const paginatedFiltered = computed(() => {
     return filtered.value.slice(start, start + perPage);
 });
 
+const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+};
+
 const updateForm = useForm({
     status: "",
     admin_note: "",
@@ -108,10 +115,10 @@ function handleAction(act) {
         preserveScroll: true,
         onSuccess: () => {
             showModal.value = false;
-            showSuccess("Thành công", "Xử lý báo cáo thành công!");
+            showSuccess("Thành công", "Đã xử lý báo cáo thành công!");
         },
         onError: (errors) => {
-            showError("Lỗi xử lý", Object.values(errors).join("\n"));
+            showError("Lỗi", Object.values(errors).join("\n"));
         },
     });
 }
@@ -127,15 +134,8 @@ function zoomImage(url) {
 
 onMounted(() => {
     window.Echo.channel("reports").listen("ReportUpdated", (e) => {
-        if (selectedReport.value && selectedReport.value.id === e.report.id) {
-            selectedReport.value = {
-                ...selectedReport.value,
-                ...e.report,
-            };
-        }
         //dành cho admin
         if (
-            typeof selected !== "undefined" &&
             selected.value &&
             selected.value.id === e.report.id
         ) {
@@ -154,8 +154,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-    window.Echo.leaveChannel('reports');
-})
+    window.Echo.leaveChannel("reports");
+});
 </script>
 
 <template>
@@ -279,107 +279,164 @@ onUnmounted(() => {
             <select v-model="statusFilter" class="filter-select">
                 <option value="all">Tất cả trạng thái</option>
                 <option value="pending">Chờ xử lý</option>
+                <option value="investigating">Đang thương lượng</option>
                 <option value="resolved">Đã xử lý</option>
+                <option value="rejected">Từ chối</option>
                 <option value="ignored">Bỏ qua</option>
             </select>
         </div>
 
-        <!-- Table -->
-        <div class="table-card">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Người báo cáo</th>
-                        <th>Đối tượng bị báo cáo</th>
-                        <th>Loại vi phạm</th>
-                        <th>Ngày</th>
-                        <th>Trạng thái</th>
-                        <th style="text-align: center">Xử lý</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="!filtered.length">
-                        <td colspan="7" class="empty-row">
-                            <i class="bi bi-inbox"></i>
-                            <p>Không có báo cáo nào</p>
-                        </td>
-                    </tr>
-                    <tr v-for="(r, i) in paginatedFiltered" :key="r.id" class="trow">
-                        <td class="idx">
-                            {{ (currentPage - 1) * perPage + i + 1 }}
-                        </td>
-                        <td>
-                            <p class="fw">{{ r.from }}</p>
-                            <p class="sm-gray">{{ r.fromEmail }}</p>
-                        </td>
-                        <td class="sm-target">{{ r.target }}</td>
-                        <td>
-                            <span class="type-badge type-gray">{{
-                                r.reason
-                                }}</span>
-                        </td>
-                        <td class="sm-gray">{{ r.date }}</td>
-                        <td>
-                            <span :class="[
-                                'status-chip',
-                                statusMap[r.status]?.class,
-                            ]">{{ statusMap[r.status]?.label }}</span>
-                        </td>
-                        <td style="text-align: center">
-                            <button @click="openReport(r)" class="act-btn" :class="r.status === 'pending'
-                                    ? 'act-primary'
-                                    : 'act-view'
-                                ">
-                                <i :class="[
-                                    'bi',
+        <!-- Table Card -->
+        <div class="table-card border border-slate-200/80 rounded-2xl shadow-lg bg-white overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="data-table w-full text-left border-collapse min-w-[760px]">
+                    <thead>
+                        <tr class="bg-slate-900 text-slate-200 text-[11px] font-bold uppercase tracking-wider">
+                            <th class="py-3.5 px-4 text-center w-12">#</th>
+                            <th class="py-3.5 px-4">Người báo cáo</th>
+                            <th class="py-3.5 px-4">Đối tượng bị báo cáo</th>
+                            <th class="py-3.5 px-4">Loại vi phạm</th>
+                            <th class="py-3.5 px-4">Ngày tạo</th>
+                            <th class="py-3.5 px-4 text-center">Trạng thái</th>
+                            <th class="py-3.5 px-4 text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-if="!filtered.length">
+                            <td colspan="7" class="empty-row py-12 text-center text-slate-400">
+                                <i class="bi bi-inbox text-4xl block mb-2 text-slate-300"></i>
+                                <p class="text-sm font-semibold">
+                                    Không tìm thấy báo cáo phù hợp
+                                </p>
+                            </td>
+                        </tr>
+                        <tr v-for="(r, i) in paginatedFiltered" :key="r.id" @click="openReport(r)"
+                            class="trow hover:bg-indigo-50/40 transition-colors duration-150 cursor-pointer group">
+                            <td class="idx py-4 px-4 text-center font-bold text-xs text-slate-400">
+                                {{ (currentPage - 1) * perPage + i + 1 }}
+                            </td>
+                            <td class="py-4 px-4">
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-sm shrink-0">
+                                        {{ getInitials(r.from) }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p
+                                            class="font-bold text-xs sm:text-sm text-slate-800 group-hover:text-indigo-600 transition-colors truncate">
+                                            {{ r.from }}
+                                        </p>
+                                        <p class="text-[11px] text-slate-400 truncate">
+                                            {{ r.fromEmail }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-4 px-4">
+                                <span
+                                    class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 border border-slate-200/60">
+                                    <i class="bi bi-file-text text-indigo-500"></i>
+                                    {{ r.target }}
+                                </span>
+                            </td>
+                            <td class="py-4 px-4">
+                                <span
+                                    class="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200/60 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                                    <i class="bi bi-exclamation-triangle-fill text-[10px] text-rose-500"></i>
+                                    {{ r.reason }}
+                                </span>
+                            </td>
+                            <td class="py-4 px-4 text-xs font-medium text-slate-500 whitespace-nowrap">
+                                <i class="bi bi-calendar3 mr-1 text-slate-400"></i>
+                                {{ r.date }}
+                            </td>
+                            <td class="py-4 px-4 text-center">
+                                <span :class="[
+                                    'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap border shadow-2xs',
                                     r.status === 'pending'
-                                        ? 'bi-clipboard2-check'
-                                        : 'bi-eye',
-                                ]"></i>
-                                {{ r.status === "pending" ? "Xử lý" : "Xem" }}
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                        : r.status === 'investigating'
+                                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                            : r.status === 'resolved'
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : r.status === 'rejected'
+                                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                    : 'bg-slate-100 text-slate-600 border-slate-200',
+                                ]">
+                                    <span v-if="r.status === 'pending'"
+                                        class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                                    <span v-else-if="r.status === 'investigating'"
+                                        class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                    <span v-else-if="r.status === 'resolved'"
+                                        class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span v-else-if="r.status === 'rejected'"
+                                        class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                    <span v-else class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                    <span>{{
+                                        statusMap[r.status]?.label ||
+                                        (r.status === "investigating"
+                                            ? "Đang thương lượng"
+                                            : r.status)
+                                    }}</span>
+                                </span>
+                            </td>
+                            <td class="py-4 px-4 text-center" @click.stop>
+                                <button @click="openReport(r)" :class="[
+                                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5',
+                                    r.status === 'pending'
+                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20 hover:shadow-indigo-500/30'
+                                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700',
+                                ]">
+                                    <i :class="[
+                                        'bi',
+                                        r.status === 'pending'
+                                            ? 'bi-lightning-charge-fill text-amber-300'
+                                            : 'bi-eye',
+                                    ]"></i>
+                                    <span>{{
+                                        r.status === "pending" ? "Xử lý" : "Xem"
+                                        }}</span>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-            <!-- Phân trang client-side cho admin -->
-            <div class="flex justify-center items-center gap-1.5 mt-4 p-4 border-t border-slate-100"
-                v-if="filtered.length > perPage" style="
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    gap: 6px;
-                    padding: 16px;
-                    border-top: 1px solid #f1f5f9;
-                    background: #fff;
-                ">
-                <button @click="currentPage > 1 && currentPage--" :disabled="currentPage === 1"
-                    class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold transition bg-white"
-                    :style="currentPage === 1
-                            ? 'color: #94a3b8; cursor: not-allowed; background: #f8fafc;'
-                            : 'color: #334155; cursor: pointer;'
-                        ">
-                    Trước
-                </button>
-
-                <span class="text-xs text-slate-500 font-semibold mx-2">
-                    Trang {{ currentPage }} /
-                    {{ Math.ceil(filtered.length / perPage) }}
+            <!-- Phân trang -->
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-3 p-4 border-t border-slate-100 bg-slate-50/50"
+                v-if="filtered.length > perPage">
+                <span class="text-xs text-slate-500 font-semibold">
+                    Hiển thị
+                    <strong>{{ (currentPage - 1) * perPage + 1 }}</strong> -
+                    <strong>{{
+                        Math.min(currentPage * perPage, filtered.length)
+                        }}</strong>
+                    trên <strong>{{ filtered.length }}</strong> báo cáo
                 </span>
 
-                <button @click="
-                    currentPage < Math.ceil(filtered.length / perPage) &&
-                    currentPage++
-                    " :disabled="currentPage === Math.ceil(filtered.length / perPage)
-                        " class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold transition bg-white"
-                    :style="currentPage === Math.ceil(filtered.length / perPage)
-                            ? 'color: #94a3b8; cursor: not-allowed; background: #f8fafc;'
-                            : 'color: #334155; cursor: pointer;'
-                        ">
-                    Sau
-                </button>
+                <div class="flex items-center gap-2">
+                    <button @click="currentPage > 1 && currentPage--" :disabled="currentPage === 1"
+                        class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-xs font-bold transition-all bg-white shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700">
+                        <i class="bi bi-chevron-left"></i> Trước
+                    </button>
+
+                    <span
+                        class="text-xs text-indigo-700 font-extrabold px-3 py-1.5 bg-indigo-50 rounded-xl border border-indigo-100">
+                        {{ currentPage }} /
+                        {{ Math.ceil(filtered.length / perPage) }}
+                    </span>
+
+                    <button @click="
+                        currentPage <
+                        Math.ceil(filtered.length / perPage) &&
+                        currentPage++
+                        " :disabled="currentPage === Math.ceil(filtered.length / perPage)
+                            "
+                        class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-xs font-bold transition-all bg-white shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700">
+                        Sau <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -401,9 +458,36 @@ onUnmounted(() => {
                                 }})</span>
                             </div>
                             <div class="ib-row">
-                                <span class="ib-l">Đối tượng</span><span class="ib-v font-bold text-indigo-600">{{
-                                    selected?.target
-                                    }}</span>
+                                <span class="ib-l">Đối tượng</span><span class="ib-v font-bold text-indigo-600">
+                                    {{ selected?.target }}
+                                    <span v-if="selected?.target_info" style="
+                                            display: block;
+                                            font-size: 11px;
+                                            color: #64748b;
+                                            font-weight: 400;
+                                        ">
+                                        ({{ selected?.target_info }})
+                                    </span>
+                                </span>
+                            </div>
+                            <div v-if="selected?.target_file_url" class="ib-row">
+                                <span class="ib-l">Hợp đồng gốc</span><span class="ib-v">
+                                    <a :href="selected.target_file_url" target="_blank" style="
+                                            display: inline-flex;
+                                            align-items: center;
+                                            gap: 6px;
+                                            padding: 4px 10px;
+                                            background: #e0e7ff;
+                                            color: #4338ca;
+                                            font-size: 12px;
+                                            font-weight: 700;
+                                            border-radius: 6px;
+                                            text-decoration: none;
+                                        ">
+                                        <i class="bi bi-file-earmark-pdf-fill"></i>
+                                        Xem / Tải file Hợp đồng
+                                    </a>
+                                </span>
                             </div>
                             <div class="ib-row">
                                 <span class="ib-l">Lý do</span><span class="ib-v"><span
@@ -658,12 +742,14 @@ img, idx
     background: #fff;
     border-radius: 8px;
     border: 1px solid #f1f5f9;
-    overflow: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .data-table {
     width: 100%;
+    min-width: 680px;
     border-collapse: collapse;
     font-size: 13px;
 }
@@ -964,5 +1050,48 @@ img, idx
 
 .btn-resolve:hover {
     background: #16a34a;
+}
+
+/* Responsive Media Queries */
+@media (max-width: 1024px) {
+    .summary-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    .summary-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .filter-bar {
+        flex-direction: column;
+    }
+
+    .search-wrap {
+        width: 100%;
+    }
+
+    .filter-select {
+        width: 100%;
+    }
+
+    .modal-box {
+        width: 95vw;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-footer {
+        flex-direction: column;
+    }
+
+    .btn-cancel,
+    .btn-ignore,
+    .btn-resolve {
+        width: 100%;
+    }
 }
 </style>

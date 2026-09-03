@@ -22,18 +22,27 @@ class PublicListingController extends Controller
     {
         $this->listingService = $listingService;
     }
-
-    //Hiển thị danh sách tin đăng của phòng trọ công khai
+    // 2. Hàm index hiển thị trang tìm kiếm tin đăng trọ cho Client (timtro.vue)
     public function index(Request $request, CategoryService $categoryService)
     {
-        //Giao việc lọc dữ liệu cho Service
+        // Gọi Service lọc danh sách tin đăng chuẩn (đã xử lý đẩy tin xen kẽ)
         $filteredData = $this->listingService->getFilteredListings($request);
         $categoryData = $categoryService->getActiveData();
-
         return Inertia::render('Client/timtro', [
             'listings' => $filteredData['listings'],
             'ai_parsed' => $filteredData['ai_parsed'],
-            'filters' => $request->only(['search', 'ai_prompt', 'area_id', 'price', 'dientich', 'categories', 'amenities', 'price_min', 'price_max', 'floor']),
+            'filters' => $request->only([
+                'search',
+                'ai_prompt',
+                'area_id',
+                'price',
+                'dientich',
+                'categories',
+                'amenities',
+                'price_min',
+                'price_max',
+                'floor'
+            ]),
             'categories' => $categoryData['types'],
             'areas' => $categoryData['areas'],
             'amenities' => $categoryData['amenities'],
@@ -243,18 +252,18 @@ class PublicListingController extends Controller
 
         $roomId = $post->room_id;
         //Thêm dàng buộc cho user nếu đang có hợp đồng active tại cơ sở khác, chặn không cho đặt lịch xem phòng
-        $hasActiveContract = \App\Models\Contract::where('tenant_id',Auth::id())
-        ->whereIn('status',['signed','active','awaiting_upload','expiring','termination_requested'])
-        ->exists();
-        //check nếu khách là thành viên ở ghép đang ở trong phòng
-        if(!$hasActiveContract){
-            $hasActiveContract = \App\Models\RoomResident::where('user_id',Auth::id())
-            ->where('status','active')
+        $hasActiveContract = \App\Models\Contract::where('tenant_id', Auth::id())
+            ->whereIn('status', ['signed', 'active', 'awaiting_upload', 'expiring', 'termination_requested'])
             ->exists();
+        //check nếu khách là thành viên ở ghép đang ở trong phòng
+        if (!$hasActiveContract) {
+            $hasActiveContract = \App\Models\RoomResident::where('user_id', Auth::id())
+                ->where('status', 'active')
+                ->exists();
         }
         //nếu đang có hợp đồng/ ở trọ -> chặn  không cho đặt lịch bất kỳ tin đăng phòng trọ khác
-        if($hasActiveContract){
-            return redirect()->back()->with('error','Bạn đang có hợp đồng thuê phòng còn hiệu lực trên hệ thống. Không được phép đặt lịch xem các tin đăng khác!');
+        if ($hasActiveContract) {
+            return redirect()->back()->with('error', 'Bạn đang có hợp đồng thuê phòng còn hiệu lực trên hệ thống. Không được phép đặt lịch xem các tin đăng khác!');
         }
         //kiểm tra khung giờ này đã có người đặt trước hoặc đang chờ duyểt
         if ($this->listingService->isSlotOccupied($roomId, $request->date, $request->time)) {
@@ -410,7 +419,7 @@ class PublicListingController extends Controller
             'recommendations' => $aiData['rooms'] ?? [],
         ]);
     }
-    
+
     // Lưu bình luận trực tiếp từ trang chi tiết phòng
     public function submitDirectReview(Request $request, \App\Models\Room $room)
     {
@@ -424,21 +433,23 @@ class PublicListingController extends Controller
         ]);
 
         $user = Auth::user();
-        
+
         $isAdmin = $user->role === 'admin';
         $isOwner = $room->boardingHouse && $user->id === $room->boardingHouse->user_id;
-        
+
         // Kiểm tra xem user có hợp đồng hoặc lịch hẹn không (có quyền bình luận không)
         $hasContract = \App\Models\Contract::where('tenant_id', $user->id)
             ->where('room_id', $room->id)
+            ->whereIn('status', ['signed', 'active', 'expiring', 'expired'])
             ->exists();
-            
+
         $hasAppointment = \App\Models\Appointment::where('user_id', $user->id)
             ->where('room_id', $room->id)
+            ->whereIn('status', ['approved', 'completed'])
             ->exists();
-            
+
         if (!$isAdmin && !$isOwner && !$hasContract && !$hasAppointment) {
-            return redirect()->back()->with('error', 'Bạn phải từng thuê hoặc xem phòng này mới có thể đánh giá.');
+            return redirect()->back()->with('error', 'Bạn phải từng hoàn thành xem phòng hoặc thuê phòng này mới có thể đánh giá.');
         }
 
         // Tạo review

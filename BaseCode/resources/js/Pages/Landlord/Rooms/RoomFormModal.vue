@@ -90,7 +90,7 @@ const colorsConfig = {
 const statusTransitions = {
     available: ["deposited", "maintenance"],
     deposited: ["rented", "available"],
-    rented: ["expiring_soon", "maintenance"],
+    rented: [],
     expiring_soon: ["pending_renewal"],
     pending_renewal: ["rented", "available"],
     maintenance: ["available"],
@@ -265,13 +265,19 @@ const submit = () => {
         });
     }
 
-    emit("submitted",{
+    emit("submitted", {
         formData: fd,
         resetSubmitting: () => {
             submitting.value = false;
         }
     });
 };
+
+//check phòng có đang trong trạng thái đã thuê
+const isRentedOrOccupied = computed(() => {
+    if (!props.isEdit || !props.room) return false;
+    return (originalStatus.value === 'rented' || (Number(props.room.current_people) || 0) > 0);
+});
 </script>
 
 <template>
@@ -373,8 +379,8 @@ const submit = () => {
                 </div>
 
                 <!-- Price, Area, and Capacity Row -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-                    <div class="flex flex-col justify-start space-y-1">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="flex flex-col justify-end space-y-1">
                         <label class="text-xs font-bold text-slate-500">Giá thuê (VNĐ/tháng)
                             <span v-if="!isInfoLocked" class="text-rose-500">*</span></label>
                         <div v-if="isInfoLocked"
@@ -393,10 +399,6 @@ const submit = () => {
                                     ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500'
                                     : 'border-slate-200 focus:border-emerald-500',
                             ]" @input="errors.price = ''" />
-                            <div class="text-[10px] text-emerald-600 font-bold mt-1 min-h-[16px]" v-if="form.price">
-                                Bằng số: {{ new Intl.NumberFormat("vi-VN").format(form.price) }}đ
-                            </div>
-                            <div v-else class="min-h-[16px]"></div>
                             <span v-if="errors.price"
                                 class="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
                                 <i class="bi bi-exclamation-circle"></i>
@@ -405,7 +407,7 @@ const submit = () => {
                         </template>
                     </div>
 
-                    <div class="flex flex-col justify-start space-y-1">
+                    <div class="flex flex-col justify-end space-y-1">
                         <label class="text-xs font-bold text-slate-500">Diện tích (m²)
                             <span v-if="!isEdit || form.status === 'maintenance'" class="text-rose-500">*</span></label>
 
@@ -421,7 +423,6 @@ const submit = () => {
                                     ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500'
                                     : 'border-slate-200 focus:border-emerald-500',
                             ]" @input="errors.area = ''" />
-                            <div class="min-h-[16px]"></div>
                             <span v-if="errors.area"
                                 class="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
                                 <i class="bi bi-exclamation-circle"></i>
@@ -430,7 +431,7 @@ const submit = () => {
                         </template>
                     </div>
 
-                    <div class="flex flex-col justify-start space-y-1">
+                    <div class="flex flex-col justify-end space-y-1">
                         <label class="text-xs font-bold text-slate-500">Sức chứa (người)
                             <span v-if="!isEdit || form.status === 'maintenance'" class="text-rose-500">*</span></label>
 
@@ -446,7 +447,6 @@ const submit = () => {
                                     ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500'
                                     : 'border-slate-200 focus:border-emerald-500',
                             ]" @input="errors.capacity = ''" />
-                            <div class="min-h-[16px]"></div>
                             <span v-if="errors.capacity"
                                 class="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
                                 <i class="bi bi-exclamation-circle"></i>
@@ -458,30 +458,40 @@ const submit = () => {
 
                 <!-- Status Select Grid -->
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-500">Trạng thái phòng
-                        <span class="text-rose-500">*</span></label>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1 items-stretch">
+                    <label class="text-xs font-bold text-slate-500">
+                        Trạng thái phòng <span class="text-rose-500">*</span>
+                    </label>
+                    <!-- TRƯỜNG HỢP 1: Phòng đang ĐÃ THUÊ / CÓ NGƯỜI Ở -> Khóa và hiển thị Cảnh báo -->
+                    <div v-if="isRentedOrOccupied"
+                        class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
+                        <div class="flex items-center gap-1.5 font-bold">
+                            <i class="bi bi-lock-fill text-amber-600"></i>
+                            <span>Trạng thái phòng bị khóa chỉnh sửa</span>
+                        </div>
+                        <p class="text-[11px] text-amber-700 leading-relaxed">
+                            Phòng này đang có Hợp đồng hiệu lực hoặc đang có cư dân ở. Trạng thái phòng được tự động
+                            quản lý theo Hợp
+                            đồng thuê.
+                        </p>
+                    </div>
+                    <!-- TRƯỜNG HỢP 2: Phòng trống -> Cho phép chọn trạng thái bình thường -->
+                    <div v-else class="grid grid-cols-2 gap-2 mt-1">
                         <label v-for="(cfg, key) in statusConfig" :key="key" v-show="isEdit
-                                ? allowedKeys(originalStatus).includes(key)
-                                : [
-                                    'available',
-                                    'under_construction',
-                                ].includes(key)
+                            ? allowedKeys(originalStatus).includes(key)
+                            : ['available', 'under_construction'].includes(key)
                             " :class="[
-                                'flex items-center justify-center gap-2 p-2.5 min-h-[42px] border rounded-xl text-[11px] font-bold cursor-pointer transition-all text-center',
-                                form.status === key
-                                    ? 'bg-emerald-50 border-emerald-500 text-emerald-600 shadow-sm shadow-emerald-500/10'
-                                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
-                            ]">
+                'flex items-center gap-2 p-2.5 border rounded-xl text-[11px] font-bold cursor-pointer transition-all',
+                form.status === key
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-600 shadow-sm shadow-emerald-500/10'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+            ]">
                             <input type="radio" :value="key" v-model="form.status" class="hidden" />
                             <i :class="[
                                 'bi',
                                 cfg.icon,
-                                form.status === key
-                                    ? 'text-emerald-500'
-                                    : 'text-slate-400',
+                                form.status === key ? 'text-emerald-500' : 'text-slate-400',
                             ]"></i>
-                            <span class="whitespace-nowrap">{{ cfg.label }}</span>
+                            <span>{{ cfg.label }}</span>
                         </label>
                     </div>
                 </div>
@@ -490,9 +500,9 @@ const submit = () => {
                 <div v-if="services.length > 0" class="space-y-1">
                     <label class="text-xs font-bold text-slate-500">Dịch vụ áp dụng
                         <span class="text-slate-400 font-normal">(không bắt buộc)</span></label>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1 items-stretch">
+                    <div class="grid grid-cols-2 gap-2 mt-1">
                         <label v-for="srv in services" :key="srv.id" :class="[
-                            'flex items-center gap-2 p-2.5 min-h-[44px] border rounded-xl text-[11px] font-bold cursor-pointer transition-all',
+                            'flex items-center gap-2 p-2.5 border rounded-xl text-[11px] font-bold cursor-pointer transition-all',
                             form.service_ids.includes(srv.id)
                                 ? [
                                     colorsConfig[srv.color || 'emerald']
@@ -525,10 +535,10 @@ const submit = () => {
                                         ]?.text
                                         : 'text-slate-400',
                                 ]">{{
-                                        new Intl.NumberFormat("vi-VN").format(
-                                            srv.price,
-                                        )
-                                    }}đ</span>
+                                    new Intl.NumberFormat("vi-VN").format(
+                                        srv.price,
+                                    )
+                                }}đ</span>
                             </div>
                         </label>
                     </div>

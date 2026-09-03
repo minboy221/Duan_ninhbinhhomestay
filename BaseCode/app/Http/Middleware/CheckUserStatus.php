@@ -17,14 +17,16 @@ class CheckUserStatus
     public function handle(Request $request, Closure $next): Response
     {
         if (Auth::check() && Auth::user()->status === 'locked') {
-            $isAdmin = Auth::user()->role === 'admin';
+            $user = Auth::user();
+            $isAdmin = $user->role === 'admin';
+            $reasonText = $user->lock_reason ? " Lý do: \"{$user->lock_reason}\"." : '';
             
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
             $route = $isAdmin ? 'admin.login' : 'login';
-            return redirect()->route($route)->with('error', 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
+            return redirect()->route($route)->with('error', "Tài khoản của bạn đã bị khóa.{$reasonText} Vui lòng liên hệ quản trị viên.");
         }
 
         return $next($request);

@@ -15,10 +15,16 @@ const messaging = firebase.messaging();
 
 // Xử lý thông báo ngầm từ Google Firebase gửi tới điện thoại
 messaging.onBackgroundMessage((payload) => {
-    const notificationTitle = payload.notification.title;
+    // Nếu payload đã có đối tượng notification, Firebase SDK đã tự động hiển thị 1 thông báo trên điện thoại.
+    // Ngắt không gọi showNotification() nữa để tránh bị hiển thị lặp 2 lần!
+    if (payload && payload.notification) {
+        return;
+    }
+
+    const notificationTitle = payload.data?.title || 'Thông báo từ hệ thống';
     const notificationOptions = {
-        body: payload.notification.body,
-        icon: payload.notification.icon || '/icon-192x192.png',
+        body: payload.data?.body || '',
+        icon: payload.data?.icon || '/anh/logoPWA192x192.png',
         vibrate: [200, 100, 200],
         data: { url: payload.data?.url || '/' }
     };

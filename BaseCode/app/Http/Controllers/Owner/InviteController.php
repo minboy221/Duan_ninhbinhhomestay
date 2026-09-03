@@ -8,6 +8,7 @@ use App\Models\PropertyManager;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Services\AuditLogger;
 
 class InviteController extends Controller
 {
@@ -60,6 +61,11 @@ class InviteController extends Controller
             'house' => $boardingHouse->id,
             'permissions' => $permissionString
         ]);
+        AuditLogger::log(
+            'Tạo mã QR phân quyền',
+            "Chủ trọ \"" . auth()->user()->name . "\" vừa tạo mã QR phân quyền quản lý cho nhà trọ \"{$boardingHouse->name}\"",
+            true
+        );
         return response()->json(['url' => $inviteUrl]);
     }
     //người quản lý quét mã QR để nhận quyền
@@ -69,19 +75,17 @@ class InviteController extends Controller
         $permission = explode(',', $request->query('permissions'));
         $user = auth()->user();
         $boardingHouse = BoardingHouse::findOrFail($houseId);
+
         if ($user->id === $boardingHouse->user_id) {
-            return redirect()->route('landlord.dashboard')->with('error', 'bạn đang là chủ sở hữu chính của khu trọ này.');
+            return redirect()->route('landlord.dashboard')->with('error', 'Bạn đang là chủ sở hữu chính của khu trọ này.');
         }
-        //ràng buộc khi quét mã check xem cơ sở này đã có người quản lý khác chưa
-        $existingManager = PropertyManager::where('boarding_house_id', $houseId)->first();
-        if ($existingManager && $existingManager->user_id !== $user->id) {
-            return redirect()->route('landlord.dashboard')->with('error', 'Cơ sở này đã có tài khoản quản lý phụ rồi.');
-        }
-        //nâng cấp vai trò người dùng lên landlord
-        if (in_array($user->role, ['tenant', 'user', 'client'])) {
+
+        // Nâng cấp vai trò người dùng lên landlord nếu chưa phải landlord/admin
+        if ($user->role !== 'landlord' && $user->role !== 'admin') {
             $user->role = 'landlord';
             $user->save();
         }
+
         PropertyManager::updateOrCreate(
             [
                 'boarding_house_id' => $houseId,
@@ -91,6 +95,18 @@ class InviteController extends Controller
                 'permissions' => $permission
             ]
         );
+
+        // Đảm bảo auth user và session được làm mới lập tức cho tài khoản đang đăng nhập
+        \Illuminate\Support\Facades\Auth::setUser($user->fresh());
+        session(['selected_boarding_house_id' => $houseId]);
+        session()->save();
+
+        AuditLogger::log(
+            'Chấp nhận quyền đồng quản lý',
+            "Tài khoản \"{$user->name}\" vừa chấp nhận quyền đồng quản lý nhà trọ \"{$boardingHouse->name}\" từ chủ trọ \"{$boardingHouse->user->name}\"",
+            true
+        );
+
         return redirect()->route('landlord.dashboard')->with('success', 'Bạn đã nhận quyền đồng quản lý thành công!');
     }
 
@@ -105,11 +121,16 @@ class InviteController extends Controller
             'permissions' => 'required|array|min:1'
         ]);
         if (count($request->permissions) >= 5) {
-            return redirect()->back()->with('error', 'Tài khoản phị phải giới hạn ít nhất 1 chức năng.');
+            return redirect()->back()->with('error', 'Tài khoản phụ phải giới hạn ít nhất 1 chức năng.');
         }
         $manager->update([
             'permissions' => $request->permissions
         ]);
+        AuditLogger::log(
+            'Cập nhật quyền quản lý phụ',
+            "Chủ trọ vừa cập nhật lại danh sách quyền quản lý của tài khoản \"{$manager->user->name}\" tại nhà trọ \"{$manager->boardingHouse->name}\"",
+            true
+        );
         return redirect()->back()->with('success', 'Cập nhật quyền quản lý thành công!');
     }
     //huỷ quyền quản lý của tài khoản phụ
@@ -119,7 +140,22 @@ class InviteController extends Controller
         if ($manager->boardingHouse->user_id !== auth()->id()) {
             abort(403, 'Bạn không có quyền thực hiện hành động này.');
         }
+        $targetUser = $manager->user;
         $manager->delete();
+        //nếu tài khoản phụ không còn thuộc sở hữu nhà trọ nào
+        if($targetUser && $targetUser->role === 'landlord'){
+            $ownsHouse = \App\Models\BoardingHouse::where('user_id',$targetUser->id)->exists();
+            $managesOtherHouse = \App\Models\PropertyManager::where('user_id', $targetUser->id)->exists();
+            if(!$ownsHouse && !$managesOtherHouse){
+                $targetUser->role = 'tenant';
+                $targetUser->save();
+            }
+        }
+        AuditLogger::log(
+            'Hủy quyền quản lý phụ',
+            "Chủ trọ vừa hủy quyền đồng quản lý của tài khoản \"{$manager->user->name}\" tại nhà trọ \"{$manager->boardingHouse->name}\"",
+            true
+        );
         return redirect()->back()->with('success', 'Đã huỷ quyền đồng quản lý thành công.');
     }
 }

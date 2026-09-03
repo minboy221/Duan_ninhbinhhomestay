@@ -63,12 +63,14 @@ class AuthenticatedSessionController extends Controller
 
         // Check if account is locked
         if (Auth::user()->status === 'locked') {
+            $lockedUser = Auth::user();
+            $reasonText = $lockedUser->lock_reason ? " Lý do: \"{$lockedUser->lock_reason}\"." : '';
             $this->authService->logoutAccount();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
             
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'email' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
+                'email' => "Tài khoản của bạn đã bị khóa.{$reasonText} Vui lòng liên hệ quản trị viên.",
             ]);
         }
 
@@ -77,7 +79,9 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         $user = $request->user();
-        $request->session()->forget('url.intended');
+        if($request->session()->has('url.intended')){
+            return redirect()->intended();
+        }
 
         // chuyển hướng chính xác theo vai trò role của tài khoản
         if ($user && $user->role === 'landlord') {

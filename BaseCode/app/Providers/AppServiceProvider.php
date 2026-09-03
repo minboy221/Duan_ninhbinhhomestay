@@ -13,34 +13,35 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(
             \App\Repositories\Interfaces\UserRepositoryInterface::class,
-            \App\Repositories\UserRepository::class,
+            \App\Repositories\Eloquent\UserRepository::class
         );
 
         $this->app->bind(
-            \App\Repositories\Contracts\ReportRepositoryInterface::class,
+            \App\Repositories\Interfaces\ReportRepositoryInterface::class,
             \App\Repositories\Eloquent\ReportRepository::class
         );
-        
+
         $this->app->bind(
             \App\Repositories\Interfaces\BoardingHouseRepositoryInterface::class,
-            \App\Repositories\BoardingHouseRepository::class
+            \App\Repositories\Eloquent\BoardingHouseRepository::class
         );
-        
+
         $this->app->bind(
             \App\Repositories\Interfaces\RoomPostRepositoryInterface::class,
-            \App\Repositories\RoomPostRepository::class
+            \App\Repositories\Eloquent\RoomPostRepository::class
         );
-        
+
         $this->app->bind(
             \App\Repositories\Interfaces\ReviewRepositoryInterface::class,
-            \App\Repositories\ReviewRepository::class
+            \App\Repositories\Eloquent\ReviewRepository::class
         );
-        
+
         $this->app->bind(
             \App\Repositories\Interfaces\TenantRepositoryInterface::class,
-            \App\Repositories\TenantRepository::class
+            \App\Repositories\Eloquent\TenantRepository::class
         );
     }
+
 
     /**
      * Bootstrap any application services.

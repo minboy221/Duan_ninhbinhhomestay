@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use App\Http\Requests\StoreReportRequest;
 use App\Http\Requests\ResolveReportRequest;
 use App\Services\ReportService;
-use App\Repositories\Contracts\ReportRepositoryInterface;
+use App\Repositories\Interfaces\ReportRepositoryInterface;
 use Inertia\Inertia;
 
 class ReportController extends Controller
@@ -133,11 +133,11 @@ class ReportController extends Controller
             $floorName = null;
             if ($report->reportable_type === \App\Models\Room::class) {
                 $roomNumber = $report->reportable->room_number ?? null;
-                $floorName = $report->reportable->floot->name ?? null;
+                $floorName = $report->reportable->floor->name ?? null;
             } elseif ($report->reportable_type === \App\Models\Invoice::class) {
                 $report->reportable->loadMissing('contract.room.floor');
-                $roomNumber = $report->reportable->contract->room->floor->name ?? null;
-                $floorName = $report->reportable->contract->room->Floor->name ?? null;
+                $roomNumber = $report->reportable->contract->room->room_number ?? null;
+                $floorName = $report->reportable->contract->room->floor->name ?? null;
             } elseif ($report->reportable_type === \App\Models\Contract::class) {
                 $report->reportable->loadMissing('room.floor');
                 $roomNumber = $report->reportable->room->room_number ?? null;

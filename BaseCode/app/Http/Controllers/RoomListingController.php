@@ -63,11 +63,11 @@ class RoomListingController extends Controller
     {
         $user = auth()->user();
         $room = Room::where('id', $request->room_id)
-        ->whereHas('boardingHouse', function($q){
-            $q->where('user_id', auth()->id());
-        })->first();
-        if(!$room){
-            return redirect()->back()->with('error','Phòng trọ được chọn không hợp lệ hoặc không thuộc quyền sở hữu của bạn!');
+            ->whereHas('boardingHouse', function ($q) {
+                $q->where('user_id', auth()->id());
+            })->first();
+        if (!$room) {
+            return redirect()->back()->with('error', 'Phòng trọ được chọn không hợp lệ hoặc không thuộc quyền sở hữu của bạn!');
         }
         // Check phòng có bị đóng băng không
         if ($user->isRoomFrozen($room)) {
@@ -105,9 +105,9 @@ class RoomListingController extends Controller
             abort(403);
         }
         //chặn check nếu phòng đã đẩy người
-        if($post->room && $post->room->capacity > 0 && $post->room->current_people >= $post->room->capacity){
+        if ($post->room && $post->room->capacity > 0 && $post->room->current_people >= $post->room->capacity) {
             return redirect()->route('landlord.listings.index')
-            ->with('error','Phòng này hiện đã đủ số lượng người ở hệ thống từ chối cập nhật tin đăng!');
+                ->with('error', 'Phòng này hiện đã đủ số lượng người ở hệ thống từ chối cập nhật tin đăng!');
         }
 
         $status = $request->input('action') === 'draft' ? 'draft' : 'pending';
@@ -206,31 +206,93 @@ class RoomListingController extends Controller
             ->with('success', 'Đã đóng tin đăng thành công! tin đăng đã được gỡ bỏ');
     }
 
+    // Đẩy tin đăng lên đầu trang
+    public function bump($id)
+    {
+        $post = RoomPost::findOrFail($id);
+        if ($post->landlord_id !== auth()->id()) {
+            abort(403, 'Bạn không có quyền đẩy tin đăng này');
+        }
+        // Cách 15 phút cho cùng 1 bài đẩy tin đăng
+        if ($post->bumped_at && $post->bumped_at->diffInMinutes(now()) < 15) {
+            $remainingMinutes = 15 - (int) $post->bumped_at->diffInMinutes(now());
+            return redirect()->back()->with('error', "Bài đăng này vừa được đẩy. Vui lòng chờ thêm {$remainingMinutes} phút nữa để đẩy tiếp!");
+        }
+        if ($post->status !== 'approved') {
+            return redirect()->back()->with('error', 'Chỉ có thể đẩy những tin đang được hiển thị!');
+        }
+        $user = auth()->user();
+        if (!$user->hasUnlimitedBump() && $user->bump_credits <= 0) {
+            return redirect()->back()->with('error', 'Bạn đã hết lượt đẩy tin! Vui lòng nâng cấp Gói Dịch Vụ.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($post, $user) {
+            $post->update([
+                'bumped_at' => now(),
+                'bump_count' => $post->bump_count + 1
+            ]);
+
+            if (!$user->hasUnlimitedBump()) {
+                $user->decrement('bump_credits');
+            }
+
+            \App\Models\BumpLog::create([
+                'room_post_id' => $post->id,
+                'user_id' => $user->id,
+                'package_name' => $user->package_name ?? 'Gói dịch vụ',
+                'bumped_at' => now(),
+            ]);
+        });
+
+        return redirect()->route('landlord.listings.index')
+            ->with('success', 'Đã đẩy tin thành công! Tin đăng của bạn đã được đưa lên đầu trang.');
+    }
+
+    // Lấy lịch sử 20 lần đẩy tin gần nhất của Chủ trọ
+    public function bumpHistory()
+    {
+        $logs = \App\Models\BumpLog::with('roomPost:id,title')
+            ->where('user_id', auth()->id())
+            ->orderBy('id', 'desc')
+            ->limit(20)
+            ->get()
+            ->map(function ($log) {
+                return [
+                    'id' => $log->id,
+                    'title' => $log->roomPost->title ?? 'Bài đăng đã bị xóa',
+                    'package_name' => $log->package_name ?? 'Gói dịch vụ',
+                    'bumped_at' => $log->bumped_at ? $log->bumped_at->format('H:i - d/m/Y') : '',
+                ];
+            });
+
+        return response()->json($logs);
+    }
+
     /**
      * Xử lý tạo lịch hẹn và gửi thông báo cho chủ trọ
      */
-    public function createAppointment($id, array $data)
-    {
-        $post = RoomPost::with('room.boardingHouse')->findOrFail($id);
-        $landlordId = $post->room->boardingHouse->user_id ?? $post->landlord_id;
+    // public function createAppointment($id, array $data)
+    // {
+    //     $post = RoomPost::with('room.boardingHouse')->findOrFail($id);
+    //     $landlordId = $post->room->boardingHouse->user_id ?? $post->landlord_id;
 
-        $appointment = Appointment::create([
-            'user_id' => Auth::id(), // Đã sửa lỗi usser_id
-            'landlord_id' => $landlordId,
-            'room_id' => $post->room_id,
-            'date' => $data['date'],
-            'time' => $data['time'],
-            'note' => $data['note'] ?? null,
-            'status' => 'pending',
-            'notified' => false,
-        ]);
+    //     $appointment = Appointment::create([
+    //         'user_id' => Auth::id(), // Đã sửa lỗi usser_id
+    //         'landlord_id' => $landlordId,
+    //         'room_id' => $post->room_id,
+    //         'date' => $data['date'],
+    //         'time' => $data['time'],
+    //         'note' => $data['note'] ?? null,
+    //         'status' => 'pending',
+    //         'notified' => false,
+    //     ]);
 
-        $landlord = $appointment->landlord;
-        if ($landlord) {
-            $landlord->notify(new NewAppointment($appointment));
-        }
+    //     $landlord = $appointment->landlord;
+    //     if ($landlord) {
+    //         $landlord->notify(new NewAppointment($appointment));
+    //     }
 
-        return $appointment;
-    }
+    //     return $appointment;
+    // }
 }
 ?>

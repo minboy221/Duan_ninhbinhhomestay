@@ -40,4 +40,29 @@ class LandlordSubscription extends Model
     public function approver(){
         return $this->belongsTo(User::class, 'approved_by');
     }
+
+    public function getProofImageAttribute($value)
+    {
+        if (!$value) {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            return $value;
+        }
+
+        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+
+        if ($useR2) {
+            $relativePath = ltrim(str_replace('/storage/', '', $value), '/');
+            return $r2Url . '/' . $relativePath;
+        }
+
+        if (!str_starts_with($value, '/storage/')) {
+            return '/storage/' . ltrim($value, '/');
+        }
+
+        return $value;
+    }
 }

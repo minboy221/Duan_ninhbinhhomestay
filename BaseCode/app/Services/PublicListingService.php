@@ -86,6 +86,7 @@ class PublicListingService
                 'isHot' => $post->view_count > 50, // Example logic
                 'landlord_name' => $post->landlord ? $post->landlord->name : null,
                 'landlord_avatar' => $post->landlord ? $post->landlord->avatar : null,
+                'has_vip_frame' => $post->landlord ? $post->landlord->has_vip_frame : false,
             ];
         });
     }
@@ -130,7 +131,8 @@ class PublicListingService
         }
 
         $query = RoomPost::with(['room.boardingHouse', 'room.floor', 'landlord'])
-            ->where('status', 'approved');
+            ->where('status', 'approved')
+            ->orderByRaw('bumped_at IS NULL ASC, bumped_at DESC, published_at DESC');
 
         // 1. Tìm kiếm theo từ khóa (Keyword / Title / Description / Address)
         $search = $request->input('search') ?: ($aiParsed['keyword'] ?? null);

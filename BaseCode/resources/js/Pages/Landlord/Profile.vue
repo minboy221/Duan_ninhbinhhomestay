@@ -28,6 +28,8 @@ const getFileUrl = (path) => {
     return path;
 };
 
+import { getAvatarUrl, DEFAULT_AVATAR } from "@/Utils/media";
+
 const profile = reactive({
     name: props.userData?.name || "",
     phone: props.userData?.phone || "",
@@ -37,7 +39,7 @@ const profile = reactive({
     cccdFront: getFileUrl(props.userData?.verification?.id_card_front),
     cccdBack: getFileUrl(props.userData?.verification?.id_card_back),
     faceAuthImage: getFileUrl(props.userData?.verification?.face_auth_image),
-    avatar: props.userData?.avatar ? `/storage/${props.userData.avatar}` : null,
+    avatar: getAvatarUrl(props.userData?.avatar),
     businessLicense: props.userData?.boardingHouse?.contract_images
         ? getFileUrl(props.userData.boardingHouse.contract_images[0])
         : null,
@@ -62,6 +64,7 @@ const form = useForm({
     phone: '',
     email: '',
     invoice_billing_day: 25,
+    avatar: null,
 })
 
 const saveInfo = () => {
@@ -69,8 +72,11 @@ const saveInfo = () => {
     form.phone = profile.phone
     form.email = profile.email
     form.invoice_billing_day = profile.invoice_billing_day
+    form.avatar = profile.avatarFile
     
     form.post(route('landlord.profile.update'), {
+        forceFormData: true,
+        preserveScroll: true,
         onSuccess: () => {
             showSuccess('Lưu thông tin chủ trọ thành công!')
         }
@@ -127,7 +133,7 @@ const statusConfig = {
                     <div class="prof-card">
                         <div class="avatar-section">
                             <div class="avatar-box">
-                                <img v-if="profile.avatar" :src="profile.avatar" class="avatar-img" />
+                                <img v-if="profile.avatar" :src="profile.avatar" @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR" class="avatar-img" />
                                 <div v-else class="avatar-placeholder">
                                     <i class="bi bi-person-fill"></i>
                                 </div>

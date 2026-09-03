@@ -43,8 +43,8 @@ class InvoiceService
             }
         })->with(['contract.room', 'contract.tenant', 'details.service']);
 
-        $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->get();
-        $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->get();
+        $invoices = (clone $baseQuery)->whereNull('archived_at')->orderBy('created_at', 'desc')->take(100)->get();
+        $archivedInvoices = (clone $baseQuery)->whereNotNull('archived_at')->orderBy('archived_at', 'desc')->take(100)->get();
 
         $activeContracts = Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId, $boardingHouseId) {
             $q->where('user_id', $landlordId);
@@ -506,7 +506,7 @@ class InvoiceService
      */
     public function updateInvoiceStatus(int $id, string $status, ?float $paidAmount, int $landlordId): Invoice
     {
-        $invoice = Invoice::with('contract.room.boardingHouse')->findOrFail($id);
+        $invoice = Invoice::with(['contract.room.boardingHouse', 'contract.tenant'])->findOrFail($id);
         //check quyền sở hữu
         $this->checkInvoiceOwnership($invoice, $landlordId);
         $additionalPaid = (float) ($paidAmount ?? 0);
@@ -529,6 +529,18 @@ class InvoiceService
                 'paid_amount' => 0,
                 'paid_at' => null,
             ]);
+        }
+
+        // Gửi thông báo cho Khách thuê khi xác nhận thanh toán thành công
+        if (in_array($invoice->status, ['paid', 'partially_paid'])) {
+            try {
+                $tenant = $invoice->contract->tenant ?? null;
+                if ($tenant) {
+                    $tenant->notify(new \App\Notifications\InvoicePaymentConfirmedNotification($invoice));
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Gửi thông báo xác nhận thanh toán hóa đơn thất bại: " . $e->getMessage());
+            }
         }
 
         return $invoice;

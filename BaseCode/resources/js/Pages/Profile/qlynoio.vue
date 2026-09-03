@@ -23,7 +23,7 @@ const filteredRoommates = computed(() => {
     if (!Array.isArray(list)) return [];
     const primaryTenantId = props.contract?.tenant_id;
     return list.filter(
-        (res) => String(res.user_id) !== String(primaryTenantId)
+        (res) => String(res.user_id) !== String(primaryTenantId),
     );
 });
 
@@ -59,7 +59,7 @@ const handleWaterImg = (e) => {
 
 const submitEntryReadings = () => {
     entryForm.post(
-        route("profile.contract.submit-entry-readings", props.contract.hash_id),
+        route("profile.entry-readings.submit", props.contract.hash_id || props.contract.id),
         {
             forceFormData: true,
             onSuccess: () => {
@@ -115,8 +115,15 @@ const formatDate = (dateStr) => {
 };
 
 const getContractUrl = () => {
-    if (!props.contract?.contract_file_path) return null;
-    return "/storage/" + props.contract.contract_file_path;
+    if (props.contract?.contract_file_url) return props.contract.contract_file_url;
+    const path = props.contract?.contract_file_path;
+    if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    const baseUrl = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL;
+    if (baseUrl) {
+        return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+    }
+    return "/storage/" + path;
 };
 
 const isImage = (path) => {
@@ -176,7 +183,6 @@ const terminateButtonText = computed(() => {
         return "Chấm dứt hợp đồng";
     }
 });
-//trạng thái modal và form gửi yêu cầu ở ghép
 const showAcquaintanceModal = ref(false);
 const acquaintanceForm = useForm({
     new_resident_name: "",
@@ -184,7 +190,53 @@ const acquaintanceForm = useForm({
     new_resident_email: "",
     new_resident_cccd: "",
 });
-//gửi yêu cầu tìm người lạ ở ghép
+
+const isCheckingRoommateUser = ref(false);
+const roommateUserCheckResult = ref(null);
+let roommateCheckTimeout = null;
+
+const checkRoommateUserInfo = () => {
+    if (roommateCheckTimeout) clearTimeout(roommateCheckTimeout);
+    const phone = acquaintanceForm.new_resident_phone?.trim() || "";
+    const email = acquaintanceForm.new_resident_email?.trim() || "";
+    const cccd = acquaintanceForm.new_resident_cccd?.trim() || "";
+
+    if (!phone && !email && !cccd) {
+        roommateUserCheckResult.value = null;
+        return;
+    }
+
+    roommateCheckTimeout = setTimeout(async () => {
+        isCheckingRoommateUser.value = true;
+        try {
+            const res = await axios.post(route("profile.roommate.check_user"), {
+                phone,
+                email,
+                cccd,
+            });
+            roommateUserCheckResult.value = res.data;
+            if (res.data?.exists && res.data?.user) {
+                if (!acquaintanceForm.new_resident_name && res.data.user.name) {
+                    acquaintanceForm.new_resident_name = res.data.user.name;
+                }
+                if (!acquaintanceForm.new_resident_phone && res.data.user.phone) {
+                    acquaintanceForm.new_resident_phone = res.data.user.phone;
+                }
+                if (!acquaintanceForm.new_resident_email && res.data.user.email) {
+                    acquaintanceForm.new_resident_email = res.data.user.email;
+                }
+                if (!acquaintanceForm.new_resident_cccd && res.data.user.cccd_number) {
+                    acquaintanceForm.new_resident_cccd = res.data.user.cccd_number;
+                }
+            }
+        } catch (e) {
+            roommateUserCheckResult.value = null;
+        } finally {
+            isCheckingRoommateUser.value = false;
+        }
+    }, 400);
+};
+
 //gửi yêu cầu tìm người lạ ở ghép
 const submitStrangerRequest = async () => {
     const isConfirmed = await showConfirm(
@@ -213,10 +265,18 @@ const submitStrangerRequest = async () => {
 
 //gửi yêu cầu giới thiệu người quen vào ở ghép
 const submitAcquaintanceRequest = () => {
+    if (roommateUserCheckResult.value?.is_renting_elsewhere) {
+        showError(
+            "Không thể gửi",
+            roommateUserCheckResult.value.message || "Thành viên này hiện đang thuê trọ ở nơi khác!",
+        );
+        return;
+    }
     acquaintanceForm.post(route("profile.roommate.request_acquaintance"), {
         onSuccess: () => {
             showAcquaintanceModal.value = false;
             acquaintanceForm.reset();
+            roommateUserCheckResult.value = null;
             showSuccess(
                 "Thành công",
                 "Đã gửi thông báo giới thiệu bạn bè vào ở ghép thành công!",
@@ -241,12 +301,15 @@ const extendRequestForm = ref({
     desired_months: 6,
     note: "",
 });
+const isSubmittingExtension = ref(false);
 
 const submitExtendRequest = () => {
     if (!props.contract?.id) {
         showError("Lỗi", "Không tìm thấy thông tin hợp đồng.");
         return;
     }
+
+    isSubmittingExtension.value = true;
 
     router.post(
         route("profile.contracts.request-extension", props.contract.hash_id),
@@ -263,20 +326,22 @@ const submitExtendRequest = () => {
             onError: (errs) => {
                 showError("Lỗi", Object.values(errs).join("\n"));
             },
+            onFinish: () => {
+                isSubmittingExtension.value = false;
+            },
         },
     );
 };
 
 const handleViewPdf = () => {
-    if (!props.isPrimaryTenant) {
-        showError(
-            "Thông báo Hợp đồng",
-            "Bạn là thành viên ở ghép trong phòng. Hợp đồng chính do Chủ hợp đồng (" + (props.contract?.tenant?.name || "đại diện") + ") đứng tên ký kết."
-        );
+    if (!props.contract || (!props.contract.contract_file_path && !props.contract.contract_file_url)) {
+        showError("Thông báo Hợp đồng", "File hợp đồng của phòng hiện chưa được chủ trọ tải lên.");
         return;
     }
+    // Cho phép cả Chủ hợp đồng lẫn Thành viên ở ghép đều xem được file PDF hợp đồng của phòng
     showPdfModal.value = true;
 };
+
 
 //state & form cho modal báo cáo
 const showReportModal = ref(false);
@@ -307,19 +372,22 @@ const handleEvidenceImages = async (e) => {
     const files = Array.from(e.target.files);
     const compressedFiles = await compressMultipleImages(files);
     reportForm.evidence_images = compressedFiles;
-    previewEvidenceImages.value = compressedFiles.map((file) => URL.createObjectURL(file));
+    previewEvidenceImages.value = compressedFiles.map((file) =>
+        URL.createObjectURL(file),
+    );
 };
-
 
 const submitReport = () => {
     reportForm.post(route("reports.store"), {
         forceFormData: true,
         onSuccess: () => {
             showReportModal.value = false;
-            showSuccess("Thành công", "Đã gửi báo cáo thành công! Hệ thống sẽ hỗ trợ bạn xử lý.");
+            showSuccess(
+                "Thành công",
+                "Đã gửi báo cáo thành công! Hệ thống sẽ hỗ trợ bạn xử lý.",
+            );
         },
-        onError: () => {
-        },
+        onError: () => { },
     });
 };
 </script>
@@ -365,135 +433,6 @@ const submitReport = () => {
                     <h2>THÔNG TIN NƠI Ở</h2>
                     <div class="status" :style="{ background: getStatusBg }">
                         <p>{{ getStatusLabel }}</p>
-                    </div>
-                </div>
-
-                <!-- THÔNG BÁO / KHỐI CHỐT SỐ ĐIỆN NƯỚC LÚC BÀN GIAO PHÒNG -->
-                <div v-if="contract" class="entry-meter-card" :style="{
-                    margin: '15px 0 25px 0',
-                    padding: '14px 18px',
-                    borderRadius: '12px',
-                    border: contract.entry_readings_submitted_at
-                        ? '1px solid #a7f3d0'
-                        : '1px solid #fde68a',
-                    background: contract.entry_readings_submitted_at
-                        ? '#ecfdf5'
-                        : '#fffbeb',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                }">
-                    <div style="
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            flex-wrap: wrap;
-                            gap: 12px;
-                        ">
-                        <div style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                min-width: 250px;
-                            ">
-                            <div :style="{
-                                width: '38px',
-                                height: '38px',
-                                borderRadius: '10px',
-                                background:
-                                    contract.entry_readings_submitted_at
-                                        ? '#10b981'
-                                        : '#f59e0b',
-                                color: '#fff',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '18px',
-                                flexShrink: 0,
-                            }">
-                                <i :class="contract.entry_readings_submitted_at
-                                    ? 'bi bi-check-circle-fill'
-                                    : 'bi bi-lightning-charge-fill'
-                                    "></i>
-                            </div>
-                            <div>
-                                <h4 style="
-                                        font-weight: 700;
-                                        font-size: 14px;
-                                        color: #1e293b;
-                                        margin: 0 0 2px 0;
-                                    ">
-                                    {{
-                                        contract.entry_readings_submitted_at
-                                            ? "Chỉ số điện/nước lúc nhận phòng"
-                                            : "⚡ Chưa chốt chỉ số điện/nước lúc nhận phòng"
-                                    }}
-                                </h4>
-                                <p v-if="contract.entry_readings_submitted_at" style="
-                                        font-size: 12px;
-                                        color: #475569;
-                                        margin: 0;
-                                    ">
-                                    Điện:
-                                    <strong style="color: #059669">{{
-                                        contract.entry_elec_index
-                                        }}
-                                        kWh</strong>
-                                    | Nước:
-                                    <strong style="color: #2563eb">{{
-                                        contract.entry_water_index
-                                        }}
-                                        m³</strong>
-                                    <span style="
-                                            font-size: 11px;
-                                            color: #94a3b8;
-                                            margin-left: 8px;
-                                        ">(Xác nhận:
-                                        {{
-                                            formatDate(
-                                                contract.entry_readings_submitted_at,
-                                            )
-                                        }})</span>
-                                </p>
-                                <p v-else style="
-                                        font-size: 12px;
-                                        color: #b45309;
-                                        margin: 0;
-                                    ">
-                                    Vui lòng nhập chỉ số điện, nước & ảnh chụp
-                                    lúc mới nhận phòng để tránh thiệt thòi tháng
-                                    đầu.
-                                </p>
-                            </div>
-                        </div>
-                        <button type="button" @click="showEntryModal = true" :style="{
-                            padding: '8px 16px',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            borderRadius: '8px',
-                            border: contract.entry_readings_submitted_at
-                                ? '1px solid #059669'
-                                : 'none',
-                            background: contract.entry_readings_submitted_at
-                                ? '#ffffff'
-                                : '#d97706',
-                            color: contract.entry_readings_submitted_at
-                                ? '#059669'
-                                : '#ffffff',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            transition: 'all 0.2s',
-                            flexShrink: 0,
-                        }">
-                            <i class="bi bi-camera"></i>
-                            <span>{{
-                                contract.entry_readings_submitted_at
-                                    ? "Xem / Cập nhật lại"
-                                    : "Cập nhật chỉ số ngay"
-                            }}</span>
-                        </button>
                     </div>
                 </div>
 
@@ -546,25 +485,64 @@ const submitReport = () => {
                         </div>
                     </div>
                     <!-- KHỐI HIỂN THỊ DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG -->
-                    <div v-if="filteredRoommates && filteredRoommates.length > 0"
-                        style="margin: 20px 0; padding: 16px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px;">
-                        <h3
-                            style="font-size: 14px; font-weight: 800; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                            <i class="bi bi-people-fill" style="color: #10b981; font-size: 16px;"></i>
-                            DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG ({{ filteredRoommates?.length || 0 }} người)
+                    <div v-if="filteredRoommates && filteredRoommates.length > 0" style="
+                            margin: 20px 0;
+                            padding: 16px 20px;
+                            background: #f8fafc;
+                            border: 1px solid #e2e8f0;
+                            border-radius: 16px;
+                        ">
+                        <h3 style="
+                                font-size: 14px;
+                                font-weight: 800;
+                                color: #1e293b;
+                                margin-bottom: 12px;
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                            ">
+                            <i class="bi bi-people-fill" style="color: #10b981; font-size: 16px"></i>
+                            DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG ({{
+                                filteredRoommates?.length || 0
+                            }}
+                            người)
                         </h3>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div v-for="res in filteredRoommates" :key="res.id"
-                                style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px;">
+                        <div style="
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                            ">
+                            <div v-for="res in filteredRoommates" :key="res.id" style="
+                                    display: flex;
+                                    justify-content: space-between;
+                                    align-items: center;
+                                    padding: 10px 14px;
+                                    background: #fff;
+                                    border: 1px solid #cbd5e1;
+                                    border-radius: 12px;
+                                ">
                                 <div>
-                                    <strong style="font-size: 13px; color: #0f172a;">{{ res.user?.name || 'Thành viên'
+                                    <strong style="font-size: 13px; color: #0f172a">{{
+                                        res.user?.name || "Thành viên"
                                         }}</strong>
-                                    <span style="font-size: 11px; color: #64748b; margin-left: 8px;">SĐT: {{
-                                        res.user?.phone || 'Chưa có' }}</span>
+                                    <span style="
+                                            font-size: 11px;
+                                            color: #64748b;
+                                            margin-left: 8px;
+                                        ">SĐT:
+                                        {{ res.user?.phone || "Chưa có" }}</span>
                                 </div>
-                                <span
-                                    style="font-size: 11px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 4px 10px; border-radius: 8px; border: 1px solid #a7f3d0;">
-                                    <i class="bi bi-person-check-fill"></i> Đang ở ghép
+                                <span style="
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                        color: #059669;
+                                        background: #ecfdf5;
+                                        padding: 4px 10px;
+                                        border-radius: 8px;
+                                        border: 1px solid #a7f3d0;
+                                    ">
+                                    <i class="bi bi-person-check-fill"></i> Đang
+                                    ở ghép
                                 </span>
                             </div>
                         </div>
@@ -577,17 +555,24 @@ const submitReport = () => {
                         )
                     " class="roommate-actions-container">
                         <!-- Nút Tìm người ở ghép: Chỉ hiện khi là Chủ hợp đồng, phòng > 1 người và chưa đầy -->
-                        <button
-                            v-if="props.isPrimaryTenant && (contract.room?.capacity > 1) && ((contract.room?.current_people || 1) < contract.room?.capacity)"
-                            type="button" @click="submitStrangerRequest" class="btn-roommate-stranger">
+                        <button v-if="
+                            props.isPrimaryTenant &&
+                            contract.room?.capacity > 1 &&
+                            (contract.room?.current_people || 1) <
+                            contract.room?.capacity
+                        " type="button" @click="submitStrangerRequest" class="btn-roommate-stranger">
                             <i class="bi bi-people-fill"></i> Tìm người ở ghép
                         </button>
 
                         <!-- Nút Giới thiệu bạn bè: Chỉ hiện khi là Chủ hợp đồng, phòng > 1 người và chưa đầy -->
-                        <button
-                            v-if="props.isPrimaryTenant && (contract.room?.capacity > 1) && ((contract.room?.current_people || 1) < contract.room?.capacity)"
-                            type="button" @click="showAcquaintanceModal = true" class="btn-roommate-acquaintance">
-                            <i class="bi bi-person-plus-fill"></i> Giới thiệu người vào ở
+                        <button v-if="
+                            props.isPrimaryTenant &&
+                            contract.room?.capacity > 1 &&
+                            (contract.room?.current_people || 1) <
+                            contract.room?.capacity
+                        " type="button" @click="showAcquaintanceModal = true" class="btn-roommate-acquaintance">
+                            <i class="bi bi-person-plus-fill"></i> Giới thiệu
+                            người vào ở
                         </button>
 
                         <!-- Nút Chấm dứt HĐ: Chỉ hiện dành cho Chủ hợp đồng -->
@@ -609,12 +594,19 @@ const submitReport = () => {
                     <h2>HỢP ĐỒNG THUÊ TRỌ</h2>
                     <div style="display: flex; gap: 10px; align-items: center">
                         <!-- Nút Yêu cầu gia hạn HĐ: CHỈ HIỆN DÀNH CHO CHỦ HỢP ĐỒNG -->
-                        <button v-if="props.isPrimaryTenant && !hasRequestedExtension"
-                            @click="showExtendRequestModal = true" class="btn-hopdong"
-                            style="background: #10b981; color: #fff; cursor: pointer;">
-                            <i class="bi bi-arrow-repeat"></i> Yêu cầu gia hạn HĐ
+                        <button v-if="
+                            props.isPrimaryTenant && !hasRequestedExtension
+                        " @click="showExtendRequestModal = true" class="btn-hopdong" style="
+                                background: #10b981;
+                                color: #fff;
+                                cursor: pointer;
+                            ">
+                            <i class="bi bi-arrow-repeat"></i> Yêu cầu gia hạn
+                            HĐ
                         </button>
-                        <span v-else-if="props.isPrimaryTenant && hasRequestedExtension" style="
+                        <span v-else-if="
+                            props.isPrimaryTenant && hasRequestedExtension
+                        " style="
                                 font-size: 12px;
                                 font-weight: 700;
                                 color: #d97706;
@@ -623,7 +615,8 @@ const submitReport = () => {
                                 border-radius: 8px;
                                 border: 1px solid #fde68a;
                             ">
-                            <i class="bi bi-clock-history"></i> Đã gửi yêu cầu gia hạn
+                            <i class="bi bi-clock-history"></i> Đã gửi yêu cầu
+                            gia hạn
                         </span>
 
                         <button id="openPdf" class="btn-hopdong" @click="handleViewPdf" :disabled="!contract">
@@ -781,7 +774,7 @@ const submitReport = () => {
                 position: fixed;
                 inset: 0;
                 background: rgba(0, 0, 0, 0.5);
-                z-index: 9999;
+                z-index: 999;
                 justify-content: center;
                 align-items: center;
             ">
@@ -840,7 +833,7 @@ const submitReport = () => {
                             font-weight: 600;
                             color: #334155;
                             margin-bottom: 6px;
-                        ">Lý do chấm dứt hợp đồng (*):</label>
+                        ">Lý do chấm dứt hợp đồng <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
                     <textarea v-model="terminateForm.reason" rows="4"
                         placeholder="Ví dụ: Chuyển nơi công tác / Trả phòng do hết nhu cầu thuê..." style="
                             width: 100%;
@@ -904,27 +897,48 @@ const submitReport = () => {
 
                 <form @submit.prevent="submitAcquaintanceRequest">
                     <div class="form-field-group">
-                        <label class="form-field-label">Họ và tên (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
-                            class="form-field-input" />
-                    </div>
-
-                    <div class="form-field-group">
-                        <label class="form-field-label">Số điện thoại (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_phone"
+                        <label class="form-field-label">Số điện thoại <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
+                        <input type="text" v-model="acquaintanceForm.new_resident_phone" @input="checkRoommateUserInfo"
                             placeholder="Ví dụ: 0987654321..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
-                        <label class="form-field-label">Email liên hệ (*)</label>
-                        <input type="email" v-model="acquaintanceForm.new_resident_email"
+                        <label class="form-field-label">Email liên hệ <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
+                        <input type="email" v-model="acquaintanceForm.new_resident_email" @input="checkRoommateUserInfo"
                             placeholder="Nhập địa chỉ email..." class="form-field-input" />
                     </div>
 
                     <div class="form-field-group">
-                        <label class="form-field-label">Số CCCD/CMND (12 chữ số) (*)</label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" placeholder="Đúng 12 chữ số..."
+                        <label class="form-field-label">Số CCCD/CMND (12 chữ số) <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
+                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" @input="checkRoommateUserInfo" placeholder="Đúng 12 chữ số..."
                             maxlength="12" class="form-field-input" />
+                    </div>
+
+                    <div class="form-field-group">
+                        <label class="form-field-label">Họ và tên <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
+                        <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
+                            class="form-field-input" />
+                    </div>
+
+                    <!-- Real-time check feedback badge -->
+                    <div v-if="isCheckingRoommateUser" style="margin-top: 10px; font-size: 12px; color: #059669; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                        <i class="bi bi-arrow-repeat animate-spin"></i> Đang kiểm tra thông tin tài khoản trên hệ thống...
+                    </div>
+                    <div v-else-if="roommateUserCheckResult" style="margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; display: flex; align-items: flex-start; gap: 8px;"
+                        :style="roommateUserCheckResult.exists 
+                            ? (roommateUserCheckResult.is_renting_elsewhere 
+                                ? 'background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;' 
+                                : 'background: #ecfdf5; border: 1px solid #a7f3d0; color: #059669;')
+                            : 'background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb;'">
+                        <i :class="roommateUserCheckResult.exists 
+                            ? (roommateUserCheckResult.is_renting_elsewhere ? 'bi bi-exclamation-triangle-fill' : 'bi bi-check-circle-fill')
+                            : 'bi bi-info-circle-fill'" style="font-size: 15px; margin-top: 1px;"></i>
+                        <div>
+                            <div>{{ roommateUserCheckResult.message }}</div>
+                            <div v-if="roommateUserCheckResult.exists && roommateUserCheckResult.user" style="font-size: 11px; opacity: 0.9; margin-top: 2px;">
+                                Thành viên: <strong>{{ roommateUserCheckResult.user.name }}</strong> (SĐT: {{ roommateUserCheckResult.user.phone || 'Chưa cập nhật' }})
+                            </div>
+                        </div>
                     </div>
 
                     <div class="modal-footer">
@@ -939,219 +953,413 @@ const submitReport = () => {
                 </form>
             </div>
         </div>
-        <!-- Modal Yêu cầu gia hạn hợp đồng phía Khách -->
-        <div v-if="showExtendRequestModal"
-            class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 class="text-base font-black text-emerald-600 flex items-center gap-1.5">
-                        <i class="bi bi-arrow-repeat"></i> Gửi Yêu Cầu Gia Hạn
-                        Hợp Đồng
-                    </h3>
-                    <button @click="showExtendRequestModal = false"
-                        class="text-slate-400 hover:text-slate-600 text-xl font-bold">
-                        &times;
-                    </button>
-                </div>
-
-                <form @submit.prevent="submitExtendRequest" class="space-y-4">
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-500">Số tháng muốn gia hạn thêm
-                            <span class="text-rose-500">*</span></label>
-                        <select v-model="extendRequestForm.desired_months"
-                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-semibold outline-none bg-white">
-                            <option :value="3">3 Tháng</option>
-                            <option :value="6">6 Tháng (Nửa năm)</option>
-                            <option :value="12">12 Tháng (1 Năm)</option>
-                            <option :value="24">24 Tháng (2 Năm)</option>
-                        </select>
-                    </div>
-
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-500">Ghi chú gửi Chủ trọ</label>
-                        <textarea v-model="extendRequestForm.note" rows="3"
-                            placeholder="Nhập nguyện vọng hoặc đề xuất của bạn..."
-                            class="w-full px-3.5 py-2.5 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs outline-none resize-none"></textarea>
-                    </div>
-
-                    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
-                        <button type="button" @click="showExtendRequestModal = false"
-                            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
-                            Hủy
-                        </button>
-                        <button type="submit"
-                            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
-                            Gửi Yêu Cầu
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <!-- MODAL BÁO CÁO SỰ CỐ VÀ VI PHẠM -->
     </UserLayout>
-    <div v-if="showReportModal"
-        class="fixed inset-0 z-[99] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-        <div
-            class="bg-white rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-
-            <!-- HEADER -->
-            <div
-                class="sticky top-0 z-10 bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
-                        <i class="bi bi-exclamation-triangle-fill text-rose-500 text-sm"></i>
-                    </div>
-
-                    <div>
-                        <h3 class="text-sm font-extrabold text-slate-800">
-                            Báo cáo sự cố / vi phạm
-                        </h3>
-                        <p class="text-[10px] text-slate-400 mt-0.5">
-                            Vui lòng cung cấp thông tin cần thiết
-                        </p>
-                    </div>
-                </div>
-
-                <button type="button" @click="showReportModal = false"
-                    class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
-                    <i class="bi bi-x-lg text-sm"></i>
+    <!-- Modal Yêu cầu Gia hạn Hợp đồng cho Client -->
+    <div v-if="showExtendRequestModal" class="modal" style="
+        display: flex;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        justify-content: center;
+        align-items: center;
+    ">
+        <div class="modal-content" style="
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            max-width: 500px;
+            height: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        ">
+            <!-- Header -->
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+            ">
+                <h3 style="
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: #059669;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin: 0;
+                ">
+                    <i class="bi bi-arrow-repeat"></i> Yêu Cầu Gia Hạn Hợp Đồng
+                </h3>
+                <button @click="showExtendRequestModal = false" style="
+                    background: none;
+                    border: none;
+                    font-size: 24px;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    line-height: 1;
+                    padding: 0;
+                ">
+                    &times;
                 </button>
             </div>
 
-            <!-- BODY -->
-            <form @submit.prevent="submitReport" class="p-5 space-y-4">
+            <!-- Description -->
+            <p style="
+                font-size: 13.5px;
+                color: #475569;
+                margin-top: 0;
+                margin-bottom: 16px;
+                line-height: 1.5;
+            ">
+                Bạn đang gửi yêu cầu tiếp tục gia hạn hợp đồng thuê phòng. Vui lòng chọn thời gian và nhập ghi chú (nếu
+                có) để chủ trọ xét duyệt.
+            </p>
 
-                <!-- LOẠI BÁO CÁO -->
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-600 mb-1.5">
-                        Loại báo cáo
-                        <span class="text-rose-500">*</span>
-                    </label>
+            <!-- Form Body -->
+            <form @submit.prevent="submitExtendRequest">
+                <!-- Chọn thời gian gia hạn -->
+                <div style="margin-bottom: 16px;">
+                    <label style="
+                        display: block;
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #334155;
+                        margin-bottom: 6px;
+                    ">Số tháng muốn gia hạn thêm <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
+                    <select v-model="extendRequestForm.desired_months" style="
+                        width: 100%;
+                        padding: 10px 12px;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 8px;
+                        font-size: 13.5px;
+                        outline: none;
+                        background: white;
+                        box-sizing: border-box;
+                        cursor: pointer;
+                    ">
+                        <option :value="3">3 Tháng</option>
+                        <option :value="6">6 Tháng (Nửa năm)</option>
+                        <option :value="12">12 Tháng (1 Năm)</option>
+                        <option :value="24">24 Tháng (2 Năm)</option>
+                    </select>
+                </div>
 
-                    <select v-model="reportForm.reason"
-                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 outline-none transition focus:bg-white focus:border-rose-400 focus:ring-2 focus:ring-rose-100">
-                        <option value="" disabled>
-                            -- Chọn phân loại báo cáo --
-                        </option>
+                <!-- Ghi chú -->
+                <div style="margin-bottom: 20px;">
+                    <label style="
+                        display: block;
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #334155;
+                        margin-bottom: 6px;
+                    ">Ghi chú gửi Chủ trọ:</label>
+                    <textarea v-model="extendRequestForm.note" rows="3"
+                        placeholder="Nhập nguyện vọng hoặc đề xuất thêm của bạn..." style="
+                        width: 100%;
+                        padding: 10px 12px;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 8px;
+                        font-size: 13.5px;
+                        outline: none;
+                        resize: none;
+                        box-sizing: border-box;
+                    "></textarea>
+                </div>
 
+                <!-- Footer Actions -->
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" @click="showExtendRequestModal = false" style="
+                        padding: 9px 16px;
+                        background: #f1f5f9;
+                        color: #475569;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        font-size: 13.5px;
+                        cursor: pointer;
+                    ">
+                        Hủy bỏ
+                    </button>
+                    <button type="submit" :disabled="isSubmittingExtension" style="
+                        padding: 9px 18px;
+                        background: #059669;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        font-size: 13.5px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    ">
+                        <i v-if="isSubmittingExtension" class="bi bi-arrow-repeat animate-spin"></i>
+                        <i v-else class="bi bi-send-fill"></i> Gửi Yêu Cầu
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Báo cáo Sự cố và Vi phạm cho Client -->
+    <div v-if="showReportModal" class="modal" style="
+        display: flex;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        padding: 16px;
+        box-sizing: border-box;
+    ">
+        <div class="modal-content" style="
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+        ">
+
+            <!-- Header -->
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+            ">
+                <h3 style="
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: #dc2626;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin: 0;
+                ">
+                    <i class="bi bi-exclamation-octagon-fill"></i> Báo Cáo Sự Cố / Vi Phạm
+                </h3>
+                <button type="button" @click="showReportModal = false" style="
+                    background: none;
+                    border: none;
+                    font-size: 24px;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    line-height: 1;
+                    padding: 0;
+                ">
+                    &times;
+                </button>
+            </div>
+
+            <!-- Description -->
+            <p style="
+                font-size: 13.5px;
+                color: #475569;
+                margin-top: 0;
+                margin-bottom: 16px;
+                line-height: 1.5;
+            ">
+                Vui lòng cung cấp đầy đủ thông tin chi tiết và hình ảnh minh chứng để chủ trọ kịp thời nắm bắt và xử lý
+                sự cố.
+            </p>
+
+            <!-- Form Body -->
+            <form @submit.prevent="submitReport">
+
+                <!-- Phân loại báo cáo -->
+                <div style="margin-bottom: 16px;">
+                    <label style="
+                        display: block;
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #334155;
+                        margin-bottom: 6px;
+                    ">Loại báo cáo <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
+                    <select v-model="reportForm.reason" style="
+                        width: 100%;
+                        padding: 10px 12px;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 8px;
+                        font-size: 13.5px;
+                        outline: none;
+                        background: white;
+                        box-sizing: border-box;
+                        cursor: pointer;
+                    ">
+                        <option value="" disabled>-- Chọn phân loại báo cáo --</option>
                         <option v-for="(r, idx) in props.reasons" :key="r.id || idx"
                             :value="typeof r === 'object' ? r.reason : r">
                             {{ typeof r === 'object' ? r.reason : r }}
                         </option>
-
                         <option v-if="!props.reasons || props.reasons.length === 0" value="Khác">
                             Lý do khác
                         </option>
                     </select>
-                    <p v-if="reportForm.errors.reason" class="text-rose-500 text-[11px] font-medium mt-1">
+                    <p v-if="reportForm.errors?.reason"
+                        style="color: #dc2626; font-size: 12px; margin-top: 4px; margin-bottom: 0;">
                         {{ reportForm.errors.reason }}
                     </p>
                 </div>
 
-                <!-- MÔ TẢ -->
-                <div>
-                    <div class="flex items-center justify-between mb-1.5">
-                        <label class="text-[11px] font-bold text-slate-600">
-                            Mô tả chi tiết
-                            <span class="text-rose-500">*</span>
-                        </label>
-
-                        <span class="text-[9px] text-slate-400">
-                            Bắt buộc
-                        </span>
-                    </div>
-
+                <!-- Mô tả chi tiết -->
+                <div style="margin-bottom: 16px;">
+                    <label style="
+                        display: block;
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #334155;
+                        margin-bottom: 6px;
+                    ">Mô tả chi tiết <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
                     <textarea v-model="reportForm.description" rows="4"
-                        placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề vi phạm cần xử lý..."
-                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none resize-none transition focus:bg-white focus:border-rose-400 focus:ring-2 focus:ring-rose-100 placeholder:text-slate-400"></textarea>
-                    <p v-if="reportForm.errors.description" class="text-rose-500 text-[11px] font-medium mt-1">
+                        placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề cần xử lý..." style="
+                        width: 100%;
+                        padding: 10px 12px;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 8px;
+                        font-size: 13.5px;
+                        outline: none;
+                        resize: none;
+                        box-sizing: border-box;
+                    "></textarea>
+                    <p v-if="reportForm.errors?.description"
+                        style="color: #dc2626; font-size: 12px; margin-top: 4px; margin-bottom: 0;">
                         {{ reportForm.errors.description }}
                     </p>
                 </div>
 
-                <!-- HÌNH ẢNH -->
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label class="text-[11px] font-bold text-slate-600">
-                            Hình ảnh minh chứng
-                        </label>
+                <!-- Hình ảnh minh chứng -->
+                <div style="margin-bottom: 20px;">
+                    <label style="
+                        display: block;
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #334155;
+                        margin-bottom: 6px;
+                    ">Hình ảnh minh chứng:</label>
 
-                        <span class="text-[9px] text-slate-400">
-                            Bắt buộc
-                        </span>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2.5">
-
-                        <!-- CAMERA -->
-                        <label
-                            class="group flex items-center gap-2.5 p-3 border border-dashed border-rose-200 bg-rose-50/50 rounded-xl cursor-pointer hover:bg-rose-50 hover:border-rose-300 transition-all">
-                            <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                                <i class="bi bi-camera-fill text-rose-500"></i>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <!-- Camera -->
+                        <label style="
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            padding: 10px;
+                            border: 1px dashed #fca5a5;
+                            background: #fef2f2;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            box-sizing: border-box;
+                        ">
+                            <div style="
+                                width: 36px;
+                                height: 36px;
+                                background: white;
+                                border-radius: 6px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                            ">
+                                <i class="bi bi-camera-fill" style="color: #dc2626; font-size: 16px;"></i>
                             </div>
-
-                            <div class="min-w-0">
-                                <span class="block text-[11px] font-bold text-rose-700">
-                                    Chụp ảnh
-                                </span>
-
-                                <span class="block text-[9px] text-rose-400 mt-0.5">
-                                    Mở camera
-                                </span>
+                            <div>
+                                <span style="display: block; font-size: 12px; font-weight: 700; color: #b91c1c;">Chụp
+                                    ảnh</span>
+                                <span style="display: block; font-size: 10px; color: #ef4444;">Mở camera</span>
                             </div>
-
-                            <input type="file" accept="image/*" capture="environment" class="hidden"
+                            <input type="file" accept="image/*" capture="environment" style="display: none;"
                                 @change="handleEvidenceImages" />
                         </label>
 
-                        <!-- BỘ SƯU TẬP -->
-                        <label
-                            class="group flex items-center gap-2.5 p-3 border border-dashed border-slate-200 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 hover:border-slate-300 transition-all">
-                            <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                                <i class="bi bi-images text-slate-500"></i>
+                        <!-- Bộ sưu tập -->
+                        <label style="
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            padding: 10px;
+                            border: 1px dashed #cbd5e1;
+                            background: #f8fafc;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            box-sizing: border-box;
+                        ">
+                            <div style="
+                                width: 36px;
+                                height: 36px;
+                                background: white;
+                                border-radius: 6px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                            ">
+                                <i class="bi bi-images" style="color: #64748b; font-size: 16px;"></i>
                             </div>
-
-                            <div class="min-w-0">
-                                <span class="block text-[11px] font-bold text-slate-700">
-                                    Bộ sưu tập
-                                </span>
-
-                                <span class="block text-[9px] text-slate-400 mt-0.5">
-                                    Chọn ảnh có sẵn
-                                </span>
+                            <div>
+                                <span style="display: block; font-size: 12px; font-weight: 700; color: #334155;">Bộ sưu
+                                    tập</span>
+                                <span style="display: block; font-size: 10px; color: #94a3b8;">Chọn ảnh có sẵn</span>
                             </div>
-
-                            <input type="file" multiple accept="image/*,.heic,.heif" class="hidden"
+                            <input type="file" multiple accept="image/*,.heic,.heif" style="display: none;"
                                 @change="handleEvidenceImages" />
                         </label>
-
                     </div>
 
-                    <!-- PREVIEW -->
-                    <div v-if="previewEvidenceImages.length > 0" class="mt-3 flex flex-wrap gap-2">
-                        <div v-for="(img, idx) in previewEvidenceImages" :key="idx" class="relative">
-                            <img :src="img"
-                                class="w-14 h-14 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                    <!-- Preview ảnh -->
+                    <div v-if="previewEvidenceImages && previewEvidenceImages.length > 0" style="
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 8px;
+                        margin-top: 10px;
+                    ">
+                        <div v-for="(img, idx) in previewEvidenceImages" :key="idx">
+                            <img :src="img" style="
+                                width: 56px;
+                                height: 56px;
+                                object-fit: cover;
+                                border-radius: 6px;
+                                border: 1px solid #e2e8f0;
+                            " />
                         </div>
                     </div>
                 </div>
 
-                <!-- FOOTER -->
-                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                    <button type="button" @click="showReportModal = false"
-                        class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold rounded-lg transition-all">
-                        Hủy
+                <!-- Footer Actions -->
+                <div
+                    style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+                    <button type="button" @click="showReportModal = false" style="
+                        padding: 9px 16px;
+                        background: #f1f5f9;
+                        color: #475569;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        font-size: 13.5px;
+                        cursor: pointer;
+                    ">
+                        Hủy bỏ
                     </button>
-
-                    <button type="submit" :disabled="reportForm.processing"
-                        class="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1.5">
+                    <button type="submit" :disabled="reportForm.processing" style="
+                        padding: 9px 18px;
+                        background: #dc2626;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        font-size: 13.5px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    ">
                         <i v-if="reportForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
-
                         <i v-else class="bi bi-send-fill"></i>
-
-                        <span>
-                            {{ reportForm.processing ? 'Đang gửi...' : 'Gửi báo cáo' }}
-                        </span>
+                        <span>{{ reportForm.processing ? "Đang gửi..." : "Gửi Báo Cáo" }}</span>
                     </button>
                 </div>
             </form>

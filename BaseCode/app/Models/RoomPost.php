@@ -21,12 +21,15 @@ class RoomPost extends Model
         'reject_reason',
         'view_count',
         'is_vip',
-        'published_at'
+        'published_at',
+        'bumped_at',
+        'bump_count',
     ];
 
     protected $casts = [
         'image' => 'array',
         'published_at' => 'datetime',
+        'bumped_at' => 'datetime',
     ];
 
     protected $appends = ['slug_with_hash'];

@@ -2,8 +2,8 @@
 namespace App\Services;
 
 use App\Models\BoardingHouse;
-use App\Repositories\UserRepository;
-use App\Repositories\BoardingHouseRepository;
+use App\Repositories\Eloquent\UserRepository;
+use App\Repositories\Eloquent\BoardingHouseRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Exception;
@@ -20,6 +20,7 @@ class VerificationService
     }
     public function processVerification($userId, $data)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         //dùng db transaction để khi lỗi ở các bước sẽ không lưu vào db để tránh dữ liệu rác
         DB::beginTransaction();
         try {
@@ -86,7 +87,8 @@ class VerificationService
             // Vòng lặp lưu từng ảnh hợp đồng
             if (isset($data['contract_images']) && is_array($data['contract_images'])) {
                 foreach ($data['contract_images'] as $index => $image) {
-                    if (!$image) continue;
+                    if (!$image)
+                        continue;
                     $ext = $image->getClientOriginalExtension() ?: 'jpg';
 
                     // Thử quét GPS nếu chưa có tọa độ
@@ -114,7 +116,8 @@ class VerificationService
             // Lưu mảng ảnh không gian trọ
             if (isset($data['room_images']) && is_array($data['room_images'])) {
                 foreach ($data['room_images'] as $index => $file) {
-                    if (!$file) continue;
+                    if (!$file)
+                        continue;
                     $ext = $file->getClientOriginalExtension() ?: 'jpg';
 
                     // Chỉ quét GPS nếu chưa có
@@ -129,7 +132,7 @@ class VerificationService
                         }
                     }
                     $name = "user_{$userId}_phong_tro_{$index}_{$timestamp}.{$ext}";
-                    $stored = $file->storeAs('properties/rooms', $name, 'public');
+                    $stored = $file->storeAs('properties/rooms', $name, $disk);
                     if (!$stored) {
                         Storage::disk('public')->put('properties/rooms/' . $name, file_get_contents($file->getRealPath()));
                         $stored = 'properties/rooms/' . $name;

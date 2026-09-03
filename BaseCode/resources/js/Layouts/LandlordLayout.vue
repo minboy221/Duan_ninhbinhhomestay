@@ -5,7 +5,7 @@ import { messaging, VAPID_KEY } from '@/firebase';
 import { getToken } from "firebase/messaging";
 import { useFcm } from "@/composables/useFcm";
 import { showError, showSuccess } from "@/Utils/swal";
-import { getAvatarUrl, getRoomImageUrl } from "@/Utils/media";
+import { getAvatarUrl, getRoomImageUrl, DEFAULT_AVATAR } from "@/Utils/media";
 import axios from "axios";
 
 const page = usePage();
@@ -374,23 +374,6 @@ const closePopup = () => {
         );
     }
 };
-
-//phần gửi thông báo của Firebase
-const requestAndSaveFcmToken = async () => {
-    try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            //lấy token thiết bị điện thoại từ Firebase
-            const token = await getToken(messaging, { vapidKey: VAPID_KEY });
-            if (token) {
-                //gửi token lên laravel để lưu vào db của user
-                await axios.post(route('user.update-fcm-token'), { fcm_token: token });
-            }
-        }
-    } catch (err) {
-        console.error('Lỗi lấy FCM token:', err);
-    }
-};
 </script>
 
 <template>
@@ -456,16 +439,28 @@ const requestAndSaveFcmToken = async () => {
                                                     : 'text-slate-400 group-hover:text-slate-700',
                                             ]"></i>
                                             <span v-if="
-                                                item.label === 'Khiếu Nại' &&
-                                                page.props.auth
-                                                    ?.pending_landlord_reports_count >
-                                                0 &&
-                                                !sidebarOpen
-                                            "
+                                                 (!sidebarOpen) && (
+                                                     (item.label === 'Khiếu Nại' && page.props.auth?.pending_landlord_reports_count > 0) ||
+                                                     (item.label === 'Gói Dịch Vụ' && page.props.auth?.user?.subscription_expiring) ||
+                                                     (item.label === 'Yêu Cầu Ở Ghép' && page.props.auth?.pending_roommate_requests_count > 0)
+                                                 )
+                                             "
                                                 class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white"></span>
                                         </div>
                                         <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{
                                             item.label }}</span>
+
+                                        <!-- Badge số lượng cho Yêu Cầu Ở Ghép -->
+                                        <span v-if="item.label === 'Yêu Cầu Ở Ghép' && page.props.auth?.pending_roommate_requests_count > 0 && sidebarOpen"
+                                            class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]">
+                                            {{ page.props.auth.pending_roommate_requests_count }}
+                                        </span>
+
+                                        <!-- Badge cảnh báo Sắp Hết Hạn cho Gói Dịch Vụ -->
+                                        <span v-if="item.label === 'Gói Dịch Vụ' && page.props.auth?.user?.subscription_expiring && sidebarOpen"
+                                             class="ml-auto px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200/80 rounded-full uppercase animate-pulse flex items-center gap-1">
+                                             <i class="bi bi-exclamation-circle-fill"></i> Hết hạn
+                                        </span>
 
                                         <!-- Huy hiệu VIP mờ cho mục Menu bị khóa -->
                                         <span v-if="isFeatureLocked(item.feature) && sidebarOpen"
@@ -473,14 +468,14 @@ const requestAndSaveFcmToken = async () => {
                                             <i class="bi bi-lock-fill text-[9px]"></i> VIP
                                         </span>
 
+                                        <!-- Badge số lượng cho Khiếu Nại -->
                                         <span v-if="
                                             item.label === 'Khiếu Nại' &&
-                                            page.props.auth
-                                                ?.pending_landlord_reports_count >
-                                            0 &&
+                                            page.props.auth?.pending_landlord_reports_count > 0 &&
                                             sidebarOpen
-                                        " class="w-2 h-2 bg-rose-500 rounded-full flex-shrink-0"
-                                            style="margin-left: 2px"></span>
+                                        " class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]">
+                                            {{ page.props.auth.pending_landlord_reports_count }}
+                                        </span>
                                         <span v-if="item.isPro && sidebarOpen"
                                             class="ml-auto px-1.5 py-0.5 text-[8px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md uppercase">PRO</span>
                                         <div v-if="!sidebarOpen"
@@ -631,7 +626,7 @@ const requestAndSaveFcmToken = async () => {
         <div class="flex flex-col flex-1 overflow-hidden min-w-0">
             <!-- Header -->
             <header
-                class="bg-[#f1f5f9] border-b border-slate-100/80 h-16 flex items-center justify-between px-6 flex-shrink-0 z-10 shadow-[0_2px_12px_rgba(0,0,0,0.005)]">
+                class="bg-[#f1f5f9] border-b border-slate-100/80 h-16 flex items-center justify-between px-6 flex-shrink-0 z-30 shadow-[0_2px_12px_rgba(0,0,0,0.005)]">
                 <div class="flex items-center gap-4">
                     <!-- Hamburger menu (mobile only) -->
                     <button class="md:hidden text-slate-500 hover:bg-slate-50 p-2 rounded-xl"
@@ -643,7 +638,7 @@ const requestAndSaveFcmToken = async () => {
                 <!-- Right header tools -->
                 <div class="flex items-center gap-4">
                     <!-- Property selector Dropdown -->
-                    <div class="relative">
+                    <div class="relative z-50" v-click-outside="() => propertyDropdownOpen = false">
                         <button @click="
                             propertyDropdownOpen = !propertyDropdownOpen
                             "
@@ -655,7 +650,7 @@ const requestAndSaveFcmToken = async () => {
 
                         <!-- Dropdown menu -->
                         <div v-if="propertyDropdownOpen"
-                            class="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-fade-in">
+                            class="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-[9999] animate-fade-in">
                             <div class="px-4 py-1.5 text-[9px] font-bold text-slate-400/80 tracking-widest uppercase">
                                 Chọn Cơ Sở
                             </div>
@@ -668,7 +663,7 @@ const requestAndSaveFcmToken = async () => {
                     </div>
 
                     <!-- Notifications -->
-                    <div class="relative">
+                    <div class="relative z-50" v-click-outside="() => notifOpen = false">
                         <button @click="notifOpen = !notifOpen"
                             class="relative w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500 hover:bg-slate-100/80 hover:text-slate-800 transition-all shadow-[0_2px_6px_rgba(0,0,0,0.005)]">
                             <i class="bi bi-bell text-sm"></i>
@@ -690,7 +685,7 @@ const requestAndSaveFcmToken = async () => {
                             leave-active-class="transition ease-in duration-150"
                             leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-1">
                             <div v-if="notifOpen"
-                                class="fixed md:absolute left-4 right-4 md:left-auto md:right-0 top-16 md:top-auto md:mt-2 w-auto md:w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
+                                class="fixed md:absolute left-4 right-4 md:left-auto md:right-0 top-16 md:top-auto md:mt-2 w-auto md:w-80 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-[9999]">
                                 <div
                                     class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                                     <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -818,6 +813,7 @@ const requestAndSaveFcmToken = async () => {
                             </div>
 
                             <img v-if="user?.avatar" :src="getAvatarUrl(user.avatar)"
+                                @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
                                 class="relative w-9 h-9 rounded-xl object-cover border-2 shadow-sm transition-all"
                                 :class="user?.has_vip_frame ? 'border-amber-400 ring-2 ring-amber-300' : 'border-slate-200'"
                                 alt="Avatar" />

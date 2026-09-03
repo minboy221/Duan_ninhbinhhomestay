@@ -829,22 +829,4 @@ const formatDate = (dateStr) => {
     margin: 155px auto 0;
     padding: 0 10px;
 }
-
-.dieuhuong {
-    position: absolute !important;
-    top: calc(100% - 2px) !important;
-    left: 35px !important;
-    transform: none !important;
-    width: auto;
-    padding: 8px 20px;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border-radius: 0 0 20px 20px;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-top: none;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    z-index: 98;
-    white-space: nowrap;
-}
 </style>

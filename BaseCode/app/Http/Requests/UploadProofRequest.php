@@ -22,16 +22,15 @@ class UploadProofRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'proof_image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
+            'proof_image' => ['required', 'mimes:jpeg,png,jpg,webp,heic,heif', 'max:15360'],
         ];
     }
     public function messages(): array
     {
         return [
             'proof_image.required' => 'Vui lòng chọn ảnh hóa đơn chuyển khoản.',
-            'proof_image.image' => 'Tệp tải lên phải là định dạng hình ảnh.',
-            'proof_image.mimes' => 'Ảnh hóa đơn chỉ chấp nhận đuôi: jpeg, png, jpg hoặc webp.',
-            'proof_image.max' => 'Dung lượng ảnh tối đa không được vượt quá 5MB.',
+            'proof_image.mimes' => 'Ảnh hóa đơn chỉ chấp nhận định dạng: jpeg, png, jpg, webp, heic hoặc heif.',
+            'proof_image.max' => 'Dung lượng ảnh tối đa không được vượt quá 15MB.',
         ];
     }
 }

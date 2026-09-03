@@ -44,6 +44,16 @@ const actionMap = {
         icon: "bi-unlock-fill",
         color: "#22c55e",
     },
+    unlock_user_profile: {
+        label: "Duyệt mở khóa sửa hồ sơ",
+        icon: "bi-unlock-fill",
+        color: "#f59e0b",
+    },
+    reject_unlock_profile: {
+        label: "Từ chối mở khóa sửa hồ sơ",
+        icon: "bi-x-circle-fill",
+        color: "#ef4444",
+    },
     delete_user: {
         label: "Xóa tài khoản",
         icon: "bi-trash-fill",
@@ -84,18 +94,16 @@ const actionMap = {
         icon: "bi-gear-fill",
         color: "#7c3aed",
     },
-    // thêm các hành động duyệt & báo cáo của admin
     resolve_report: {
-        lablel: "Giải quyết khiếu nại",
+        label: "Giải quyết khiếu nại",
         icon: "bi-shield-check",
         color: "#10b981",
     },
     ignore_report: {
-        lable: "Bỏ qua kiếu nại",
+        label: "Bỏ qua khiếu nại",
         icon: "bi-shield-slash",
         color: "#64748b",
     },
-    //thêm các hành động dịch vụ & hoá đơn của chủ trọ
     update_service: {
         label: "Cập nhật dịch vụ",
         icon: "bi-hammer",
@@ -107,12 +115,12 @@ const actionMap = {
         color: "#ef4444",
     },
     create_invoice: {
-        label: "Tạo hoá đơn",
+        label: "Tạo hóa đơn",
         icon: "bi-receipt-cutoff",
         color: "#3b82f6",
     },
     update_invoice: {
-        label: "Cập nhật hoá đơn",
+        label: "Cập nhật hóa đơn",
         icon: "bi-receipt",
         color: "#06b6d4",
     },
@@ -126,7 +134,6 @@ const actionMap = {
         icon: "bi-exclamation-octagon-fill",
         color: "#ef4444",
     },
-    //Thêm các hành động hợp đồng của chủ trọ
     create_contract: {
         label: "Lập hợp đồng nháp",
         icon: "bi-file-earmark-plus-fill",
@@ -148,13 +155,18 @@ const actionMap = {
         color: "#8b5cf6",
     },
     terminate_contract: {
-        lablel: "Hủy/Thanh lý hợp đồng",
+        label: "Hủy/Thanh lý hợp đồng",
         icon: "bi-file-earmark-x-fill",
         color: "#dc2626",
     },
+    bulk_invoice: {
+        label: "Lập hóa đơn hàng loạt",
+        icon: "bi-lightning-charge-fill",
+        color: "#f59e0b",
+    },
 };
 
-// 2. Hàm định dạng thời gian đẹp mắt hiển thị lên giao diện
+// 2. Hàm định dạng thời gian tiếng Việt
 const formatDateTime = (dateStr) => {
     if (!dateStr) return "N/A";
     return new Date(dateStr).toLocaleString("vi-VN", {
@@ -165,6 +177,15 @@ const formatDateTime = (dateStr) => {
         minute: "2-digit",
     });
 };
+
+function formatPaginationLabel(label) {
+    if (!label) return '';
+    return label
+        .replace('&laquo; Previous', '« Trước')
+        .replace('Next &raquo;', 'Sau »')
+        .replace('&laquo;', '«')
+        .replace('&raquo;', '»');
+}
 
 // 3. Lọc danh sách log động dựa trên ô tìm kiếm & bộ lọc phân loại
 const filtered = computed(() => {
@@ -212,7 +233,7 @@ const filtered = computed(() => {
             <span>Phát hiện
                 <strong>{{
                     props.logs.data.filter((l) => l.sensitive).length
-                }}
+                    }}
                     hành động nhạy cảm</strong>
                 trong danh sách. Hãy kiểm tra kỹ!</span>
         </div>
@@ -275,7 +296,7 @@ const filtered = computed(() => {
                                 </div>
                                 <span class="fw">{{
                                     log.user ? log.user.name : "Hệ thống"
-                                    }}</span>
+                                }}</span>
                             </div>
                         </td>
                         <td>
@@ -312,29 +333,44 @@ const filtered = computed(() => {
                     align-items: center;
                     padding: 16px;
                 ">
-                <span class="text-xs text-slate-500">
-                    Hiển thị {{ props.logs.from || 0 }} -
-                    {{ props.logs.to || 0 }} trong tổng số
-                    {{ props.logs.total }} logs
+                <span class="text-xs text-slate-500 font-medium">
+                    Hiển thị <b>{{ props.logs.from || 0 }}</b> -
+                    <b>{{ props.logs.to || 0 }}</b> trong tổng số
+                    <b>{{ props.logs.total || 0 }}</b> nhật ký hoạt động
                 </span>
                 <div class="flex gap-1" style="display: flex; gap: 4px">
-                    <component v-for="link in props.logs.links" :key="link.label" :is="link.url ? 'Link' : 'span'"
-                        :href="link.url" v-html="link.label" :class="[
-                            'px-3 py-1.5 text-xs font-semibold rounded-md border',
-                            link.active
-                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
-                        ]" style="
-                            padding: 6px 12px;
-                            font-size: 12px;
-                            border-radius: 6px;
-                            border: 1px solid #e2e8f0;
-                            text-decoration: none;
-                            cursor: pointer;
-                        " :style="link.active
-                            ? 'background-color:#4f46e5; color:white; border-color:#4f46e5;'
-                            : 'background-color:white; color:#475569;'
+                    <template v-for="(link, index) in props.logs.links" :key="index">
+                        <Link v-if="link.url"
+                            :href="link.url"
+                            v-html="formatPaginationLabel(link.label)"
+                            :class="[
+                                'px-3 py-1.5 text-xs font-semibold rounded-md border transition-all',
+                                link.active
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
+                            ]" style="
+                                padding: 6px 12px;
+                                font-size: 12px;
+                                border-radius: 6px;
+                                border: 1px solid #e2e8f0;
+                                text-decoration: none;
+                                cursor: pointer;
+                            " :style="link.active
+                                ? 'background-color:#4f46e5; color:white; border-color:#4f46e5;'
+                                : 'background-color:white; color:#475569;'
+                                " />
+                        <span v-else
+                            v-html="formatPaginationLabel(link.label)"
+                            style="
+                                padding: 6px 12px;
+                                font-size: 12px;
+                                border-radius: 6px;
+                                border: 1px solid #e2e8f0;
+                                background-color: #f8fafc;
+                                color: #94a3b8;
+                                cursor: not-allowed;
                             " />
+                    </template>
                 </div>
             </div>
         </div>

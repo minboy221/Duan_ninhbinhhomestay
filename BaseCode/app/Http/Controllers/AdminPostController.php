@@ -66,9 +66,13 @@ class AdminPostController extends Controller
             $slug = $originalSlug . '-' . $count++;
         }
 
+        $useR2 = config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret');
+        $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
+
         $imagePath = null;
         if ($request->hasFile('image_file')) {
-            $imagePath = $request->file('image_file')->store('posts', 'r2_public');
+            $path = $request->file('image_file')->store('posts', 'r2_public');
+            $imagePath = ($useR2 && !empty($r2Url)) ? ($r2Url . '/' . ltrim($path, '/')) : ('/storage/' . ltrim($path, '/'));
         } elseif ($request->filled('image_url')) {
             $imagePath = $request->input('image_url');
         } else {
@@ -100,6 +104,7 @@ class AdminPostController extends Controller
 
     public function update(Request $request, $id)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         $post = Post::findOrFail($id);
 
         $request->validate([
@@ -133,7 +138,8 @@ class AdminPostController extends Controller
                 $oldPath = str_replace('/storage/', '', $post->image);
                 Storage::disk('public')->delete($oldPath);
             }
-            $post->image = '/storage/' . $request->file('image_file')->store('posts', 'public');
+            $path = $request->file('image_file')->store('posts', $disk);
+            $post->image = ($useR2 && !empty($r2Url)) ? ($r2Url . '/' . ltrim($path, '/')) : ('/storage/' . ltrim($path, '/'));
         } elseif ($request->filled('image_url')) {
             $post->image = $request->input('image_url');
         }

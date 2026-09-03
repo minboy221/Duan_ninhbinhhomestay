@@ -169,7 +169,7 @@ class AuthService
 
                 // Nếu phòng đã đầy -> Tự động ẩn tin đăng
                 if ($req->room->current_people >= $req->room->capacity) {
-                    \App\Models\RoomPost::where('room_id', $req->room_id)->update(['status' => 'rented']);
+                    \App\Models\RoomPost::where('room_id', $req->room_id)->update(['status' => 'hidden']);
                 }
             }
 

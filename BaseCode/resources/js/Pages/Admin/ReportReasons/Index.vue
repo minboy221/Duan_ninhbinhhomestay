@@ -2,7 +2,8 @@
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import { ref } from 'vue'
-import { showSuccess, showConfirm } from '@/Utils/swal'
+
+import { showSuccess, showError, showConfirm } from '@/Utils/swal'
 
 const props = defineProps({
     reasons: Array
@@ -35,16 +36,14 @@ function openEditModal(item) {
 }
 
 function submitForm() {
-    form.clearErrors()
-    if (!form.reason.trim()) {
-        form.setError('reason', 'Vui lòng nhập nội dung lý do báo cáo!')
-        return
-    }
     if (isEditMode.value) {
         form.put(route('admin.report-reasons.update', editingId.value), {
             onSuccess: () => {
                 showModal.value = false
                 showSuccess('Thành công', 'Cập nhật lý do thành công!')
+            },
+            onError: (errors) => {
+                showError('Lỗi', Object.values(errors).join('\n'))
             }
         })
     } else {
@@ -52,17 +51,28 @@ function submitForm() {
             onSuccess: () => {
                 showModal.value = false
                 showSuccess('Thành công', 'Thêm lý do mới thành công!')
+            },
+            onError: (errors) => {
+                showError('Lỗi', Object.values(errors).join('\n'))
             }
         })
     }
 }
 
 async function deleteItem(id) {
-    const confirmed = await showConfirm('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa lý do báo cáo này không?')
+    const confirmed = await showConfirm(
+        'Xác nhận xóa',
+        'Bạn có chắc chắn muốn xóa lý do báo cáo này không?',
+        'Xóa',
+        'Hủy'
+    )
     if (confirmed) {
         form.delete(route('admin.report-reasons.destroy', id), {
             onSuccess: () => {
                 showSuccess('Thành công', 'Xóa lý do thành công!')
+            },
+            onError: (errors) => {
+                showError('Lỗi', Object.values(errors).join('\n'))
             }
         })
     }
@@ -125,10 +135,10 @@ async function deleteItem(id) {
         <div v-if="showModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-slate-200">
                 <h3 class="text-sm font-bold text-slate-800 mb-4">{{ isEditMode ? 'Cập Nhật Lý Do' : 'Thêm Lý Do Mới' }}</h3>
-                <form @submit.prevent="submitForm" novalidate class="space-y-4">
+                <form @submit.prevent="submitForm" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-500 mb-2">Nội dung lý do báo cáo</label>
-                        <input v-model="form.reason" type="text" class="w-full border rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Nhập lý do ví dụ: Chủ trọ lừa tiền cọc..." />
+                        <input v-model="form.reason" type="text" class="w-full border rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="Nhập lý do ví dụ: Chủ trọ lừa tiền cọc..." />
                         <p v-if="form.errors.reason" class="text-red-500 text-xs mt-1">{{ form.errors.reason }}</p>
                     </div>
 

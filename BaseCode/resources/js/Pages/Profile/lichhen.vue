@@ -124,6 +124,19 @@ const getStatusData = (aptOrStatus) => {
     );
 };
 
+// Hàm lấy đường dẫn Chi tiết phòng trọ chuẩn bài đăng
+function getRoomDetailUrl(apt) {
+    if (!apt) return route('timtro');
+    if (apt.post_slug_or_id) {
+        return route('chitiettro', apt.post_slug_or_id);
+    }
+    const post = apt.room?.room_posts?.[0] || apt.room?.room_post || apt.room?.roomPosts?.[0];
+    if (post) {
+        return route('chitiettro', post.slug_with_hash || post.id);
+    }
+    return route('timtro');
+}
+
 //trạng thái hiển thị modal chỉ dãn & bản đồ trực tiếp
 const activeGuideAppointment = ref(null);
 const mapMode = ref("place"); // 'place' hoặc 'directions'
@@ -549,11 +562,7 @@ const paginatedAppointments = computed(() => {
                                     </td>
                                     <td class="lichhen-td-center">
                                         <div class="action-btn-group">
-                                            <Link :href="route(
-                                                'chitiettro',
-                                                apt.room_id,
-                                            )
-                                                " class="btn-action btn-view" title="Xem phòng">
+                                            <Link :href="getRoomDetailUrl(apt)" class="btn-action btn-view" title="Xem phòng">
                                                 <i class="bi bi-eye-fill"></i>
                                             </Link>
                                             <button v-if="apt.status === 'approved'" @click="toggleInlineMap(apt)"
@@ -923,141 +932,29 @@ const paginatedAppointments = computed(() => {
                             <div v-if="
                                 apt.room?.boardingHouse?.landlord?.phone ||
                                 apt.room?.boarding_house?.landlord?.phone
-                            " class="mobile-apt-info-item">
-                                <i class="bi bi-telephone-fill text-indigo-500"></i>
+                            " class="mobile-apt-info-item" style="justify-content: space-between; align-items: center;">
                                 <div>
                                     <span class="info-label">Số điện thoại</span>
                                     <span class="info-value">
-                                        <a :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
-                                            class="mobile-call-link" style="
-                                                color: #2563eb;
-                                                font-weight: bold;
-                                                text-decoration: underline;
-                                            ">
-                                            {{
-                                                apt.room?.boardingHouse
-                                                    ?.landlord?.phone ||
-                                                apt.room?.boarding_house
-                                                    ?.landlord?.phone
-                                            }}
-                                        </a>
-                                    </span>
-                                </div>
-                                <div v-if="
-                                    ['approved', 'viewed'].includes(
-                                        apt.status,
-                                    ) && !apt.feedback_result
-                                " style="
-                                        display: flex;
-                                        gap: 8px;
-                                        justify-content: center;
-                                        margin-top: 8px;
-                                    ">
-                                    <button @click="openConfirmInterest(apt, true)" class="btn-action btn-interest"
-                                        title="Ưng thuê" style="
-                                            background-color: #ecfdf5;
-                                            color: #10b981;
-                                            border: 1px solid #a7f3d0;
-                                            width: auto;
-                                            padding: 0 10px;
-                                            font-size: 12px;
-                                            font-weight: bold;
-                                            cursor: pointer;
-                                        ">
-                                        <i class="bi bi-hand-thumbs-up-fill" style="margin-right: 4px"></i>
-                                        Ưng
-                                    </button>
-                                    <button @click="openConfirmInterest(apt, false)" class="btn-action btn-not-interest"
-                                        title="Không ưng" style="
-                                            background-color: #fef2f2;
-                                            color: #ef4444;
-                                            border: 1px solid #fecaca;
-                                            width: auto;
-                                            padding: 0 10px;
-                                            font-size: 12px;
-                                            font-weight: bold;
-                                            cursor: pointer;
-                                        ">
-                                        <i class="bi bi-hand-thumbs-down-fill" style="margin-right: 4px"></i>
-                                        Không ưng
-                                    </button>
-                                </div>
-                                <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px"
-                                    class="space-y-1">
-                                    <span v-if="
-                                        ['interested', 'like'].includes(
-                                            apt.feedback_result,
-                                        )
-                                    " style="
-                                            background-color: #ecfdf5;
-                                            color: #10b981;
-                                            border: 1px solid #a7f3d0;
-                                            padding: 2px 8px;
-                                            border-radius: 4px;
-                                            font-size: 10.5px;
-                                            font-weight: bold;
-                                            display: inline-block;
-                                        ">
-                                        <i class="bi bi-check-circle-fill"></i>
-                                        Đã chốt: Ưng
-                                    </span>
-                                    <span v-else-if="
-                                        apt.feedback_result ===
-                                        'cancel_requested'
-                                    " style="
-                                            background-color: #fffbeb;
-                                            color: #d97706;
-                                            border: 1px solid #fde68a;
-                                            padding: 3px 8px;
-                                            border-radius: 6px;
-                                            font-size: 10.5px;
-                                            font-weight: bold;
-                                            display: inline-block;
-                                        ">
-                                        <i class="bi bi-clock-history"></i> Đã
-                                        gửi yêu cầu hủy HĐ (Chờ duyệt)
-                                    </span>
-                                    <span v-else-if="
-                                        [
-                                            'not_interested',
-                                            'dislike',
-                                        ].includes(apt.feedback_result)
-                                    " style="
-                                            background-color: #fef2f2;
-                                            color: #ef4444;
-                                            border: 1px solid #fecaca;
-                                            padding: 2px 8px;
-                                            border-radius: 4px;
-                                            font-size: 10.5px;
-                                            font-weight: bold;
-                                        ">
-                                        <i class="bi bi-x-circle-fill"></i> Đã
-                                        chốt: Không ưng
-                                    </span>
-                                    <a v-if="
-                                        apt.room?.boardingHouse?.landlord
-                                            ?.phone ||
-                                        apt.room?.boarding_house?.landlord
-                                            ?.phone
-                                    "
-                                        :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
-                                        class="mobile-call-btn">
-                                        <i class="bi bi-telephone-fill"></i> Gọi
                                         {{
-                                            apt.room?.boardingHouse?.landlord
-                                                ?.phone ||
-                                            apt.room?.boarding_house?.landlord
-                                                ?.phone
+                                            apt.room?.boardingHouse
+                                                ?.landlord?.phone ||
+                                            apt.room?.boarding_house
+                                                ?.landlord?.phone
                                         }}
-                                    </a>
+                                    </span>
                                 </div>
+                                <a :href="`tel:${apt.room?.boardingHouse?.landlord?.phone || apt.room?.boarding_house?.landlord?.phone}`"
+                                    class="mobile-call-btn">
+                                    <i class="bi bi-telephone-fill"></i> Gọi ngay
+                                </a>
                             </div>
 
                             <!-- Action Card Footer -->
                             <div class="mobile-apt-actions">
                                 <!-- Hàng nút chính -->
                                 <div class="mobile-action-row">
-                                    <Link :href="route('chitiettro', apt.room_id)"
+                                    <Link :href="getRoomDetailUrl(apt)"
                                         class="mobile-action-btn btn-view-room">
                                         <i class="bi bi-eye-fill"></i>
                                         <span>Xem phòng</span>

@@ -1,11 +1,28 @@
 <script setup>
-import { ref, computed, onUnmounted } from "vue";
-import { Head, Link, useForm } from "@inertiajs/vue3";
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { Head, Link, useForm, usePage, router } from "@inertiajs/vue3";
 import axios from "axios";
 import { showWarning, showSuccess } from "@/Utils/swal";
 import { compressMultipleImages } from "@/Utils/compressor";
 import { formatMoney, timeAgo } from "@/Utils/formatters";
 import Pagination from "@/Components/Pagination.vue";
+
+const page = usePage();
+
+onMounted(() => {
+    const userId = page.props.auth?.user?.id;
+    if (userId && window.Echo) {
+        window.Echo.private(`App.Models.User.${userId}`).notification((notification) => {
+            if (notification.type?.includes('Invoice') || notification.data?.url?.includes('invoices') || notification.data?.url?.includes('thanhtoan')) {
+                router.reload({ preserveScroll: true });
+            }
+        });
+    }
+});
+
+onUnmounted(() => {
+    if (typeof stopPolling === 'function') stopPolling();
+});
 
 
 const props = defineProps({

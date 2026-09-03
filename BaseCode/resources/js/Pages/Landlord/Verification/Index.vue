@@ -2,7 +2,6 @@
 import { ref, onMounted } from "vue";
 import { useForm, router, Head } from "@inertiajs/vue3";
 import UserLayout from "@/Layouts/UserLayout.vue";
-import * as faceapi from "face-api.js";
 
 //hiển thị 3 phần giao diện xác minh các bước cho chủ trọ
 import Step1 from "./Step1.vue";

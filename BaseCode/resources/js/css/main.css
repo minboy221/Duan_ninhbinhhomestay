@@ -2,10 +2,10 @@
 
 #backToTop {
     position: fixed;
-    bottom: 102px;
-    right: 35px;
-    width: 45px;
-    height: 45px;
+    bottom: 92px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
     border: none;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.15);
@@ -19,11 +19,11 @@
     color: #000;
     font-size: 20px;
     cursor: pointer;
-    /* display: none; */
-    /* Bỏ để v-show của Vue hoạt động */
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    transition: 0.3s;
-    z-index: 99999;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 99989;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #backToTop:hover {
@@ -199,56 +199,64 @@ body {
     right: 45px;
     width: 350px;
     background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    padding: 0;
     display: none;
     z-index: 1000;
+    overflow: hidden;
+    border: 1px solid #f1f5f9;
 }
 
 .notification-box .title {
-    font-weight: 600;
-    margin-bottom: 10px;
+    font-weight: 700;
+    margin-bottom: 0;
     font-size: 15px;
+    color: #0f172a;
 }
 
-.notification-box ul {
+.notification-box ul.notif-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 400px;
+    max-height: 380px;
     overflow-y: auto;
-    /* Custom scrollbar for better UI */
+    display: block;
+    width: 100%;
+    text-align: left;
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
 }
 
-.notification-box ul::-webkit-scrollbar {
+.notification-box ul.notif-list::-webkit-scrollbar {
     width: 6px;
 }
 
-.notification-box ul::-webkit-scrollbar-thumb {
+.notification-box ul.notif-list::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 6px;
 }
 
-.notification-box ul {
+.notification-box ul.empty-notif {
+    list-style: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 20px 0;
+    gap: 8px;
+    padding: 30px 15px;
+    margin: 0;
 }
 
-.notification-box ul img {
-    width: 80px;
+.notification-box ul.empty-notif img {
+    width: 75px;
     opacity: 0.8;
 }
 
-.notification-box ul span {
-    font-size: 14px;
-    color: #777;
+.notification-box ul.empty-notif span {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 500;
 }
 
 .notification-box.show {
@@ -460,7 +468,7 @@ body {
     text-align: center;
     color: white;
     max-width: 600px;
-    font-family: Arial, sans-serif !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .banner-text h1 {
@@ -562,6 +570,8 @@ body {
 
 /* nội dung */
 .noidung {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     max-width: 580px;
     line-height: 1.7;
@@ -578,7 +588,7 @@ body {
 
 /* chữ StayWork */
 .title span {
-    font-family: Arial, sans-serif !important;
+    font-family: 'Cormorant Garamond', serif;
     font-size: 48px;
     font-style: italic;
     background: linear-gradient(90deg, #102a6d, #3f7a9c);
@@ -624,62 +634,12 @@ body {
 
 /* chữ StayWork */
 .title1 span {
-    font-family: Arial, sans-serif !important;
+    font-family: 'Cormorant Garamond', serif;
     font-size: 48px;
     font-style: italic;
     background: linear-gradient(90deg, #102a6d, #3f7a9c);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-}
-
-.title_room {
-    min-height: 48px;
-    display: flex;
-    align-items: center;
-}
-
-.item_thongso h2 {
-    text-align: center;
-    font-family: Arial, sans-serif !important;
-    font-size: 140px;
-    font-style: italic;
-    background: linear-gradient(70deg, #f7faff, #45abe6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.infor_dangky h2 {
-    font-weight: 600;
-    font-size: 35px;
-    font-family: Arial, sans-serif !important;
-}
-
-.title_foot {
-    font-size: 20px;
-    font-family: Arial, sans-serif !important;
-}
-
-.pt-header h2 span {
-    font-family: Arial, sans-serif !important;
-    font-size: 42px;
-    font-style: italic;
-    background: linear-gradient(90deg, #102a6d, #45abe6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-/* phần hiển thị điều hướng */
-.dieuhuong {
-    position: absolute;
-    top: -995%;
-    left: 100%;
-    transform: translate(-100%, -100%);
-    z-index: 100;
-}
-
-.baodieuhuong {
-    display: flex;
-    gap: 15px;
 }
 
 /* phần danh sách phòng */

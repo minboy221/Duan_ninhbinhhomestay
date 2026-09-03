@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Repositories\Contracts\ReportRepositoryInterface;
+use App\Repositories\Interfaces\ReportRepositoryInterface;
 use App\Traits\CompressesImages;
 use Illuminate\Support\Facades\Storage;
 use Exception;
@@ -110,6 +110,7 @@ class ReportService
     }
     public function resolveSelfNegotiation(int $reportId, array $data, int $userId)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         $report = $this->reportRepo->findById($reportId);
 
         // Nạp quan hệ động dựa trên loại báo cáo để tránh gọi boardingHouse trên Invoice
@@ -124,7 +125,7 @@ class ReportService
         $responseImages = [];
         if (isset($data['response_evidence'])) {
             foreach ($data['response_evidence'] as $image) {
-                $responseImages[] = $image->store('reports/responses', 'public');
+                $responseImages[] = $image->store('reports/responses', $disk);
             }
         }
         $updateData = [];

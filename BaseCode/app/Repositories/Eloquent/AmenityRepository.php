@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Repositories;
+namespace App\Repositories\Eloquent;
 
 use App\Models\Amenity;
 use Illuminate\Database\Eloquent\Collection;
@@ -20,7 +20,11 @@ class AmenityRepository
      */
     public function getActive(): Collection
     {
-        return Amenity::where('is_active', true)->orderBy('name')->get();
+        return Amenity::where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->unique('name')
+            ->values();
     }
 
     /**

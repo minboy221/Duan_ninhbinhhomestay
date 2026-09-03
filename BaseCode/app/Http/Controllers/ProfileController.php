@@ -11,9 +11,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use App\Models\RoommateRequest;
+use App\Models\Contract;
+use App\Models\RoomResident;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use function Safe\strtotime;
+use Illuminate\Support\Facades\DB;
 
 class ProfileController extends Controller
 {
@@ -52,26 +56,26 @@ class ProfileController extends Controller
     {
         $userId = $request->user()->id;
         $isPrimaryTenant = false;
-        // Tìm hợp đồng của người dùng đứng tên đại diện
+        //ưu tiên tìm hợp đồng do người dùng đững tên đại diện
         $contract = \App\Models\Contract::where('tenant_id', $userId)
-            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested', 'pending'])
             ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices', 'tenant'])
             ->orderBy('created_at', 'desc')
             ->first();
         if ($contract) {
-            $isPrimaryTenant = true; // Là Chủ hợp đồng
+            $isPrimaryTenant = true;
         } else {
-            // Check nếu là thành viên ở ghép
             $resident = \App\Models\RoomResident::where('user_id', $userId)
                 ->where('status', 'active')
                 ->first();
             if ($resident) {
+                //lấy hợp đồng mới nhất của phòng mà cư dân đang ở ghép
                 $contract = \App\Models\Contract::where('room_id', $resident->room_id)
-                    ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+                    ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested', 'pending'])
                     ->with(['room.boardingHouse.user', 'room.residents.user', 'invoices', 'tenant'])
                     ->orderBy('created_at', 'desc')
                     ->first();
-                $isPrimaryTenant = false; // Là Thành viên ở ghép
+                $isPrimaryTenant = false;
             }
         }
         //tự động kiểm tra và đồng bộ số người ở hiện tại của phòng
@@ -241,54 +245,83 @@ class ProfileController extends Controller
      */
     public function appointments(Request $request): Response
     {
-        $appointments = \App\Models\Appointment::with(['room.boardingHouse.landlord'])
+        $appointments = \App\Models\Appointment::with([
+            'room.boardingHouse.landlord',
+            'room.roomPosts' => function ($q) {
+                $q->orderBy('created_at', 'desc');
+            }
+        ])
             ->where('user_id', $request->user()->id)
             ->orderBy('date', 'desc')
             ->orderBy('time', 'desc')
             ->get();
 
-        // Tự động đồng bộ trạng thái thực tế với Hợp đồng & Cư dân ở ghép
-        foreach ($appointments as $apt) {
-            $userId = $request->user()->id;
-            $roomId = $apt->room_id;
+        // Đồng bộ thông minh: Chỉ cập nhật trạng thái thực tế cho LỊCH HẸN MỚI NHẤT của từng phòng
+        $userId = $request->user()->id;
 
-            // Check xem có hợp đồng đang có hiệu lực / đã ký đứng tên người này không
-            $activeContract = \App\Models\Contract::where('room_id', $roomId)
-                ->where('tenant_id', $userId)
-                ->whereIn('status', ['active', 'signed'])
-                ->latest()
-                ->first();
+        $userActiveContracts = \App\Models\Contract::where('tenant_id', $userId)
+            ->whereIn('status', ['active', 'signed', 'expiring', 'termination_requested'])
+            ->get()
+            ->keyBy('room_id');
 
-            // Check xem có hợp đồng đã thanh lý đứng tên người này không
-            $terminatedContract = \App\Models\Contract::where('room_id', $roomId)
-                ->where('tenant_id', $userId)
-                ->where('status', 'terminated')
-                ->latest()
-                ->first();
+        $userTerminatedContracts = \App\Models\Contract::where('tenant_id', $userId)
+            ->where('status', 'terminated')
+            ->get()
+            ->keyBy('room_id');
 
-            // Check xem người này có đang ở ghép trong phòng không
-            $isResident = \App\Models\RoomResident::where('room_id', $roomId)
-                ->where('user_id', $userId)
-                ->where('status', 'active')
-                ->exists();
+        $activeResidents = \App\Models\RoomResident::where('user_id', $userId)
+            ->where('status', 'active')
+            ->get()
+            ->keyBy('room_id');
 
-            $pastResident = \App\Models\RoomResident::where('room_id', $roomId)
-                ->where('user_id', $userId)
-                ->where('status', 'inactive')
-                ->exists();
+        $inactiveResidents = \App\Models\RoomResident::where('user_id', $userId)
+            ->where('status', 'inactive')
+            ->get()
+            ->keyBy('room_id');
 
-            if ($activeContract) {
-                // Nếu người này đứng tên chính hợp đồng active -> 'success_matched' hoặc 'became_main_tenant'
-                $apt->status = 'success_matched';
-            } else if ($terminatedContract && !$isResident) {
-                // Nếu hợp đồng đã thanh lý và không còn ở trong phòng -> 'terminated'
-                $apt->status = 'terminated';
-            } else if ($isResident) {
-                // Nếu đang là thành viên ở ghép trong phòng -> 'joined_roommate'
-                $apt->status = 'joined_roommate';
-            } else if ($pastResident) {
-                $apt->status = 'roommate_removed';
+        // Nhóm lịch hẹn theo từng phòng (đã được sắp xếp thời gian từ mới đến cũ)
+        $appointmentsByRoom = $appointments->groupBy('room_id');
+
+        foreach ($appointmentsByRoom as $roomId => $roomApts) {
+            $activeContract = $userActiveContracts->get($roomId);
+            $terminatedContract = $userTerminatedContracts->get($roomId);
+            $isResident = $activeResidents->has($roomId);
+            $pastResident = $inactiveResidents->has($roomId);
+
+            // Chỉ cập nhật trạng thái cho LỊCH HẸN MỚI NHẤT của phòng đó
+            $latestApt = $roomApts->first();
+
+            if ($latestApt) {
+                if ($activeContract) {
+                    // Chủ hợp đồng chính active -> 'Đã ký HĐ & Đóng cọc'
+                    $latestApt->status = 'success_matched';
+                } else if ($isResident) {
+                    // Thành viên ở ghép active -> 'Đã tham gia ở ghép'
+                    $latestApt->status = 'joined_roommate';
+                } else if ($terminatedContract && !$isResident) {
+                    // Hợp đồng đã thanh lý -> 'Hợp đồng đã thanh lý'
+                    if (in_array($latestApt->status, ['success_matched', 'became_main_tenant', 'waiting_contract', 'joined_roommate'])) {
+                        $latestApt->status = 'terminated';
+                    }
+                } else if ($pastResident && !$activeContract && !$isResident) {
+                    // Đã rời phòng ở ghép -> 'Đã rời phòng ở ghép'
+                    if (in_array($latestApt->status, ['success_matched', 'became_main_tenant', 'joined_roommate'])) {
+                        $latestApt->status = 'roommate_removed';
+                    }
+                }
             }
+        }
+
+        // Lấy thông tin bài đăng cho từng lịch hẹn để gắn link xem bài đăng
+        foreach ($appointments as $apt) {
+            $roomId = $apt->room_id;
+            $roomPost = \App\Models\RoomPost::where('room_id', $roomId)->latest()->first();
+            if (!$roomPost && $apt->room) {
+                $roomPost = \App\Models\RoomPost::whereHas('room', function ($q) use ($apt) {
+                    $q->where('boarding_house_id', $apt->room->boarding_house_id);
+                })->latest()->first();
+            }
+            $apt->post_slug_or_id = $roomPost ? ($roomPost->slug_with_hash ?: $roomPost->id) : null;
         }
 
         $favoriteRoomIds = $request->user()->favoriteRooms()->pluck('rooms.id')->toArray();
@@ -626,6 +659,7 @@ class ProfileController extends Controller
      */
     public function submitEntryReadings(Request $request, $contractId)
     {
+        $disk = (config('filesystems.disks.r2_public.key') && config('filesystems.disks.r2_public.secret')) ? 'r2_public' : 'public';
         $request->validate([
             'entry_elec_index' => 'required|integer|min:0',
             'entry_water_index' => 'required|integer|min:0',
@@ -641,11 +675,11 @@ class ProfileController extends Controller
         $waterImgPath = $contract->entry_water_image;
 
         if ($request->hasFile('entry_elec_image')) {
-            $elecImgPath = '/storage/' . $request->file('entry_elec_image')->store('meter_readings/entry', 'public');
+            $elecImgPath = '/storage/' . $request->file('entry_elec_image')->store('meter_readings/entry', $disk);
         }
 
         if ($request->hasFile('entry_water_image')) {
-            $waterImgPath = '/storage/' . $request->file('entry_water_image')->store('meter_readings/entry', 'public');
+            $waterImgPath = '/storage/' . $request->file('entry_water_image')->store('meter_readings/entry', $disk);
         }
 
         $contract->update([
@@ -711,6 +745,72 @@ class ProfileController extends Controller
         }
     }
 
+    /**
+     * check tài khoản thêm người ở ghép đã có trong hệ thống chưa
+     */
+    public function checkRoommateUser(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $phone = trim($request->input('phone', ''));
+        $email = trim($request->input('email', ''));
+        $cccd = trim($request->input('cccd', ''));
+
+        if (empty($phone) && empty($email) && empty($cccd)) {
+            return response()->json(['exists' => false]);
+        }
+
+        $user = \App\Models\User::where(function ($q) use ($phone, $email, $cccd) {
+            if (!empty($phone)) $q->orWhere('phone', $phone);
+            if (!empty($email)) $q->orWhere('email', $email);
+            if (!empty($cccd)) $q->orWhere('cccd_number', $cccd);
+        })->first(['id', 'name', 'phone', 'email', 'cccd_number']);
+
+        if (!$user) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Tài khoản mới - Hệ thống sẽ tự tạo tài khoản & gửi mật khẩu khi được chủ trọ duyệt.'
+            ]);
+        }
+
+        // Check if user is primary tenant elsewhere
+        $primaryContract = \App\Models\Contract::where('tenant_id', $user->id)
+            ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'expiring', 'termination_requested'])
+            ->with('room')
+            ->first();
+
+        // Check if user is resident elsewhere
+        $resident = \App\Models\RoomResident::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->with('room')
+            ->first();
+
+        $isRentingElsewhere = false;
+        $rentalInfo = null;
+
+        if ($primaryContract && $primaryContract->room) {
+            $isRentingElsewhere = true;
+            $rentalInfo = "Đang là chủ hợp đồng tại phòng " . ($primaryContract->room->room_number ?? '');
+        } elseif ($resident && $resident->room) {
+            $isRentingElsewhere = true;
+            $rentalInfo = "Đang ở ghép tại phòng " . ($resident->room->room_number ?? '');
+        }
+
+        return response()->json([
+            'exists' => true,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'phone' => $user->phone,
+                'email' => $user->email,
+                'cccd_number' => $user->cccd_number,
+            ],
+            'is_renting_elsewhere' => $isRentingElsewhere,
+            'rental_info' => $rentalInfo,
+            'message' => $isRentingElsewhere 
+                ? "Cảnh báo: Thành viên này hiện {$rentalInfo}!"
+                : "Đã tìm thấy tài khoản \"{$user->name}\" trên hệ thống."
+        ]);
+    }
+
     //hàm nhận token từ điện thoại
     public function updateFcmToken(Request $request)
     {
@@ -721,6 +821,116 @@ class ProfileController extends Controller
         }
         return response()->json(['messeage' => 'Cập nhật FCM Token thành công!']);
     }
+
+    //hàm hiển thị trang cài đặt
+    public function settings(Request $request)
+    {
+        $sessions = [];
+        if (config('session.driver') === 'database') {
+            $sessions = DB::table('sessions')
+                ->where('user_id', $request->user()->id)
+                ->orderBy('last_activity', 'desc')
+                ->get()
+                ->map(function ($session) use ($request) {
+                    $agent = $this->parseUserAgent($session->user_agent);
+                    return [
+                        'id' => $session->id,
+                        'device' => $agent['device'],
+                        'platform' => $agent['platform'],
+                        'browser' => $agent['browser'],
+                        'ip_address' => $session->ip_address,
+                        'is_current_device' => $session->id === $request->session()->getId(),
+                        'last_active' => \Carbon\Carbon::createFromTimestamp($session->last_activity)->diffForHumans(),
+                    ];
+                });
+        }
+        return Inertia::render('Profile/caidat', [
+            'sessions' => $sessions,
+        ]);
+    }
+    //hàm phân tích thông tin trình duyệt & thiết bị từ user
+    private function parseUserAgent($ua)
+    {
+        $browser = 'Trình duyệt';
+        if (str_contains($ua, 'Chrome'))
+            $browser = 'Chrome';
+        elseif (str_contains($ua, 'Safari'))
+            $browser = 'Safari';
+        elseif (str_contains($ua, 'Firefox'))
+            $browser = 'Firefox';
+        elseif (str_contains($ua, 'Edge'))
+            $browser = 'Edge';
+        $platform = 'Máy tính';
+        if (str_contains($ua, 'iPhone') || str_contains($ua, 'iPad'))
+            $platform = 'iOS';
+        elseif (str_contains($ua, 'Android'))
+            $platform = 'Android';
+        elseif (str_contains($ua, 'Windows'))
+            $platform = 'Windows';
+        elseif (str_contains($ua, 'Macintosh'))
+            $platform = 'Mac';
+        return [
+            'device' => (str_contains($ua, 'Mobile') ? 'Điện thoại' : 'Máy tính'),
+            'platform' => $platform,
+            'browser' => $browser,
+        ];
+    }
+    //hàm xoá tài khoản (yêu cầu xác nhận mật khẩu hiện tại)
+    public function destroyAccount(Request $request)
+    {
+        //xác minh mật khẩu hiện tại
+        $request->validate([
+            'password' => ['required', 'current_password'],
+        ], [
+            'password.required' => 'Vui lòng nhập mật khẩu hiện tại để xác nhận',
+            'password.current_password' => 'Mật khẩu xác nhận không chính xác',
+        ]);
+        $userId = $request->user()->id;
+        //check hợp đồng nếu clien đang có hợp đồng hiệu lực
+        $hasActiveContract = Contract::where('tenant_id', $userId)
+            ->whereIn('status', ['awaiting_upload', 'signed', 'active', 'expiring', 'termination_requested'])
+            ->exists();
+        //check người dùng là thành viên ở ghép đang hoạt động
+        $hasActiveResidency = RoomResident::where('user_id', $userId)
+            ->where('status', 'active')
+            ->exists();
+        if ($hasActiveContract || $hasActiveResidency) {
+            throw ValidationException::withMessages([
+                'password' => 'Tài khoản của bạn hiện đang có hợp đồng hoặc phòng trọ còn hiệu lực! Bạn không thể xóa tài khoản. Vui lòng thanh lý hợp đồng và trả phòng trước khi xóa.',
+            ]);
+        }
+        //đăng xuất người dùng
+        Auth::logout();
+        //xoá tài khoản khỏi database
+        $user = $request->user();
+        Auth::logout();
+        $user->delete();
+        //huỷ session
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect('/')->with('success', 'Tài khoản của bạn đã được xóa thành công.');
+    }
+    public function requestUnlockProfile(Request $request)
+    {
+        $user = $request->user();
+        $request->validate([
+            'reason' => 'required|string|min:10|max:1000'
+        ], [
+            'reason.required' => 'Vui lòng nhập lý do cần chỉnh sửa thông tin cá nhân.',
+            'reason.min' => 'Nội dung lý do phải có ít nhất 10 ký tự.'
+        ]);
+        $user->update([
+            'profile_unlock_reason' => $request->reason,
+            'profile_unlock_requested_at' => now(),
+        ]);
+        //gửi thông báo
+        $admins = \App\Models\User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new \App\Notifications\ProfileUnlockRequestedNotification($user, $request->reason));
+        }
+        return redirect()->back()->with('success', 'Đã gửi yêu cầu xin chỉnh sửa thông tin đến Admin thành công!');
+    }
+
 }
 
 
