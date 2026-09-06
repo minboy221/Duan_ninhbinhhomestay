@@ -570,14 +570,8 @@ const submitFloor = () => {
             onSuccess: (page) => {
                 showFloorModal.value = false;
                 const flash = page.props.flash;
-                if (flash && flash.error) {
-                    showAlert("Không thể thêm tầng", flash.error, "warning");
-                } else {
-                    showAlert(
-                        "Thành công",
-                        `Thêm tầng/khu "${name}" thành công!`,
-                        "success",
-                    );
+                if (!flash?.error) {
+                    showAlert("Thành công", `Thêm tầng/khu "${name}" thành công!`, "success");
                 }
             },
             onError: (errors) => {
@@ -611,7 +605,7 @@ const delFloor = (f) => {
         `Xóa tầng "${f.name}" và toàn bộ phòng thuộc tầng?`,
         "danger",
         () => {
-            router.delete(route("landlord.floors.delete", f.id),{
+            router.delete(route("landlord.floors.delete", f.id), {
                 onSuccess: () => {
                     showSuccess("Thành công", `Đã xoá tầng "${f.name}" thành công!`);
                 },
@@ -752,17 +746,10 @@ const submitRoom = (data) => {
             onSuccess: (page) => {
                 const flash = page.props.flash;
                 if (flash && flash.error) {
-                    showAlert("Lỗi", flash.error, "warning");
                     resetSubmitting();
                 } else {
                     showForm.value = false;
-                    showAlert(
-                        "Thành công",
-                        flash && flash.success
-                            ? flash.success
-                            : "Cập nhật thông tin phòng thành công!",
-                        "success",
-                    );
+                    showAlert("Thành công", flash && flash.success ? flash.success : "Cập nhật thông tin phòng thành công!", "success");
                 }
             },
             onError: () => {
@@ -778,17 +765,10 @@ const submitRoom = (data) => {
             onSuccess: (page) => {
                 const flash = page.props.flash;
                 if (flash && flash.error) {
-                    showAlert("Lỗi", flash.error, "warning");
                     resetSubmitting();
                 } else {
                     showForm.value = false;
-                    showAlert(
-                        "Thành công",
-                        flash && flash.success
-                            ? flash.success
-                            : "Thêm phòng mới thành công!",
-                        "success",
-                    );
+                    showAlert("Thành công", flash && flash.success ? flash.success : "Thêm phòng mới thành công!", "success");
                 }
             },
             onError: () => {
@@ -1330,7 +1310,7 @@ const getAutoCoordinates = () => {
                                             Giá thuê</span>
                                         <span class="text-sm sm:text-base font-black text-emerald-700">{{
                                             fmtMoney(room.price)
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="flex items-center justify-between">
                                         <span class="text-xs font-bold text-slate-700"><i
@@ -1416,7 +1396,7 @@ const getAutoCoordinates = () => {
                                 <!-- Giá gọn nhẹ -->
                                 <div class="bg-slate-100/80 border border-slate-200/50 rounded-xl p-2 text-center">
                                     <span class="text-xs font-black text-emerald-700 block">{{ fmtMoney(room.price)
-                                        }}</span>
+                                    }}</span>
                                 </div>
                             </div>
 
@@ -1475,7 +1455,7 @@ const getAutoCoordinates = () => {
                                 <div class="flex items-center gap-3">
                                     <span class="text-sm sm:text-base font-black text-emerald-700">{{
                                         fmtMoney(room.price)
-                                    }}</span>
+                                        }}</span>
                                     <span :class="[
                                         'px-2.5 py-1 rounded-md text-xs font-black border flex items-center gap-1 w-fit',
                                         statusConfig[room.status]?.cls ||
@@ -1720,7 +1700,7 @@ const getAutoCoordinates = () => {
                             <span class="text-xs font-bold text-slate-400">Giá thuê:</span>
                             <span class="text-xs font-bold text-slate-800">{{
                                 fmtMoney(selRoom.price)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
                             <span class="text-xs font-bold text-slate-400">Diện tích:</span>
@@ -1730,7 +1710,7 @@ const getAutoCoordinates = () => {
                             <span class="text-xs font-bold text-slate-400">Số người:</span>
                             <span class="text-xs font-bold text-slate-800">{{ getEffectiveOccupants(selRoom) }}/{{
                                 selRoom.capacity
-                                }}
+                            }}
                                 người</span>
                         </div>
                         <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
@@ -1769,7 +1749,7 @@ const getAutoCoordinates = () => {
                                     <div class="flex flex-col">
                                         <span class="text-[10px] font-bold text-slate-700">{{ srv.name }}</span>
                                         <span class="text-[9px] font-semibold text-slate-500">{{ fmtMoney(srv.price)
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                 </div>
                             </div>

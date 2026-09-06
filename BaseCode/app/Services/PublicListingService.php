@@ -75,6 +75,10 @@ class PublicListingService
     {
         return $this->roomPostRepository->getFeaturedPosts($limit)->map(function ($post) {
             $room = $post->room;
+
+            // Kiểm tra xem tin có vừa mới được đẩy trong vòng 24 giờ qua không
+            $isBumped = $post->bumped_at && $post->bumped_at->diffInHours(now()) <= 24;
+
             return [
                 'id' => $post->id,
                 'title' => $post->title,
@@ -83,7 +87,8 @@ class PublicListingService
                 'price' => $room ? $room->price : null,
                 'area' => $room ? $room->area : null,
                 'address' => $room && $room->boardingHouse ? $room->boardingHouse->address_detail : null,
-                'isHot' => $post->view_count > 50, // Example logic
+                'isHot' => $post->view_count > 50,
+                'isBumped' => $isBumped,
                 'landlord_name' => $post->landlord ? $post->landlord->name : null,
                 'landlord_avatar' => $post->landlord ? $post->landlord->avatar : null,
                 'has_vip_frame' => $post->landlord ? $post->landlord->has_vip_frame : false,
@@ -139,12 +144,12 @@ class PublicListingService
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', '%' . $search . '%')
-                  ->orWhere('description', 'like', '%' . $search . '%')
-                  ->orWhereHas('room.boardingHouse', function ($bq) use ($search) {
-                      $bq->where('name', 'like', '%' . $search . '%')
-                         ->orWhere('address_detail', 'like', '%' . $search . '%')
-                         ->orWhere('district', 'like', '%' . $search . '%');
-                  });
+                    ->orWhere('description', 'like', '%' . $search . '%')
+                    ->orWhereHas('room.boardingHouse', function ($bq) use ($search) {
+                        $bq->where('name', 'like', '%' . $search . '%')
+                            ->orWhere('address_detail', 'like', '%' . $search . '%')
+                            ->orWhere('district', 'like', '%' . $search . '%');
+                    });
             });
         }
 
@@ -163,7 +168,7 @@ class PublicListingService
             if ($area) {
                 $query->whereHas('room.boardingHouse', function ($q) use ($area) {
                     $q->where('address_detail', 'like', "%{$area->name}%")
-                      ->orWhere('district', 'like', "%{$area->name}%");
+                        ->orWhere('district', 'like', "%{$area->name}%");
                 });
             }
         }
@@ -231,9 +236,9 @@ class PublicListingService
         if ($floorNumber !== null) {
             $query->whereHas('room.floor', function ($q) use ($floorNumber) {
                 $q->where('sort_order', $floorNumber)
-                  ->orWhere('name', 'like', "%Tầng {$floorNumber}%")
-                  ->orWhere('name', 'like', "%Tầng {$floorNumber}")
-                  ->orWhere('name', 'like', "{$floorNumber}");
+                    ->orWhere('name', 'like', "%Tầng {$floorNumber}%")
+                    ->orWhere('name', 'like', "%Tầng {$floorNumber}")
+                    ->orWhere('name', 'like', "{$floorNumber}");
             });
         }
 
@@ -328,11 +333,13 @@ class PublicListingService
     public function formatImageUrl($image): string
     {
         $defaultFallback = '/anh/phong1.jpg';
-        if (empty($image)) return $defaultFallback;
-        
+        if (empty($image))
+            return $defaultFallback;
+
         $firstImg = is_array($image) ? ($image[0] ?? '') : $image;
-        if (empty($firstImg) || !is_string($firstImg)) return $defaultFallback;
-        
+        if (empty($firstImg) || !is_string($firstImg))
+            return $defaultFallback;
+
         $trimmed = trim($firstImg);
         if (str_starts_with($trimmed, 'http://') || str_starts_with($trimmed, 'https://') || str_starts_with($trimmed, 'data:')) {
             return $trimmed;
@@ -340,7 +347,7 @@ class PublicListingService
 
         // Loại bỏ tiền tố private/ hoặc /storage/ để lấy tên file gốc
         $clean = preg_replace('/^(\/?storage\/|\/?private\/)+/i', '', $trimmed);
-        
+
         // 1. Kiểm tra trong storage/app/public/
         if (file_exists(storage_path('app/public/' . $clean))) {
             return '/storage/' . $clean;
@@ -438,22 +445,23 @@ class PublicListingService
 
         // Hàm kiểm tra phòng hợp lệ (chỉ hiển thị phòng có tin đăng, không bảo trì/tạm ngưng, và chưa full người)
         $isEligiblePost = function ($post) {
-            if (!$post || !$post->room) return false;
+            if (!$post || !$post->room)
+                return false;
             $room = $post->room;
-            
+
             // Loại bỏ phòng đang bảo trì, tạm ngưng hoặc đang xây
             if (in_array($room->status, ['maintenance', 'suspended', 'under_construction'])) {
                 return false;
             }
-            
+
             $capacity = max(1, (int) ($room->capacity ?? 1));
             $currentPeople = (int) ($room->current_people ?? 0);
-            
+
             // Nếu phòng đã cho thuê và full người (hoặc bất kỳ phòng nào đã đủ số người tối đa) -> KHÔNG HIỆN
             if ($currentPeople >= $capacity) {
                 return false;
             }
-            
+
             return true;
         };
 
@@ -481,12 +489,12 @@ class PublicListingService
         if (!empty($keyword)) {
             $query->where(function ($q) use ($keyword) {
                 $q->where('title', 'like', '%' . $keyword . '%')
-                  ->orWhere('description', 'like', '%' . $keyword . '%')
-                  ->orWhereHas('room.boardingHouse', function ($bq) use ($keyword) {
-                      $bq->where('name', 'like', '%' . $keyword . '%')
-                         ->orWhere('address_detail', 'like', '%' . $keyword . '%')
-                         ->orWhere('district', 'like', '%' . $keyword . '%');
-                  });
+                    ->orWhere('description', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('room.boardingHouse', function ($bq) use ($keyword) {
+                        $bq->where('name', 'like', '%' . $keyword . '%')
+                            ->orWhere('address_detail', 'like', '%' . $keyword . '%')
+                            ->orWhere('district', 'like', '%' . $keyword . '%');
+                    });
             });
         }
 
@@ -496,7 +504,7 @@ class PublicListingService
             if ($area) {
                 $query->whereHas('room.boardingHouse', function ($q) use ($area) {
                     $q->where('address_detail', 'like', "%{$area->name}%")
-                      ->orWhere('district', 'like', "%{$area->name}%");
+                        ->orWhere('district', 'like', "%{$area->name}%");
                 });
             }
         } elseif (!empty($areaName)) {
@@ -504,11 +512,11 @@ class PublicListingService
             $query->where(function ($q) use ($areaName, $cleanArea) {
                 $q->whereHas('room.boardingHouse', function ($bq) use ($areaName, $cleanArea) {
                     $bq->where('address_detail', 'like', "%{$areaName}%")
-                       ->orWhere('district', 'like', "%{$areaName}%")
-                       ->orWhere('address_detail', 'like', "%{$cleanArea}%")
-                       ->orWhere('district', 'like', "%{$cleanArea}%");
+                        ->orWhere('district', 'like', "%{$areaName}%")
+                        ->orWhere('address_detail', 'like', "%{$cleanArea}%")
+                        ->orWhere('district', 'like', "%{$cleanArea}%");
                 })
-                ->orWhere('title', 'like', "%{$cleanArea}%");
+                    ->orWhere('title', 'like', "%{$cleanArea}%");
             });
         }
 
@@ -542,9 +550,9 @@ class PublicListingService
         if ($floorNumber !== null) {
             $query->whereHas('room.floor', function ($q) use ($floorNumber) {
                 $q->where('sort_order', $floorNumber)
-                  ->orWhere('name', 'like', "%Tầng {$floorNumber}%")
-                  ->orWhere('name', 'like', "%Tầng {$floorNumber}")
-                  ->orWhere('name', 'like', "{$floorNumber}");
+                    ->orWhere('name', 'like', "%Tầng {$floorNumber}%")
+                    ->orWhere('name', 'like', "%Tầng {$floorNumber}")
+                    ->orWhere('name', 'like', "{$floorNumber}");
             });
         }
 
@@ -555,14 +563,14 @@ class PublicListingService
                 $query->where(function ($q) use ($categoryNames) {
                     foreach ($categoryNames as $catName) {
                         $q->orWhere('title', 'like', "%{$catName}%")
-                          ->orWhere('description', 'like', "%{$catName}%");
+                            ->orWhere('description', 'like', "%{$catName}%");
                     }
                 });
             }
         } elseif (!empty($categoryName)) {
             $query->where(function ($q) use ($categoryName) {
                 $q->where('title', 'like', "%{$categoryName}%")
-                  ->orWhere('description', 'like', "%{$categoryName}%");
+                    ->orWhere('description', 'like', "%{$categoryName}%");
             });
         }
 
@@ -574,10 +582,10 @@ class PublicListingService
                     foreach ($amenityDbNames as $name) {
                         $mainQ->where(function ($subQ) use ($name) {
                             $subQ->where('description', 'like', "%{$name}%")
-                                 ->orWhere('title', 'like', "%{$name}%")
-                                 ->orWhereHas('room.services', function ($sq) use ($name) {
-                                     $sq->where('name', 'like', "%{$name}%");
-                                 });
+                                ->orWhere('title', 'like', "%{$name}%")
+                                ->orWhereHas('room.services', function ($sq) use ($name) {
+                                    $sq->where('name', 'like', "%{$name}%");
+                                });
                         });
                     }
                 });
@@ -587,10 +595,10 @@ class PublicListingService
                 foreach ($amenityNames as $name) {
                     $mainQ->where(function ($subQ) use ($name) {
                         $subQ->where('description', 'like', "%{$name}%")
-                             ->orWhere('title', 'like', "%{$name}%")
-                             ->orWhereHas('room.services', function ($sq) use ($name) {
-                                 $sq->where('name', 'like', "%{$name}%");
-                             });
+                            ->orWhere('title', 'like', "%{$name}%")
+                            ->orWhereHas('room.services', function ($sq) use ($name) {
+                                $sq->where('name', 'like', "%{$name}%");
+                            });
                     });
                 }
             });
@@ -681,8 +689,10 @@ class PublicListingService
                 // Nếu có mức giá trần hoặc khoảng giá: Ưu tiên gợi ý các phòng NẰM TRONG NGÂN SÁCH trước
                 $withinBudgetPosts = $allApprovedPosts->filter(function ($p) use ($priceMin, $priceMax) {
                     $pPrice = (float) ($p->room?->price ?? PHP_INT_MAX);
-                    if ($priceMax !== null && $pPrice > $priceMax) return false;
-                    if ($priceMin !== null && $pPrice < $priceMin) return false;
+                    if ($priceMax !== null && $pPrice > $priceMax)
+                        return false;
+                    if ($priceMin !== null && $pPrice < $priceMin)
+                        return false;
                     return true;
                 });
 
@@ -743,7 +753,7 @@ class PublicListingService
             if ($hasResidents) {
                 $statusLabel = "Đã có {$currentPeople} người ở";
             } else {
-                $statusLabel = match($status) {
+                $statusLabel = match ($status) {
                     'available' => 'Còn phòng',
                     'rented' => 'Đã thuê',
                     'deposited' => 'Đã cọc',
@@ -903,12 +913,14 @@ class PublicListingService
         $cutoff = now()->subDays(7);
 
         foreach ($guestMessages as $msg) {
-            if (empty($msg['text'])) continue;
-            
+            if (empty($msg['text']))
+                continue;
+
             $sender = ($msg['sender'] ?? 'user') === 'ai' ? 'ai' : 'user';
             $createdAt = !empty($msg['created_at']) ? \Carbon\Carbon::parse($msg['created_at']) : now();
-            
-            if ($createdAt->lt($cutoff)) continue;
+
+            if ($createdAt->lt($cutoff))
+                continue;
 
             AiChatHistory::create([
                 'user_id' => $userId,
@@ -958,7 +970,8 @@ class PublicListingService
             ->get()
             ->filter(function ($post) {
                 $room = $post->room;
-                if (!$room) return false;
+                if (!$room)
+                    return false;
                 $cap = max(1, (int) ($room->capacity ?? 1));
                 $cur = (int) ($room->current_people ?? 0);
                 return $cur < $cap;
@@ -970,16 +983,7 @@ class PublicListingService
         $isLocationConcern = (stripos($reasonLower, 'xa') !== false || stripos($reasonLower, 'vị trí') !== false || stripos($reasonLower, 'đường') !== false || stripos($reasonLower, 'khu vực') !== false);
         $isAmenityConcern = (stripos($reasonLower, 'tiện nghi') !== false || stripos($reasonLower, 'ảnh') !== false || stripos($reasonLower, 'cũ') !== false || stripos($reasonLower, 'thiếu') !== false);
 
-        $scoredCandidates = $candidatePosts->map(function ($post) use (
-            $currentPrice,
-            $currentArea,
-            $currentDistrict,
-            $currentWard,
-            $isPriceConcern,
-            $isAreaConcern,
-            $isLocationConcern,
-            $isAmenityConcern
-        ) {
+        $scoredCandidates = $candidatePosts->map(function ($post) use ($currentPrice, $currentArea, $currentDistrict, $currentWard, $isPriceConcern, $isAreaConcern, $isLocationConcern, $isAmenityConcern) {
             $room = $post->room;
             $house = $room?->boardingHouse;
             $score = 0.0;
@@ -1091,9 +1095,9 @@ class PublicListingService
         $roomName = $currentRoom->room_number ? "Phòng " . $currentRoom->room_number : ($currentPost->title ?? "phòng vừa xem");
         $houseName = $currentHouse?->name ? " tại " . $currentHouse->name : "";
         $priceText = $currentPrice > 0 ? number_format($currentPrice, 0, ',', '.') . " đ" : "";
-        
+
         $reasonText = !empty($reason) ? trim($reason) : ($appointment->feedback_reason ?: "chưa ưng ý");
-        
+
         $aiMessage = "Dựa trên lý do bạn chưa ưng ý (\"{$reasonText}\") với {$roomName}{$houseName}, Trợ lý AI đã chọn lọc 3 phòng trọ có vị trí, mức giá và tiện ích tương tự sát nhất để bạn tham khảo ngay:";
 
         return [

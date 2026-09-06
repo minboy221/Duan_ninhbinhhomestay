@@ -215,32 +215,36 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
-        $settings = [];
-        try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
-                $settings = \App\Models\Setting::pluck('value', 'key')->map(function ($val) {
-                    $decoded = json_decode($val, true);
-                    return is_array($decoded) ? $decoded : $val;
-                });
+        $settings = \Illuminate\Support\Facades\Cache::remember('app_settings_shared', 300, function () {
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                    return \App\Models\Setting::pluck('value', 'key')->map(function ($val) {
+                        $decoded = json_decode($val, true);
+                        return is_array($decoded) ? $decoded : $val;
+                    });
+                }
+            } catch (\Throwable $e) {
+                return [];
             }
-        } catch (\Throwable $e) {
-            $settings = [];
-        }
+            return [];
+        });
 
         $adminCounts = null;
         if ($user && $user->role === 'admin') {
             try {
-                $adminCounts = [
-                    'users' => \App\Models\User::whereNotNull('profile_unlock_reason')->count(),
-                    'reports' => \App\Models\Report::where('status', 'pending')->count(),
-                    'verifications' => \Illuminate\Support\Facades\DB::table('user_verifications')->where('status', 'pending')->count(),
-                    'room_posts' => \App\Models\RoomPost::where('status', 'pending')->count(),
-                    'boarding_houses' => \App\Models\BoardingHouse::where('status', 'pending')->count(),
-                    'pending_subscriptions' => \App\Models\LandlordSubscription::where('status', 'pending')->whereNotNull('proof_image')->count(),
-                    'contacts' => \Illuminate\Support\Facades\Schema::hasTable('contacts') ? \Illuminate\Support\Facades\DB::table('contacts')->where('status', 'pending')->count() : 0,
-                    'reviews' => \Illuminate\Support\Facades\Schema::hasTable('reviews') ? \App\Models\Review::where('status', 'pending')->count() : 0,
-                    'latest_audit_log_id' => \App\Models\AuditLog::max('id') ?? 0,
-                ];
+                $adminCounts = \Illuminate\Support\Facades\Cache::remember('admin_counts_shared', 15, function () {
+                    return [
+                        'users' => \App\Models\User::whereNotNull('profile_unlock_reason')->count(),
+                        'reports' => \App\Models\Report::where('status', 'pending')->count(),
+                        'verifications' => \Illuminate\Support\Facades\DB::table('user_verifications')->where('status', 'pending')->count(),
+                        'room_posts' => \App\Models\RoomPost::where('status', 'pending')->count(),
+                        'boarding_houses' => \App\Models\BoardingHouse::where('status', 'pending')->count(),
+                        'pending_subscriptions' => \App\Models\LandlordSubscription::where('status', 'pending')->whereNotNull('proof_image')->count(),
+                        'contacts' => \Illuminate\Support\Facades\Schema::hasTable('contacts') ? \Illuminate\Support\Facades\DB::table('contacts')->where('status', 'pending')->count() : 0,
+                        'reviews' => \Illuminate\Support\Facades\Schema::hasTable('reviews') ? \App\Models\Review::where('status', 'pending')->count() : 0,
+                        'latest_audit_log_id' => \App\Models\AuditLog::max('id') ?? 0,
+                    ];
+                });
             } catch (\Throwable $e) {
                 $adminCounts = [];
             }

@@ -39,10 +39,10 @@ class BoardingHouse extends Model
         return $this->hasManyThrough(
             Floor::class,
             Property::class,
-            'landlord_id',   // Khóa ngoại trên bảng properties trỏ tới user_id của chủ trọ
-            'property_id',   // Khóa ngoại trên bảng floors trỏ tới id của properties
-            'user_id',       // Khóa nội bộ trên bảng boarding_houses lưu ID chủ trọ
-            'id'             // Khóa nội bộ trên bảng properties
+            'landlord_id',   
+            'property_id',  
+            'user_id',      
+            'id'           
         );
     }
 

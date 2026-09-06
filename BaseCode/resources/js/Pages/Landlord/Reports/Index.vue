@@ -3,6 +3,7 @@ import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import { ref, onMounted, onUnmounted } from "vue";
 import { compressMultipleImages } from "@/Utils/compressor";
+import { getImageUrl } from "@/Utils/media";
 
 const props = defineProps({
     reports: Object,
@@ -427,9 +428,9 @@ onUnmounted(() => {
                         <div class="flex flex-wrap gap-2">
                             <img v-for="(
 img, idx
-                                ) in selectedReport.evidence_images" :key="idx" :src="'/storage/' + img"
+                                ) in selectedReport.evidence_images" :key="idx" :src="getImageUrl(img)"
                                 class="w-16 h-16 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-90"
-                                style="cursor: zoom-in" @click="zoomImage('/storage/' + img)" />
+                                style="cursor: zoom-in" @click="zoomImage(getImageUrl(img))" />
                         </div>
                     </div>
                     <!-- Ghi chú phản hồi của chủ trọ -->

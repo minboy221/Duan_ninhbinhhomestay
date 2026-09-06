@@ -36,20 +36,21 @@ class RoomService
      */
     public function getFloorsWithRooms(int $landlordId, ?int $boardingHouseId = null): array
     {
-        $properties = $this->propertyRepo->getByLandlordId($landlordId);
-        if ($properties->isEmpty())
+        // Lấy tất cả Property IDs của chủ trọ thay vì chỉ lấy cái đầu tiên
+        $propertyIds = \App\Models\Property::where('landlord_id', $landlordId)->pluck('id');
+        if ($propertyIds->isEmpty()) {
             return [];
-
-        // Lấy property đầu tiên (hoặc có thể mở rộng cho nhiều property)
-        $property = $properties->first();
-        $floors = $this->floorRepo->getByPropertyId($property->id);
-
+        }
+        // Lấy tất cả các tầng thuộc các Property của chủ trọ
+        $floors = \App\Models\Floor::whereIn('property_id', $propertyIds)->get();
         return $floors->map(function ($floor) use ($boardingHouseId) {
             $allRooms = $floor->rooms;
-            //lọc phòng thuộc cở sở đang chọn
             $rooms = $allRooms;
             if ($boardingHouseId) {
-                $rooms = $rooms->where('boarding_house_id', $boardingHouseId);
+                // Lọc phòng thuộc cơ sở đang chọn HOẶC phòng cũ chưa gán boarding_house_id
+                $rooms = $rooms->filter(function ($r) use ($boardingHouseId) {
+                    return empty($r->boarding_house_id) || $r->boarding_house_id == $boardingHouseId;
+                });
             }
             return [
                 'id' => $floor->id,
@@ -61,11 +62,9 @@ class RoomService
                 'total_rooms_count' => $allRooms->count(),
             ];
         })
-            //phần lọc bỏ các tầng không có phòng thuộc cơ sở trọ đang chọn
             ->filter(function ($floor) use ($boardingHouseId) {
                 if ($boardingHouseId) {
-                    return
-                        count($floor['rooms']) > 0 || $floor['total_rooms_count'] === 0;
+                    return count($floor['rooms']) > 0 || $floor['total_rooms_count'] === 0;
                 }
                 return true;
             })
@@ -73,15 +72,35 @@ class RoomService
     }
 
     /**
-     * Lấy property_id của landlord (lấy cái đầu tiên, tự tạo nếu chưa có)
+     * Lấy property_id của landlord (gắn theo từng Cơ sở trọ trong Session
      */
-    public function getOrCreatePropertyId(int $landlordId): int
+    public function getOrCreatePropertyId(int $landlordId, ?int $boardingHouseId = null): int
     {
+        $boardingHouseId = $boardingHouseId ?: session('selected_boarding_house_id');
+        if ($boardingHouseId) {
+            $boardingHouse = \App\Models\BoardingHouse::find($boardingHouseId);
+            if ($boardingHouse) {
+                //tìm hoặc tạo property cho riêng cho cơ sở trọ này
+                $property = \App\Models\Property::firstOrCreate(
+                    [
+                        'landlord_id' => $landlordId,
+                        'name' => $boardingHouse->name,
+                    ],
+                    [
+                        'address' => $boardingHouse->address_detail ?? 'Ninh Bình',
+                        'city' => 'Ninh Bình',
+                        'type' => 'motel_room',
+                        'is_active' => true,
+                    ]
+                );
+                return $property->id;
+            }
+        }
+        //fallback nếu không có session cơ sở
         $properties = $this->propertyRepo->getByLandlordId($landlordId);
         if ($properties->isNotEmpty()) {
-            return $properties->first()->id;
+            return $properties->first()->id();
         }
-        // Tạo property mặc định cho landlord
         $property = $this->propertyRepo->create([
             'landlord_id' => $landlordId,
             'name' => 'Nhà trọ chính',
@@ -96,16 +115,15 @@ class RoomService
     /**
      * Thêm tầng mới
      */
-    public function createFloor(int $landlordId, array $data): ?array
+    public function createFloor(int $landlordId, array $data, ?int $boardingHouseId = null): ?array
     {
-        $propertyId = $this->getOrCreatePropertyId($landlordId);
+        $propertyId = $this->getOrCreatePropertyId($landlordId, $boardingHouseId);
 
-        // Kiểm tra xem tầng với tên đã tồn tại dưới tài khoản chủ trọ
         $floor = Floor::where('property_id', $propertyId)
             ->where('name', $data['name'])
             ->first();
         if ($floor) {
-            throw new \Exception("Tầng/Dãy tên '{$data['name']}' đã tồn tại dưới tài khoản của bạn!");
+            throw new \Exception("Tầng/Dãy tên '{$data['name']}' đã tồn tại trong cơ sở này!");
         }
 
         $newFloor = Floor::create([
@@ -553,11 +571,11 @@ class RoomService
         ]);
         // Tính chính xác số người còn lại trong phòng
         $activeContractsCount = \App\Models\Contract::where('room_id', $roomId)
-        ->whereIn('status',['active', 'signed', 'expiring', 'termination_requested'])
-        ->count();
+            ->whereIn('status', ['active', 'signed', 'expiring', 'termination_requested'])
+            ->count();
         $activeResidentsCount = \App\Models\RoomResident::where('room_id', $roomId)
-        ->where('status', 'active')
-        ->count();
+            ->where('status', 'active')
+            ->count();
         $room->update(['current_people' => max(0, $activeContractsCount + $activeResidentsCount)]);
         //gửi thông báo cho user bị xoá khỏi phòng
         $user = $resident->user;

@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Notifications\AccountStatusNotification;
 use Illuminate\Support\Facades\Notification;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use function Safe\fputcsv;
 
 
 class AdminController extends Controller
@@ -98,11 +100,56 @@ class AdminController extends Controller
 
     public function users()
     {
-        $users = User::with(['propertyManagers.boardingHouse.user'])
+        $users = User::with([
+            'propertyManagers.boardingHouse.user',
+            'contracts.room.boardingHouse'
+        ])
             ->where('role', '!=', 'admin')
             ->select(['id', 'name', 'email', 'phone', 'avatar', 'role', 'status', 'lock_reason', 'last_profile_update_at', 'profile_unlock_reason', 'profile_unlock_requested_at', 'created_at'])
             ->orderBy('created_at', 'desc')
             ->get();
+
+        $userIds = $users->pluck('id');
+
+        $activeResidentsGrouped = \App\Models\RoomResident::whereIn('user_id', $userIds)
+            ->where('status', 'active')
+            ->get()
+            ->groupBy('user_id');
+
+        $allResidentRoomIds = $activeResidentsGrouped->flatten()->pluck('room_id')->filter()->unique();
+
+        $residentContractsByRoom = collect();
+        if ($allResidentRoomIds->isNotEmpty()) {
+            $residentContractsByRoom = \App\Models\Contract::whereIn('room_id', $allResidentRoomIds)
+                ->whereIn('status', ['active', 'signed', 'awaiting_upload', 'termination_requested', 'pending', 'expiring'])
+                ->with('room.boardingHouse')
+                ->get()
+                ->groupBy('room_id');
+        }
+
+        $users->transform(function ($user) use ($activeResidentsGrouped, $residentContractsByRoom) {
+            $userResidents = $activeResidentsGrouped->get($user->id, collect());
+            $residentRoomIds = $userResidents->pluck('room_id');
+            
+            $residentContracts = collect();
+            foreach ($residentRoomIds as $roomId) {
+                if ($residentContractsByRoom->has($roomId)) {
+                    $residentContracts = $residentContracts->merge($residentContractsByRoom->get($roomId));
+                }
+            }
+
+            $allContracts = $user->contracts->merge($residentContracts)->unique('id')->values();
+            $sortedContracts = $allContracts->sortBy(function ($c) {
+                if (in_array($c->status, ['active', 'signed']))
+                    return 1;
+                if (in_array($c->status, ['pending', 'awaiting_upload', 'termination_requested']))
+                    return 2;
+                return 3;
+            })->values();
+            $user->setRelation('contracts', $sortedContracts);
+            return $user;
+        });
+
         return Inertia::render('Admin/Users/index', [
             'users' => $users
         ]);
@@ -126,6 +173,9 @@ class AdminController extends Controller
         } else {
             $user->status = 'active';
             $user->lock_reason = null;
+            if (is_null($user->last_profile_update_at)) {
+                $user->last_profile_update_at = now();
+            }
         }
 
         $user->save();
@@ -194,22 +244,25 @@ class AdminController extends Controller
 
         return redirect()->back()->with('success', "Đã mở khóa cho tài khoản {$user->name} cập nhật lại thông tin cá nhân!");
     }
-
+    //Admin Từ chối yêu cầu mở khóa chỉnh sửa thông tin cá nhân của User
     public function rejectUnlockProfile($id)
     {
         $user = User::findOrFail($id);
-
         $user->update([
             'profile_unlock_reason' => null,
             'profile_unlock_requested_at' => null,
         ]);
-
+        try {
+            $user->notify(new \App\Notifications\ProfileUnlockRejectedNotification());
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Gửi thông báo từ chối mở khóa hồ sơ thất bại: " . $e->getMessage());
+        }
+        // Ghi Audit Log
         \App\Services\AuditLogger::log(
             'reject_unlock_profile',
             "Admin từ chối yêu cầu xin mở khóa thông tin cá nhân của tài khoản {$user->email} ({$user->name}).",
             true
         );
-
         return redirect()->back()->with('success', "Đã từ chối yêu cầu xin sửa thông tin của tài khoản {$user->name}!");
     }
 
@@ -235,38 +288,43 @@ class AdminController extends Controller
 
     public function landlords()
     {
-        $landlords = User::where('role', 'landlord')
-            ->with([
-                'verification',
-                'activeSubscription.plan',
-                'boardingHouse' => function ($q) {
-                    $q->withCount('rooms');
-                }
-            ])
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($user) {
-                //lấy kết quả từ thuộc tính rooms_count được tự động đếm sẵn
-                $roomCount = $user->boardingHouse->rooms_count ?? 0;
-                //lấy tên gói dịch vụ miễn phí
-                $planName = $user->activeSubscription->plan->name ?? 'Miễn phí';
-                return [
-                    'id' => $user->id,
-                    'avatar' => $user->avatar,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'phone' => $user->phone ?? 'Chưa cập nhật',
-                    'cccd' => $user->cccd_number ?? ($user->verification->id_card_number ?? 'chưa cập nhật'),
-                    'rooms' => $roomCount,
-                    'plan' => $planName,
-                    'boarding_house_name' => $user->boardingHouse->name ?? 'Chưa cấu hình',
-                    'verified' => true,
-                    'joined' => $user->created_at->format('d/m/Y'),
-                    'verification' => $user->verification,
-                    'boarding_house' => $user->boardingHouse,
-                ];
-            });
-        return Inertia::render('Admin/Landlords/index', [
+        $landlords = User::where('role','landlord')
+        ->with([
+            'verification',
+            'activeSubscription.plan',
+            'boardingHouses' => function ($q){
+                $q->withCount('rooms');
+            }
+        ])
+        ->orderBy('created_at', 'desc')
+        ->get()
+        ->map(function ($user){
+            //đếm tổng số cơ sở trọ thuộc chủ trọ
+            $boardingHousesCount = $user->boardingHouses->count();
+            //cộng tất cả phòng từ các cơ sở của chủ trọ
+            $totalRoomsCount = $user->boardingHouses->sum('rooms_count');
+            //ghép tên các cơ sở trọ
+            $houseNames = $user->boardingHouses->pluck('name')->filter()->join(',');
+            $planName = $user->activeSubscription->plan->name ?? 'Miễn phí';
+            return[
+                'id' => $user->id,
+                'avatar' => $user->avatar,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone ?? 'Chưa cập nhật',
+                'cccd' => $user->cccd_number ?? ($user->verification->id_card_number ?? 'chưa cập nhật'),
+                'boarding_houses_count' => $boardingHousesCount,
+                'rooms' => $totalRoomsCount,
+                'plan' => $planName,
+                'boarding_house_name' => $houseNames ?: 'Chưa cấu hình',
+                'verified' => true,
+                'joined' => $user->created_at->format('d/m/Y'),
+                'verification' => $user->verification,
+                'boarding_houses' => $user->boardingHouses,
+            ];
+        });
+
+        return \Inertia\Inertia::render('Admin/Landlords/index', [
             'landlords' => $landlords
         ]);
     }
@@ -380,7 +438,17 @@ class AdminController extends Controller
         $negotiationDays = \App\Models\Setting::where('key', 'report_negotiation_days')->value('value') ?? 2;
 
         //lấy toàn bộ báo cáo cùng các quan hệ liên quan
-        $reports = Report::with(['reportable', 'reporter', 'resolver'])
+        $reports = Report::with([
+            'reportable' => function ($morphTo) {
+                $morphTo->morphWith([
+                    \App\Models\Contract::class => ['room.boardingHouse'],
+                    \App\Models\Invoice::class => ['contract.room.boardingHouse'],
+                    \App\Models\Room::class => ['boardingHouse'],
+                ]);
+            },
+            'reporter',
+            'resolver'
+        ])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($report) {
@@ -389,14 +457,31 @@ class AdminController extends Controller
                 $targetFileUrl = null;
                 $targetInfo = null;
 
-                if ($report->reportable) {
-                    if ($report->reportable_type === \App\Models\Room::class) {
-                        $room = $report->reportable;
-                        $targetText = 'Phòng ' . $room->room_number . ' - ' . ($room->boardingHouse->name ?? '');
+                $reportable = $report->reportable;
+                // Fallback nếu relation bị null do tên class ngắn (ví dụ 'Contract')
+                if (!$reportable && $report->reportable_id) {
+                    $typeStr = $report->reportable_type ?? '';
+                    if (str_contains($typeStr, 'Contract')) {
+                        $reportable = \App\Models\Contract::with('room.boardingHouse')->find($report->reportable_id);
+                    } elseif (str_contains($typeStr, 'Invoice')) {
+                        $reportable = \App\Models\Invoice::with('contract.room.boardingHouse')->find($report->reportable_id);
+                    } elseif (str_contains($typeStr, 'Room')) {
+                        $reportable = \App\Models\Room::with('boardingHouse')->find($report->reportable_id);
+                    }
+                }
+
+                if ($reportable) {
+                    if ($reportable instanceof \App\Models\Room) {
+                        $room = $reportable;
+                        $houseName = $room->boardingHouse->name ?? '';
+                        $targetText = 'Phòng ' . ($room->room_number ?? 'N/A') . ($houseName ? ' - ' . $houseName : '');
                         $targetInfo = 'Giá phòng: ' . number_format($room->price ?? 0) . 'đ';
-                    } elseif ($report->reportable_type === \App\Models\Invoice::class) {
-                        $invoice = $report->reportable;
-                        $targetText = 'Hóa đơn #' . ($invoice->invoice_code ?? $invoice->id);
+                    } elseif ($reportable instanceof \App\Models\Invoice) {
+                        $invoice = $reportable;
+                        $room = $invoice->contract->room ?? null;
+                        $houseName = $room->boardingHouse->name ?? '';
+                        $roomStr = $room ? ('Phòng ' . $room->room_number . ($houseName ? ' - ' . $houseName : '') . ' | ') : '';
+                        $targetText = $roomStr . 'Hóa đơn #' . ($invoice->invoice_code ?? $invoice->id);
                         $targetInfo = 'Tổng tiền: ' . number_format($invoice->total_amount ?? 0) . 'đ';
                         $contractFile = $invoice->contract->contract_file_path ?? null;
                         if ($contractFile) {
@@ -404,9 +489,13 @@ class AdminController extends Controller
                                 ? $contractFile
                                 : '/storage/' . ltrim($contractFile, '/');
                         }
-                    } elseif ($report->reportable_type === \App\Models\Contract::class) {
-                        $contract = $report->reportable;
-                        $targetText = 'Hợp đồng #' . $contract->id;
+                    } elseif ($reportable instanceof \App\Models\Contract) {
+                        $contract = $reportable;
+                        $room = $contract->room ?? null;
+                        $houseName = $room->boardingHouse->name ?? '';
+                        $targetText = $room
+                            ? ('Phòng ' . $room->room_number . ($houseName ? ' - ' . $houseName : ''))
+                            : ('Hợp đồng #' . $contract->id);
                         $targetInfo = 'Tiền nhà: ' . number_format($contract->monthly_rent ?? 0) . 'đ | Cọc: ' . number_format($contract->deposit_amount ?? 0) . 'đ';
                         $contractFile = $contract->contract_file_path ?? null;
                         if ($contractFile) {
@@ -415,7 +504,7 @@ class AdminController extends Controller
                                 : '/storage/' . ltrim($contractFile, '/');
                         }
                     } else {
-                        $targetText = class_basename($report->reportable_type) . ' #' . $report->reportable->id;
+                        $targetText = class_basename($report->reportable_type) . ' #' . $reportable->id;
                     }
                 }
 
@@ -856,4 +945,51 @@ class AdminController extends Controller
 
         return redirect()->back()->with('success', 'Đã cập nhật cấu hình giao diện website thành công!');
     }
+    //xuất báo cáo doanh thu mua gói
+    public function exportRevenueReport(): StreamedResponse
+    {
+        $fileName = 'bao-cao-doanh-thu' . date('Y-m-d_H-i') . '.csv';
+        //lấy tất cả lịch sử giao dịch mua gói
+        $subscriptions = \App\Models\LandlordSubscription::with(['user', 'plan'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+        $headers = [
+            "Content-type" => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
+        ];
+        $callback = function () use ($subscriptions) {
+            $file = fopen('php://output', 'w');
+            fputs($file, "\xEF\xBB\xBF");
+            // Hàng tiêu đề cột
+            fputcsv($file, [
+                'STT',
+                'Mã Giao Dịch',
+                'Tên Chủ Trọ',
+                'Email',
+                'Gói Dịch Vụ',
+                'Số Tiền (VNĐ)',
+                'Ngày Thanh Toán',
+                'Trạng Thái'
+            ]);
+            foreach ($subscriptions as $index => $sub) {
+                $statusText = ($sub->status === 'approved' || $sub->status === 'active') ? 'Đã thanh toán' : ($sub->price_at_purchase == 0 ? 'Miễn phí / Dùng thử' : $sub->status);
+                fputcsv($file, [
+                    $index + 1,
+                    'SUB-' . $sub->id,
+                    $sub->user->name ?? 'Chủ trọ',
+                    $sub->user->email ?? 'email',
+                    $sub->plan->name ?? 'Gói dịch vụ',
+                    number_format($sub->price_at_purchase ?? 0, 0, ',', '.'),
+                    $sub->created_at ? $sub->created_at->format('d/m/Y H:i:s') : '',
+                    $statusText
+                ]);
+            }
+            fclose($file);
+        };
+        return response()->stream($callback, 200, $headers);
+    }
+
 }

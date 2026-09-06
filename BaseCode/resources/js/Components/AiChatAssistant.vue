@@ -1,7 +1,15 @@
 <script setup>
-import { ref, reactive, nextTick, onMounted, onUnmounted, computed, watch } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
-import axios from 'axios';
+import {
+    ref,
+    reactive,
+    nextTick,
+    onMounted,
+    onUnmounted,
+    computed,
+    watch,
+} from "vue";
+import { router, usePage } from "@inertiajs/vue3";
+import axios from "axios";
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
@@ -10,25 +18,40 @@ const user = computed(() => page.props.auth?.user);
 const isOpen = ref(false);
 const showGreetingBubble = ref(false);
 const isTyping = ref(false);
-const inputPrompt = ref('');
+const inputPrompt = ref("");
 const messagesContainerRef = ref(null);
 const inputRef = ref(null);
 
 // Gợi ý mặc định
 const defaultSuggestions = [
-    { label: '🏢 Tầng 1 Hoa Lư < 2.5tr', text: 'Tìm phòng tầng 1 quanh khu Hoa Lư, dưới 2.5 triệu' },
-    { label: '🌿 Studio gác xép nuôi pet', text: 'Phòng studio có gác xép, cho nuôi thú cưng' },
-    { label: '❄️ Có điều hòa & máy giặt', text: 'Phòng trọ có điều hòa, máy giặt, nóng lạnh dưới 3 triệu' },
-    { label: '👥 Phòng ghép sinh viên', text: 'Phòng ghép sinh viên giá rẻ dưới 1.5 triệu' },
+    {
+        label: "🏢 Tầng 1 Hoa Lư < 2.5tr",
+        text: "Tìm phòng tầng 1 quanh khu Hoa Lư, dưới 2.5 triệu",
+    },
+    {
+        label: "🌿 Studio gác xép nuôi pet",
+        text: "Phòng studio có gác xép, cho nuôi thú cưng",
+    },
+    {
+        label: "❄️ Có điều hòa & máy giặt",
+        text: "Phòng trọ có điều hòa, máy giặt, nóng lạnh dưới 3 triệu",
+    },
+    {
+        label: "👥 Phòng ghép sinh viên",
+        text: "Phòng ghép sinh viên giá rẻ dưới 1.5 triệu",
+    },
 ];
 
 const welcomeMessage = {
-    id: 'welcome',
-    sender: 'ai',
-    text: 'Xin chào bạn! 👋 Mình là **Trợ lý AI Ninh Bình HomeStay**.\nBạn đang tìm phòng trọ như thế nào? Hãy nói cho mình biết khu vực, mức giá hoặc tiện ích mong muốn nhé! ✨',
-    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    id: "welcome",
+    sender: "ai",
+    text: "Xin chào bạn! 👋 Mình là **Trợ lý AI Ninh Bình HomeStay**.\nBạn đang tìm phòng trọ như thế nào? Hãy nói cho mình biết khu vực, mức giá hoặc tiện ích mong muốn nhé! ✨",
+    time: new Date().toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+    }),
     rooms: [],
-    suggestions: defaultSuggestions.map(s => s.text),
+    suggestions: defaultSuggestions.map((s) => s.text),
     ai_parsed: null,
 };
 
@@ -39,13 +62,13 @@ const scrollToBottom = async () => {
     if (messagesContainerRef.value) {
         messagesContainerRef.value.scrollTo({
             top: messagesContainerRef.value.scrollHeight,
-            behavior: 'smooth'
+            behavior: "smooth",
         });
     }
 };
 
 // 1. TẢI VÀ ĐỒNG BỘ LỊCH SỬ CHAT (7 NGÀY)
-const GUEST_STORAGE_KEY = 'ninhbinh_guest_chat_history';
+const GUEST_STORAGE_KEY = "ninhbinh_guest_chat_history";
 
 const loadChatHistory = async () => {
     if (user.value) {
@@ -55,7 +78,11 @@ const loadChatHistory = async () => {
             try {
                 const guestMsgs = JSON.parse(guestData);
                 if (Array.isArray(guestMsgs) && guestMsgs.length > 0) {
-                    await axios.post('/api/ai/sync-guest-history', { messages: guestMsgs }).catch(() => {});
+                    await axios
+                        .post("/api/ai/sync-guest-history", {
+                            messages: guestMsgs,
+                        })
+                        .catch(() => {});
                     localStorage.removeItem(GUEST_STORAGE_KEY);
                 }
             } catch (e) {}
@@ -63,14 +90,14 @@ const loadChatHistory = async () => {
 
         // Tải lịch sử 7 ngày từ CSDL Server
         try {
-            const res = await axios.get('/api/ai/chat-history');
+            const res = await axios.get("/api/ai/chat-history");
             if (Array.isArray(res.data) && res.data.length > 0) {
                 messages.value = res.data;
             } else {
                 messages.value = [welcomeMessage];
             }
         } catch (err) {
-            console.error('Lỗi tải lịch sử chat:', err);
+            console.error("Lỗi tải lịch sử chat:", err);
             messages.value = [welcomeMessage];
         }
     } else {
@@ -80,13 +107,18 @@ const loadChatHistory = async () => {
             try {
                 const parsed = JSON.parse(raw);
                 const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-                const valid = parsed.filter(m => {
-                    const t = m.timestamp || (m.created_at ? new Date(m.created_at).getTime() : 0);
+                const valid = parsed.filter((m) => {
+                    const t =
+                        m.timestamp ||
+                        (m.created_at ? new Date(m.created_at).getTime() : 0);
                     return t >= cutoff;
                 });
                 if (valid.length > 0) {
                     messages.value = valid;
-                    localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(valid));
+                    localStorage.setItem(
+                        GUEST_STORAGE_KEY,
+                        JSON.stringify(valid),
+                    );
                 } else {
                     messages.value = [welcomeMessage];
                     localStorage.removeItem(GUEST_STORAGE_KEY);
@@ -110,8 +142,10 @@ const saveGuestMessage = (msg) => {
         list.push(msg);
         // Giữ lại tối đa trong 7 ngày
         const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const valid = list.filter(m => {
-            const t = m.timestamp || (m.created_at ? new Date(m.created_at).getTime() : 0);
+        const valid = list.filter((m) => {
+            const t =
+                m.timestamp ||
+                (m.created_at ? new Date(m.created_at).getTime() : 0);
             return t >= cutoff;
         });
         localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(valid));
@@ -140,20 +174,23 @@ const closeChat = () => {
 
 const resetChat = async () => {
     if (user.value) {
-        await axios.post('/api/ai/clear-chat-history').catch(() => {});
+        await axios.post("/api/ai/clear-chat-history").catch(() => {});
     } else {
         localStorage.removeItem(GUEST_STORAGE_KEY);
     }
     messages.value = [
         {
-            id: 'welcome-' + Date.now(),
-            sender: 'ai',
-            text: 'Cuộc trò chuyện đã được làm mới! ✨ Bạn muốn mình hỗ trợ tìm phòng trọ ở khu vực nào tại Ninh Bình?',
-            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            id: "welcome-" + Date.now(),
+            sender: "ai",
+            text: "Cuộc trò chuyện đã được làm mới! ✨ Bạn muốn mình hỗ trợ tìm phòng trọ ở khu vực nào tại Ninh Bình?",
+            time: new Date().toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
             rooms: [],
-            suggestions: defaultSuggestions.map(s => s.text),
+            suggestions: defaultSuggestions.map((s) => s.text),
             ai_parsed: null,
-        }
+        },
     ];
     scrollToBottom();
 };
@@ -161,7 +198,7 @@ const resetChat = async () => {
 const dismissGreeting = (e) => {
     e.stopPropagation();
     showGreetingBubble.value = false;
-    sessionStorage.setItem('dismissed_ai_greeting', 'true');
+    sessionStorage.setItem("dismissed_ai_greeting", "true");
 };
 
 const sendPromptText = (text) => {
@@ -174,12 +211,15 @@ const sendMessage = async () => {
     if (!prompt || isTyping.value) return;
 
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = now.toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 
     // 1. Thêm tin nhắn của User
     const userMsg = {
-        id: 'user-' + Date.now(),
-        sender: 'user',
+        id: "user-" + Date.now(),
+        sender: "user",
         text: prompt,
         time: timeStr,
         timestamp: now.getTime(),
@@ -188,21 +228,26 @@ const sendMessage = async () => {
     messages.value.push(userMsg);
     saveGuestMessage(userMsg);
 
-    inputPrompt.value = '';
+    inputPrompt.value = "";
     scrollToBottom();
 
     // 2. Kích hoạt trạng thái AI đang gõ
     isTyping.value = true;
 
     try {
-        const response = await axios.post('/api/ai/chat-assistant', { prompt });
+        const response = await axios.post("/api/ai/chat-assistant", { prompt });
         const data = response.data;
 
         const aiMsg = {
-            id: 'ai-' + Date.now(),
-            sender: 'ai',
-            text: data.message || 'Dưới đây là 2 phòng trọ phù hợp và mới cập nhật gần đây nhất dành cho bạn:',
-            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            id: "ai-" + Date.now(),
+            sender: "ai",
+            text:
+                data.message ||
+                "Dưới đây là 2 phòng trọ phù hợp và mới cập nhật gần đây nhất dành cho bạn:",
+            time: new Date().toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
             timestamp: Date.now(),
             created_at: new Date().toISOString(),
             rooms: data.rooms || [],
@@ -214,16 +259,19 @@ const sendMessage = async () => {
         messages.value.push(aiMsg);
         saveGuestMessage(aiMsg);
     } catch (error) {
-        console.error('Lỗi tìm kiếm AI Assistant:', error);
+        console.error("Lỗi tìm kiếm AI Assistant:", error);
         const errMsg = {
-            id: 'ai-err-' + Date.now(),
-            sender: 'ai',
-            text: 'Rất tiếc, đã có lỗi khi kết nối với máy chủ AI. Bạn vui lòng thử lại sau giây lát nhé! 😥',
-            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            id: "ai-err-" + Date.now(),
+            sender: "ai",
+            text: "Rất tiếc, đã có lỗi khi kết nối với máy chủ AI. Bạn vui lòng thử lại sau giây lát nhé! 😥",
+            time: new Date().toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
             timestamp: Date.now(),
             created_at: new Date().toISOString(),
             rooms: [],
-            suggestions: ['Thử lại', 'Xem tất cả phòng trọ'],
+            suggestions: ["Thử lại", "Xem tất cả phòng trọ"],
         };
         messages.value.push(errMsg);
     } finally {
@@ -242,37 +290,41 @@ const goToRoomDetail = (url) => {
 // Chuyển hướng sang trang tìm trọ với bộ lọc AI
 const goToSearchPage = (prompt) => {
     isOpen.value = false;
-    router.visit('/timtro', {
-        data: { ai_prompt: prompt }
+    router.visit("/timtro", {
+        data: { ai_prompt: prompt },
     });
 };
 
 const getStatusBadgeClass = (status) => {
     switch (status) {
-        case 'available': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-        case 'rented': return 'bg-rose-100 text-rose-700 border-rose-200';
-        case 'deposited': return 'bg-amber-100 text-amber-700 border-amber-200';
-        default: return 'bg-slate-100 text-slate-700 border-slate-200';
+        case "available":
+            return "bg-emerald-100 text-emerald-700 border-emerald-200";
+        case "rented":
+            return "bg-rose-100 text-rose-700 border-rose-200";
+        case "deposited":
+            return "bg-amber-100 text-amber-700 border-amber-200";
+        default:
+            return "bg-slate-100 text-slate-700 border-slate-200";
     }
 };
 
 const renderFormattedText = (text) => {
-    if (!text) return '';
+    if (!text) return "";
     const escaped = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
     return escaped
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/\n/g, '<br>');
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.*?)\*/g, "<em>$1</em>")
+        .replace(/\n/g, "<br>");
 };
 
 // Khởi tạo
 onMounted(() => {
     loadChatHistory();
 
-    const dismissed = sessionStorage.getItem('dismissed_ai_greeting');
+    const dismissed = sessionStorage.getItem("dismissed_ai_greeting");
     if (!dismissed) {
         setTimeout(() => {
             if (!isOpen.value) {
@@ -287,21 +339,21 @@ onMounted(() => {
     <div class="ai-assistant-root">
         <!-- 1. GREETING SPEECH BUBBLE (Bóng thoại mời chào) -->
         <Transition name="fade-slide">
-            <div 
-                v-if="showGreetingBubble && !isOpen" 
+            <div
+                v-if="showGreetingBubble && !isOpen"
                 class="ai-greeting-bubble"
                 @click="toggleChat"
             >
                 <div class="greeting-content">
                     <span class="greeting-sparkle">✨</span>
                     <p class="greeting-text">
-                        <strong>Cần tìm phòng trọ?</strong><br>
+                        <strong>Cần tìm phòng trọ?</strong><br />
                         Nhắn cho mình để AI gợi ý nhé!
                     </p>
                 </div>
-                <button 
-                    class="greeting-close-btn" 
-                    @click.stop="dismissGreeting" 
+                <button
+                    class="greeting-close-btn"
+                    @click.stop="dismissGreeting"
                     title="Đóng"
                 >
                     <i class="bi bi-x"></i>
@@ -311,12 +363,19 @@ onMounted(() => {
         </Transition>
 
         <!-- 2. FLOATING MASCOT BUTTON (Nút nhân vật nổi) -->
-        <div class="ai-mascot-wrapper" @click="toggleChat" :class="{ 'is-active': isOpen }">
+        <div
+            class="ai-mascot-wrapper"
+            @click="toggleChat"
+            :class="{ 'is-active': isOpen }"
+        >
             <div class="mascot-pulse-ring"></div>
-            <div class="mascot-button" :title="isOpen ? 'Thu nhỏ chat AI' : 'Mở Trợ lý AI Tìm Trọ'">
-                <img 
-                    src="/anh/popup_character.png" 
-                    alt="AI Mascot Assistant" 
+            <div
+                class="mascot-button"
+                :title="isOpen ? 'Thu nhỏ chat AI' : 'Mở Trợ lý AI Tìm Trọ'"
+            >
+                <img
+                    src="/anh/popup_character.png"
+                    alt="AI Mascot Assistant"
                     class="mascot-img"
                 />
                 <!-- Online Green Dot Badge -->
@@ -335,7 +394,11 @@ onMounted(() => {
                 <div class="chatbox-header">
                     <div class="chatbox-header-info">
                         <div class="header-avatar-wrap">
-                            <img src="/anh/popup_character.png" alt="AI Avatar" class="header-avatar-img" />
+                            <img
+                                src="/anh/popup_character.png"
+                                alt="AI Avatar"
+                                class="header-avatar-img"
+                            />
                             <span class="header-online-dot"></span>
                         </div>
                         <div class="header-title-wrap">
@@ -347,16 +410,16 @@ onMounted(() => {
                         </div>
                     </div>
                     <div class="chatbox-header-actions">
-                        <button 
-                            @click="resetChat" 
-                            class="header-btn" 
+                        <button
+                            @click="resetChat"
+                            class="header-btn"
                             title="Làm mới cuộc trò chuyện"
                         >
                             <i class="bi bi-arrow-counterclockwise"></i>
                         </button>
-                        <button 
-                            @click="closeChat" 
-                            class="header-btn header-btn-close" 
+                        <button
+                            @click="closeChat"
+                            class="header-btn header-btn-close"
                             title="Đóng chatbox"
                         >
                             <i class="bi bi-x-lg"></i>
@@ -365,11 +428,17 @@ onMounted(() => {
                 </div>
 
                 <!-- Messages Container -->
-                <div class="chatbox-body custom-scrollbar" ref="messagesContainerRef">
-                    <div 
-                        v-for="msg in messages" 
-                        :key="msg.id" 
-                        :class="['chat-msg-row', msg.sender === 'user' ? 'msg-user' : 'msg-ai']"
+                <div
+                    class="chatbox-body custom-scrollbar"
+                    ref="messagesContainerRef"
+                >
+                    <div
+                        v-for="msg in messages"
+                        :key="msg.id"
+                        :class="[
+                            'chat-msg-row',
+                            msg.sender === 'user' ? 'msg-user' : 'msg-ai',
+                        ]"
                     >
                         <!-- AI Avatar -->
                         <div v-if="msg.sender === 'ai'" class="msg-avatar">
@@ -379,101 +448,216 @@ onMounted(() => {
                         <div class="msg-bubble-wrap">
                             <!-- Main Text Bubble -->
                             <div class="msg-bubble">
-                                <div class="msg-text-content" v-html="renderFormattedText(msg.text)"></div>
+                                <div
+                                    class="msg-text-content"
+                                    v-html="renderFormattedText(msg.text)"
+                                ></div>
                                 <span class="msg-time">{{ msg.time }}</span>
                             </div>
 
                             <!-- AI Detected Filter Tags -->
-                            <div v-if="msg.ai_parsed && (msg.ai_parsed.area_name || msg.ai_parsed.price_max || msg.ai_parsed.amenity_names?.length)" class="ai-filter-tags">
-                                <span class="filter-tags-label"><i class="bi bi-funnel-fill"></i> Đã lọc:</span>
-                                <span v-if="msg.ai_parsed.area_name" class="filter-tag-pill">
-                                    <i class="bi bi-geo-alt-fill text-blue-500"></i> {{ msg.ai_parsed.area_name }}
+                            <div
+                                v-if="
+                                    msg.ai_parsed &&
+                                    (msg.ai_parsed.area_name ||
+                                        msg.ai_parsed.price_max ||
+                                        msg.ai_parsed.amenity_names?.length)
+                                "
+                                class="ai-filter-tags"
+                            >
+                                <span class="filter-tags-label"
+                                    ><i class="bi bi-funnel-fill"></i> Đã
+                                    lọc:</span
+                                >
+                                <span
+                                    v-if="msg.ai_parsed.area_name"
+                                    class="filter-tag-pill"
+                                >
+                                    <i
+                                        class="bi bi-geo-alt-fill text-blue-500"
+                                    ></i>
+                                    {{ msg.ai_parsed.area_name }}
                                 </span>
-                                <span v-if="msg.ai_parsed.price_max" class="filter-tag-pill">
-                                    <i class="bi bi-tag-fill text-emerald-500"></i> ≤ {{ new Intl.NumberFormat('vi-VN').format(msg.ai_parsed.price_max) }} đ
+                                <span
+                                    v-if="msg.ai_parsed.price_max"
+                                    class="filter-tag-pill"
+                                >
+                                    <i
+                                        class="bi bi-tag-fill text-emerald-500"
+                                    ></i>
+                                    ≤
+                                    {{
+                                        new Intl.NumberFormat("vi-VN").format(
+                                            msg.ai_parsed.price_max,
+                                        )
+                                    }}
+                                    đ
                                 </span>
-                                <span v-if="msg.ai_parsed.floor_number" class="filter-tag-pill">
-                                    <i class="bi bi-layers-fill text-indigo-500"></i> Tầng {{ msg.ai_parsed.floor_number }}
+                                <span
+                                    v-if="msg.ai_parsed.floor_number"
+                                    class="filter-tag-pill"
+                                >
+                                    <i
+                                        class="bi bi-layers-fill text-indigo-500"
+                                    ></i>
+                                    Tầng {{ msg.ai_parsed.floor_number }}
                                 </span>
-                                <span v-for="(am, amIdx) in (msg.ai_parsed.amenity_names || []).slice(0, 2)" :key="amIdx" class="filter-tag-pill">
-                                    <i class="bi bi-check-circle-fill text-teal-500"></i> {{ am }}
+                                <span
+                                    v-for="(am, amIdx) in (
+                                        msg.ai_parsed.amenity_names || []
+                                    ).slice(0, 2)"
+                                    :key="amIdx"
+                                    class="filter-tag-pill"
+                                >
+                                    <i
+                                        class="bi bi-check-circle-fill text-teal-500"
+                                    ></i>
+                                    {{ am }}
                                 </span>
                             </div>
 
                             <!-- Room Cards List (Top 2 Closest Matches) -->
-                            <div v-if="msg.rooms && msg.rooms.length > 0" class="room-cards-list">
-                                <div 
-                                    v-for="(room, rIdx) in msg.rooms.slice(0, 2)" 
-                                    :key="room.id" 
+                            <div
+                                v-if="msg.rooms && msg.rooms.length > 0"
+                                class="room-cards-list"
+                            >
+                                <div
+                                    v-for="(room, rIdx) in msg.rooms.slice(
+                                        0,
+                                        2,
+                                    )"
+                                    :key="room.id"
                                     class="chat-room-card"
                                     @click="goToRoomDetail(room.url)"
                                 >
                                     <div class="card-thumb-wrap">
-                                        <img 
-                                            :src="room.image" 
-                                            :alt="room.title" 
+                                        <img
+                                            :src="room.image"
+                                            :alt="room.title"
                                             class="card-thumb-img"
-                                            @error="$event.target.src = '/anh/banner_tro.png'"
+                                            @error="
+                                                $event.target.src =
+                                                    '/anh/banner_tro.png'
+                                            "
                                         />
                                         <!-- Badge trạng thái: Đã có X người ở HOẶC Còn phòng -->
-                                        <span 
-                                            v-if="room.current_people > 0" 
+                                        <span
+                                            v-if="room.current_people > 0"
                                             class="card-status-badge card-status-residents"
                                         >
-                                            <i class="bi bi-person-check-fill mr-0.5"></i> Đã có {{ room.current_people }} người ở
+                                            <i
+                                                class="bi bi-person-check-fill mr-0.5"
+                                            ></i>
+                                            Đã có
+                                            {{ room.current_people }} người ở
                                         </span>
-                                        <span 
-                                            v-else 
-                                            class="card-status-badge" 
-                                            :class="getStatusBadgeClass(room.status)"
+                                        <span
+                                            v-else
+                                            class="card-status-badge"
+                                            :class="
+                                                getStatusBadgeClass(room.status)
+                                            "
                                         >
-                                            {{ room.status_label || 'Còn phòng' }}
+                                            {{
+                                                room.status_label || "Còn phòng"
+                                            }}
                                         </span>
 
-                                        <span v-if="rIdx === 0" class="card-match-badge">
-                                            <i class="bi bi-patch-check-fill"></i> {{ room.badge_label || (msg.total_matches > 0 ? 'Phù hợp nhất' : 'Giá sát nhất') }}
+                                        <span
+                                            v-if="rIdx === 0"
+                                            class="card-match-badge"
+                                        >
+                                            <i
+                                                class="bi bi-patch-check-fill"
+                                            ></i>
+                                            {{
+                                                room.badge_label ||
+                                                (msg.total_matches > 0
+                                                    ? "Phù hợp nhất"
+                                                    : "Giá sát nhất")
+                                            }}
                                         </span>
                                     </div>
                                     <div class="card-info-wrap">
-                                        <h4 class="card-room-title" :title="room.title">{{ room.title }}</h4>
+                                        <h4
+                                            class="card-room-title"
+                                            :title="room.title"
+                                        >
+                                            {{ room.title }}
+                                        </h4>
                                         <div class="card-price-row">
-                                            <span class="card-price">{{ room.price_formatted }}</span>
-                                            <div class="flex items-center gap-1">
-                                                <span v-if="room.floor" class="card-floor-tag">
-                                                    <i class="bi bi-layers-fill"></i> {{ room.floor }}
+                                            <span class="card-price">{{
+                                                room.price_formatted
+                                            }}</span>
+                                            <div
+                                                class="flex items-center gap-1"
+                                            >
+                                                <span
+                                                    v-if="room.floor"
+                                                    class="card-floor-tag"
+                                                >
+                                                    <i
+                                                        class="bi bi-layers-fill"
+                                                    ></i>
+                                                    {{ room.floor }}
                                                 </span>
-                                                <span v-if="room.area" class="card-area">{{ room.area }} m²</span>
+                                                <span
+                                                    v-if="room.area"
+                                                    class="card-area"
+                                                    >{{ room.area }} m²</span
+                                                >
                                             </div>
                                         </div>
-                                        <p class="card-address" :title="room.address">
-                                            <i class="bi bi-geo-alt-fill text-blue-500"></i>
+                                        <p
+                                            class="card-address"
+                                            :title="room.address"
+                                        >
+                                            <i
+                                                class="bi bi-geo-alt-fill text-blue-500"
+                                            ></i>
                                             <span>{{ room.address }}</span>
                                         </p>
                                         <div class="card-action-row">
                                             <span class="card-btn-view">
-                                                Xem phòng <i class="bi bi-arrow-right"></i>
+                                                Xem phòng
+                                                <i
+                                                    class="bi bi-arrow-right"
+                                                ></i>
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Action: Xem toàn bộ trên trang Tìm Trọ -->
-                                <button 
+                                <button
                                     v-if="msg.original_prompt"
                                     @click="goToSearchPage(msg.original_prompt)"
                                     class="chat-view-all-btn"
                                 >
                                     <i class="bi bi-search"></i>
-                                    <span>Xem tất cả {{ msg.total_matches > 2 ? msg.total_matches + ' phòng' : 'trên trang Tìm Trọ' }}</span>
+                                    <span
+                                        >Xem tất cả
+                                        {{
+                                            msg.total_matches > 2
+                                                ? msg.total_matches + " phòng"
+                                                : "trên trang Tìm Trọ"
+                                        }}</span
+                                    >
                                     <i class="bi bi-arrow-right ml-auto"></i>
                                 </button>
                             </div>
 
                             <!-- Follow-up Suggestion Chips -->
-                            <div v-if="msg.suggestions && msg.suggestions.length > 0" class="msg-suggestions">
-                                <button 
-                                    v-for="(sug, sIdx) in msg.suggestions" 
-                                    :key="sIdx" 
+                            <div
+                                v-if="
+                                    msg.suggestions &&
+                                    msg.suggestions.length > 0
+                                "
+                                class="msg-suggestions"
+                            >
+                                <button
+                                    v-for="(sug, sIdx) in msg.suggestions"
+                                    :key="sIdx"
                                     @click="sendPromptText(sug)"
                                     class="sug-chip-btn"
                                 >
@@ -495,7 +679,9 @@ onMounted(() => {
                                     <span></span>
                                     <span></span>
                                 </div>
-                                <span class="typing-text">AI đang phân tích & tìm kiếm...</span>
+                                <span class="typing-text"
+                                    >AI đang phân tích & tìm kiếm...</span
+                                >
                             </div>
                         </div>
                     </div>
@@ -504,17 +690,17 @@ onMounted(() => {
                 <!-- Footer Input Area -->
                 <div class="chatbox-footer">
                     <form @submit.prevent="sendMessage" class="chat-input-form">
-                        <input 
+                        <input
                             ref="inputRef"
-                            v-model="inputPrompt" 
-                            type="text" 
-                            placeholder="Nhập yêu cầu: Tầng 1 Hoa Lư < 2.5tr..." 
+                            v-model="inputPrompt"
+                            type="text"
+                            placeholder="Nhập yêu cầu: Tầng 1 Hoa Lư < 2.5tr..."
                             class="chat-input-field border-0 focus:ring-0 focus:border-0 outline-none"
                             :disabled="isTyping"
                         />
-                        <button 
-                            type="submit" 
-                            class="chat-send-btn" 
+                        <button
+                            type="submit"
+                            class="chat-send-btn"
                             :disabled="!inputPrompt.trim() || isTyping"
                             title="Gửi tin nhắn"
                         >
@@ -535,8 +721,15 @@ onMounted(() => {
     position: fixed;
     bottom: 15px;
     right: 20px;
-    z-index: 99990;
-    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    z-index: 9999;
+    font-family:
+        "Plus Jakarta Sans",
+        "Inter",
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        sans-serif;
 }
 
 /* =============================================
@@ -549,7 +742,9 @@ onMounted(() => {
     background: #ffffff;
     border-radius: 16px;
     padding: 12px 32px 12px 14px;
-    box-shadow: 0 12px 30px -4px rgba(16, 42, 109, 0.2), 0 4px 10px rgba(0, 0, 0, 0.05);
+    box-shadow:
+        0 12px 30px -4px rgba(16, 42, 109, 0.2),
+        0 4px 10px rgba(0, 0, 0, 0.05);
     border: 1.5px solid #dbeafe;
     cursor: pointer;
     min-width: 220px;
@@ -636,7 +831,11 @@ onMounted(() => {
     position: absolute;
     inset: -6px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, rgba(6, 182, 212, 0) 70%);
+    background: radial-gradient(
+        circle,
+        rgba(59, 130, 246, 0.4) 0%,
+        rgba(6, 182, 212, 0) 70%
+    );
     animation: pulseGlow 2.5s infinite;
     pointer-events: none;
 }
@@ -647,7 +846,7 @@ onMounted(() => {
     height: 68px;
     border-radius: 50%;
     background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
-    box-shadow: 
+    box-shadow:
         0 10px 25px -3px rgba(37, 99, 235, 0.35),
         0 4px 12px rgba(0, 0, 0, 0.1),
         inset 0 2px 4px rgba(255, 255, 255, 0.9),
@@ -707,7 +906,7 @@ onMounted(() => {
     justify-content: center;
     font-size: 11px;
     border: 2px solid #ffffff;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     animation: spinSlow 8s linear infinite;
 }
 
@@ -723,7 +922,7 @@ onMounted(() => {
     max-height: calc(100vh - 120px);
     background: #ffffff;
     border-radius: 24px;
-    box-shadow: 
+    box-shadow:
         0 20px 50px -10px rgba(15, 23, 42, 0.25),
         0 8px 20px -4px rgba(15, 23, 42, 0.1);
     border: 1.5px solid #e2e8f0;
@@ -1187,8 +1386,12 @@ onMounted(() => {
     animation: typingBlink 1.4s infinite ease-in-out both;
 }
 
-.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
-.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+.typing-dots span:nth-child(1) {
+    animation-delay: -0.32s;
+}
+.typing-dots span:nth-child(2) {
+    animation-delay: -0.16s;
+}
 
 .typing-text {
     font-size: 11.5px;
@@ -1276,7 +1479,8 @@ onMounted(() => {
    ANIMATIONS & TRANSITIONS
    ============================================= */
 @keyframes mascotFloat {
-    0%, 100% {
+    0%,
+    100% {
         transform: translateY(0px);
     }
     50% {
@@ -1285,7 +1489,8 @@ onMounted(() => {
 }
 
 @keyframes gentleBob {
-    0%, 100% {
+    0%,
+    100% {
         transform: translateY(0);
     }
     50% {
@@ -1318,8 +1523,14 @@ onMounted(() => {
 }
 
 @keyframes typingBlink {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1.0); }
+    0%,
+    80%,
+    100% {
+        transform: scale(0);
+    }
+    40% {
+        transform: scale(1);
+    }
 }
 
 /* Chat Scale Transition */
@@ -1367,19 +1578,19 @@ onMounted(() => {
 /* Responsive Mobile */
 @media (max-width: 768px) {
     .ai-assistant-root {
-        bottom: 16px;
+        bottom: calc(82px + env(safe-area-inset-bottom, 0px));
         right: 12px;
     }
     .ai-chatbox-window {
         width: calc(100vw - 24px);
-        height: calc(100vh - 110px);
-        max-height: 520px;
-        bottom: 74px;
+        height: calc(100vh - 180px);
+        max-height: 500px;
+        bottom: 84px;
         right: 0;
     }
     .ai-greeting-bubble {
         right: 0;
-        bottom: 76px;
+        bottom: 82px;
         max-width: 230px;
     }
 }

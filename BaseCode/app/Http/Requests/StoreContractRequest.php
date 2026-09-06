@@ -31,7 +31,7 @@ class StoreContractRequest extends FormRequest
             'room_id' => 'required_without:appointment_id|exists:rooms,id',
             'tenant_id' => 'required_without:appointment_id|exists:users,id',
             'deposit' => 'required|numeric|min:0',
-            'contract_files' => 'nullable|array',
+            'contract_files' => 'nullable|array|max:4',
             'contract_files.*' => 'file|mimes:jpeg,png,jpg,pdf|max:10240',
             'contract_file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
             'number_of_tenants' => 'nullable|integer|min:1',
@@ -73,6 +73,7 @@ class StoreContractRequest extends FormRequest
             'contract_files.*.max' => 'Dung lượng file tải lên không được vượt quá 10MB.',
             'contract_file.mimes' => 'Hệ thống chỉ hỗ trợ định dạng ảnh (jpg, jpeg, png) hoặc file PDF.',
             'contract_file.max' => 'Dung lượng file tải lên không được vượt quá 10MB.',
+            'contract_files.max' => 'Bạn chỉ được phép tải lên tối đa 4 tệp hợp đồng.',
         ];
     }
 }

@@ -66,21 +66,25 @@ class InvoiceService
             ->get();
 
         $currentMonth = date('Y-m');
+        $todayDay = (int) date('j');
         $pendingBillingContracts = Contract::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
             $q->where('user_id', $landlordId);
-        })
-            ->whereIn('status', ['active', 'signed'])
+        })->whereIn('status', ['active', 'signed'])
             ->whereDoesntHave('invoices', function ($q) use ($currentMonth) {
                 $q->where('billing_month', $currentMonth);
-            })
-            ->with([
-                'room.services',
-                'tenant',
-                'room.boardingHouse',
-                'invoices' => function ($q) {
-                    $q->orderBy('billing_month', 'desc')->with('details');
-                }
-            ])->get();
+            })->with([
+                    'room.services',
+                    'tenant',
+                    'room.boardingHouse',
+                    'invoices' => function ($q) {
+                        $q->orderBy('billing_month', 'desc')->with('details');
+                    }
+                ])->get()
+            //chỉ giữ lại các hợp đồng có cơ sở trọ đã đến hoặc qua ngày chốt hoá đơn
+            ->filter(function ($contract) use ($todayDay) {
+                $billingDay = (int) ($contract->room->boardingHouse->invoice_billing_day ?? 30);
+                return $todayDay >= $billingDay;
+            })->values();
 
         $services = $this->serviceManagementService->getServices($landlordId, $boardingHouseId)
             ->where('is_active', true)
@@ -247,6 +251,16 @@ class InvoiceService
     //lập hoá đơn hàng loạt cho các phòng
     public function createQuickBulkInvoices(int $landlordId, array $data, $request): array
     {
+        $todayDay = (int) date('j');
+        foreach ($data['contracts'] as $contractData) {
+            $contractId = $contractData['contract_id'];
+            $contract = Contract::with('room.boardingHouse')->find($contractId);
+            //check nếu chưa đến ngày chốt hoá đơn thì bỏ qua
+            $billingDay = (int) ($contract->room->boardingHouse->invoice_billing_day ?? 30);
+            if ($todayDay < $billingDay) {
+                continue;
+            }
+        }
         $billingMonth = $data['billing_month'];
         $dueDate = $data['due_date'];
         // Check thời hạn nộp hoá đơn không quá 1 tháng so với hiện tại

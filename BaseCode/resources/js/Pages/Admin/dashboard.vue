@@ -76,9 +76,6 @@ const months  = computed(() => props.monthlyChart?.months || [])
                 </div>
                 <p class="stat-num">{{ stats.totalUsers }}</p>
                 <p class="stat-label">Tổng Người Dùng</p>
-                <svg class="sparkline" viewBox="0 0 100 36" preserveAspectRatio="none">
-                    <path :d="sparkline(sparkUsers)" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
             </div>
 
             <!-- Pending -->
@@ -91,9 +88,6 @@ const months  = computed(() => props.monthlyChart?.months || [])
                 </div>
                 <p class="stat-num">{{ stats.pendingApproval }}</p>
                 <p class="stat-label">Tin Đăng Chờ Duyệt</p>
-                <svg class="sparkline" viewBox="0 0 100 36" preserveAspectRatio="none">
-                    <path :d="sparkline(sparkPending)" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
             </div>
 
             <!-- Reports -->
@@ -106,9 +100,6 @@ const months  = computed(() => props.monthlyChart?.months || [])
                 </div>
                 <p class="stat-num">{{ stats.reports }}</p>
                 <p class="stat-label">Báo Cáo Vi Phạm</p>
-                <svg class="sparkline" viewBox="0 0 100 36" preserveAspectRatio="none">
-                    <path :d="sparkline(sparkReport)" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
             </div>
 
             <!-- Landlords Count -->
@@ -121,9 +112,6 @@ const months  = computed(() => props.monthlyChart?.months || [])
                 </div>
                 <p class="stat-num">{{ stats.totalLandlords }}</p>
                 <p class="stat-label">Tài Khoản Chủ Trọ</p>
-                <svg class="sparkline" viewBox="0 0 100 36" preserveAspectRatio="none">
-                    <path :d="sparkline(sparkUsers)" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
             </div>
         </div>
 
@@ -241,7 +229,6 @@ const months  = computed(() => props.monthlyChart?.months || [])
                     <thead>
                         <tr>
                             <th>Người báo cáo</th>
-                            <th>Đối tượng</th>
                             <th>Loại vi phạm</th>
                             <th>Trạng thái</th>
                         </tr>
@@ -254,7 +241,6 @@ const months  = computed(() => props.monthlyChart?.months || [])
                         </tr>
                         <tr v-for="r in recentReports" :key="r.id">
                             <td class="font-medium">{{ r.from }}</td>
-                            <td class="text-gray">{{ r.target }}</td>
                             <td><span class="type-badge">{{ r.type }}</span></td>
                             <td>
                                 <span :class="['status-dot', r.status === 'resolved' ? 'dot-green' : 'dot-orange']">

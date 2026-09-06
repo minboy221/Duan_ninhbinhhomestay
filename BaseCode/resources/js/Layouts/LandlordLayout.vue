@@ -845,7 +845,7 @@ const closePopup = () => {
             </header>
 
             <!-- Main view screen -->
-            <main class="flex-1 overflow-y-auto px-6 pt-6 pb-28 md:p-8 bg-[#f8fafc] text-sm">
+            <main class="flex-1 overflow-y-auto px-3 sm:px-6 pt-4 sm:pt-6 pb-28 md:p-8 bg-[#f8fafc] text-sm max-w-full overflow-x-hidden">
                 <slot />
             </main>
         </div>

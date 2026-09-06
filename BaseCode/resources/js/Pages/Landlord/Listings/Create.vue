@@ -1,6 +1,6 @@
 <script setup>
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
-import { ref, watch,onMounted } from "vue";
+import { ref, watch, onMounted } from "vue";
 import { useForm, Link } from "@inertiajs/vue3";
 import axios from "axios";
 import { computed } from "vue";
@@ -51,10 +51,10 @@ watch(selectedHouse, (newHouse) => {
         form.longitude = null;
         form.address = "";
     }
-    availableFloors.value = newHouse 
-        ? newHouse.floors.filter(floor => 
+    availableFloors.value = newHouse
+        ? newHouse.floors.filter(floor =>
             floor.rooms && floor.rooms.some(room => room.boarding_house_id === newHouse.id)
-          )
+        )
         : [];
 });
 
@@ -65,7 +65,7 @@ watch(selectedFloor, (newFloor) => {
         ? newFloor.rooms.filter((r) => {
             //lấy những phòng thuộc cơ sở trọ đang chọn
             const belongsToSelectedHouse = selectedHouse.value && r.boarding_house_id === selectedHouse.value.id;
-            if(!belongsToSelectedHouse) return false;
+            if (!belongsToSelectedHouse) return false;
             //lấy mảng bài viết
             const posts = r.room_posts || r.roomPosts;
             //kiểm tra phòng này có tin dăng nháp, chờ, hay đã duyệt chx
@@ -89,8 +89,8 @@ watch(
             if (selectedHouse.value) {
                 form.latitude = selectedHouse.value.latitude || null;
                 form.longitude = selectedHouse.value.longitude || null;
-                form.address = selectedHouse.value.address_detail 
-                    ? [selectedHouse.value.address_detail, selectedHouse.value.district, "Ninh Bình"].filter(Boolean).join(", ") 
+                form.address = selectedHouse.value.address_detail
+                    ? [selectedHouse.value.address_detail, selectedHouse.value.district, "Ninh Bình"].filter(Boolean).join(", ")
                     : "";
             } else {
                 form.address = "";
@@ -119,7 +119,7 @@ watch(
             // === TỰ ĐỘNG ĐIỀN ĐỊA CHỈ & GPS CỦA KHU TRỌ/TẦNG VÀO GIAO DIỆN ===
             const floor = detailsResponse.data.floor;
             const bh = selectedHouse.value || detailsResponse.data.boarding_house;
-            
+
             form.latitude = floor?.latitude || bh?.latitude || null;
             form.longitude = floor?.longitude || bh?.longitude || null;
 
@@ -435,8 +435,8 @@ const formatPrice = (val) => {
     return new Intl.NumberFormat('vi-VN').format(Math.round(num)) + ' đ';
 };
 
-onMounted(()=>{
-    if(props.boardingHouses && props.boardingHouses.length === 1){
+onMounted(() => {
+    if (props.boardingHouses && props.boardingHouses.length > 0) {
         selectedHouse.value = props.boardingHouses[0];
     }
 });
@@ -493,15 +493,24 @@ onMounted(()=>{
 
                         <!-- Nhà trọ & Tầng (Chọn trước) -->
                         <div class="form-row-2 mb-4">
-                            <div class="form-group">
-                                <label class="form-label"> Nhà trọ </label>
-                                <select v-model="selectedHouse" class="form-input">
-                                    <option :value="null">Chọn nhà trọ</option>
-                                    <option v-for="house in boardingHouses" :key="house.id" :value="house">
-                                        {{ house.name }}
-                                    </option>
-                                </select>
+                            <div v-if="selectedHouse"
+                                class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i class="bi bi-buildings-fill text-emerald-600 text-lg"></i>
+                                    <div>
+                                        <span class="text-xs text-slate-400 block font-medium">Đang đăng tin cho Cơ
+                                            sở:</span>
+                                        <strong class="text-slate-800 text-sm">{{ selectedHouse.name }}</strong>
+                                        <span class="text-xs text-slate-500 block">{{ selectedHouse.address_detail
+                                            }}</span>
+                                    </div>
+                                </div>
+                                <span
+                                    class="text-[11px] text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                                        Muốn đăng tin cơ sở khác? Vui lòng đổi cơ sở ở Menu trên cùng.
+                                </span>
                             </div>
+
                             <div class="form-group">
                                 <label class="form-label"> Tầng </label>
                                 <select v-model="selectedFloor" class="form-input">
@@ -548,15 +557,21 @@ onMounted(()=>{
                         <div class="mb-4" :class="form.current_people > 0 ? 'form-row-2' : ''">
                             <div class="form-group" v-if="form.current_people > 0">
                                 <label class="block text-sm font-bold text-gray-700 mb-1">
-                                    Số người đang ở trong phòng <span class="text-xs text-gray-400 font-normal">(Mặc định của phòng)</span>
+                                    Số người đang ở trong phòng <span class="text-xs text-gray-400 font-normal">(Mặc
+                                        định của
+                                        phòng)</span>
                                 </label>
-                                <input type="number" :value="form.current_people" disabled readonly class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
+                                <input type="number" :value="form.current_people" disabled readonly
+                                    class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
                             </div>
                             <div class="form-group">
                                 <label class="block text-sm font-bold text-gray-700 mb-1">
-                                    Sức chứa tối đa (Số người tổng) <span class="text-xs text-gray-400 font-normal">(Mặc định của phòng)</span>
+                                    Sức chứa tối đa (Số người tổng) <span class="text-xs text-gray-400 font-normal">(Mặc
+                                        định
+                                        của phòng)</span>
                                 </label>
-                                <input type="number" :value="form.capacity" disabled readonly class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
+                                <input type="number" :value="form.capacity" disabled readonly
+                                    class="w-full text-sm rounded-xl border-gray-300 bg-gray-100 text-gray-600 font-bold cursor-not-allowed" />
                             </div>
                         </div>
 
@@ -567,8 +582,8 @@ onMounted(()=>{
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 <div v-for="service in roomServices" :key="service.id"
                                     class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-                                    <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M5 13l4 4L19 7"></path>
                                     </svg>
@@ -673,9 +688,13 @@ onMounted(()=>{
                         <div class="form-row-3">
                             <div class="form-group">
                                 <label class="form-label font-bold text-gray-700">Giá thuê (đ/tháng) *</label>
-                                <input type="text" :value="formatPrice(roomDetails?.price)" disabled readonly class="form-input bg-emerald-50/60 text-emerald-700 font-bold border-emerald-200 text-base" />
-                                <span class="form-hint text-emerald-600 font-semibold mt-1 flex items-center gap-1" v-if="roomDetails?.price">
-                                    <i class="bi bi-check-circle-fill"></i> Giá thuê phòng: {{ formatPrice(roomDetails.price) }}/tháng
+                                <input type="text" :value="formatPrice(roomDetails?.price)" disabled readonly
+                                    class="form-input bg-emerald-50/60 text-emerald-700 font-bold border-emerald-200 text-base" />
+                                <span class="form-hint text-emerald-600 font-semibold mt-1 flex items-center gap-1"
+                                    v-if="roomDetails?.price">
+                                    <i class="bi bi-check-circle-fill"></i> Giá thuê phòng: {{
+                                    formatPrice(roomDetails.price)
+                                    }}/tháng
                                 </span>
                             </div>
                         </div>
@@ -763,7 +782,8 @@ onMounted(()=>{
                             {{ form.title || "Tiêu đề bài đăng..." }}
                         </div>
                         <div class="prev-price font-extrabold text-emerald-600 text-xl">
-                            {{ formatPrice(roomDetails?.price) }} <span class="text-xs font-normal text-slate-500">/tháng</span>
+                            {{ formatPrice(roomDetails?.price) }} <span
+                                class="text-xs font-normal text-slate-500">/tháng</span>
                         </div>
                         <div class="prev-meta">
                             <span> {{ roomDetails?.area || 0 }} m² </span>

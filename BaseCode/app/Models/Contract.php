@@ -100,7 +100,7 @@ class Contract extends Model
         try {
             return Storage::disk('r2_private')->url($this->contract_file_path);
         } catch (\Exception $e) {
-            return Storage::urrl($this->contract_file_path);
+            return Storage::url($this->contract_file_path);
         }
     }
 

@@ -55,6 +55,7 @@
 
     .room {
         width: 100%;
+        margin-top: 0 !important;
     }
 
     .item_room {
@@ -136,6 +137,7 @@
 
     .room {
         width: 100%;
+        margin-top: 0 !important;
     }
 
     .item_room {

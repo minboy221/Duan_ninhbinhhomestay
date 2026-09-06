@@ -19,19 +19,55 @@ const form = useForm({
 const contractImagesPreview = ref([]);
 const roomImagesPreview = ref([]);
 
-const handleFileChange = (e, type) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
+const isHeicFile = (file) => {
+    if (!file) return false;
+    const filename = (file.name || "").toLowerCase();
+    const fileType = (file.type || "").toLowerCase();
+    return (
+        filename.endsWith(".heic") ||
+        filename.endsWith(".heif") ||
+        fileType.includes("heic") ||
+        fileType.includes("heif")
+    );
+};
 
+const convertHeicToJpeg = async (file) => {
+    if (!isHeicFile(file)) return file;
+    try {
+        const heic2anyModule = await import("heic2any");
+        const heic2any = heic2anyModule.default || heic2anyModule;
+        const convertedBlob = await heic2any({
+            blob: file,
+            toType: "image/jpeg",
+            quality: 0.8,
+        });
+        const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+        return new File(
+            [blob],
+            (file.name || "photo.jpg").replace(/\.[^/.]+$/, "") + ".jpg",
+            { type: "image/jpeg" }
+        );
+    } catch (error) {
+        console.error("Lỗi convert HEIC:", error);
+        return file;
+    }
+};
+
+const handleFileChange = async (e, type) => {
+    const rawFiles = Array.from(e.target.files);
+    if (!rawFiles.length) return;
+    const processedFiles = await Promise.all(
+        rawFiles.map((file) => convertHeicToJpeg(file))
+    );
     if (type === "contract") {
-        form.contract_images = files;
-        contractImagesPreview.value = files.map((file) =>
-            URL.createObjectURL(file),
+        form.contract_images = [...form.contract_images, ...processedFiles];
+        contractImagesPreview.value = form.contract_images.map((file) =>
+            typeof file === "string" ? file : URL.createObjectURL(file)
         );
     } else {
-        form.room_images = files;
-        roomImagesPreview.value = files.map((file) =>
-            URL.createObjectURL(file),
+        form.room_images = [...form.room_images, ...processedFiles];
+        roomImagesPreview.value = form.room_images.map((file) =>
+            typeof file === "string" ? file : URL.createObjectURL(file)
         );
     }
 };
@@ -108,6 +144,7 @@ const getLocation = () => {
 
 const submit = () => {
     form.post(route("landlord.boarding-houses.store"), {
+        forceFormData: true,
         preserveScroll: true,
         onSuccess: () => {
             // Handled by redirect in controller
@@ -249,7 +286,7 @@ watch(
                             <label class="block text-sm font-bold text-slate-700 mb-2">Ảnh chụp khu trọ / Mặt tiền
                                 <span class="text-rose-500">*</span></label>
                             <div class="relative w-full">
-                                <input type="file" multiple accept="image/*"
+                                <input type="file" multiple accept="image/*,.heic,.heif"
                                     @change="(e) => handleFileChange(e, 'room')"
                                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                                 <div

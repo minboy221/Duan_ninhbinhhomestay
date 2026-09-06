@@ -3,11 +3,9 @@ import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { computed, onMounted } from "vue";
 import { usePage, Link } from "@inertiajs/vue3";
 import { showSuccess } from "@/Utils/swal";
-
+import { formatMoney } from "@/Utils/formatters.js";
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
-
-const formatMoney = (n) => new Intl.NumberFormat("vi-VN").format(n || 0) + "đ";
 
 // nhận dữ liệu từ controller
 const props = defineProps({

@@ -86,7 +86,9 @@ function fmt(n) {
         <div class="chart-card">
             <div class="card-head">
                 <h3 class="card-title">Doanh Thu Theo Tháng ({{ new Date().getFullYear() }})</h3>
-                <button class="export-btn"><i class="bi bi-download"></i> Xuất Báo Cáo</button>
+                <a :href="route('admin.revenue.export')" target="_blank" class="export-btn" style="text-decoration: none;">
+                    <i class="bi bi-download"></i> Xuất Báo Cáo
+                </a>
             </div>
             <div class="bar-chart">
                 <div v-for="(val, i) in revenueData" :key="i" class="bar-col">

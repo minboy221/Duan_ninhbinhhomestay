@@ -28,7 +28,7 @@ class PublicListingController extends Controller
         // Gọi Service lọc danh sách tin đăng chuẩn (đã xử lý đẩy tin xen kẽ)
         $filteredData = $this->listingService->getFilteredListings($request);
         $categoryData = $categoryService->getActiveData();
-        return Inertia::render('Client/timtro', [
+        return Inertia::render('Client/TimTro', [
             'listings' => $filteredData['listings'],
             'ai_parsed' => $filteredData['ai_parsed'],
             'filters' => $request->only([
@@ -199,7 +199,7 @@ class PublicListingController extends Controller
         //lấy các danh sách lý do báo cáo được is_active
         $reasons = \App\Models\ReportReason::where('is_active', true)->pluck('reason');
 
-        return Inertia::render('Client/chitiettro', [
+        return Inertia::render('Client/ChiTietTro', [
             'room' => $roomData,
             'similarRooms' => $similarPosts,
             'reasons' => $reasons,

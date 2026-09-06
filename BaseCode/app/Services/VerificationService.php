@@ -92,7 +92,7 @@ class VerificationService
                     $ext = $image->getClientOriginalExtension() ?: 'jpg';
 
                     // Thử quét GPS nếu chưa có tọa độ
-                    if (!$finalLat && in_array(strtolower($ext), ['jpg', 'jpeg', 'heic'])) {
+                    if (in_array(strtolower($ext), ['jpg', 'jpeg', 'heic'])) {
                         $exif = @exif_read_data($image->getRealPath());
                         if ($exif !== false) {
                             $gps = $this->getGpsFromExif($exif);
@@ -121,7 +121,7 @@ class VerificationService
                     $ext = $file->getClientOriginalExtension() ?: 'jpg';
 
                     // Chỉ quét GPS nếu chưa có
-                    if (!$finalLat && in_array(strtolower($ext), ['jpg', 'jpeg', 'heic'])) {
+                    if (in_array(strtolower($ext), ['jpg', 'jpeg', 'heic'])) {
                         $exif = @exif_read_data($file->getRealPath());
                         if ($exif !== false) {
                             $gps = $this->getGpsFromExif($exif);

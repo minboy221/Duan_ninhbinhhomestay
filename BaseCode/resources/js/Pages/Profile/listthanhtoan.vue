@@ -6,6 +6,7 @@ import { showWarning, showSuccess } from "@/Utils/swal";
 import { compressMultipleImages } from "@/Utils/compressor";
 import { formatMoney, timeAgo } from "@/Utils/formatters";
 import Pagination from "@/Components/Pagination.vue";
+import { getImageUrl } from "@/Utils/media";
 
 const page = usePage();
 
@@ -215,11 +216,7 @@ const hasMeterImages = computed(() => {
 
 const getMeterImgUrl = (path) => {
     if (!path) return null;
-    if (path.startsWith("http") || path.startsWith("data:")) return path;
-    if (path.startsWith("/storage/")) return path;
-    if (path.startsWith("storage/")) return "/" + path;
-    if (path.startsWith("/")) return path;
-    return "/storage/" + path;
+    return getImageUrl(path);
 };
 
 const landlordBankInfo = computed(() => {
@@ -579,7 +576,7 @@ const submitReport = () => {
                         color: #475569;
                         margin-bottom: 6px;
                     ">Hình thức xử lý khiếu nại <span style="color: #ef4444">*</span></label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <label
                         style="display: flex; align-items: center; gap: 6px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; font-size: 11px; transition: all 0.2s;"
                         :style="reportForm.resolve_type === 'direct' ? 'border-color: #4f46e5; background-color: #f5f3ff; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);' : 'background-color: #f8fafc;'">

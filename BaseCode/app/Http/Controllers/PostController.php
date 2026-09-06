@@ -39,7 +39,7 @@ class PostController extends Controller
         // Lấy danh sách bài viết mới nhất cho sidebar
         $recentPosts = Post::orderBy('created_at', 'desc')->limit(5)->get();
 
-        return Inertia::render('Client/tintuc', [
+        return Inertia::render('Client/TinTuc', [
             'posts' => $posts,
             'categories' => $categories,
             'recentPosts' => $recentPosts,
@@ -63,7 +63,7 @@ class PostController extends Controller
         // Lấy danh sách bài viết mới nhất cho sidebar
         $recentPosts = Post::orderBy('created_at', 'desc')->limit(5)->get();
 
-        return Inertia::render('Client/chitiettintuc', [
+        return Inertia::render('Client/ChiTietTinTuc', [
             'post' => $post,
             'categories' => $categories,
             'recentPosts' => $recentPosts,

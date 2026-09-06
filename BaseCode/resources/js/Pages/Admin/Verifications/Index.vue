@@ -1,6 +1,8 @@
 <script setup>
 import { Head, Link } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
+import { router } from "@inertiajs/vue3";
+import { showConfirm } from "@/Utils/swal";
 
 const formatAdminDateTime = (dateString) => {
     if (!dateString) return "---";
@@ -19,6 +21,19 @@ const formatAdminDateTime = (dateString) => {
 defineProps({
     users: Object, //biến users này là dữ liệu phân trang
 });
+
+// hàm xoá hồ sơ
+async function deleteVerification(userId, userName) {
+    const confirmed = await showConfirm("Xác nhận xoá hồ sơ",
+        `Bạn có chắc chắn muốn xoá hồ sơ bị từ chối của "${userName}"?. Ảnh KYC trên Cloudflare sẽ bị dọn dẹp.`,
+        "Xoá ngay",
+        "Huỷ"
+    );
+    if (!confirmed) return;
+    router.delete(route("admin.verifications.destroy", userId), {
+        preserveScroll: true,
+    });
+}
 </script>
 
 <template>
@@ -143,18 +158,31 @@ defineProps({
                                                 Hồ sơ đăng ký
                                             </p>
                                         </div>
+                                        
                                     </div>
+                                    
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <!-- Đã duyệt -->
-                                    <div v-if="user.role === 'landlord'" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg font-semibold border border-green-200">
+                                    <div v-if="user.role === 'landlord'"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg font-semibold border border-green-200">
                                         <i class="bi bi-check-circle-fill"></i>
                                         Đã duyệt
                                     </div>
                                     <!-- Đã huỷ -->
-                                    <div v-else-if="user.boardingHouse?.status === 'rejected'" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-semibold border border-red-200">
-                                        <i class="bi bi-x-circle-fill"></i>
-                                        Đã hủy
+                                    <div v-else-if="user.boardingHouse?.status === 'rejected' || user.verification?.kyc_status === 'rejected'"
+                                        class="inline-flex items-center justify-end gap-2">
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-semibold border border-red-200">
+                                            <i class="bi bi-x-circle-fill"></i>
+                                            Đã hủy
+                                        </span>
+                                        <button
+                                            @click="deleteVerification(user.id, user.name)"
+                                            class="inline-flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all shadow-sm text-xs cursor-pointer"
+                                            title="Xóa hồ sơ rác & dọn dẹp ảnh Cloudflare R2"
+                                        >
+                                            <i class="bi bi-trash3-fill"></i> Xóa
+                                        </button>
                                     </div>
                                     <!-- Đang chờ duyệt -->
                                     <Link v-else :href="route('admin.verifications.show', user.id)"

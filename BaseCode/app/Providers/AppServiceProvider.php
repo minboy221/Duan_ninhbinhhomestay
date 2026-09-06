@@ -51,5 +51,22 @@ class AppServiceProvider extends ServiceProvider
         if (is_dir(base_path('../public_html')) && file_exists(base_path('../public_html/build/manifest.json'))) {
             $this->app->usePublicPath(base_path('../public_html'));
         }
+
+        \Illuminate\Database\Eloquent\Relations\Relation::morphMap([
+            'Contract' => \App\Models\Contract::class,
+            'Invoice' => \App\Models\Invoice::class,
+            'Room' => \App\Models\Room::class,
+            'Post' => \App\Models\Post::class,
+            'Property' => \App\Models\Property::class,
+            'BoardingHouse' => \App\Models\BoardingHouse::class,
+            'User' => \App\Models\User::class,
+            'App\Models\Contract' => \App\Models\Contract::class,
+            'App\Models\Invoice' => \App\Models\Invoice::class,
+            'App\Models\Room' => \App\Models\Room::class,
+            'App\Models\Post' => \App\Models\Post::class,
+            'App\Models\Property' => \App\Models\Property::class,
+            'App\Models\BoardingHouse' => \App\Models\BoardingHouse::class,
+            'App\Models\User' => \App\Models\User::class,
+        ]);
     }
 }

@@ -112,6 +112,8 @@ const handleMultipleFiles = async (e, field) => {
         if (file.name.toLowerCase().endsWith(".heic")) {
             file = await convertHeicToJpeg(file);
         }
+        //trích xuất toạ độ gps từ ảnh,video
+        await extractGPSMetadata(file);
         props.form[field].push(file);
 
         //tạo preview hiển thị
@@ -194,6 +196,7 @@ const googleMapUrlFromPhoto = computed(() => {
 
 //nếu ảnh không có GPS, tự động lấy toạ độ từ địa chỉ người dùng chọn
 const fetchGpsFromAddress = async () => {
+    if(props.form.latitude && props.form.longitude) return;
     if (!props.form.ward) return;
     const fullAddress = `${props.form.address_detail || ""}, ${props.form.ward}`;
     try {

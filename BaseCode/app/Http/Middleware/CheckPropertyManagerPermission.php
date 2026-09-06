@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\BoardingHouse;
 use App\Models\PropertyManager;
 use Symfony\Component\HttpFoundation\Response;
+use App\Models\Room;
+use App\Models\Appointment;
 
 class CheckPropertyManagerPermission
 {

@@ -3,6 +3,7 @@ import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { Head, useForm } from "@inertiajs/vue3";
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { showSuccess, showError } from "@/Utils/swal";
+import { getImageUrl } from "@/Utils/media";
 const search = ref("");
 const typeFilter = ref("all");
 const statusFilter = ref("all");
@@ -531,9 +532,9 @@ onUnmounted(() => {
                             <div class="flex flex-wrap gap-2 mt-1">
                                 <img v-for="(
 img, idx
-                                    ) in selected.evidence_images" :key="idx" :src="'/storage/' + img"
+                                    ) in selected.evidence_images" :key="idx" :src="getImageUrl(img)"
                                     class="w-20 h-20 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-90"
-                                    style="cursor: zoom-in" @click="zoomImage('/storage/' + img)" />
+                                    style="cursor: zoom-in" @click="zoomImage(getImageUrl(img))" />
                             </div>
                         </div>
 
@@ -561,9 +562,9 @@ img, idx
                                 <div class="mt-2 flex flex-wrap gap-2">
                                     <img v-for="(
 img, idx
-                                        ) in selected.response_evidence" :key="idx" :src="`/storage/${img}`"
+                                        ) in selected.response_evidence" :key="idx" :src="getImageUrl(img)"
                                         class="h-16 w-16 cursor-zoom-in rounded-lg border border-emerald-200 object-cover transition-opacity hover:opacity-90"
-                                        @click="zoomImage(`/storage/${img}`)" />
+                                        @click="zoomImage(getImageUrl(img))" />
                                 </div>
                             </div>
                         </div>

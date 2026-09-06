@@ -227,7 +227,7 @@ const updateManagerPermissions = () => {
                                 Lý:</span>
                             <div v-for="m in managers.filter(
                                 (m) => m.boarding_house_id === house.id,
-                            )" :key="m.id" class="p-3 bg-slate-50 rounded-xl flex justify-between items-center">
+                            )" :key="m.id" class="p-3.5 bg-slate-50/80 rounded-xl flex justify-between items-center border border-slate-100/80 hover:border-slate-200 transition-all duration-200">
                                 <div>
                                     <p class="text-sm font-bold text-slate-700">
                                         {{ m.user.name }}
@@ -237,20 +237,21 @@ const updateManagerPermissions = () => {
                                     </p>
                                     <div class="flex flex-wrap gap-1.5 mt-2">
                                         <span v-for="p in m.permissions" :key="p"
-                                            class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold">
+                                            class="bg-emerald-100/80 text-emerald-700 px-2 py-0.5 rounded-md text-[10px] font-bold">
                                             {{ getPermLabel(p) }}
                                         </span>
                                     </div>
                                 </div>
-                                <button @click="revokeManager(m)"
-                                    class="text-red-500 hover:text-red-700 p-2 text-sm border-none bg-transparent cursor-pointer"
-                                    title="Hủy quyền">
-                                    <i class="bi bi-trash-fill text-lg"></i>
-                                </button>
-                                <button @click="openEditModal(m)" title="Chỉnh sửa quyền"
-                                    class="text-blue-500 hover:text-blue-700 p-2 text-sm border-none bg-transparent cursor-pointer">
-                                    <i class="bi bi-pencil-square text-lg"></i>
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button @click="openEditModal(m)" title="Chỉnh sửa quyền"
+                                        class="w-9 h-9 inline-flex items-center justify-center rounded-xl bg-blue-50/80 text-blue-600 border border-blue-150 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all duration-200 shadow-xs cursor-pointer active:scale-95">
+                                        <i class="bi bi-pencil-square text-base"></i>
+                                    </button>
+                                    <button @click="revokeManager(m)" title="Hủy quyền quản lý"
+                                        class="w-9 h-9 inline-flex items-center justify-center rounded-xl bg-rose-50/80 text-rose-600 border border-rose-150 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all duration-200 shadow-xs cursor-pointer active:scale-95">
+                                        <i class="bi bi-trash3-fill text-base"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div v-else class="text-slate-400 text-xs py-2">
@@ -278,7 +279,7 @@ const updateManagerPermissions = () => {
 
         <!-- MODAL PHÂN QUYỀN QUA MÃ QR -->
         <div v-if="showInviteModal"
-            class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            class="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
             @click.self="showInviteModal = false">
             <div
                 class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">

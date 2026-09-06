@@ -1,8 +1,9 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { showSuccess } from '@/Utils/swal'
+import { getImageUrl } from '@/Utils/media'
 
 const props = defineProps({
     house: Object,
@@ -28,15 +29,21 @@ const saveBillingDay = () => {
     })
 }
 
-const getImages = (jsonStr) => {
-    try {
-        return JSON.parse(jsonStr) || []
-    } catch(e) {
-        return []
+const getImages = (val) => {
+    if (!val) return []
+    if (Array.isArray(val)) return val
+    if (typeof val === 'string') {
+        try {
+            const parsed = JSON.parse(val)
+            return Array.isArray(parsed) ? parsed : [val]
+        } catch (e) {
+            return [val]
+        }
     }
+    return []
 }
 
-const roomImages = getImages(props.house?.room_images)
+const roomImages = computed(() => getImages(props.house?.room_images))
 
 const getStatusClass = (status) => {
     switch (status) {
@@ -231,9 +238,9 @@ const getStatusText = (status) => {
                         <div class="p-4 sm:p-6">
                             <div v-if="roomImages.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 <div v-for="(img, idx) in roomImages" :key="idx" class="aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-2xs group relative">
-                                    <img :src="'/storage/' + img" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                                    <img :src="getImageUrl(img)" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                                     <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-300 flex items-center justify-center">
-                                        <a :href="'/storage/' + img" target="_blank" class="w-8 h-8 rounded-full bg-white/90 text-slate-800 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 shadow-md">
+                                        <a :href="getImageUrl(img)" target="_blank" class="w-8 h-8 rounded-full bg-white/90 text-slate-800 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 shadow-md">
                                             <i class="bi bi-arrows-fullscreen"></i>
                                         </a>
                                     </div>

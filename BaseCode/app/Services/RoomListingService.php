@@ -40,7 +40,7 @@ class RoomListingService
                 'tenant_avatar' => $r->tenant->avatar ?? null,
             ];
         });
-        
+
         $averageRating = $reviews->count() > 0 ? round($reviews->avg('rating'), 1) : 0;
         $uniqueViews = $this->roomPostRepository->countUniqueViews($post->id);
 
@@ -56,12 +56,12 @@ class RoomListingService
     public function getLandlordPosts(int $landlordId): LengthAwarePaginator
     {
         $boardingHouseId = session('selected_boarding_house_id');
-        if(!$boardingHouseId){
-            $firstHouse = \App\Models\BoardingHouse::where('user_id',$landlordId)
-            ->where('status','approved')
-            ->first();
-            if($firstHouse){
-                $boardingHouseId = $firstHouse ->id;
+        if (!$boardingHouseId) {
+            $firstHouse = \App\Models\BoardingHouse::where('user_id', $landlordId)
+                ->where('status', 'approved')
+                ->first();
+            if ($firstHouse) {
+                $boardingHouseId = $firstHouse->id;
                 session(['selected_boarding_house_id' => $boardingHouseId]);
             }
         }
@@ -75,8 +75,8 @@ class RoomListingService
             ->update(['status' => 'hidden']);
 
         return RoomPost::where('landlord_id', $landlordId)
-            ->whereHas('room',function($q) use ($boardingHouseId){
-                $q->where('boarding_house_id',$boardingHouseId);
+            ->whereHas('room', function ($q) use ($boardingHouseId) {
+                $q->where('boarding_house_id', $boardingHouseId);
             })
             ->with(['room.floor', 'room.boardingHouse'])  //load trước các bảng có mối quan hệ
             ->latest()
@@ -95,21 +95,13 @@ class RoomListingService
             if ($room) {
                 $roomUpdateData = [];
                 if (isset($data['current_people'])) {
-                    $roomUpdateData['current_people'] = (int)$data['current_people'];
+                    $roomUpdateData['current_people'] = (int) $data['current_people'];
                 }
                 if (isset($data['capacity'])) {
-                    $roomUpdateData['capacity'] = (int)$data['capacity'];
+                    $roomUpdateData['capacity'] = (int) $data['capacity'];
                 }
                 if (!empty($roomUpdateData)) {
                     $room->update($roomUpdateData);
-                }
-
-                if ($room->boardingHouse) {
-                    $room->boardingHouse()->update([
-                        'address_detail' => $data['address'] ?? $room->boardingHouse->address_detail,
-                        'latitude' => $data['latitude'] ?? $room->boardingHouse->latitude,
-                        'longitude' => $data['longitude'] ?? $room->boardingHouse->longitude,
-                    ]);
                 }
             }
             return RoomPost::create([
@@ -141,10 +133,10 @@ class RoomListingService
             if ($room) {
                 $roomUpdateData = [];
                 if (isset($data['current_people'])) {
-                    $roomUpdateData['current_people'] = (int)$data['current_people'];
+                    $roomUpdateData['current_people'] = (int) $data['current_people'];
                 }
                 if (isset($data['capacity'])) {
-                    $roomUpdateData['capacity'] = (int)$data['capacity'];
+                    $roomUpdateData['capacity'] = (int) $data['capacity'];
                 }
                 if (!empty($roomUpdateData)) {
                     $room->update($roomUpdateData);
@@ -164,7 +156,7 @@ class RoomListingService
             $oldImages = $post->image ?? [];
             $deletedImages = array_diff($oldImages, $imageUrls);
             foreach ($deletedImages as $url) {
-                $this->deleteSingleImage($url);                
+                $this->deleteSingleImage($url);
             }
             //nếu user đăng tải thêm ảnh mới
             if ($newFiles) {
@@ -198,7 +190,7 @@ class RoomListingService
             if (!empty($post->image) && is_array($post->image)) {
                 foreach ($post->image as $url) {
                     //chuyển đổi từ link public về đường dẫn gốc để xoá
-                   $this->deleteSingleImage($url);
+                    $this->deleteSingleImage($url);
                 }
             }
             //xoá dữ liệu đó trong bảng room_posts của db
@@ -229,8 +221,8 @@ class RoomListingService
     {
         return DB::transaction(function () use ($post, $reason) {
             $updated = $post->update([
-                'status' => 'rejected',     
-                'reject_reason' => $reason,  
+                'status' => 'rejected',
+                'reject_reason' => $reason,
                 'published_at' => null,
             ]);
 
@@ -243,23 +235,25 @@ class RoomListingService
     }
 
     //hàm xoá ảnh nếu tin đăng bị xoá
-    protected function deleteSingleImage(?string $url): void{
-        if(empty($url)) return;
+    protected function deleteSingleImage(?string $url): void
+    {
+        if (empty($url))
+            return;
         $r2Url = rtrim(config('filesystems.disks.r2_public.url') ?? env('CLOUDFLARE_R2_PUBLIC_URL', ''), '/');
         //check nếu url là ảnh lưu trên cloudflare R2
-        if(!empty($r2Url) && str_starts_with($url, $r2Url)){
-            $r2Path = ltrim(substr($url, strlen($r2Url)),'/');
-            try{
+        if (!empty($r2Url) && str_starts_with($url, $r2Url)) {
+            $r2Path = ltrim(substr($url, strlen($r2Url)), '/');
+            try {
                 Storage::disk('r2_public')->delete($r2Path);
                 return;
-            }catch(\Throwable $e){
+            } catch (\Throwable $e) {
             }
         }
         //nếu là ảnh lưu local
-        $localPath = str_replace('/storage/', '', parse_url($url,PHP_URL_PATH) ?? $url);
-        try{
+        $localPath = str_replace('/storage/', '', parse_url($url, PHP_URL_PATH) ?? $url);
+        try {
             Storage::disk('public')->delete(ltrim($localPath, '/'));
-        }catch (\Throwable $e){
+        } catch (\Throwable $e) {
         }
     }
 }

@@ -42,17 +42,6 @@ const filteredAreas = computed(() => {
     return (props.areas || []).filter(area => area.name.toLowerCase().includes(q));
 });
 
-const uniqueAmenities = computed(() => {
-    const list = props.amenities || [];
-    const seen = new Set();
-    return list.filter(item => {
-        const nameKey = item.name ? item.name.trim().toLowerCase() : item.id;
-        if (seen.has(nameKey)) return false;
-        seen.add(nameKey);
-        return true;
-    });
-});
-
 const safeListings = computed(() => {
     if (!props.listings) {
         return { data: [], links: [], total: 0, current_page: 1, last_page: 1 };
@@ -240,22 +229,22 @@ function submitSearch() {
                                     <i class="bi bi-geo-alt text-blue-600"></i>
                                     {{ selectedArea ? selectedArea.name : 'Chọn khu vực' }}
                                 </span>
-                                <span class="arrow"><i class="bi bi-caret-down"></i></span>
+                                <span class="arrow transition-transform duration-200"
+                                    :class="{ 'rotate-180': showDropdown }"><i class="bi bi-caret-down"></i></span>
                             </div>
 
                             <div class="dropdown" :class="{ show: showDropdown }">
                                 <!-- Search Input -->
                                 <div class="p-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
                                     <div class="relative flex items-center">
-                                        <i class="bi bi-search absolute left-3 text-slate-400 text-xs"></i>
-                                        <input v-model="areaSearchQuery" type="text" placeholder="Gõ tìm phường, xã..."
-                                            class="w-full pl-8 pr-3 py-1.5 text-xs bg-white rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        <input v-model="areaSearchQuery" type="text" placeholder="Tìm phường, xã..."
+                                            class="w-full h-9 pl-8 pr-3 text-xs font-medium text-slate-700 bg-white rounded-lg border border-slate-200 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                                             @click.stop />
                                     </div>
                                 </div>
 
-                                <ul class="max-h-56 overflow-y-auto py-1 custom-scrollbar">
-                                    <li class="px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                                <ul class="max-h-60 overflow-y-auto py-1 custom-scrollbar">
+                                    <li class="px-3.5 py-2.5 text-xs text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
                                         :class="{ 'active': !selectedArea }" @click="selectArea(null)">
                                         <span>-- Tất cả khu vực --</span>
                                     </li>
@@ -264,7 +253,7 @@ function submitSearch() {
                                         <i :class="['bi', area.icon || 'bi-geo-alt']"></i> {{ area.name }}
                                     </li>
                                     <li v-if="filteredAreas.length === 0"
-                                        class="px-3 py-4 text-center text-xs text-slate-400">
+                                        class="px-3.5 py-4 text-center text-xs text-slate-400">
                                         Không tìm thấy khu vực
                                     </li>
                                 </ul>
@@ -322,7 +311,7 @@ function submitSearch() {
                         </div>
 
                         <!-- Tiện ích (Dữ liệu từ DB) -->
-                        <div class="select_option" v-if="uniqueAmenities.length">
+                        <div class="select_option" v-if="amenities?.length">
                             <div class="flex items-center justify-between cursor-pointer py-1 mb-2 border-b border-slate-100"
                                 @click="isAmenitiesCollapsed = !isAmenitiesCollapsed">
                                 <h3 class="!mb-0 font-semibold text-slate-800 flex items-center gap-1.5">
@@ -333,7 +322,7 @@ function submitSearch() {
                                 </button>
                             </div>
                             <div v-show="!isAmenitiesCollapsed" class="feature_list transition-all duration-300">
-                                <label v-for="amenity in uniqueAmenities" :key="amenity.id">
+                                <label v-for="amenity in amenities" :key="amenity.id">
                                     <input type="checkbox" :value="amenity.id" v-model="form.amenities">
                                     <i :class="['bi', amenity.icon || 'bi-check-circle']"></i> {{ amenity.name }}
                                 </label>
@@ -420,7 +409,8 @@ function submitSearch() {
                                             class="inline-flex items-center gap-2 !px-3 !py-1.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 transition-all duration-200">
                                             <i class="bi bi-people-fill text-[12px] text-emerald-600"></i>
                                             <span>
-                                                Đã có {{ post.room?.current_people || 0 }}/{{ post.room?.capacity || 1 }} người ở
+                                                Đã có {{ post.room?.current_people || 0 }}/{{ post.room?.capacity || 1
+                                                }} người ở
                                             </span>
                                         </span>
                                         <!-- Đánh giá -->

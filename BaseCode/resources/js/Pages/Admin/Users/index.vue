@@ -1,28 +1,31 @@
 <script setup>
-import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { Head, router } from '@inertiajs/vue3'
-import { ref, computed } from 'vue'
-import CustomSwal, { showSuccess, showError } from '@/Utils/swal'
-import Swal from 'sweetalert2'
-import { getAvatarUrl, DEFAULT_AVATAR } from '@/Utils/media'
+import AdminLayout from "@/Layouts/AdminLayout.vue";
+import { Head, router } from "@inertiajs/vue3";
+import { ref, computed } from "vue";
+import CustomSwal, { showSuccess, showError } from "@/Utils/swal";
+import Swal from "sweetalert2";
+import { getAvatarUrl, DEFAULT_AVATAR } from "@/Utils/media";
 
 const props = defineProps({
-    users: { type: Array, default: () => [] }
-})
+    users: { type: Array, default: () => [] },
+});
 
-const search = ref('')
-const roleFilter = ref('all')
-const statusFilter = ref('all')
-const currentPage = ref(1)
-const perPage = 10
+const search = ref("");
+const roleFilter = ref("all");
+const statusFilter = ref("all");
+const currentPage = ref(1);
+const perPage = 10;
 
-import { onMounted } from 'vue'
+import { onMounted } from "vue";
 
 onMounted(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const unlockUserId = urlParams.get('user_id') || urlParams.get('unlock_user_id');
+    const unlockUserId =
+        urlParams.get("user_id") || urlParams.get("unlock_user_id");
     if (unlockUserId) {
-        const targetUser = props.users.find(u => String(u.id) === String(unlockUserId));
+        const targetUser = props.users.find(
+            (u) => String(u.id) === String(unlockUserId),
+        );
         if (targetUser) {
             handleUnlockProfile(targetUser);
         }
@@ -30,53 +33,88 @@ onMounted(() => {
 });
 
 const filtered = computed(() => {
-    return props.users.filter(u => {
-        const q = search.value.toLowerCase()
-        const matchSearch = !q || (u.name && u.name.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q)) || (u.phone && u.phone.includes(q))
-        const matchRole = roleFilter.value === 'all' || u.role === roleFilter.value || (roleFilter.value === 'tenant' && u.role === 'user')
-        const matchStatus = statusFilter.value === 'all'
-            ? true
-            : statusFilter.value === 'unlock_requested'
-                ? !!u.profile_unlock_reason
-                : (u.status || 'active') === statusFilter.value
-        return matchSearch && matchRole && matchStatus
-    })
-})
+    return props.users.filter((u) => {
+        const q = search.value.toLowerCase();
+        const matchSearch =
+            !q ||
+            (u.name && u.name.toLowerCase().includes(q)) ||
+            (u.email && u.email.toLowerCase().includes(q)) ||
+            (u.phone && u.phone.includes(q));
+        const matchRole =
+            roleFilter.value === "all" ||
+            u.role === roleFilter.value ||
+            (roleFilter.value === "tenant" && u.role === "user");
+        const matchStatus =
+            statusFilter.value === "all"
+                ? true
+                : statusFilter.value === "unlock_requested"
+                    ? !!u.profile_unlock_reason
+                    : (u.status || "active") === statusFilter.value;
+        return matchSearch && matchRole && matchStatus;
+    });
+});
+//đối soát hợp đồng của user
+const selectedUserForReview = ref(null);
+const showReviewModal = ref(false);
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
+function openReviewModal(user) {
+    selectedUserForReview.value = user;
+    showReviewModal.value = true;
+}
+
+const totalPages = computed(() =>
+    Math.max(1, Math.ceil(filtered.value.length / perPage)),
+);
 const paginated = computed(() => {
-    const start = (currentPage.value - 1) * perPage
-    return filtered.value.slice(start, start + perPage)
-})
+    const start = (currentPage.value - 1) * perPage;
+    return filtered.value.slice(start, start + perPage);
+});
 
-const roleLabel = { tenant: 'Người thuê', user: 'Người thuê', landlord: 'Chủ trọ' }
-const roleClass = { tenant: 'role-blue', user: 'role-blue', landlord: 'role-purple' }
+const roleLabel = {
+    tenant: "Người thuê",
+    user: "Người thuê",
+    landlord: "Chủ trọ",
+};
+const roleClass = {
+    tenant: "role-blue",
+    user: "role-blue",
+    landlord: "role-purple",
+};
 
 function formatDate(dateStr) {
-    if (!dateStr) return 'N/A'
-    const d = new Date(dateStr)
-    if (isNaN(d.getTime())) return dateStr
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-    const hours = String(d.getHours()).padStart(2, '0')
-    const mins = String(d.getMinutes()).padStart(2, '0')
-    return `${day}/${month}/${year} ${hours}:${mins}`
+    if (!dateStr) return "N/A";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, "0");
+    const mins = String(d.getMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} ${hours}:${mins}`;
+}
+
+function getContractFileUrl(filePath) {
+    if (!filePath) return "#";
+    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+        return filePath;
+    }
+    const filename = filePath.split("/").pop();
+    return route("admin.files.private", { type: "contracts", filename: filename });
 }
 
 // Action modal
-const showModal = ref(false)
-const modalUser = ref(null)
-const modalAction = ref('')
-const lockReason = ref('')
-const lockReasonError = ref('')
+const showModal = ref(false);
+const modalUser = ref(null);
+const modalAction = ref("");
+const lockReason = ref("");
+const lockReasonError = ref("");
 
 function openAction(user, action) {
-    modalUser.value = user
-    modalAction.value = action
-    lockReason.value = ''
-    lockReasonError.value = ''
-    showModal.value = true
+    modalUser.value = user;
+    modalAction.value = action;
+    lockReason.value = "";
+    lockReasonError.value = "";
+    showModal.value = true;
 }
 
 function handleUnlockProfile(user) {
@@ -84,91 +122,116 @@ function handleUnlockProfile(user) {
         ? `<div style="font-family: 'Poppins', 'Inter', sans-serif; padding: 12px; background-color: #fffbe6; border-radius: 12px; text-align: left; font-size: 13px; color: #78350f; border: 1px solid #fde68a; margin-top: 12px;">
              <i class="bi bi-chat-quote-fill" style="color: #d97706;"></i> <b>Lý do xin sửa:</b><br/><span style="font-style: italic; font-weight: 500;">"${user.profile_unlock_reason}"</span>
            </div>`
-        : '';
+        : "";
 
     CustomSwal.fire({
-        title: 'Duyệt mở khóa sửa hồ sơ?',
+        title: "Duyệt mở khóa sửa hồ sơ?",
         html: `<div style="font-family: 'Poppins', 'Inter', sans-serif; font-size: 13px; color: #475569; line-height: 1.6; font-weight: 400;">
                  Bạn có chắc muốn cấp quyền cho người dùng <b style="color: #0f172a; font-weight: 700;">${user.name}</b> được phép cập nhật lại thông tin cá nhân 1 lần nữa?
                </div>${reasonHtml}`,
-        icon: 'question',
+        icon: "question",
         showCancelButton: true,
-        confirmButtonText: 'Đồng ý mở khóa',
-        cancelButtonText: 'Hủy',
+        confirmButtonText: "Đồng ý mở khóa",
+        cancelButtonText: "Hủy",
         buttonsStyling: false,
         customClass: {
-            popup: 'swal2-poppins-popup',
-            title: 'swal2-poppins-title',
-            htmlContainer: 'swal2-poppins-html',
-            confirmButton: 'swal2-poppins-confirm-amber',
-            cancelButton: 'swal2-poppins-cancel'
-        }
+            popup: "swal2-poppins-popup",
+            title: "swal2-poppins-title",
+            htmlContainer: "swal2-poppins-html",
+            confirmButton: "swal2-poppins-confirm-amber",
+            cancelButton: "swal2-poppins-cancel",
+        },
     }).then((result) => {
         if (result.isConfirmed) {
-            router.patch(route('admin.users.unlock-profile', user.id), {}, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    showSuccess('Thành công', `Đã mở khóa cho tài khoản ${user.name} thành công!`);
-                }
-            });
+            router.patch(
+                route("admin.users.unlock-profile", user.id),
+                {},
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        showSuccess(
+                            "Thành công",
+                            `Đã mở khóa cho tài khoản ${user.name} thành công!`,
+                        );
+                    },
+                },
+            );
         }
     });
 }
 
 function handleRejectUnlockProfile(user) {
     CustomSwal.fire({
-        title: 'Từ chối yêu cầu?',
+        title: "Từ chối yêu cầu?",
         html: `<div style="font-family: 'Poppins', 'Inter', sans-serif; font-size: 13px; color: #475569; line-height: 1.6; font-weight: 400;">
                  Bạn có chắc muốn từ chối yêu cầu xin mở khóa sửa hồ sơ của người dùng <b style="color: #0f172a; font-weight: 700;">${user.name}</b>?
                </div>`,
-        icon: 'warning',
+        icon: "warning",
         showCancelButton: true,
-        confirmButtonText: 'Từ chối yêu cầu',
-        cancelButtonText: 'Hủy',
+        confirmButtonText: "Từ chối yêu cầu",
+        cancelButtonText: "Hủy",
         buttonsStyling: false,
         customClass: {
-            popup: 'swal2-poppins-popup',
-            title: 'swal2-poppins-title',
-            htmlContainer: 'swal2-poppins-html',
-            confirmButton: 'swal2-poppins-confirm-rose',
-            cancelButton: 'swal2-poppins-cancel'
-        }
+            popup: "swal2-poppins-popup",
+            title: "swal2-poppins-title",
+            htmlContainer: "swal2-poppins-html",
+            confirmButton: "swal2-poppins-confirm-rose",
+            cancelButton: "swal2-poppins-cancel",
+        },
     }).then((result) => {
         if (result.isConfirmed) {
-            router.patch(route('admin.users.reject-unlock', user.id), {}, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    showSuccess('Thành công', `Đã từ chối yêu cầu xin sửa hồ sơ của ${user.name}!`);
-                }
-            });
+            router.patch(
+                route("admin.users.reject-unlock", user.id),
+                {},
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        showSuccess(
+                            "Thành công",
+                            `Đã từ chối yêu cầu xin sửa hồ sơ của ${user.name}!`,
+                        );
+                    },
+                },
+            );
         }
     });
 }
 
-
 function confirmAction() {
-    if (modalAction.value === 'toggle') {
-        const isLocking = (modalUser.value.status || 'active') === 'active';
+    if (modalAction.value === "toggle") {
+        const isLocking = (modalUser.value.status || "active") === "active";
 
         if (isLocking && !lockReason.value.trim()) {
-            lockReasonError.value = 'Vui lòng nhập lý do khóa tài khoản!';
+            lockReasonError.value = "Vui lòng nhập lý do khóa tài khoản!";
             return;
         }
 
-        router.patch(route('admin.users.toggle-status', modalUser.value.id), {
-            reason: lockReason.value.trim()
-        }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                showModal.value = false;
-                showSuccess('Thành công', isLocking ? 'Đã khóa tài khoản thành công.' : 'Đã mở khóa tài khoản thành công.');
-            }
-        });
+        router.patch(
+            route("admin.users.toggle-status", modalUser.value.id),
+            {
+                reason: lockReason.value.trim(),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    showModal.value = false;
+                    showSuccess(
+                        "Thành công",
+                        isLocking
+                            ? "Đã khóa tài khoản thành công."
+                            : "Đã mở khóa tài khoản thành công.",
+                    );
+                },
+            },
+        );
     }
 }
 
 function resetFilters() {
-    search.value = ''; roleFilter.value = 'all'; statusFilter.value = 'all'; currentPage.value = 1
+    search.value = "";
+    roleFilter.value = "all";
+    statusFilter.value = "all";
+    currentPage.value = 1;
 }
 </script>
 
@@ -179,7 +242,9 @@ function resetFilters() {
         <template #header-title>
             <div>
                 <h1 class="page-title">Quản Lý Tài Khoản Người Dùng</h1>
-                <p class="page-sub">Tổng cộng {{ filtered.length }} người dùng</p>
+                <p class="page-sub">
+                    Tổng cộng {{ filtered.length }} người dùng
+                </p>
             </div>
         </template>
 
@@ -211,12 +276,14 @@ function resetFilters() {
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width:40px">#</th>
+                        <th style="width: 40px">#</th>
                         <th>Người dùng</th>
                         <th>Loại tài khoản</th>
                         <th>Ngày đăng ký</th>
                         <th>Trạng thái</th>
-                        <th style="width:120px;text-align:center">Hành động</th>
+                        <th style="width: 120px; text-align: center">
+                            Hành động
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -227,16 +294,25 @@ function resetFilters() {
                         </td>
                     </tr>
                     <tr v-for="(u, i) in paginated" :key="u.id" class="table-row">
-                        <td class="idx">{{ (currentPage - 1) * perPage + i + 1 }}</td>
+                        <td class="idx">
+                            {{ (currentPage - 1) * perPage + i + 1 }}
+                        </td>
                         <td>
                             <div class="user-cell">
-                                <div class="user-ava"
-                                    :style="u.avatar ? 'overflow: hidden; background: #f1f5f9; padding: 0;' : `background: hsl(${(u.id * 57) % 360}, 65%, 55%)`">
-                                    <img v-if="u.avatar" :src="getAvatarUrl(u.avatar)"
-                                        @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
-                                        :alt="u.name" style="width: 100%; height: 100%; object-fit: cover;" />
+                                <div class="user-ava" :style="u.avatar
+                                        ? 'overflow: hidden; background: #f1f5f9; padding: 0;'
+                                        : `background: hsl(${(u.id * 57) % 360}, 65%, 55%)`
+                                    ">
+                                    <img v-if="u.avatar" :src="getAvatarUrl(u.avatar)" @error="
+                                        $event.target.onerror = null;
+                                    $event.target.src = DEFAULT_AVATAR;
+                                    " :alt="u.name" style="
+                                            width: 100%;
+                                            height: 100%;
+                                            object-fit: cover;
+                                        " />
                                     <template v-else>
-                                        {{ u.name ? u.name[0] : 'U' }}
+                                        {{ u.name ? u.name[0] : "U" }}
                                     </template>
                                 </div>
                                 <div>
@@ -245,37 +321,69 @@ function resetFilters() {
                                     <div v-if="u.profile_unlock_reason"
                                         class="inline-flex items-center gap-1 px-2 py-0.5 mt-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-[10px] font-extrabold"
                                         :title="u.profile_unlock_reason">
-                                        <i class="bi bi-exclamation-circle-fill text-amber-500"></i> Xin sửa hồ sơ
+                                        <i class="bi bi-exclamation-circle-fill text-amber-500"></i>
+                                        Xin sửa hồ sơ
                                     </div>
                                 </div>
                             </div>
                         </td>
                         <td>
                             <div v-if="u.role === 'landlord'">
-                                <div v-if="u.property_managers && u.property_managers.length > 0">
+                                <div v-if="
+                                    u.property_managers &&
+                                    u.property_managers.length > 0
+                                ">
                                     <span class="role-badge role-purple font-bold inline-flex items-center gap-1">
-                                        <i class="bi bi-person-badge"></i> Quản Lý Phụ
+                                        <i class="bi bi-person-badge"></i> Quản
+                                        Lý Phụ
                                     </span>
-                                    <div class="text-[10px] text-slate-500 mt-1 leading-tight" v-for="pm in u.property_managers" :key="pm.id">
-                                        <div>Nhà: <strong class="text-slate-700">{{ pm.boarding_house?.name }}</strong></div>
-                                        <div>Chủ: <em class="text-slate-600">{{ pm.boarding_house?.user?.name || 'Chủ trọ chính' }}</em></div>
+                                    <div class="text-[10px] text-slate-500 mt-1 leading-tight"
+                                        v-for="pm in u.property_managers" :key="pm.id">
+                                        <div>
+                                            Nhà:
+                                            <strong class="text-slate-700">{{
+                                                pm.boarding_house?.name
+                                                }}</strong>
+                                        </div>
+                                        <div>
+                                            Chủ:
+                                            <em class="text-slate-600">{{
+                                                pm.boarding_house?.user?.name ||
+                                                "Chủ trọ chính"
+                                                }}</em>
+                                        </div>
                                     </div>
                                 </div>
                                 <div v-else>
                                     <span class="role-badge role-green font-bold inline-flex items-center gap-1">
-                                        <i class="bi bi-building"></i> Chủ Sở Hữu
+                                        <i class="bi bi-building"></i> Chủ Sở
+                                        Hữu
                                     </span>
                                 </div>
                             </div>
-                            <span v-else :class="['role-badge', roleClass[u.role] || 'role-blue']">
+                            <span v-else :class="[
+                                'role-badge',
+                                roleClass[u.role] || 'role-blue',
+                            ]">
                                 {{ roleLabel[u.role] || u.role }}
                             </span>
                         </td>
-                        <td class="text-gray">{{ formatDate(u.created_at) }}</td>
+                        <td class="text-gray">
+                            {{ formatDate(u.created_at) }}
+                        </td>
                         <td>
-                            <span :class="['status-badge', u.status === 'locked' ? 'badge-locked' : 'badge-active']">
+                            <span :class="[
+                                'status-badge',
+                                u.status === 'locked'
+                                    ? 'badge-locked'
+                                    : 'badge-active',
+                            ]">
                                 <span class="dot"></span>
-                                {{ u.status === 'locked' ? 'Bị khóa' : 'Hoạt động' }}
+                                {{
+                                    u.status === "locked"
+                                        ? "Bị khóa"
+                                        : "Hoạt động"
+                                }}
                             </span>
                         </td>
                         <td>
@@ -283,24 +391,27 @@ function resetFilters() {
                                 <button class="act-btn act-view" title="Xem chi tiết" @click="openAction(u, 'view')">
                                     <i class="bi bi-eye"></i>
                                 </button>
-                                <button v-if="u.profile_unlock_reason || u.last_profile_update_at"
-                                    :class="['act-btn relative', u.profile_unlock_reason ? 'animate-pulse' : '']"
-                                    :style="{ backgroundColor: u.profile_unlock_reason ? '#d97706' : '#f59e0b', color: 'white', border: 'none' }"
-                                    :title="u.profile_unlock_reason ? 'Duyệt mở khóa - Lý do: ' + u.profile_unlock_reason : 'Mở khóa cho phép sửa lại thông tin cá nhân'"
-                                    @click="handleUnlockProfile(u)">
-                                    <i class="bi bi-unlock-fill"></i>
-                                    <span v-if="u.profile_unlock_reason"
-                                        class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
+                                <!-- Nút đối soát khi user đang có lý do xin mở khóa -->
+                                <button v-if="u.profile_unlock_reason" @click="openReviewModal(u)"
+                                    class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm cursor-pointer"
+                                    title="Đối soát Hợp đồng & Lý do trước khi duyệt">
+                                    <i class="bi bi-file-earmark-check"></i> Đối soát
                                 </button>
-                                <button v-if="u.profile_unlock_reason" class="act-btn"
-                                    style="background-color: #ef4444; color: white; border: none;"
-                                    title="Từ chối yêu cầu xin sửa hồ sơ" @click="handleRejectUnlockProfile(u)">
-                                    <i class="bi bi-x-circle-fill"></i>
-                                </button>
-                                <button :class="['act-btn', u.status === 'locked' ? 'act-unlock' : 'act-lock']"
-                                    :title="u.status === 'locked' ? 'Mở khóa tài khoản' : 'Khóa tài khoản'"
-                                    @click="openAction(u, 'toggle')">
-                                    <i :class="['bi', u.status === 'locked' ? 'bi-unlock-fill' : 'bi-lock-fill']"></i>
+                                <button :class="[
+                                    'act-btn',
+                                    u.status === 'locked'
+                                        ? 'act-unlock'
+                                        : 'act-lock',
+                                ]" :title="u.status === 'locked'
+                                            ? 'Mở khóa tài khoản'
+                                            : 'Khóa tài khoản'
+                                        " @click="openAction(u, 'toggle')">
+                                    <i :class="[
+                                        'bi',
+                                        u.status === 'locked'
+                                            ? 'bi-unlock-fill'
+                                            : 'bi-lock-fill',
+                                    ]"></i>
                                 </button>
                             </div>
                         </td>
@@ -313,8 +424,12 @@ function resetFilters() {
                 <button :disabled="currentPage === 1" @click="currentPage--" class="page-btn">
                     <i class="bi bi-chevron-left"></i>
                 </button>
-                <button v-for="p in totalPages" :key="p" @click="currentPage = p"
-                    :class="['page-btn', currentPage === p ? 'page-active' : '']">{{ p }}</button>
+                <button v-for="p in totalPages" :key="p" @click="currentPage = p" :class="[
+                    'page-btn',
+                    currentPage === p ? 'page-active' : '',
+                ]">
+                    {{ p }}
+                </button>
                 <button :disabled="currentPage === totalPages" @click="currentPage++" class="page-btn">
                     <i class="bi bi-chevron-right"></i>
                 </button>
@@ -327,33 +442,63 @@ function resetFilters() {
                 <!-- Toggle status modal -->
                 <div v-if="modalAction === 'toggle'" class="modal-box">
                     <div class="modal-icon icon-orange">
-                        <i
-                            :class="['bi', (modalUser?.status || 'active') === 'active' ? 'bi-lock-fill' : 'bi-unlock-fill']"></i>
+                        <i :class="[
+                            'bi',
+                            (modalUser?.status || 'active') === 'active'
+                                ? 'bi-lock-fill'
+                                : 'bi-unlock-fill',
+                        ]"></i>
                     </div>
                     <h3 class="modal-title">
-                        {{ (modalUser?.status || 'active') === 'active' ? 'Khóa tài khoản?' : 'Mở khóa tài khoản?' }}
+                        {{
+                            (modalUser?.status || "active") === "active"
+                                ? "Khóa tài khoản?"
+                                : "Mở khóa tài khoản?"
+                        }}
                     </h3>
                     <p class="modal-desc">
-                        {{ `Bạn có muốn ${(modalUser?.status || 'active') === 'active' ? 'khóa' : 'mở khóa'} tài khoản
-                        "${modalUser?.name}"?` }}
+                        {{
+                            `Bạn có muốn ${(modalUser?.status || "active") === "active" ? "khóa" : "mở khóa"} tài khoản
+                        "${modalUser?.name}"?`
+                        }}
                     </p>
 
-                    <div v-if="(modalUser?.status || 'active') === 'active'" style="text-align: left; margin: 15px 0;">
-                        <label
-                            style="font-size: 13px; font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">
-                            Lý do khóa tài khoản <span style="color: #ef4444;">*</span>:
+                    <div v-if="(modalUser?.status || 'active') === 'active'" style="text-align: left; margin: 15px 0">
+                        <label style="
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: #334155;
+                                display: block;
+                                margin-bottom: 6px;
+                            ">
+                            Lý do khóa tài khoản
+                            <span style="color: #ef4444">*</span>:
                         </label>
                         <textarea v-model="lockReason" @input="lockReasonError = ''" rows="3"
                             placeholder="Nhập chi tiết lý do khóa tài khoản (ví dụ: Vi phạm điều khoản, giả mạo thông tin, spam...)"
-                            style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; font-size: 13px; outline: none; resize: vertical;"></textarea>
-                        <p v-if="lockReasonError"
-                            style="color: #ef4444; font-size: 12px; margin: 4px 0 0 0; font-weight: 500;">
+                            style="
+                                width: 100%;
+                                border: 1px solid #cbd5e1;
+                                border-radius: 6px;
+                                padding: 8px 12px;
+                                font-size: 13px;
+                                outline: none;
+                                resize: vertical;
+                            "></textarea>
+                        <p v-if="lockReasonError" style="
+                                color: #ef4444;
+                                font-size: 12px;
+                                margin: 4px 0 0 0;
+                                font-weight: 500;
+                            ">
                             {{ lockReasonError }}
                         </p>
                     </div>
 
                     <div class="modal-actions">
-                        <button @click="showModal = false" class="btn-cancel">Hủy</button>
+                        <button @click="showModal = false" class="btn-cancel">
+                            Hủy
+                        </button>
                         <button @click="confirmAction" class="btn-confirm btn-warning">
                             Xác nhận
                         </button>
@@ -362,74 +507,215 @@ function resetFilters() {
 
                 <!-- User Detail Modal -->
                 <div v-else-if="modalAction === 'view'" class="modal-box">
-                    <div class="user-detail-ava"
-                        :style="modalUser?.avatar ? 'overflow: hidden; background: #f1f5f9;' : `background: hsl(${((modalUser?.id || 1) * 57) % 360}, 65%, 55%)`">
-                        <img v-if="modalUser?.avatar" :src="getAvatarUrl(modalUser.avatar)"
-                            @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
-                            :alt="modalUser?.name" style="width:100%;height:100%;object-fit:cover;" />
-                        <template v-else>{{ modalUser?.name ? modalUser.name[0] : 'U' }}</template>
+                    <div class="user-detail-ava" :style="modalUser?.avatar
+                            ? 'overflow: hidden; background: #f1f5f9;'
+                            : `background: hsl(${((modalUser?.id || 1) * 57) % 360}, 65%, 55%)`
+                        ">
+                        <img v-if="modalUser?.avatar" :src="getAvatarUrl(modalUser.avatar)" @error="
+                            $event.target.onerror = null;
+                        $event.target.src = DEFAULT_AVATAR;
+                        " :alt="modalUser?.name" style="width: 100%; height: 100%; object-fit: cover" />
+                        <template v-else>{{
+                            modalUser?.name ? modalUser.name[0] : "U"
+                            }}</template>
                     </div>
-                    <h3 class="modal-title" style="margin-top:10px;">{{ modalUser?.name }}</h3>
-                    <p class="modal-desc" style="margin-bottom:16px;">{{ modalUser?.email }}</p>
+                    <h3 class="modal-title" style="margin-top: 10px">
+                        {{ modalUser?.name }}
+                    </h3>
+                    <p class="modal-desc" style="margin-bottom: 16px">
+                        {{ modalUser?.email }}
+                    </p>
 
                     <div class="detail-list">
-                        <div class="detail-row" style="align-items: flex-start;">
+                        <div class="detail-row" style="align-items: flex-start">
                             <span class="detail-lbl">Loại tài khoản:</span>
                             <div>
                                 <div v-if="modalUser?.role === 'landlord'">
-                                    <div v-if="modalUser?.property_managers && modalUser?.property_managers.length > 0">
+                                    <div v-if="
+                                        modalUser?.property_managers &&
+                                        modalUser?.property_managers
+                                            .length > 0
+                                    ">
                                         <span class="role-badge role-purple font-bold inline-flex items-center gap-1">
-                                            <i class="bi bi-person-badge"></i> Quản Lý Phụ
+                                            <i class="bi bi-person-badge"></i>
+                                            Quản Lý Phụ
                                         </span>
-                                        <div class="text-xs text-slate-600 mt-1" v-for="pm in modalUser.property_managers" :key="pm.id">
-                                            Đồng quản lý: <strong>{{ pm.boarding_house?.name }}</strong> (Thuộc Chủ trọ: <em>{{ pm.boarding_house?.user?.name || 'Chủ trọ chính' }}</em>)
+                                        <div class="text-xs text-slate-600 mt-1"
+                                            v-for="pm in modalUser.property_managers" :key="pm.id">
+                                            Đồng quản lý:
+                                            <strong>{{
+                                                pm.boarding_house?.name
+                                                }}</strong>
+                                            (Thuộc Chủ trọ:
+                                            <em>{{
+                                                pm.boarding_house?.user?.name ||
+                                                "Chủ trọ chính"
+                                                }}</em>)
                                         </div>
                                     </div>
                                     <div v-else>
                                         <span class="role-badge role-green font-bold inline-flex items-center gap-1">
-                                            <i class="bi bi-building"></i> Chủ Sở Hữu
+                                            <i class="bi bi-building"></i> Chủ
+                                            Sở Hữu
                                         </span>
                                     </div>
                                 </div>
-                                <span v-else :class="['role-badge', roleClass[modalUser?.role] || 'role-blue']">
-                                    {{ roleLabel[modalUser?.role] || modalUser?.role }}
+                                <span v-else :class="[
+                                    'role-badge',
+                                    roleClass[modalUser?.role] ||
+                                    'role-blue',
+                                ]">
+                                    {{
+                                        roleLabel[modalUser?.role] ||
+                                        modalUser?.role
+                                    }}
                                 </span>
                             </div>
                         </div>
                         <div class="detail-row">
                             <span class="detail-lbl">Trạng thái:</span>
-                            <span
-                                :class="['status-badge', modalUser?.status === 'locked' ? 'badge-locked' : 'badge-active']">
+                            <span :class="[
+                                'status-badge',
+                                modalUser?.status === 'locked'
+                                    ? 'badge-locked'
+                                    : 'badge-active',
+                            ]">
                                 <span class="dot"></span>
-                                {{ modalUser?.status === 'locked' ? 'Bị khóa' : 'Hoạt động' }}
+                                {{
+                                    modalUser?.status === "locked"
+                                        ? "Bị khóa"
+                                        : "Hoạt động"
+                                }}
                             </span>
                         </div>
-                        <div v-if="modalUser?.status === 'locked'" class="detail-row" style="align-items: flex-start;">
+                        <div v-if="modalUser?.status === 'locked'" class="detail-row" style="align-items: flex-start">
                             <span class="detail-lbl">Lý do khóa:</span>
-                            <span class="detail-val" style="color: #ef4444; font-weight: 600;">
-                                {{ modalUser?.lock_reason || 'Không ghi rõ lý do' }}
+                            <span class="detail-val" style="color: #ef4444; font-weight: 600">
+                                {{
+                                    modalUser?.lock_reason ||
+                                    "Không ghi rõ lý do"
+                                }}
                             </span>
                         </div>
-                        <div v-if="modalUser?.profile_unlock_reason" class="detail-row"
-                            style="align-items: flex-start; background: #fffbe6; padding: 10px; border-radius: 8px; border: 1px solid #ffe58f; margin: 8px 0;">
-                            <span class="detail-lbl" style="color: #d48806; font-weight: 700;">Lý do xin sửa hồ
+                        <div v-if="modalUser?.profile_unlock_reason" class="detail-row" style="
+                                align-items: flex-start;
+                                background: #fffbe6;
+                                padding: 10px;
+                                border-radius: 8px;
+                                border: 1px solid #ffe58f;
+                                margin: 8px 0;
+                            ">
+                            <span class="detail-lbl" style="color: #d48806; font-weight: 700">Lý do xin sửa hồ
                                 sơ:</span>
-                            <span class="detail-val" style="color: #d48806; font-weight: 700;">
+                            <span class="detail-val" style="color: #d48806; font-weight: 700">
                                 "{{ modalUser.profile_unlock_reason }}"
                             </span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-lbl">Số điện thoại:</span>
-                            <span class="detail-val">{{ modalUser?.phone || 'Chưa cập nhật' }}</span>
+                            <span class="detail-val">{{
+                                modalUser?.phone || "Chưa cập nhật"
+                                }}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-lbl">Ngày đăng ký:</span>
-                            <span class="detail-val">{{ formatDate(modalUser?.created_at) }}</span>
+                            <span class="detail-val">{{
+                                formatDate(modalUser?.created_at)
+                                }}</span>
                         </div>
                     </div>
 
-                    <div class="modal-actions" style="margin-top:20px;">
-                        <button @click="showModal = false" class="btn-cancel" style="width:100%;">Đóng</button>
+                    <div class="modal-actions" style="margin-top: 20px">
+                        <button @click="showModal = false" class="btn-cancel" style="width: 100%">
+                            Đóng
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Modal Đối soát Hợp Đồng khi duyệt mở khóa -->
+        <Teleport to="body">
+            <div v-if="showReviewModal && selectedUserForReview"
+                class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[99999]"
+                @click.self="showReviewModal = false">
+                <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-fade-in" style="box-sizing: border-box;">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 class="font-extrabold text-base text-slate-800 flex items-center gap-2 m-0">
+                            <i class="bi bi-file-earmark-check-fill text-amber-500 text-lg"></i>
+                            Đối Soát Hợp Đồng & Lý Do Mở Khóa Hồ Sơ
+                        </h3>
+                        <button @click="showReviewModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer bg-transparent border-0">&times;</button>
+                    </div>
+
+                    <!-- Thông tin User & Lý do xin mở khóa -->
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 space-y-1.5">
+                        <p class="m-0"><strong>Tài khoản:</strong> {{ selectedUserForReview.name }} ({{ selectedUserForReview.email }} - SĐT: {{ selectedUserForReview.phone || 'Chưa cập nhật' }})</p>
+                        <p class="m-0 text-amber-800">
+                            <strong>Lý do xin sửa hồ sơ:</strong> 
+                            <span class="font-extrabold text-amber-950 italic">"{{ selectedUserForReview.profile_unlock_reason }}"</span>
+                        </p>
+                    </div>
+
+                    <!-- Danh sách Hợp đồng đang có -->
+                    <div>
+                        <h4 class="font-bold text-xs text-slate-700 mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="bi bi-journal-text text-indigo-600"></i>
+                            Danh sách Hợp đồng thuê trọ của tài khoản:
+                        </h4>
+                        <div v-if="!selectedUserForReview.contracts?.length" class="text-xs text-slate-400 italic p-4 bg-slate-50 rounded-xl text-center border border-slate-200">
+                            <i class="bi bi-info-circle text-base block mb-1"></i>
+                            Tài khoản này chưa có hợp đồng thuê trọ nào trên hệ thống.
+                        </div>
+                        <div v-else class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                            <div v-for="contract in selectedUserForReview.contracts" :key="contract.id" class="p-3.5 border border-slate-200 rounded-xl flex items-center justify-between text-xs bg-slate-50/80 hover:bg-slate-100/80 transition-all">
+                                <div>
+                                    <p class="font-bold text-slate-800 m-0 text-sm">
+                                        Phòng {{ contract.room?.room_number || 'Phòng trọ' }} 
+                                        <span class="text-slate-500 font-normal">({{ contract.room?.boarding_house?.name || 'Nhà trọ' }})</span>
+                                    </p>
+                                    <p class="text-slate-500 text-[11px] m-0 mt-1 flex items-center gap-2">
+                                        <span>Trạng thái: 
+                                            <span class="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded text-[11px]"
+                                                  :class="{
+                                                      'bg-green-100 text-green-700': contract.status === 'active' || contract.status === 'signed',
+                                                      'bg-red-100 text-red-700': contract.status === 'terminated' || contract.status === 'cancelled',
+                                                      'bg-amber-100 text-amber-700': contract.status === 'pending' || contract.status === 'awaiting_upload'
+                                                  }">
+                                                {{ 
+                                                    contract.status === 'active' ? 'Đang hiệu lực (Active)' :
+                                                    contract.status === 'terminated' ? 'Đã kết thúc / Hủy' :
+                                                    contract.status === 'signed' ? 'Đã ký' : contract.status 
+                                                }}
+                                            </span>
+                                        </span>
+                                        <span v-if="contract.start_date">• Ngày bắt đầu: <strong>{{ formatDate(contract.start_date) }}</strong></span>
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <!-- Xem File Hợp đồng PDF / Ảnh đã ký -->
+                                    <a v-if="contract.signed_contract_image || contract.contract_file_path" 
+                                       :href="getContractFileUrl(contract.signed_contract_image || contract.contract_file_path)" 
+                                       target="_blank" 
+                                       class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs text-decoration-none"
+                                       title="Xem File PDF / Ảnh hợp đồng đã ký">
+                                        <i class="bi bi-file-earmark-pdf-fill"></i> Xem File HD
+                                    </a>
+                                    <span v-else class="text-[11px] text-slate-400 italic">Chưa có file HD</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                        <button @click="showReviewModal = false; handleRejectUnlockProfile(selectedUserForReview)" class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl transition-colors cursor-pointer border-0">
+                            <i class="bi bi-x-circle-fill"></i> Từ Chối Yêu Cầu
+                        </button>
+                        <button @click="showReviewModal = false; handleUnlockProfile(selectedUserForReview)" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer border-0">
+                            <i class="bi bi-unlock-fill"></i> Cho Phép Sửa Hồ Sơ
+                        </button>
                     </div>
                 </div>
             </div>
@@ -546,7 +832,7 @@ function resetFilters() {
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: .05em;
+    letter-spacing: 0.05em;
     padding: 14px 16px;
     background: #f8fafc;
     border-bottom: 1px solid #f1f5f9;
@@ -907,7 +1193,12 @@ function resetFilters() {
 
 <style>
 .swal2-poppins-popup {
-    font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-family:
+        "Poppins",
+        "Inter",
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif !important;
     border-radius: 24px !important;
     padding: 24px !important;
     max-width: 400px !important;
@@ -915,7 +1206,7 @@ function resetFilters() {
 }
 
 .swal2-poppins-title {
-    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-family: "Poppins", "Inter", sans-serif !important;
     font-size: 17px !important;
     font-weight: 700 !important;
     color: #0f172a !important;
@@ -924,7 +1215,7 @@ function resetFilters() {
 }
 
 .swal2-poppins-html {
-    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-family: "Poppins", "Inter", sans-serif !important;
     font-size: 13px !important;
     color: #475569 !important;
     line-height: 1.6 !important;
@@ -933,7 +1224,7 @@ function resetFilters() {
 }
 
 .swal2-poppins-confirm-amber {
-    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-family: "Poppins", "Inter", sans-serif !important;
     font-size: 13px !important;
     font-weight: 700 !important;
     background-color: #f59e0b !important;
@@ -953,7 +1244,7 @@ function resetFilters() {
 }
 
 .swal2-poppins-confirm-rose {
-    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-family: "Poppins", "Inter", sans-serif !important;
     font-size: 13px !important;
     font-weight: 700 !important;
     background-color: #e11d48 !important;
@@ -969,7 +1260,7 @@ function resetFilters() {
 }
 
 .swal2-poppins-cancel {
-    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-family: "Poppins", "Inter", sans-serif !important;
     font-size: 13px !important;
     font-weight: 600 !important;
     background-color: #f1f5f9 !important;

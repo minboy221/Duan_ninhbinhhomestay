@@ -11,7 +11,7 @@ import { getAvatarUrl, getRoomImageUrl } from "@/Utils/media";
 const page = usePage()
 const auth = computed(() => page.props.auth)
 const user = computed(() => auth.value.user)
-const {registerFcmToken} = useFcm();
+const { registerFcmToken } = useFcm();
 const isVerified = computed(() => {
     if (user.value?.role === 'admin' || user.value?.role === 'landlord') {
         return true;
@@ -154,7 +154,9 @@ const formatDateTime = (dateString) => {
         <nav class="navbar">
 
             <div class="logo">
-                <img src="/anh/logo.png" alt="logo">
+                <Link :href="route('home')">
+                    <img src="/anh/logo.png" alt="logo">
+                </Link>
             </div>
 
             <ul class="nav-menu" id="navMenu">
@@ -207,7 +209,8 @@ const formatDateTime = (dateString) => {
                     <transition name="slide-fade">
                         <div v-if="showNotification" id="notificationBox" class="notification-box"
                             :class="{ show: true }" @click.stop>
-                            <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/80">
+                            <div
+                                class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/80">
                                 <p class="title mb-0">Thông báo</p>
                                 <button v-if="auth.notifications && auth.notifications.length > 0"
                                     @click.stop="router.post(route('notifications.read-all'), {}, { preserveScroll: true })"
@@ -216,11 +219,13 @@ const formatDateTime = (dateString) => {
                                 </button>
                             </div>
                             <ul v-if="auth.notifications && auth.notifications.length > 0" class="notif-list">
-                                <li v-for="notif in auth.notifications" :key="notif.id" class="group relative hover:bg-slate-50 transition-colors"
+                                <li v-for="notif in auth.notifications" :key="notif.id"
+                                    class="group relative hover:bg-slate-50 transition-colors"
                                     style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9;">
                                     <Link :href="notif.data?.url || '#'"
                                         style="display: flex; flex-direction: column; color: inherit; text-decoration: none; padding-right: 28px;">
-                                        <strong style="color: #0f172a; font-size: 13px; font-weight: 700; margin-bottom: 4px; line-height: 1.4;">
+                                        <strong
+                                            style="color: #0f172a; font-size: 13px; font-weight: 700; margin-bottom: 4px; line-height: 1.4;">
                                             {{ notif.data?.title || 'Thông báo hệ thống' }}
                                         </strong>
                                         <span
@@ -231,8 +236,7 @@ const formatDateTime = (dateString) => {
                                     <button type="button"
                                         @click.stop="router.post(route('notifications.read', notif.id), {}, { preserveScroll: true })"
                                         class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-white hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-md border border-slate-200 shadow-2xs flex items-center justify-center"
-                                        style="width: 24px; height: 24px; cursor: pointer;"
-                                        title="Đánh dấu đã đọc">
+                                        style="width: 24px; height: 24px; cursor: pointer;" title="Đánh dấu đã đọc">
                                         <i class="bi bi-check2"></i>
                                     </button>
                                 </li>
@@ -275,12 +279,14 @@ const formatDateTime = (dateString) => {
                                     <span>Trang Chủ Trọ</span>
                                 </a>
                             </li>
-                            <li v-if="user.role === 'user' && !auth.has_active_contract && !auth.has_submitted_verification">
+                            <li
+                                v-if="user.role === 'user' && !auth.has_active_contract && !auth.has_submitted_verification">
                                 <Link :href="route('landlord.verify.create')"> <i class="bi bi-house-add"></i>
                                     <span>Đăng ký làm Chủ Trọ</span>
                                 </Link>
                             </li>
-                            <li v-if="user.role === 'user' && !auth.has_active_contract && auth.has_submitted_verification">
+                            <li
+                                v-if="user.role === 'user' && !auth.has_active_contract && auth.has_submitted_verification">
                                 <Link :href="route('landlord.verify.create')"> <i class="bi bi-hourglass-split"></i>
                                     <span>Hồ sơ Chủ Trọ (Chờ duyệt)</span>
                                 </Link>

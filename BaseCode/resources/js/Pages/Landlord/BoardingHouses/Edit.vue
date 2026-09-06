@@ -4,6 +4,7 @@ import axios from "axios";
 import { Head, useForm, Link, usePage } from "@inertiajs/vue3";
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { showWarning, showError } from "@/Utils/swal";
+import { getImageUrl } from "@/Utils/media";
 
 const props = defineProps({
     house: Object,
@@ -30,9 +31,7 @@ onMounted(() => {
                 typeof props.house.room_images === "string"
                     ? JSON.parse(props.house.room_images)
                     : props.house.room_images;
-            roomImagesPreview.value = arr.map((img) =>
-                img.startsWith("http") ? img : "/storage/" + img,
-            );
+            roomImagesPreview.value = arr.map((img) => getImageUrl(img));
         } catch (e) { }
     }
 });

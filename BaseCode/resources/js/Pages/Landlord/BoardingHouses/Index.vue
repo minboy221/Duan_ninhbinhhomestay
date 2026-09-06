@@ -118,10 +118,10 @@ watch(
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            <tr v-for="house in boardingHouses" :key="house.id"
+                            <tr v-for="(house, index) in boardingHouses" :key="house.id"
                                 class="hover:bg-slate-50/70 transition-colors">
                                 <td class="px-5 py-4 text-sm font-bold text-slate-500">
-                                    #{{ house.id }}
+                                    #{{ index + 1 }}
                                 </td>
                                 <td class="px-5 py-4">
                                     <div class="font-bold text-slate-800 flex items-center gap-2">
@@ -169,12 +169,12 @@ watch(
 
                 <!-- Mobile Cards View (Single Clean Card List) -->
                 <div class="block md:hidden divide-y divide-slate-100">
-                    <div v-for="house in boardingHouses" :key="house.id"
+                    <div v-for="(house, index) in boardingHouses" :key="house.id"
                         class="p-4 space-y-3 hover:bg-slate-50/60 transition-colors">
                         <!-- Card Header -->
                         <div class="flex items-start justify-between gap-2">
                             <div class="space-y-1">
-                                <span class="text-[10px] font-bold text-slate-400">#{{ house.id }}</span>
+                                <span class="text-[10px] font-bold text-slate-400">#{{ index + 1 }}</span>
                                 <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
                                     {{ house.name }}
                                     <span v-if="$page.props.auth.selected_boarding_house_id === house.id"

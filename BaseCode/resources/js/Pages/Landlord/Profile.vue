@@ -12,6 +12,27 @@ const props = defineProps({
 });
 
 const verifyStatus = ref("verified"); // Landlords are verified
+//hàm hỗ trợ đọc mảng ảnh
+const normalizeImages = (images) => {
+    if (!images) return [];
+    if (typeof images === 'string') {
+        try {
+            const parsed = JSON.parse(images);
+            return normalizeImages(parsed);
+        } catch (e) {
+            const trimmed = images.trim();
+            return trimmed && trimmed !== "false" && trimmed !== "0" ? [trimmed] : [];
+        }
+    }
+    if (Array.isArray(images)) {
+        return images
+            .flatMap((item) => normalizeImages(item))
+            .filter((item) => item && typeof item === "string" && item !== "false" && item !== "0");
+    }
+    return [];
+}
+
+
 
 const getFileUrl = (path) => {
     if (!path) return null;
@@ -19,33 +40,31 @@ const getFileUrl = (path) => {
     const parts = path.split("/");
     const filename = parts[parts.length - 1];
     let type = "";
-    if (path.includes("/id_cards/")) type = "id_cards";
-    else if (path.includes("/faces/")) type = "faces";
-    else if (path.includes("/contracts/")) type = "contracts";
-    else if (path.includes("/rooms/")) type = "rooms";
-
+    if (path.includes("id_cards")) type = "id_cards";
+    else if (path.includes("faces")) type = "faces";
+    else if (path.includes("contracts")) type = "contracts";
+    else if (path.includes("rooms")) type = "rooms";
     if (type && filename) return `/files/private/${type}/${filename}`;
     return path;
 };
 
 import { getAvatarUrl, DEFAULT_AVATAR } from "@/Utils/media";
 
+const boardingHouseData = props.userData?.boardingHouseData || props.userData?.boardingHouseData || {};
+const contractImages = normalizeImages(boardingHouseData?.contract_images);
+const roomImages = normalizeImages(boardingHouseData?.room_images);
 const profile = reactive({
     name: props.userData?.name || "",
     phone: props.userData?.phone || "",
     email: props.userData?.email || "",
-    address: props.userData?.boardingHouse?.address_detail || props.userData?.boarding_house?.address_detail || "",
-    invoice_billing_day: props.userData?.boardingHouse?.invoice_billing_day || props.userData?.boarding_house?.invoice_billing_day || 25,
+    address: boardingHouseData?.address_detail || "",
+    invoice_billing_day: boardingHouseData?.invoice_billing_day || 25,
     cccdFront: getFileUrl(props.userData?.verification?.id_card_front),
     cccdBack: getFileUrl(props.userData?.verification?.id_card_back),
     faceAuthImage: getFileUrl(props.userData?.verification?.face_auth_image),
     avatar: getAvatarUrl(props.userData?.avatar),
-    businessLicense: props.userData?.boardingHouse?.contract_images
-        ? getFileUrl(props.userData.boardingHouse.contract_images[0])
-        : null,
-    roomPhotos: props.userData?.boardingHouse?.room_images
-        ? props.userData.boardingHouse.room_images.map((img) => getFileUrl(img))
-        : [],
+    businessLicense: contractImages.length > 0 ? getFileUrl(contractImages[0]) : null,
+    roomPhotos: roomImages.map((img) => getFileUrl(img)),
 });
 
 const handleFile = (field, e) => {
@@ -73,7 +92,7 @@ const saveInfo = () => {
     form.email = profile.email
     form.invoice_billing_day = profile.invoice_billing_day
     form.avatar = profile.avatarFile
-    
+
     form.post(route('landlord.profile.update'), {
         forceFormData: true,
         preserveScroll: true,
@@ -119,10 +138,10 @@ const statusConfig = {
                     <span class="vb-label">Trạng thái:
                         <strong>{{
                             statusConfig[verifyStatus].label
-                            }}</strong></span>
+                        }}</strong></span>
                     <span class="vb-desc">{{
                         statusConfig[verifyStatus].desc
-                        }}</span>
+                    }}</span>
                 </div>
             </div>
 
@@ -133,7 +152,9 @@ const statusConfig = {
                     <div class="prof-card">
                         <div class="avatar-section">
                             <div class="avatar-box">
-                                <img v-if="profile.avatar" :src="profile.avatar" @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR" class="avatar-img" />
+                                <img v-if="profile.avatar" :src="profile.avatar"
+                                    @error="$event.target.onerror = null; $event.target.src = DEFAULT_AVATAR"
+                                    class="avatar-img" />
                                 <div v-else class="avatar-placeholder">
                                     <i class="bi bi-person-fill"></i>
                                 </div>
@@ -228,10 +249,11 @@ const statusConfig = {
 
                         <!-- Business license -->
                         <div class="doc-section">
-                            <div class="doc-label">Hợp đồng kinh doanh / Sổ đỏ</div>
+                            <div class="doc-label">Hợp đồng thuê trọ</div>
                             <div class="doc-upload doc-wide" :class="{ 'doc-uploaded': profile.businessLicense }">
                                 <img v-if="profile.businessLicense" :src="profile.businessLicense" class="doc-img" />
-                                <div v-else class="doc-placeholder"><i class="bi bi-file-earmark-text"></i><span>Chưa có file</span></div>
+                                <div v-else class="doc-placeholder"><i class="bi bi-file-earmark-text"></i><span>Chưa có
+                                        file</span></div>
                             </div>
                         </div>
 

@@ -19,7 +19,9 @@ class InviteController extends Controller
         if (!auth()->user()->hasFeature('manage_managers')) {
             return redirect()->route('landlord.dashboard')->with('error', 'Gói dịch vụ hiện tại của bạn không hỗ trợ tính năng Phân quyền nhân viên / Quản lý phụ. Vui lòng nâng cấp gói.');
         }
-        $boardingHouse = BoardingHouse::where('user_id', auth()->id())->get();
+        $boardingHouse = BoardingHouse::where('user_id', auth()->id())
+            ->where('status', 'approved')
+            ->get();
         $houseIds = $boardingHouse->pluck('id');
         $managers = PropertyManager::with(['user', 'boardingHouse'])->whereIn('boarding_house_id', $houseIds)
             ->get();
@@ -55,6 +57,11 @@ class InviteController extends Controller
                 'message' => 'Cơ sở này đã được phân quyền cho 1 tài khoản rồi. Vui lòng hủy quyền tài khoản cũ trước khi cấp quyền mới.'
             ], 422);
         }
+        if ($boardingHouse->status !== 'approved') {
+            return response()->json([
+                'message' => 'Cơ sở trọ này đang chờ Admin phê duyệt hoặc đã bị từ chối, chưa thể phân quyền quản lý!'
+            ], 422);
+        }
         $permissionString = implode(',', $request->permissions);
         //tạo signed url tự huỷ sau 15 phút
         $inviteUrl = URL::temporarySignedRoute('manager.invite.accept', now()->addMinute(15), [
@@ -75,6 +82,9 @@ class InviteController extends Controller
         $permission = explode(',', $request->query('permissions'));
         $user = auth()->user();
         $boardingHouse = BoardingHouse::findOrFail($houseId);
+        if ($boardingHouse->status !== 'approved') {
+            return redirect()->route('landlord.dashboard')->with('error', 'Cơ sở trọ này hiện chưa được Admin phê duyệt, chưa thể nhận quyền.');
+        }
 
         if ($user->id === $boardingHouse->user_id) {
             return redirect()->route('landlord.dashboard')->with('error', 'Bạn đang là chủ sở hữu chính của khu trọ này.');
@@ -143,10 +153,10 @@ class InviteController extends Controller
         $targetUser = $manager->user;
         $manager->delete();
         //nếu tài khoản phụ không còn thuộc sở hữu nhà trọ nào
-        if($targetUser && $targetUser->role === 'landlord'){
-            $ownsHouse = \App\Models\BoardingHouse::where('user_id',$targetUser->id)->exists();
+        if ($targetUser && $targetUser->role === 'landlord') {
+            $ownsHouse = \App\Models\BoardingHouse::where('user_id', $targetUser->id)->exists();
             $managesOtherHouse = \App\Models\PropertyManager::where('user_id', $targetUser->id)->exists();
-            if(!$ownsHouse && !$managesOtherHouse){
+            if (!$ownsHouse && !$managesOtherHouse) {
                 $targetUser->role = 'tenant';
                 $targetUser->save();
             }

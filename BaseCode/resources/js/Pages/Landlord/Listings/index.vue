@@ -4,6 +4,7 @@ import { ref, computed } from "vue";
 import { Link, usePage, router } from "@inertiajs/vue3";
 import { showConfirm, showWarning } from "@/Utils/swal";
 import { getStatusLabel, getStatusClass } from "@/Utils/statusHelper";
+import { formatMoney } from "@/Utils/formatters.js";
 
 const props = defineProps({
     listings: Object,
@@ -44,7 +45,6 @@ const statusMap = {
     },
 };
 
-const formatMoney = (n) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
 const formatDateTime = (dateStr) => {
     if (!dateStr) return "";
     return new Date(dateStr).toLocaleString("vi-VN", {

@@ -553,7 +553,7 @@ const paginatedAppointments = computed(() => {
                                             getStatusData(apt.status).cls,
                                         ]">
                                             <span class="status-dot-inline" :class="getStatusData(apt.status)
-                                                    .dot
+                                                .dot
                                                 "></span>
                                             {{
                                                 getStatusData(apt.status).label
@@ -562,7 +562,8 @@ const paginatedAppointments = computed(() => {
                                     </td>
                                     <td class="lichhen-td-center">
                                         <div class="action-btn-group">
-                                            <Link :href="getRoomDetailUrl(apt)" class="btn-action btn-view" title="Xem phòng">
+                                            <Link :href="getRoomDetailUrl(apt)" class="btn-action btn-view"
+                                                title="Xem phòng">
                                                 <i class="bi bi-eye-fill"></i>
                                             </Link>
                                             <button v-if="apt.status === 'approved'" @click="toggleInlineMap(apt)"
@@ -580,10 +581,7 @@ const paginatedAppointments = computed(() => {
                                                 apt.status,
                                             ) && !apt.feedback_result
                                         " class="feedback-btn-group"></div>
-                                        <div v-else-if="apt.feedback_result" style="
-                                                text-align: center;
-                                                margin-top: 8px;
-                                            ">
+                                        <div v-else-if="apt.feedback_result" style="text-align: center; margin-top: 8px;">
                                             <!-- Trường hợp đã bấm Ưng -->
                                             <div v-if="
                                                 [
@@ -592,12 +590,7 @@ const paginatedAppointments = computed(() => {
                                                 ].includes(
                                                     apt.feedback_result,
                                                 )
-                                            " style="
-                                                    display: flex;
-                                                    flex-direction: column;
-                                                    align-items: center;
-                                                    gap: 4px;
-                                                ">
+                                            " class="feedback-col-wrapper">
                                                 <span class="badge-interested">
                                                     <i class="bi bi-check-circle-fill"></i>
                                                     Đã chốt: Ưng
@@ -612,19 +605,18 @@ const paginatedAppointments = computed(() => {
                                                         'terminated',
                                                     ].includes(apt.status)
                                                 " @click="
-                                                        openCancelModal(apt)
-                                                        " class="btn-cancel-interest">
+                                                    openCancelModal(apt)
+                                                    " class="btn-cancel-interest">
                                                     Đổi ý / Hủy đăng ký
                                                 </button>
                                             </div>
 
-                                            <!-- Trường hợp đã gửi Yêu cầu Hủy -->
+                                            <!-- Trường hợp Đã Hủy -->
                                             <span v-else-if="
-                                                apt.feedback_result ===
-                                                'cancel_requested'
+                                                ['cancel_requested', 'cancelled'].includes(apt.feedback_result)
                                             " class="badge-cancel-requested">
-                                                <i class="bi bi-exclamation-circle-fill"></i>
-                                                Đã gửi Yêu cầu Hủy
+                                                <i class="bi bi-x-circle-fill"></i>
+                                                Đã hủy đăng ký
                                             </span>
 
                                             <!-- Trường hợp Không ưng -->
@@ -635,12 +627,7 @@ const paginatedAppointments = computed(() => {
                                                 ].includes(
                                                     apt.feedback_result,
                                                 )
-                                            " style="
-                                                    display: flex;
-                                                    flex-direction: column;
-                                                    align-items: center;
-                                                    gap: 4px;
-                                                ">
+                                            " class="feedback-col-wrapper">
                                                 <span class="badge-not-interested">
                                                     <i class="bi bi-x-circle-fill"></i>
                                                     Đã chốt: Không ưng
@@ -932,7 +919,8 @@ const paginatedAppointments = computed(() => {
                             <div v-if="
                                 apt.room?.boardingHouse?.landlord?.phone ||
                                 apt.room?.boarding_house?.landlord?.phone
-                            " class="mobile-apt-info-item" style="justify-content: space-between; align-items: center;">
+                            " class="mobile-apt-info-item"
+                                style="justify-content: space-between; align-items: center;">
                                 <div>
                                     <span class="info-label">Số điện thoại</span>
                                     <span class="info-value">
@@ -954,8 +942,7 @@ const paginatedAppointments = computed(() => {
                             <div class="mobile-apt-actions">
                                 <!-- Hàng nút chính -->
                                 <div class="mobile-action-row">
-                                    <Link :href="getRoomDetailUrl(apt)"
-                                        class="mobile-action-btn btn-view-room">
+                                    <Link :href="getRoomDetailUrl(apt)" class="mobile-action-btn btn-view-room">
                                         <i class="bi bi-eye-fill"></i>
                                         <span>Xem phòng</span>
                                     </Link>
@@ -996,29 +983,35 @@ const paginatedAppointments = computed(() => {
 
                                 <!-- Đã phản hồi -->
                                 <div v-else-if="apt.feedback_result" class="mobile-feedback-result">
-                                    <span v-if="
+                                    <div v-if="
                                         ['interested', 'like'].includes(
                                             apt.feedback_result,
                                         )
-                                    " class="feedback-badge like">
-                                        <i class="bi bi-check-circle-fill"></i>
-                                        Đã chốt: Ưng thuê
-                                    </span>
+                                    "
+                                        style="display: flex; flex-direction: column; align-items: center; width: 100%; gap: 6px;">
+                                        <span class="feedback-badge like">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                            Đã chốt: Ưng thuê
+                                        </span>
+                                        <button v-if="
+                                            ![
+                                                'success_matched',
+                                                'joined_roommate',
+                                                'roommate_removed',
+                                                'became_main_tenant',
+                                                'terminated',
+                                            ].includes(apt.status)
+                                        " @click="openCancelModal(apt)" class="mobile-btn-cancel">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                            Đổi ý / Hủy đăng ký
+                                        </button>
+                                    </div>
 
                                     <span v-else-if="
-                                        apt.feedback_result ===
-                                        'cancel_requested'
-                                    " class="feedback-badge" style="
-                                            background-color: #fffbeb;
-                                            color: #d97706;
-                                            border: 1px solid #fde68a;
-                                            padding: 4px 8px;
-                                            border-radius: 6px;
-                                            font-size: 11px;
-                                            font-weight: bold;
-                                        ">
-                                        <i class="bi bi-clock-history"></i>
-                                        Đã gửi yêu cầu hủy HĐ (Chờ duyệt)
+                                        ['cancel_requested', 'cancelled'].includes(apt.feedback_result)
+                                    " class="feedback-badge cancel">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                        Đã hủy đăng ký
                                     </span>
 
                                     <div v-else-if="
@@ -1026,12 +1019,7 @@ const paginatedAppointments = computed(() => {
                                             'not_interested',
                                             'dislike',
                                         ].includes(apt.feedback_result)
-                                    " style="
-                                            display: flex;
-                                            flex-direction: column;
-                                            align-items: center;
-                                            width: 100%;
-                                        ">
+                                    " class="mobile-feedback-center">
                                         <span class="feedback-badge dislike">
                                             <i class="bi bi-x-circle-fill"></i>
                                             Đã chốt: Không ưng
@@ -1180,8 +1168,8 @@ const paginatedAppointments = computed(() => {
                                     cursor: pointer;
                                     transition: all 0.2s;
                                 " :style="currentPage === p
-                                        ? 'background-color: #2563eb; border-color: #2563eb; color: white;'
-                                        : 'background-color: white; border-color: #e2e8f0; color: #475569;'
+                                    ? 'background-color: #2563eb; border-color: #2563eb; color: white;'
+                                    : 'background-color: white; border-color: #e2e8f0; color: #475569;'
                                     ">
                                 {{ p }}
                             </button>
@@ -1504,8 +1492,8 @@ const paginatedAppointments = computed(() => {
                             Hủy bỏ
                         </button>
                         <button @click="executeInterest" :style="confirmAction === 'interested'
-                                ? 'background: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);'
-                                : 'background: #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);'
+                            ? 'background: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);'
+                            : 'background: #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);'
                             " class="btn-review-submit">
                             <i class="bi bi-check-lg"></i> Xác nhận
                         </button>
@@ -1659,7 +1647,7 @@ const paginatedAppointments = computed(() => {
                                 <span>Lý do:
                                     <strong>{{
                                         aiAlternativesData.viewed_room?.reason
-                                        }}</strong></span>
+                                    }}</strong></span>
                             </div>
                         </div>
 
@@ -1683,12 +1671,12 @@ const paginatedAppointments = computed(() => {
                                             '/anh/phong1.jpg'
                                             " />
                                     <span class="ai-room-occupancy-badge" :class="room.has_residents
-                                            ? 'has-people'
-                                            : 'empty'
+                                        ? 'has-people'
+                                        : 'empty'
                                         ">
                                         <i :class="room.has_residents
-                                                ? 'bi bi-person-check-fill'
-                                                : 'bi bi-door-open-fill'
+                                            ? 'bi bi-person-check-fill'
+                                            : 'bi bi-door-open-fill'
                                             "></i>
                                         {{ room.status_label }}
                                     </span>

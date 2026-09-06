@@ -1,5 +1,6 @@
 .bao_item {
     max-width: 810px;
+    width: 100%;
     height: auto;
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(18px);
@@ -9,8 +10,9 @@
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.25),
         inset 0 0 10px rgba(255, 255, 255, 0.2);
-    padding: 20px;
-    margin-bottom: 120px;
+    padding: 24px;
+    margin: 0 auto 60px auto;
+    box-sizing: border-box;
 }
 
 .title_noidung h2 {
@@ -63,13 +65,28 @@
     padding: 48px 0;
 }
 
+/* Mobile Cards */
+.mobile-report-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.report-card {
+    transition: all 0.2s ease;
+}
+.report-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
 /* Badge & Pill styling */
 .type-pill {
     background: #f1f5f9;
     color: #475569;
-    padding: 2px 8px;
+    padding: 3px 8px;
     border-radius: 6px;
     font-weight: 600;
+    font-size: 12px;
+    display: inline-block;
 }
 .status-badge {
     font-size: 11px;
@@ -77,6 +94,7 @@
     padding: 4px 10px;
     border-radius: 99px;
     display: inline-block;
+    white-space: nowrap;
 }
 .status-pending {
     background: #fff7ed;
@@ -97,15 +115,19 @@
 
 /* Buttons */
 .btn-view {
-    background: none;
-    border: 1px solid #e2e8f0;
-    color: #475569;
-    padding: 6px 12px;
-    border-radius: 6px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    padding: 6px 14px;
+    border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
     font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
 }
 .btn-view:hover {
     background: #f1f5f9;
@@ -127,8 +149,8 @@
 }
 .modal-content-box {
     background: #fff;
-    border-radius: 14px;
-    width: 500px;
+    border-radius: 16px;
+    width: 520px;
     max-width: 100%;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     border: 1px solid #e2e8f0;
@@ -141,20 +163,22 @@
 }
 
 .modal-header-custom {
-    padding: 16px 24px;
+    padding: 16px 20px;
     border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
 }
 .modal-header-custom h3 {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: #0f172a;
     margin: 0;
     display: flex;
     align-items: center;
     gap: 8px;
+    overflow: hidden;
 }
 .btn-close {
     background: none;
@@ -163,17 +187,20 @@
     cursor: pointer;
     color: #94a3b8;
     line-height: 1;
+    padding: 4px;
+    border-radius: 6px;
+    transition: color 0.15s;
 }
 .btn-close:hover {
     color: #475569;
 }
 
 .modal-body-custom {
-    padding: 24px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    max-height: 70vh;
+    gap: 16px;
+    max-height: 75vh;
     overflow-y: auto;
 }
 
@@ -183,7 +210,7 @@
     gap: 4px;
 }
 .field-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
@@ -194,16 +221,17 @@
     color: #334155;
     margin: 0;
     line-height: 1.5;
+    word-break: break-word;
 }
 
 .image-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     gap: 8px;
 }
 .evidence-image {
     width: 100%;
-    height: 75px;
+    height: 80px;
     object-fit: cover;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
@@ -213,7 +241,7 @@
 .negotiation-box {
     background: #f5f3ff;
     border: 1px solid #ddd6fe;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 16px;
 }
 .negotiation-box h4 {
@@ -231,41 +259,51 @@
     margin: 0;
     line-height: 1.5;
     background: #fff;
-    padding: 10px;
-    border-radius: 6px;
+    padding: 10px 12px;
+    border-radius: 8px;
     border: 1px solid #ede9fe;
+    word-break: break-word;
 }
 .action-buttons-grid {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     margin-top: 14px;
 }
 .btn-escalate {
     flex: 1;
-    padding: 8px 12px;
+    padding: 9px 12px;
     background: #fff;
     color: #e11d48;
     border: 1px solid #fecdd3;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 .btn-escalate:hover {
     background: #fff1f2;
+    border-color: #fda4af;
 }
 .btn-accept {
     flex: 1;
-    padding: 8px 12px;
+    padding: 9px 12px;
     background: #059669;
     color: #fff;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 .btn-accept:hover {
     background: #047857;
@@ -275,15 +313,16 @@
 .admin-box {
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
-    border-radius: 10px;
-    padding: 16px;
+    border-radius: 12px;
+    padding: 14px 16px;
 }
 .admin-note-text {
     font-size: 13px;
     color: #166534;
-    margin: 6px 0 0 0;
+    margin: 4px 0 0 0;
     line-height: 1.5;
     font-weight: 500;
+    word-break: break-word;
 }
 
 /* Responsive Media Queries */
@@ -291,24 +330,29 @@
     .bao_item {
         border-radius: 24px;
         padding: 16px;
-        margin-bottom: 60px;
+        margin-bottom: 40px;
     }
-    .table-container {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    .data-table-custom {
-        min-width: 580px;
+    .title_noidung h2 {
+        font-size: 18px;
     }
     .modal-content-box {
         width: 95%;
-        max-height: 90vh;
+        max-height: 85vh;
     }
     .modal-body-custom {
         padding: 16px;
         gap: 14px;
     }
+}
+
+@media (max-width: 640px) {
     .action-buttons-grid {
         flex-direction: column;
+    }
+    .image-grid {
+        grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+    }
+    .evidence-image {
+        height: 70px;
     }
 }

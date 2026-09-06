@@ -39,9 +39,11 @@ class RoomListingController extends Controller
     {
         $boardingHousesId = session('selected_boarding_house_id');
         $boardingHouses = BoardingHouse::where('user_id', auth()->id())
-            ->where('id', $boardingHousesId)
-            //lọc theo cơ sở đang chọn
             ->where('status', 'approved')
+            //lọc theo cơ sở đang chọn
+            ->when($boardingHousesId, function ($q) use ($boardingHousesId){
+                $q->where('id', $boardingHousesId);
+            })
             ->with(['floors.rooms.roomPosts'])
             ->get();
         return

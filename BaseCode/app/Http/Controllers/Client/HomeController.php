@@ -29,7 +29,7 @@ class HomeController extends Controller
 
         $categoryData = $this->categoryService->getActiveData();
         
-        $featuredRooms = $this->publicListingService->getFeaturedRooms(8);
+        $featuredRooms = $this->publicListingService->getFeaturedRooms(6);
         $topReviews = $this->publicListingService->getTopReviews(6);
         $systemStats = $this->publicListingService->getSystemStats();
 

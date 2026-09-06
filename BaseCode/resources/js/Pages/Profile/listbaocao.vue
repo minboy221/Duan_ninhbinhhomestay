@@ -93,11 +93,25 @@ function zoomImage(url) {
     showZoomModal.value = true;
 }
 
-// Helper chuẩn hóa đường dẫn ảnh (Hỗ trợ cả Cloud R2 & Local Storage)
-const getImageUrl = (path) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    return path.startsWith('/') ? '/storage' + path : '/storage/' + path;
+import { getImageUrl } from "@/Utils/media";
+// Helper hiển thị tên đối tượng bị báo cáo (Phòng, Hợp đồng, Hóa đơn)
+const getTargetLabel = (r) => {
+    if (!r) return 'N/A';
+    const type = r.reportable_type || '';
+    const target = r.reportable;
+    if (type.includes('Room')) {
+        return 'Phòng ' + (target?.room_number || r.reportable_id);
+    }
+    if (type.includes('Contract')) {
+        const roomNum = target?.room?.room_number;
+        return roomNum ? 'Phòng ' + roomNum : 'Hợp đồng #' + r.reportable_id;
+    }
+    if (type.includes('Invoice')) {
+        const roomNum = target?.contract?.room?.room_number;
+        const code = target?.invoice_code || r.reportable_id;
+        return roomNum ? `Phòng ${roomNum}` : `Hóa đơn #${code}`;
+    }
+    return 'Báo cáo #' + r.id;
 };
 </script>
 
@@ -115,8 +129,8 @@ const getImageUrl = (path) => {
                     </p>
                 </div>
 
-                <!-- Danh sách báo cáo -->
-                <div class="table-container mt-4">
+                <!-- Danh sách báo cáo trên Desktop / Tablet (Table)
+                <div class="table-container mt-4 hidden md:block">
                     <table class="data-table-custom">
                         <thead>
                             <tr>
@@ -128,23 +142,19 @@ const getImageUrl = (path) => {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="reports.data.length === 0">
+                            <tr v-if="!reports.data || reports.data.length === 0">
                                 <td colspan="5" class="empty-row text-center text-slate-400 py-8 font-semibold">
                                     <i class="bi bi-inbox text-3xl block mb-2 text-slate-300"></i>
                                     Bạn chưa gửi báo cáo vi phạm nào.
                                 </td>
                             </tr>
-                            <tr v-for="r in reports.data" :key="r.id" class="trow">
+                            <tr v-for="r in (reports.data || [])" :key="r.id" class="trow">
                                 <td class="font-medium text-slate-800">
                                     {{ r.reason }}
                                 </td>
                                 <td class="text-xs text-slate-600">
                                     <span class="type-pill">
-                                        {{
-                                            r.reportable_type === "App\\Models\\Room"
-                                                ? "Phòng " + (r.reportable?.room_number || r.reportable_id)
-                                                : "Hóa đơn #" + (r.reportable?.invoice_code || r.reportable_id)
-                                        }}
+                                        {{ getTargetLabel(r) }}
                                     </span>
                                 </td>
                                 <td class="text-xs text-slate-500">
@@ -163,10 +173,42 @@ const getImageUrl = (path) => {
                             </tr>
                         </tbody>
                     </table>
+                </div> -->
+
+                <!-- Danh sách báo cáo trên Mobile (Cards) -->
+                <div class="mobile-report-cards mt-4 md:hidden">
+                    <div v-if="!reports.data || reports.data.length === 0" class="empty-card text-center text-slate-400 py-8 font-semibold bg-white rounded-xl border border-slate-200 p-4">
+                        <i class="bi bi-inbox text-3xl block mb-2 text-slate-300"></i>
+                        Bạn chưa gửi báo cáo vi phạm nào.
+                    </div>
+
+                    <div v-for="r in (reports.data || [])" :key="'mobile-' + r.id" class="report-card mb-3 bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                        <div class="flex justify-between items-start mb-2.5">
+                            <span class="type-pill">
+                                {{ getTargetLabel(r) }}
+                            </span>
+                            <span class="text-[11px] text-slate-400">
+                                {{ new Date(r.created_at).toLocaleDateString("vi-VN") }}
+                            </span>
+                        </div>
+                        <div class="font-semibold text-slate-800 text-sm mb-3">
+                            {{ r.reason }}
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                            <span :class="['status-badge', statusMap[r.status]?.class]">
+                                {{ statusMap[r.status]?.label || r.status }}
+                            </span>
+                            <button @click="openDetail(r)" class="btn-view">
+                                <i class="bi bi-eye"></i> Xem Chi Tiết
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Phân trang -->
-                <Pagination :links="reports.links" />
+                <div class="mt-6 flex justify-center">
+                    <Pagination :links="reports?.links || reports?.meta?.links || []" />
+                </div>
             </div>
         </div>
     </UserLayout>
@@ -175,13 +217,11 @@ const getImageUrl = (path) => {
     <div v-if="showDetailModal && selectedReport" class="modal-backdrop">
         <div class="modal-content-box">
             <div class="modal-header-custom">
-                <h3>
+                <h3 class="text-sm sm:text-base">
                     <i class="bi bi-flag-fill text-indigo-500"></i>
-                    {{
-                        selectedReport.reportable_type === "App\\Models\\Room"
-                            ? "Chi Tiết Báo Cáo Phòng " + (selectedReport.reportable?.room_number || selectedReport.reportable_id)
-                            : "Chi Tiết Báo Cáo Hóa Đơn #" + (selectedReport.reportable?.invoice_code || selectedReport.reportable_id)
-                    }}
+                    <span class="truncate">
+                        Chi Tiết Báo Cáo {{ getTargetLabel(selectedReport) }}
+                    </span>
                 </h3>
                 <button @click="showDetailModal = false" class="btn-close">&times;</button>
             </div>
@@ -222,7 +262,7 @@ const getImageUrl = (path) => {
                             Chủ trọ có thời gian để xử lý trực tiếp. Nếu quá hạn hoặc không xử lý, bạn có thể chuyển lên Admin.
                         </p>
 
-                        <button @click="handleSelfResolve('escalate_admin')" class="btn-escalate">
+                        <button @click="handleSelfResolve('escalate_admin')" class="btn-escalate w-full sm:w-auto">
                             <i class="bi bi-shield-exclamation"></i> Chuyển Ban Quản Trị / Admin Can Thiệp
                         </button>
                     </div>
@@ -247,7 +287,7 @@ const getImageUrl = (path) => {
                         </div>
 
                         <!-- Cụm 2 nút duyệt dành cho Khách thuê -->
-                        <div class="action-buttons-grid mt-4 flex gap-2">
+                        <div class="action-buttons-grid mt-4 flex flex-col sm:flex-row gap-2">
                             <button @click="handleSelfResolve('escalate_admin')" class="btn-escalate flex-1">
                                 <i class="bi bi-x-circle-fill"></i> Chưa Hài Lòng - Nhờ Admin
                             </button>

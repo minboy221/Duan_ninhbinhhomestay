@@ -3,6 +3,8 @@ import LandlordLayout from '@/Layouts/LandlordLayout.vue'
 import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { useForm, router, usePage } from '@inertiajs/vue3'
 import { showSuccess, showError, showWarning, showConfirm, showToast } from '@/Utils/swal'
+import { formatMoney } from "@/Utils/formatters.js";
+import { getImageUrl } from "@/Utils/media";
 
 const page = usePage()
 
@@ -332,10 +334,10 @@ watch(selectedContractId, (newContractId) => {
             const lastElecDetail = lastInv?.details?.find(d => d.item_name.includes('Điện'))
             if (lastElecDetail) {
                 invoiceForm.elecOld = lastElecDetail.new_index ?? 0
-                elecOldMeterPreview.value = lastElecDetail.meter_image_path || null
+                elecOldMeterPreview.value = lastElecDetail.meter_image_path ? getImageUrl(lastElecDetail.meter_image_path) : null
             } else if (contract.entry_elec_index !== null && contract.entry_elec_index !== undefined) {
                 invoiceForm.elecOld = contract.entry_elec_index
-                elecOldMeterPreview.value = contract.entry_elec_image || null
+                elecOldMeterPreview.value = contract.entry_elec_image ? getImageUrl(contract.entry_elec_image) : null
             } else {
                 invoiceForm.elecOld = 0
                 elecOldMeterPreview.value = null
@@ -349,10 +351,10 @@ watch(selectedContractId, (newContractId) => {
             const lastWaterDetail = lastInv?.details?.find(d => d.item_name.includes('Nước'))
             if (lastWaterDetail) {
                 invoiceForm.waterOld = lastWaterDetail.new_index ?? 0
-                waterOldMeterPreview.value = lastWaterDetail.meter_image_path || null
+                waterOldMeterPreview.value = lastWaterDetail.meter_image_path ? getImageUrl(lastWaterDetail.meter_image_path) : null
             } else if (contract.entry_water_index !== null && contract.entry_water_index !== undefined) {
                 invoiceForm.waterOld = contract.entry_water_index
-                waterOldMeterPreview.value = contract.entry_water_image || null
+                waterOldMeterPreview.value = contract.entry_water_image ? getImageUrl(contract.entry_water_image) : null
             } else {
                 invoiceForm.waterOld = 0
                 waterOldMeterPreview.value = null
@@ -486,7 +488,6 @@ const filteredInvoices = computed(() => {
     })
 })
 
-const formatMoney = (n) => new Intl.NumberFormat('en-US').format(n || 0) + ' đ'
 const formatDate = (d) => {
     if (!d) return ''
     const date = new Date(d)
@@ -925,7 +926,6 @@ const billingHousesToAlert = computed(() => {
     return (props.boardingHouses || []).filter(house => {
         const hasPendingRooms = (props.pendingBillingContracts || []).some(c => c.room?.boarding_house_id === house.id)
         if (!hasPendingRooms) return false
-
         const billingDay = house.invoice_billing_day || 30
         return today >= billingDay
     })
@@ -1014,7 +1014,7 @@ const goToCreateForContract = (contractId) => {
                             đã đến ngày chốt số điện nước. Có tổng cộng
                             <span class="font-bold text-amber-800">{{
                                 pendingBillingContracts.length
-                            }}
+                                }}
                                 phòng</span>
                             chưa chốt số kỳ này.
                         </p>
@@ -1285,7 +1285,7 @@ const goToCreateForContract = (contractId) => {
                                 Khách:
                                 <span class="text-slate-700 font-bold">{{
                                     inv.contract?.tenant?.name
-                                    }}</span>
+                                }}</span>
                             </div>
                         </div>
                         <div>
@@ -1629,7 +1629,7 @@ const goToCreateForContract = (contractId) => {
                         </span>
                         <span class="text-xs font-black text-slate-800">{{
                             formatMoney(invoiceForm.rent)
-                            }}</span>
+                        }}</span>
                     </div>
                     <input type="text" :value="displayRentPrice" readonly
                         class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none bg-slate-100/80 cursor-not-allowed text-slate-500" />
@@ -1650,11 +1650,11 @@ const goToCreateForContract = (contractId) => {
                                 Khách vào ngày
                                 <span class="font-bold">{{
                                     proratedRentInfo.day
-                                    }}</span>
+                                }}</span>
                                 (Ở
                                 <span class="font-bold">{{
                                     proratedRentInfo.occupiedDays
-                                }}
+                                    }}
                                     ngày</span>, &lt; 7 ngày du di). Bạn có thể gộp sang kỳ
                                 tháng sau hoặc áp dụng giá lẻ:
                             </span>
@@ -1662,7 +1662,7 @@ const goToCreateForContract = (contractId) => {
                                 Khách ở thực tế
                                 <span class="font-bold">{{ proratedRentInfo.occupiedDays }}/{{
                                     proratedRentInfo.totalDays
-                                }}
+                                    }}
                                     ngày</span>
                                 (&ge; 7 ngày chia lẻ). Giá lẻ đề xuất:
                             </span>
@@ -1761,7 +1761,7 @@ const goToCreateForContract = (contractId) => {
                                     động)</label>
                                 <div v-if="elecOldMeterPreview"
                                     class="relative group w-full h-24 border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                                    <img :src="elecOldMeterPreview" class="w-full h-full object-contain" />
+                                    <img :src="getImageUrl(elecOldMeterPreview)" class="w-full h-full object-contain" />
                                 </div>
                                 <div v-else class="text-[10px] text-slate-400 italic">
                                     Không có ảnh kỳ trước
@@ -1850,7 +1850,7 @@ const goToCreateForContract = (contractId) => {
                                     động)</label>
                                 <div v-if="waterOldMeterPreview"
                                     class="relative group w-full h-24 border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                                    <img :src="waterOldMeterPreview" class="w-full h-full object-contain" />
+                                    <img :src="getImageUrl(waterOldMeterPreview)" class="w-full h-full object-contain" />
                                 </div>
                                 <div v-else class="text-[10px] text-slate-400 italic">
                                     Không có ảnh kỳ trước
@@ -2021,7 +2021,7 @@ const goToCreateForContract = (contractId) => {
                     </div>
                     <span class="text-xl font-black text-emerald-700">{{
                         formatMoney(formTotal)
-                        }}</span>
+                    }}</span>
                 </div>
 
                 <!-- Submit buttons -->
@@ -2052,7 +2052,7 @@ const goToCreateForContract = (contractId) => {
                         <h3 class="font-extrabold text-sm flex items-center gap-2">
                             <span>Chi tiết hóa đơn #{{
                                 selectedInvoice.invoice_code
-                            }}</span>
+                                }}</span>
                             <span v-if="selectedInvoice.archived_at"
                                 class="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-[10px] font-bold rounded-md border border-purple-400/30">Kho
                                 lưu trữ</span>
@@ -2082,7 +2082,7 @@ const goToCreateForContract = (contractId) => {
                             <span class="text-slate-400 text-[10px] font-bold uppercase block">Hạn đóng tiền</span>
                             <span class="font-bold text-slate-700">{{
                                 formatDate(selectedInvoice.due_date)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div>
                             <span class="text-slate-400 text-[10px] font-bold uppercase block">Trạng thái</span>
@@ -2141,7 +2141,7 @@ const goToCreateForContract = (contractId) => {
                         <span class="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Tổng cộng</span>
                         <span class="text-lg font-black text-rose-500">{{
                             formatMoney(selectedInvoice.total_amount)
-                            }}</span>
+                        }}</span>
                     </div>
 
                     <!-- Meter Evidence Dispute Section (Bằng chứng hình ảnh) -->
@@ -2182,7 +2182,7 @@ const goToCreateForContract = (contractId) => {
                                     </div>
                                     <div v-if="dt.old_meter_image_path"
                                         class="overflow-hidden rounded-lg border border-slate-200 bg-black/5">
-                                        <img :src="dt.old_meter_image_path" class="w-full h-36 object-contain" />
+                                        <img :src="getImageUrl(dt.old_meter_image_path)" class="w-full h-36 object-contain" />
                                     </div>
                                     <div v-else
                                         class="h-36 flex items-center justify-center text-[11px] text-slate-400 italic bg-white rounded-lg border border-dashed border-slate-200">
@@ -2199,7 +2199,7 @@ const goToCreateForContract = (contractId) => {
                                     </div>
                                     <div v-if="dt.meter_image_path"
                                         class="overflow-hidden rounded-lg border border-slate-200 bg-black/5">
-                                        <img :src="dt.meter_image_path" class="w-full h-36 object-contain" />
+                                        <img :src="getImageUrl(dt.meter_image_path)" class="w-full h-36 object-contain" />
                                     </div>
                                     <div v-else
                                         class="h-36 flex items-center justify-center text-[11px] text-slate-400 italic bg-white rounded-lg border border-dashed border-slate-200">
@@ -2284,7 +2284,7 @@ const goToCreateForContract = (contractId) => {
                             hiện hiện tại có
                             <strong class="text-amber-700 font-black text-sm">{{
                                 pendingBillingContracts.length
-                            }}
+                                }}
                                 phòng</strong>
                             chưa lập hóa đơn. Bạn có thể chọn phòng bên dưới để
                             chốt số nhanh.
@@ -2302,7 +2302,7 @@ const goToCreateForContract = (contractId) => {
                                         <i class="bi bi-house-door-fill"></i>
                                     </div>
                                     <span class="text-xs font-black text-slate-850 tracking-tight">{{ house.name
-                                        }}</span>
+                                    }}</span>
                                 </div>
                                 <span
                                     class="bg-amber-50/80 text-amber-800 text-[9px] font-black uppercase px-2 py-0.5 rounded-lg tracking-wider">
@@ -2325,7 +2325,7 @@ const goToCreateForContract = (contractId) => {
                                             class="w-10 h-10 rounded-xl bg-white border border-slate-200/60 flex flex-col items-center justify-center shadow-sm">
                                             <span class="text-[8px] text-slate-400 font-bold uppercase">Phòng</span>
                                             <span class="text-xs font-black text-[#0e3b3e] -mt-1">{{ c.room?.room_number
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                         <div>
                                             <div
@@ -2417,7 +2417,7 @@ const goToCreateForContract = (contractId) => {
                             <span class="text-slate-500 font-medium">Đã thu trước đó:</span>
                             <span class="font-bold text-emerald-600">{{
                                 formatMoney(selectedPaymentInvoice?.paid_amount)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="flex justify-between text-xs pt-1 border-t border-slate-200/60">
                             <span class="text-slate-600 font-bold">Số tiền còn phải thu:</span>
@@ -2467,7 +2467,8 @@ const goToCreateForContract = (contractId) => {
                         <div class="relative">
                             <input type="text" v-model="displayPartialAmountInput" placeholder="Ví dụ: 500,000"
                                 class="w-full px-4 py-2.5 border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 rounded-xl text-sm font-black text-slate-800 outline-none transition-all pr-12" />
-                            <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">VNĐ</span>
+                            <span
+                                class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">VNĐ</span>
                         </div>
                         <p class="text-[11px] text-amber-700 font-semibold mt-1 flex items-center gap-1">
                             <i class="bi bi-info-circle-fill text-amber-500"></i>

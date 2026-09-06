@@ -2,6 +2,7 @@
 import LandlordLayout from "@/Layouts/LandlordLayout.vue";
 import { ref, computed, watch, onMounted } from "vue";
 import { router, useForm } from "@inertiajs/vue3";
+import { formatMoney } from "@/Utils/formatters.js";
 import CustomSwal, {
     showSuccess,
     showWarning,
@@ -9,7 +10,7 @@ import CustomSwal, {
     showPrompt,
     showError,
 } from "@/Utils/swal";
-
+import { add } from "firebase/firestore/pipelines";
 
 const props = defineProps({
     dbContracts: Array,
@@ -465,22 +466,30 @@ const closeModal = () => {
     selectedContract.value = null;
 };
 
-const formatMoney = (n) => new Intl.NumberFormat("vi-VN").format(n || 0) + "đ";
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString("vi-VN") : "---");
 
 // 3-step contract creation state
 const activeStep = ref(1); // 1: Tenant & Room, 2: Terms & Period, 3: Direct Upload
 
 const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-        addForm.value.contract_files = files;
-        addForm.value.contract_file = files[0];
-    }
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+    //lấy danh sách các tệp đang có
+    let currentFiles = [...(addForm.value.contract_files || [])];
+    const combined = [...currentFiles, ...selectedFiles];
+    //cảnh báo nếu chọn tổng cộng vượt quá 4 tệp
+    const finalFiles = combined.slice(0, 4);
+    addForm.value.contract_files = finalFiles;
+    addForm.value.contract_file = finalFiles[0] || null;
+
+    e.target.value = "";
 };
 
 const removeContractFile = (index) => {
-    if (addForm.value.contract_files) {
+    if (
+        addForm.value.contract_files &&
+        addForm.value.contract_files.length > 0
+    ) {
         addForm.value.contract_files.splice(index, 1);
         addForm.value.contract_file = addForm.value.contract_files[0] || null;
     }
@@ -513,15 +522,15 @@ const getInitialAddForm = (appointmentId = "") => {
 const addForm = ref(getInitialAddForm());
 
 const getContractUrl = (contractObj) => {
-    if (!contractObj) return '#';
+    if (!contractObj) return "#";
     const target = contractObj.original_contract || contractObj;
     if (target.contract_file_url) return target.contract_file_url;
     const path = target.contract_file_path || target.signed_contract_image;
-    if (!path) return '#';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (!path) return "#";
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
     const baseUrl = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL;
     if (baseUrl) {
-        return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+        return `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
     }
     return `/storage/${path}`;
 };
@@ -1002,7 +1011,10 @@ const goToNextStep = () => {
                 return;
             }
         } else if (creationMode.value === "roommate") {
-            if (!addForm.value.room_id || (!selectedResidentId.value && !addForm.value.tenant_id)) {
+            if (
+                !addForm.value.room_id ||
+                (!selectedResidentId.value && !addForm.value.tenant_id)
+            ) {
                 showWarning(
                     "Bắt buộc chọn phòng trọ & cư dân ở ghép",
                     "Vui lòng chọn phòng trọ và thành viên ở ghép thăng chức trước khi tiếp tục!",
@@ -1065,7 +1077,10 @@ const goToStep = (step) => {
                 return;
             }
         } else if (creationMode.value === "roommate") {
-            if (!addForm.value.room_id || (!selectedResidentId.value && !addForm.value.tenant_id)) {
+            if (
+                !addForm.value.room_id ||
+                (!selectedResidentId.value && !addForm.value.tenant_id)
+            ) {
                 showWarning(
                     "Bắt buộc chọn cư dân ở ghép",
                     "Vui lòng chọn phòng và thành viên ở ghép thăng chức trước khi sang Bước 2.",
@@ -1580,7 +1595,7 @@ watch(
             }
         }
     },
-    { immediate: true }
+    { immediate: true },
 );
 </script>
 
@@ -1834,7 +1849,8 @@ watch(
                                         </button>
                                         <a v-if="
                                             c.original_contract
-                                                ?.contract_file_path || c.contract_file_url
+                                                ?.contract_file_path ||
+                                            c.contract_file_url
                                         " :href="getContractUrl(c)" target="_blank"
                                             class="w-7 h-7 bg-slate-50 hover:bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center transition-colors"
                                             title="Tải/Xem File"><i class="bi bi-file-earmark-pdf"></i></a>
@@ -1924,8 +1940,8 @@ watch(
                         contractPage,
                         contractTotalPages,
                     )" :key="p" @click="
-                        typeof p === 'number' ? (contractPage = p) : null
-                        " :class="[
+                            typeof p === 'number' ? (contractPage = p) : null
+                            " :class="[
                             'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all border',
                             contractPage === p
                                 ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
@@ -2149,10 +2165,10 @@ watch(
 
                             <div v-if="
                                 selectedContract.original_contract
-                                    ?.contract_file_path || selectedContract.contract_file_url
+                                    ?.contract_file_path ||
+                                selectedContract.contract_file_url
                             " class="pt-2">
-                                <a :href="getContractUrl(selectedContract)"
-                                    target="_blank"
+                                <a :href="getContractUrl(selectedContract)" target="_blank"
                                     class="w-full py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-xl border border-slate-200 hover:border-emerald-250 flex items-center justify-center gap-1.5 transition-all text-xs font-bold">
                                     <i class="bi bi-file-earmark-pdf-fill"></i>
                                     Xem file đính kèm hợp đồng
@@ -2232,15 +2248,15 @@ watch(
                             <div
                                 class="flex bg-slate-100 p-1 rounded-xl gap-1 text-[11px] font-bold text-slate-500 w-full">
                                 <button type="button" @click="changeCreationMode('appointment')" :class="creationMode === 'appointment'
-                                    ? 'bg-white text-slate-800 shadow-xs'
-                                    : 'hover:text-slate-800'
+                                        ? 'bg-white text-slate-800 shadow-xs'
+                                        : 'hover:text-slate-800'
                                     " class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer">
                                     <i class="bi bi-calendar-event"></i> Ký từ
                                     Lịch hẹn
                                 </button>
                                 <button type="button" @click="changeCreationMode('roommate')" :class="creationMode === 'roommate'
-                                    ? 'bg-white text-slate-800 shadow-xs'
-                                    : 'hover:text-slate-800'
+                                        ? 'bg-white text-slate-800 shadow-xs'
+                                        : 'hover:text-slate-800'
                                     " class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer">
                                     <i class="bi bi-people-fill"></i> Ký cho Cư
                                     dân ở ghép
@@ -2251,24 +2267,24 @@ watch(
                             class="px-6 py-3 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center text-xs font-bold text-slate-400">
                             <button @click="goToStep(1)"
                                 class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 1
-                                    ? 'text-emerald-600 font-bold'
-                                    : 'text-slate-400'
+                                        ? 'text-emerald-600 font-bold'
+                                        : 'text-slate-400'
                                     ">
                                 <span>1. Khách & Kiểm tra CCCD</span>
                             </button>
                             <i class="bi bi-chevron-right text-slate-300"></i>
                             <button @click="goToStep(2)"
                                 class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 2
-                                    ? 'text-emerald-600 font-bold'
-                                    : 'text-slate-400'
+                                        ? 'text-emerald-600 font-bold'
+                                        : 'text-slate-400'
                                     ">
                                 <span>2. Điền Hạn & Tiền Cọc</span>
                             </button>
                             <i class="bi bi-chevron-right text-slate-300"></i>
                             <button @click="goToStep(3)"
                                 class="flex items-center gap-1.5 transition-colors hover:text-emerald-600" :class="activeStep >= 3
-                                    ? 'text-emerald-600 font-bold'
-                                    : 'text-slate-400'
+                                        ? 'text-emerald-600 font-bold'
+                                        : 'text-slate-400'
                                     ">
                                 <span>3. Đính kèm Bản Hợp Đồng</span>
                             </button>
@@ -2300,9 +2316,9 @@ watch(
                                             0
                                         "
                                             class="text-[11px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100 mt-1">
-                                            Hiện chưa có Lịch hẹn xem phòng
-                                            nào (mà khách đã bấm "ƯNG") đang chờ
-                                            tạo hợp đồng tại cơ sở này.
+                                            Hiện chưa có Lịch hẹn xem phòng nào
+                                            (mà khách đã bấm "ƯNG") đang chờ tạo
+                                            hợp đồng tại cơ sở này.
                                         </p>
                                     </div>
                                 </div>
@@ -2470,14 +2486,14 @@ watch(
                                                     :class="validateCCCD(
                                                         addForm.tenant_cccd_input,
                                                     )
-                                                        ? 'border-emerald-500 bg-emerald-50/30 text-emerald-900'
-                                                        : addForm.tenant_cccd_input &&
-                                                            addForm
-                                                                .tenant_cccd_input
-                                                                .length ===
-                                                            12
-                                                            ? 'border-rose-500 bg-rose-50/30 text-rose-900'
-                                                            : 'border-amber-300 bg-amber-50/20 text-slate-800 focus:border-amber-500'
+                                                            ? 'border-emerald-500 bg-emerald-50/30 text-emerald-900'
+                                                            : addForm.tenant_cccd_input &&
+                                                                addForm
+                                                                    .tenant_cccd_input
+                                                                    .length ===
+                                                                12
+                                                                ? 'border-rose-500 bg-rose-50/30 text-rose-900'
+                                                                : 'border-amber-300 bg-amber-50/20 text-slate-800 focus:border-amber-500'
                                                         " />
                                                 <p v-if="
                                                     !addForm.tenant_cccd_input ||
@@ -2496,7 +2512,8 @@ watch(
                                                     !validateCCCD(
                                                         addForm.tenant_cccd_input,
                                                     )
-                                                " class="text-[11px] text-rose-600 font-bold flex items-center gap-1">
+                                                "
+                                                    class="text-[11px] text-rose-600 font-bold flex items-center gap-1">
                                                     <i class="bi bi-exclamation-octagon-fill text-rose-500"></i>
                                                     <span>Số CCCD không hợp lệ!
                                                         Không được nhập 12 số
@@ -2593,7 +2610,7 @@ watch(
                                                 " :class="tenantCountErrorMsg
                                                     ? 'border-2 border-rose-500 bg-rose-50/40 text-rose-900 font-bold'
                                                     : 'border-slate-200 focus:border-emerald-500 font-bold'
-                                                    "
+                                                "
                                             class="w-full px-3.5 py-2.5 border rounded-xl text-xs outline-none transition-all disabled:bg-slate-50 disabled:cursor-not-allowed" />
                                     </div>
                                     <!-- CỤM CHỈ SỐ ĐIỆN NƯỚC BÀN GIAO BAN ĐẦU (FULL WIDTH & PHÓNG TO CSS) -->
@@ -2607,7 +2624,9 @@ watch(
                                                     class="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm shadow-xs">
                                                     <i class="bi bi-speedometer2"></i>
                                                 </div>
-                                                <span>Chỉ số điện & nước bàn giao ban đầu (Mốc nhận phòng)</span>
+                                                <span>Chỉ số điện & nước bàn giao
+                                                    ban đầu (Mốc nhận
+                                                    phòng)</span>
                                             </h4>
                                             <span
                                                 class="px-2.5 py-1 bg-emerald-100/80 text-emerald-800 text-[10px] font-bold rounded-lg border border-emerald-200 shrink-0">
@@ -2619,11 +2638,12 @@ watch(
                                             <div class="space-y-1.5">
                                                 <label
                                                     class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                                    <span>Chỉ số điện bàn giao (kWh)</span>
+                                                    <span>Chỉ số điện bàn giao
+                                                        (kWh)</span>
                                                 </label>
                                                 <div class="relative">
-                                                    <input v-model.number="addForm.entry_elec_index" type="number"
-                                                        min="0" placeholder="Ví dụ: 150"
+                                                    <input v-model.number="addForm.entry_elec_index
+                                                        " type="number" min="0" placeholder="Ví dụ: 150"
                                                         class="w-full px-4 py-3 border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-sm font-black text-slate-800 outline-none bg-white transition-all shadow-xs pr-12" />
                                                     <span
                                                         class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">kWh</span>
@@ -2633,11 +2653,12 @@ watch(
                                             <div class="space-y-1.5">
                                                 <label
                                                     class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                                    <span>Chỉ số nước bàn giao (m³)</span>
+                                                    <span>Chỉ số nước bàn giao
+                                                        (m³)</span>
                                                 </label>
                                                 <div class="relative">
-                                                    <input v-model.number="addForm.entry_water_index" type="number"
-                                                        min="0" placeholder="Ví dụ: 40"
+                                                    <input v-model.number="addForm.entry_water_index
+                                                        " type="number" min="0" placeholder="Ví dụ: 40"
                                                         class="w-full px-4 py-3 border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-sm font-black text-slate-800 outline-none bg-white transition-all shadow-xs pr-10" />
                                                     <span
                                                         class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">m³</span>
@@ -2647,8 +2668,9 @@ watch(
 
                                         <p
                                             class="text-[11px] text-emerald-800 font-semibold flex items-center gap-1.5 bg-white/70 p-2.5 rounded-xl border border-emerald-100">
-                                            <span>Số điện/nước này sẽ tự động làm mốc "Chỉ số Cũ" cho đợt tính hóa đơn
-                                                đầu tiên của hợp đồng.</span>
+                                            <span>Số điện/nước này sẽ tự động làm
+                                                mốc "Chỉ số Cũ" cho đợt tính hóa
+                                                đơn đầu tiên của hợp đồng.</span>
                                         </p>
                                     </div>
                                 </div>
@@ -2726,38 +2748,77 @@ watch(
                                 <div
                                     class="p-3 bg-blue-50 border border-blue-150 rounded-xl text-xs text-blue-800 font-semibold flex items-center gap-2">
                                     <i class="bi bi-info-circle-fill text-lg text-blue-600"></i>
-                                    <span>Chụp ảnh hợp đồng đã ký tay hoặc tải
-                                        lên file đính kèm trực tiếp (ảnh hoặc
-                                        PDF)</span>
+                                    <span>Chụp hoặc tải lên tối đa 4 ảnh hợp đồng
+                                        đã ký tay (hoặc file đính kèm PDF/ảnh
+                                        dưới 10MB/tệp).</span>
                                 </div>
 
                                 <div class="space-y-2">
-                                    <label class="text-xs font-bold text-slate-500">Chọn tệp hợp đồng đính kèm
-                                        <span class="text-rose-500">*</span></label>
-                                    <input type="file" accept="image/*,application/pdf" @change="handleFileSelect"
-                                        class="w-full px-3.5 py-3 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs outline-none bg-slate-50 cursor-pointer" />
+                                    <div class="flex justify-between items-center">
+                                        <label class="text-xs font-bold text-slate-500">
+                                            Chọn tệp hợp đồng đính kèm
+                                            <span class="text-rose-500">*</span>
+                                        </label>
+                                        <span class="text-[11px] font-bold text-emerald-600">
+                                            {{
+                                                addForm.contract_files
+                                                    ?.length || 0
+                                            }}/4 tệp đã chọn
+                                        </span>
+                                    </div>
+
+                                    <!-- Ô chọn file có thuộc tính multiple -->
+                                    <input type="file" multiple accept="image/*,application/pdf"
+                                        @change="handleFileSelect" :disabled="(addForm.contract_files?.length ||
+                                                0) >= 4
+                                            "
+                                        class="w-full px-3.5 py-3 border border-slate-200 focus:border-emerald-500 rounded-xl text-xs outline-none bg-slate-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" />
+
                                     <p class="text-[10px] text-slate-400 font-semibold">
-                                        Chấp nhận file ảnh (.jpg, .jpeg, .png)
-                                        hoặc tài liệu PDF dưới 10MB.
+                                        Có thể chọn nhiều ảnh cùng lúc hoặc bấm
+                                        chọn bổ sung (Chấp nhận .jpg, .jpeg,
+                                        .png, .pdf).
                                     </p>
                                 </div>
 
-                                <div v-if="addForm.contract_file"
-                                    class="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 space-y-1">
-                                    <div class="font-bold flex items-center gap-1">
-                                        <i class="bi bi-file-earmark-check-fill text-emerald-600 text-base"></i>
-                                        <span>Tệp đã chọn:</span>
-                                    </div>
-                                    <p class="font-bold text-slate-700">
-                                        {{ addForm.contract_file.name }} ({{
-                                            (
-                                                addForm.contract_file.size /
-                                                1024 /
-                                                1024
-                                            ).toFixed(2)
-                                        }}
-                                        MB)
+                                <!-- Hiển thị danh sách các tệp đã chọn kèm nút xóa -->
+                                <div v-if="
+                                    addForm.contract_files &&
+                                    addForm.contract_files.length > 0
+                                " class="space-y-2">
+                                    <p class="text-xs font-bold text-slate-700">
+                                        Danh sách tệp chuẩn bị tải lên:
                                     </p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <div v-for="(
+file, idx
+                                            ) in addForm.contract_files" :key="idx"
+                                            class="p-2.5 bg-emerald-50/60 border border-emerald-200 rounded-xl text-xs flex items-center justify-between gap-2">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <i
+                                                    class="bi bi-file-earmark-image-fill text-emerald-600 text-base shrink-0"></i>
+                                                <div class="min-w-0">
+                                                    <p class="font-bold text-slate-700 truncate text-[11px]">
+                                                        {{ file.name }}
+                                                    </p>
+                                                    <p class="text-[10px] text-slate-500 font-semibold">
+                                                        {{
+                                                            (
+                                                                file.size /
+                                                                1024 /
+                                                                1024
+                                                            ).toFixed(2)
+                                                        }}
+                                                        MB
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button type="button" @click="removeContractFile(idx)" title="Xóa ảnh này"
+                                                class="p-1 hover:bg-rose-100 text-rose-500 rounded-lg transition-colors">
+                                                <i class="bi bi-x-lg text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="pt-2">
@@ -2813,7 +2874,7 @@ watch(
 
                 <!-- Modal Danh sách User ấn ưng / Hợp đồng đang chờ -->
                 <div v-if="showPendingRequestsModal"
-                    class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overscroll-contain"
+                    class="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overscroll-contain"
                     @click.self="showPendingRequestsModal = false">
                     <div
                         class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[85vh] my-auto">
@@ -2823,10 +2884,12 @@ watch(
                                 <i class="bi bi-heart-fill text-lg sm:text-xl"></i>
                                 <div>
                                     <h3 class="text-xs sm:text-sm font-bold">
-                                        Danh sách Hợp đồng đang chờ (Khách đã ấn ưng)
+                                        Danh sách Hợp đồng đang chờ (Khách đã ấn
+                                        ưng)
                                     </h3>
                                     <p class="text-[10px] sm:text-[11px] text-amber-100">
-                                        Các khách hàng đã nhấn quan tâm / đăng ký thuê nhưng chưa tạo hợp đồng
+                                        Các khách hàng đã nhấn quan tâm / đăng
+                                        ký thuê nhưng chưa tạo hợp đồng
                                     </p>
                                 </div>
                             </div>
@@ -2858,17 +2921,17 @@ watch(
                                             apt.user?.name || "Khách thuê"
                                         }}</span>
                                         <span :class="apt.user?.cccd_number &&
-                                            String(apt.user.cccd_number)
-                                                .length === 12
-                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                String(apt.user.cccd_number)
+                                                    .length === 12
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : 'bg-rose-50 text-rose-700 border-rose-200'
                                             "
                                             class="px-2 py-0.5 border text-[10px] font-bold rounded-full inline-flex items-center gap-1 whitespace-nowrap shrink-0">
                                             <i :class="apt.user?.cccd_number &&
-                                                String(apt.user.cccd_number)
-                                                    .length === 12
-                                                ? 'bi bi-check-circle-fill text-emerald-500'
-                                                : 'bi bi-exclamation-triangle-fill text-rose-500'
+                                                    String(apt.user.cccd_number)
+                                                        .length === 12
+                                                    ? 'bi bi-check-circle-fill text-emerald-500'
+                                                    : 'bi bi-exclamation-triangle-fill text-rose-500'
                                                 "></i>
                                             <span>{{
                                                 apt.user?.cccd_number &&
@@ -2964,8 +3027,8 @@ watch(
                         <div class="flex justify-between items-center">
                             <span class="text-slate-400 font-bold">Số CCCD (12 số):</span>
                             <span :class="isRoommateCccdValid
-                                ? 'text-emerald-600 font-black'
-                                : 'text-rose-600 font-black'
+                                    ? 'text-emerald-600 font-black'
+                                    : 'text-rose-600 font-black'
                                 ">
                                 {{
                                     selectedRoommateReq?.new_resident_cccd ||
@@ -3173,8 +3236,8 @@ watch(
                                     }}</span>
                             </div>
                             <div class="text-[11px] font-bold mt-0.5" :class="req.type === 'stranger_applicant'
-                                ? 'text-blue-600'
-                                : 'text-amber-600'
+                                    ? 'text-blue-600'
+                                    : 'text-amber-600'
                                 ">
                                 Loại yêu cầu:
                                 {{
@@ -3229,8 +3292,8 @@ watch(
                         roommatePage,
                         roommateTotalPages,
                     )" :key="p" @click="
-                        typeof p === 'number' ? (roommatePage = p) : null
-                        " :class="[
+                            typeof p === 'number' ? (roommatePage = p) : null
+                            " :class="[
                             'w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all border',
                             roommatePage === p
                                 ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'

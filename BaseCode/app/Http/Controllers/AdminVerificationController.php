@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
+use App\Models\UserVerification;
 use Illuminate\Http\Request;
 use App\Services\AdminVerificationService;
 use Illuminate\Support\Facades\Storage;
@@ -134,7 +135,8 @@ class AdminVerificationController extends Controller
         ];
 
         foreach ($r2Disks as $r2Disk) {
-            if (!config("filesystems.disks.{$r2Disk}.key")) continue;
+            if (!config("filesystems.disks.{$r2Disk}.key"))
+                continue;
             try {
                 foreach ($r2RelativePaths as $relPath) {
                     if (Storage::disk($r2Disk)->exists($relPath)) {
@@ -152,5 +154,25 @@ class AdminVerificationController extends Controller
         }
 
         abort(404, 'Không tìm thấy file ảnh thực tế trên hệ thống.');
+    }
+
+    //hàm xoá hồ sơ
+    public function destroy($userId)
+    {
+        try {
+            $this->adminVerificationService->deleteRejectedVerification($userId);
+            //ghi log
+            $targetUser = \App\Models\User::find($userId);
+            $email = $targetUser ? $targetUser->email : "ID #{$userId}";
+            \App\Services\AuditLogger::log(
+                'delete_verification',
+                "Đã xóa hồ sơ xác minh bị từ chối/chưa duyệt của tài khoản: {$email}",
+                false
+            );
+            return redirect()->route('admin.verifications.index')
+            ->with('success','Đã xoá hồ sơ và dọn dẹp ảnh thành công!');
+        }catch(\Exception $e){
+            return back()->with('error','Không thể xoá hồ sơ:' . $e->getMessage());
+        }
     }
 }

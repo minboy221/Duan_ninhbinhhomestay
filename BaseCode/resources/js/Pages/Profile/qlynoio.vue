@@ -1,7 +1,7 @@
 <script setup>
 import UserLayout from "@/Layouts/UserLayout.vue";
 import { Head, Link, useForm, usePage, router } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref, computed, Teleport } from "vue";
 import { showSuccess, showError, showConfirm } from "@/Utils/swal";
 import axios from "axios";
 import { compressMultipleImages } from "@/Utils/compressor";
@@ -398,38 +398,18 @@ const submitReport = () => {
     <UserLayout>
         <div class="bao_item">
             <div class="infor_noidung">
-                <div v-if="!contract" class="alert-no-contract" style="
-                        margin-bottom: 20px;
-                        padding: 15px;
-                        border-radius: 8px;
-                        background: rgba(239, 68, 68, 0.1);
-                        border: 1px solid rgba(239, 68, 68, 0.2);
-                        color: #ef4444;
-                        font-weight: 600;
-                    ">
+                <div v-if="!contract" class="alert-no-contract">
                     <i class="bi bi-exclamation-triangle-fill"></i> Bạn hiện
                     chưa có hợp đồng thuê trọ nào có hiệu lực.
                 </div>
 
-                <div v-else-if="contract?.status === 'termination_requested'" class="alert-no-contract" style="
-                        margin-bottom: 20px;
-                        padding: 15px;
-                        border-radius: 8px;
-                        background: #fff7ed;
-                        border: 1px solid #ffedd5;
-                        color: #ea580c;
-                        font-weight: 600;
-                    ">
+                <div v-else-if="contract?.status === 'termination_requested'" class="alert-no-contract alert-no-contract-warning">
                     <i class="bi bi-clock-history"></i> Bạn đã gửi yêu cầu chấm
                     dứt hợp đồng này. Chủ trọ đang xem xét và tiến hành thủ tục
                     thanh lý.
                 </div>
 
-                <div class="title_noio" style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                    ">
+                <div class="title_noio">
                     <h2>THÔNG TIN NƠI Ở</h2>
                     <div class="status" :style="{ background: getStatusBg }">
                         <p>{{ getStatusLabel }}</p>
@@ -485,62 +465,24 @@ const submitReport = () => {
                         </div>
                     </div>
                     <!-- KHỐI HIỂN THỊ DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG -->
-                    <div v-if="filteredRoommates && filteredRoommates.length > 0" style="
-                            margin: 20px 0;
-                            padding: 16px 20px;
-                            background: #f8fafc;
-                            border: 1px solid #e2e8f0;
-                            border-radius: 16px;
-                        ">
-                        <h3 style="
-                                font-size: 14px;
-                                font-weight: 800;
-                                color: #1e293b;
-                                margin-bottom: 12px;
-                                display: flex;
-                                align-items: center;
-                                gap: 8px;
-                            ">
-                            <i class="bi bi-people-fill" style="color: #10b981; font-size: 16px"></i>
+                    <div v-if="filteredRoommates && filteredRoommates.length > 0" class="roommates-section">
+                        <h3 class="roommates-title">
+                            <i class="bi bi-people-fill roommates-title-icon"></i>
                             DANH SÁCH THÀNH VIÊN Ở GHÉP TRONG PHÒNG ({{
                                 filteredRoommates?.length || 0
                             }}
                             người)
                         </h3>
-                        <div style="
-                                display: flex;
-                                flex-direction: column;
-                                gap: 8px;
-                            ">
-                            <div v-for="res in filteredRoommates" :key="res.id" style="
-                                    display: flex;
-                                    justify-content: space-between;
-                                    align-items: center;
-                                    padding: 10px 14px;
-                                    background: #fff;
-                                    border: 1px solid #cbd5e1;
-                                    border-radius: 12px;
-                                ">
+                        <div class="roommates-list">
+                            <div v-for="res in filteredRoommates" :key="res.id" class="roommate-item">
                                 <div>
-                                    <strong style="font-size: 13px; color: #0f172a">{{
+                                    <strong class="roommate-name">{{
                                         res.user?.name || "Thành viên"
-                                        }}</strong>
-                                    <span style="
-                                            font-size: 11px;
-                                            color: #64748b;
-                                            margin-left: 8px;
-                                        ">SĐT:
+                                    }}</strong>
+                                    <span class="roommate-phone">SĐT:
                                         {{ res.user?.phone || "Chưa có" }}</span>
                                 </div>
-                                <span style="
-                                        font-size: 11px;
-                                        font-weight: 700;
-                                        color: #059669;
-                                        background: #ecfdf5;
-                                        padding: 4px 10px;
-                                        border-radius: 8px;
-                                        border: 1px solid #a7f3d0;
-                                    ">
+                                <span class="roommate-badge">
                                     <i class="bi bi-person-check-fill"></i> Đang
                                     ở ghép
                                 </span>
@@ -584,37 +526,19 @@ const submitReport = () => {
                     </div>
                 </form>
 
-                <div class="hopdong" style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        gap: 10px;
-                        flex-wrap: wrap;
-                    ">
+                <div class="hopdong">
                     <h2>HỢP ĐỒNG THUÊ TRỌ</h2>
-                    <div style="display: flex; gap: 10px; align-items: center">
+                    <div class="hopdong-actions">
                         <!-- Nút Yêu cầu gia hạn HĐ: CHỈ HIỆN DÀNH CHO CHỦ HỢP ĐỒNG -->
                         <button v-if="
                             props.isPrimaryTenant && !hasRequestedExtension
-                        " @click="showExtendRequestModal = true" class="btn-hopdong" style="
-                                background: #10b981;
-                                color: #fff;
-                                cursor: pointer;
-                            ">
+                        " @click="showExtendRequestModal = true" class="btn-hopdong btn-extend-request">
                             <i class="bi bi-arrow-repeat"></i> Yêu cầu gia hạn
                             HĐ
                         </button>
                         <span v-else-if="
                             props.isPrimaryTenant && hasRequestedExtension
-                        " style="
-                                font-size: 12px;
-                                font-weight: 700;
-                                color: #d97706;
-                                background: #fffbeb;
-                                padding: 6px 12px;
-                                border-radius: 8px;
-                                border: 1px solid #fde68a;
-                            ">
+                        " class="badge-requested-extension">
                             <i class="bi bi-clock-history"></i> Đã gửi yêu cầu
                             gia hạn
                         </span>
@@ -637,380 +561,200 @@ const submitReport = () => {
             </div>
         </div>
 
-        <!-- Modal Xem PDF / Ảnh Hợp Đồng -->
-        <div id="pdfModal" class="modal" :style="{ display: showPdfModal ? 'flex' : 'none' }">
-            <div class="modal-content" style="
-                    max-height: 90vh;
-                    overflow-y: auto;
-                    background: white;
-                    padding: 20px;
-                    border-radius: 12px;
-                    position: relative;
-                    width: 80%;
-                    max-width: 800px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                ">
-                <span @click="showPdfModal = false"
-                    class="absolute top-2 right-4 text-slate-400 hover:text-slate-600 cursor-pointer" style="
-                        position: absolute;
-                        top: 10px;
-                        right: 15px;
-                        font-size: 32px;
-                        line-height: 1;
-                        z-index: 50;
-                    ">&times;</span>
-
-                <h3 style="
-                        margin-bottom: 15px;
-                        color: #10b981;
-                        font-weight: bold;
-                    ">
-                    HỢP ĐỒNG THUÊ TRỌ
-                </h3>
-                <div v-if="!contract?.contract_file_path" class="p-6 text-center text-slate-500 font-semibold mt-4"
-                    style="color: #64748b; font-size: 1.1rem">
-                    Chưa có tệp hợp đồng được tải lên.
-                </div>
-                <div v-else-if="isImage(contract.contract_file_path)" class="text-center p-4" style="width: 100%">
-                    <img :src="getContractUrl()" alt="Hợp đồng" style="
-                            max-width: 100%;
-                            height: auto;
-                            border-radius: 8px;
-                        " />
-                </div>
-                <iframe v-else :src="getContractUrl()" style="
-                        width: 100%;
-                        height: 70vh;
-                        border: none;
-                        border-radius: 8px;
-                    "></iframe>
-            </div>
-        </div>
-
-        <!-- MODAL CẬP NHẬT CHỈ SỐ ĐIỆN NƯỚC NHẬN PHÒNG -->
-        <div v-if="showEntryModal"
-            class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
-                        <i class="bi bi-speedometer2 text-emerald-600"></i>
-                        <span>Chỉ số điện / nước khi nhận phòng</span>
-                    </h3>
-                    <button @click="showEntryModal = false"
-                        class="text-slate-400 hover:text-slate-600 text-xl font-bold">
-                        &times;
-                    </button>
-                </div>
-
-                <form @submit.prevent="submitEntryReadings" class="space-y-4">
-                    <!-- Khối Điện -->
-                    <div class="p-3 bg-amber-50/50 border border-amber-200/60 rounded-xl space-y-3">
-                        <label class="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                            <i class="bi bi-lightning-charge-fill text-amber-500"></i>
-                            <span>Chỉ số ĐIỆN ban đầu (kWh)</span>
-                        </label>
-                        <input type="number" min="0" v-model="entryForm.entry_elec_index" placeholder="Ví dụ: 1250"
-                            class="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white" />
-                        <div>
-                            <span class="text-[11px] text-slate-500 font-semibold block mb-1">Ảnh chụp công tơ điện lúc
-                                nhận phòng:</span>
-                            <input type="file" accept="image/*" @change="handleElecImg"
-                                class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer" />
-                            <div v-if="
-                                elecImgPreview || contract?.entry_elec_image
-                            " class="mt-2 w-28 h-28 rounded-lg overflow-hidden border border-amber-200 shadow-xs">
-                                <img :src="elecImgPreview ||
-                                    contract?.entry_elec_image
-                                    " class="w-full h-full object-cover" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Khối Nước -->
-                    <div class="p-3 bg-blue-50/50 border border-blue-200/60 rounded-xl space-y-3">
-                        <label class="block text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                            <i class="bi bi-droplet-fill text-blue-500"></i>
-                            <span>Chỉ số NƯỚC ban đầu (m³)</span>
-                        </label>
-                        <input type="number" min="0" v-model="entryForm.entry_water_index" placeholder="Ví dụ: 85"
-                            class="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" />
-                        <div>
-                            <span class="text-[11px] text-slate-500 font-semibold block mb-1">Ảnh chụp công tơ nước lúc
-                                nhận phòng:</span>
-                            <input type="file" accept="image/*" @change="handleWaterImg"
-                                class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 cursor-pointer" />
-                            <div v-if="
-                                waterImgPreview ||
-                                contract?.entry_water_image
-                            " class="mt-2 w-28 h-28 rounded-lg overflow-hidden border border-blue-200 shadow-xs">
-                                <img :src="waterImgPreview ||
-                                    contract?.entry_water_image
-                                    " class="w-full h-full object-cover" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                        <button type="button" @click="showEntryModal = false"
-                            class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition">
-                            Hủy
-                        </button>
-                        <button type="submit" :disabled="entryForm.processing"
-                            class="px-5 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-md flex items-center gap-1.5">
-                            <i v-if="entryForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
-                            <span>Lưu thông tin</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
         <!-- Modal Yêu cầu Chấm dứt Hợp đồng cho Client -->
-        <div v-if="showTerminateModal" class="modal" style="
-                display: flex;
-                position: fixed;
-                inset: 0;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 999;
-                justify-content: center;
-                align-items: center;
-            ">
-            <div class="modal-content" style="
-                    background: white;
-                    padding: 24px;
-                    border-radius: 16px;
-                    height: 400px;
-                    width: 90%;
-                    max-width: 500px;
-                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-                ">
-                <div style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        margin-bottom: 16px;
-                    ">
-                    <h3 style="
-                            font-size: 18px;
-                            font-weight: bold;
-                            color: #dc2626;
-                            display: flex;
-                            align-items: center;
-                            gap: 8px;
-                        ">
-                        <i class="bi bi-exclamation-octagon-fill"></i> Yêu Cầu
-                        Chấm Dứt Hợp Đồng
-                    </h3>
-                    <button @click="showTerminateModal = false" style="
-                            background: none;
-                            border: none;
-                            font-size: 24px;
-                            color: #94a3b8;
-                            cursor: pointer;
-                        ">
-                        &times;
-                    </button>
-                </div>
+        <Teleport to="body">
+            <div v-if="showTerminateModal" class="terminate-modal-overlay">
+                <div class="terminate-modal-card">
+                    <div class="terminate-modal-header">
+                        <h3 class="terminate-modal-title">
+                            <i class="bi bi-exclamation-octagon-fill"></i> Yêu Cầu
+                            Chấm Dứt Hợp Đồng
+                        </h3>
+                        <button @click="showTerminateModal = false" class="terminate-modal-close">
+                            &times;
+                        </button>
+                    </div>
 
-                <p style="
-                        font-size: 13.5px;
-                        color: #475569;
-                        margin-bottom: 16px;
-                        line-height: 1.5;
-                    ">
-                    Bạn đang chuẩn bị gửi yêu cầu chấm dứt/thanh lý hợp đồng sớm
-                    cho chủ trọ. Vui lòng nhập rõ lý do bên dưới để chủ trọ tiếp
-                    nhận và xử lý.
-                </p>
+                    <p class="terminate-modal-desc">
+                        Bạn đang chuẩn bị gửi yêu cầu chấm dứt/thanh lý hợp đồng sớm
+                        cho chủ trọ. Vui lòng nhập rõ lý do bên dưới để chủ trọ tiếp
+                        nhận và xử lý.
+                    </p>
 
-                <div style="margin-bottom: 20px">
-                    <label style="
-                            display: block;
-                            font-size: 13px;
-                            font-weight: 600;
-                            color: #334155;
-                            margin-bottom: 6px;
-                        ">Lý do chấm dứt hợp đồng <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
-                    <textarea v-model="terminateForm.reason" rows="4"
-                        placeholder="Ví dụ: Chuyển nơi công tác / Trả phòng do hết nhu cầu thuê..." style="
-                            width: 100%;
-                            padding: 10px 12px;
-                            border: 1px solid #cbd5e1;
-                            border-radius: 8px;
-                            font-size: 13.5px;
-                            outline: none;
-                            box-sizing: border-box;
-                        "></textarea>
-                </div>
+                    <div class="terminate-modal-field">
+                        <label class="terminate-modal-label">Lý do chấm dứt hợp đồng <span class="text-danger-star">(*)</span>:</label>
+                        <textarea v-model="terminateForm.reason" rows="4"
+                            placeholder="Ví dụ: Chuyển nơi công tác / Trả phòng do hết nhu cầu thuê..." class="terminate-modal-textarea"></textarea>
+                    </div>
 
-                <div style="display: flex; justify-content: flex-end; gap: 10px">
-                    <button @click="showTerminateModal = false" style="
-                            padding: 9px 16px;
-                            background: #f1f5f9;
-                            color: #475569;
-                            border: none;
-                            border-radius: 8px;
-                            font-weight: 600;
-                            cursor: pointer;
-                        ">
-                        Hủy bỏ
-                    </button>
-                    <button @click="submitTerminateRequest" :disabled="terminateForm.processing" style="
-                            padding: 9px 18px;
-                            background: #dc2626;
-                            color: white;
-                            border: none;
-                            border-radius: 8px;
-                            font-weight: 600;
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            gap: 6px;
-                        ">
-                        <i class="bi bi-send-fill"></i> Gửi Yêu Cầu
-                    </button>
+                    <div class="terminate-modal-footer">
+                        <button @click="showTerminateModal = false" class="btn-cancel">
+                            Hủy bỏ
+                        </button>
+                        <button @click="submitTerminateRequest" :disabled="terminateForm.processing" class="btn-submit-danger">
+                            <i class="bi bi-send-fill"></i> Gửi Yêu Cầu
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </Teleport>
+
+        <!-- Modal Xem PDF / Ảnh Hợp Đồng -->
+        <Teleport to="body">
+            <div v-if="showPdfModal" class="contract-modal-overlay">
+                <div class="contract-modal">
+                    <!-- HEADER -->
+                    <div class="contract-modal-header">
+                        <div class="contract-modal-title">
+                            <div class="contract-modal-icon">
+                                <i class="bi bi-file-earmark-text-fill"></i>
+                            </div>
+                            <div>
+                                <h3>Hợp đồng thuê trọ</h3>
+                                <p>Bản ghi điện tử chính thức đã ký kết</p>
+                            </div>
+                        </div>
+                        <button type="button" @click="showPdfModal = false" class="contract-modal-close">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <!-- BODY -->
+                    <div class="contract-modal-body">
+                        <!-- Không có file -->
+                        <div v-if="!contract?.contract_file_path && !contract?.contract_file_url"
+                            class="contract-empty">
+                            <div class="contract-empty-icon">
+                                <i class="bi bi-file-earmark-x"></i>
+                            </div>
+                            <p>
+                                Chưa có tệp hợp đồng được tải lên.
+                            </p>
+                        </div>
+                        <!-- Ảnh hợp đồng -->
+                        <div v-else-if="isImage(contract?.contract_file_path || contract?.contract_file_url)"
+                            class="contract-image-viewer">
+                            <img :src="getContractUrl()" alt="Hợp đồng thuê trọ" class="contract-image" />
+                        </div>
+                        <!-- PDF -->
+                        <iframe v-else :src="getContractUrl()" class="contract-pdf"></iframe>
+                    </div>
+                    <!-- FOOTER -->
+                    <div class="contract-modal-footer">
+                        <a v-if="getContractUrl()" :href="getContractUrl()" target="_blank" download
+                            class="contract-download-btn">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                            <span>Xem ảnh gốc / Tải tệp</span>
+                        </a>
+                        <div v-else></div>
+                        <button type="button" @click="showPdfModal = false" class="contract-close-btn">
+                            Đóng
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
 
         <!-- MODAL GIỚI THIỆU NGƯỜI QUEN VÀO Ở GHÉP -->
-        <div v-if="showAcquaintanceModal" class="modal-overlay">
-            <div class="modal-card">
-                <div class="modal-header">
-                    <h3 class="modal-title">
-                        <i class="bi bi-person-plus-fill"></i> GIỚI THIỆU THÀNH
-                        VIÊN Ở GHÉP
-                    </h3>
-                    <button type="button" @click="showAcquaintanceModal = false" class="modal-close-btn">
-                        &times;
-                    </button>
-                </div>
-
-                <p class="modal-body-desc">
-                    Vui lòng nhập chính xác thông tin thành viên bạn giới thiệu
-                    vào phòng. Yêu cầu sẽ được gửi tới chủ nhà phê duyệt để thêm
-                    vào cư dân phòng.
-                </p>
-
-                <form @submit.prevent="submitAcquaintanceRequest">
-                    <div class="form-field-group">
-                        <label class="form-field-label">Số điện thoại <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_phone" @input="checkRoommateUserInfo"
-                            placeholder="Ví dụ: 0987654321..." class="form-field-input" />
+        <Teleport to="body">
+            <div v-if="showAcquaintanceModal" class="modal-overlay modal-overlay-top">
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <h3 class="modal-title">
+                            <i class="bi bi-person-plus-fill"></i> GIỚI THIỆU THÀNH
+                            VIÊN Ở GHÉP
+                        </h3>
+                        <button type="button" @click="showAcquaintanceModal = false" class="modal-close-btn">
+                            &times;
+                        </button>
                     </div>
 
-                    <div class="form-field-group">
-                        <label class="form-field-label">Email liên hệ <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
-                        <input type="email" v-model="acquaintanceForm.new_resident_email" @input="checkRoommateUserInfo"
-                            placeholder="Nhập địa chỉ email..." class="form-field-input" />
-                    </div>
+                    <p class="modal-body-desc">
+                        Vui lòng nhập chính xác thông tin thành viên bạn giới thiệu
+                        vào phòng. Yêu cầu sẽ được gửi tới chủ nhà phê duyệt để thêm
+                        vào cư dân phòng.
+                    </p>
 
-                    <div class="form-field-group">
-                        <label class="form-field-label">Số CCCD/CMND (12 chữ số) <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_cccd" @input="checkRoommateUserInfo" placeholder="Đúng 12 chữ số..."
-                            maxlength="12" class="form-field-input" />
-                    </div>
+                    <form @submit.prevent="submitAcquaintanceRequest">
+                        <div class="form-field-group">
+                            <label class="form-field-label">Số điện thoại <span class="text-danger-star">(*)</span></label>
+                            <input type="text" v-model="acquaintanceForm.new_resident_phone"
+                                @input="checkRoommateUserInfo" placeholder="Ví dụ: 0987654321..."
+                                class="form-field-input" />
+                        </div>
 
-                    <div class="form-field-group">
-                        <label class="form-field-label">Họ và tên <span style="color: #dc2626; font-weight: bold;">(*)</span></label>
-                        <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
-                            class="form-field-input" />
-                    </div>
+                        <div class="form-field-group">
+                            <label class="form-field-label">Email liên hệ <span class="text-danger-star">(*)</span></label>
+                            <input type="email" v-model="acquaintanceForm.new_resident_email"
+                                @input="checkRoommateUserInfo" placeholder="Nhập địa chỉ email..."
+                                class="form-field-input" />
+                        </div>
 
-                    <!-- Real-time check feedback badge -->
-                    <div v-if="isCheckingRoommateUser" style="margin-top: 10px; font-size: 12px; color: #059669; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                        <i class="bi bi-arrow-repeat animate-spin"></i> Đang kiểm tra thông tin tài khoản trên hệ thống...
-                    </div>
-                    <div v-else-if="roommateUserCheckResult" style="margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; display: flex; align-items: flex-start; gap: 8px;"
-                        :style="roommateUserCheckResult.exists 
-                            ? (roommateUserCheckResult.is_renting_elsewhere 
-                                ? 'background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;' 
-                                : 'background: #ecfdf5; border: 1px solid #a7f3d0; color: #059669;')
-                            : 'background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb;'">
-                        <i :class="roommateUserCheckResult.exists 
-                            ? (roommateUserCheckResult.is_renting_elsewhere ? 'bi bi-exclamation-triangle-fill' : 'bi bi-check-circle-fill')
-                            : 'bi bi-info-circle-fill'" style="font-size: 15px; margin-top: 1px;"></i>
-                        <div>
-                            <div>{{ roommateUserCheckResult.message }}</div>
-                            <div v-if="roommateUserCheckResult.exists && roommateUserCheckResult.user" style="font-size: 11px; opacity: 0.9; margin-top: 2px;">
-                                Thành viên: <strong>{{ roommateUserCheckResult.user.name }}</strong> (SĐT: {{ roommateUserCheckResult.user.phone || 'Chưa cập nhật' }})
+                        <div class="form-field-group">
+                            <label class="form-field-label">Số CCCD/CMND (12 chữ số) <span class="text-danger-star">(*)</span></label>
+                            <input type="text" v-model="acquaintanceForm.new_resident_cccd"
+                                @input="checkRoommateUserInfo" placeholder="Đúng 12 chữ số..." maxlength="12"
+                                class="form-field-input" />
+                        </div>
+
+                        <div class="form-field-group">
+                            <label class="form-field-label">Họ và tên <span class="text-danger-star">(*)</span></label>
+                            <input type="text" v-model="acquaintanceForm.new_resident_name" placeholder="Nhập họ tên..."
+                                class="form-field-input" />
+                        </div>
+
+                        <!-- Real-time check feedback badge -->
+                        <div v-if="isCheckingRoommateUser" class="roommate-check-loading">
+                            <i class="bi bi-arrow-repeat animate-spin"></i> Đang kiểm tra thông tin tài khoản trên hệ
+                            thống...
+                        </div>
+                        <div v-else-if="roommateUserCheckResult" class="roommate-check-result"
+                            :class="{
+                                'check-renting-elsewhere': roommateUserCheckResult.exists && roommateUserCheckResult.is_renting_elsewhere,
+                                'check-exists': roommateUserCheckResult.exists && !roommateUserCheckResult.is_renting_elsewhere,
+                                'check-new': !roommateUserCheckResult.exists
+                            }">
+                            <i :class="roommateUserCheckResult.exists
+                                ? (roommateUserCheckResult.is_renting_elsewhere ? 'bi bi-exclamation-triangle-fill' : 'bi bi-check-circle-fill')
+                                : 'bi bi-info-circle-fill'" class="roommate-check-icon"></i>
+                            <div>
+                                <div>{{ roommateUserCheckResult.message }}</div>
+                                <div v-if="roommateUserCheckResult.exists && roommateUserCheckResult.user" class="roommate-check-subtext">
+                                    Thành viên: <strong>{{ roommateUserCheckResult.user.name }}</strong> (SĐT: {{
+                                        roommateUserCheckResult.user.phone || 'Chưa cập nhật' }})
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="modal-footer">
-                        <button type="button" @click="showAcquaintanceModal = false" class="modal-cancel-btn">
-                            Hủy
-                        </button>
-                        <button type="submit" :disabled="acquaintanceForm.processing" class="modal-submit-btn">
-                            <i v-if="acquaintanceForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
-                            <i v-else class="bi bi-send-fill"></i> Gửi yêu cầu
-                        </button>
-                    </div>
-                </form>
+                        <div class="modal-footer">
+                            <button type="button" @click="showAcquaintanceModal = false" class="modal-cancel-btn">
+                                Hủy
+                            </button>
+                            <button type="submit" :disabled="acquaintanceForm.processing" class="modal-submit-btn">
+                                <i v-if="acquaintanceForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
+                                <i v-else class="bi bi-send-fill"></i> Gửi yêu cầu
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+        </Teleport>
     </UserLayout>
+
     <!-- Modal Yêu cầu Gia hạn Hợp đồng cho Client -->
-    <div v-if="showExtendRequestModal" class="modal" style="
-        display: flex;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 999;
-        justify-content: center;
-        align-items: center;
-    ">
-        <div class="modal-content" style="
-            background: white;
-            padding: 24px;
-            border-radius: 16px;
-            max-width: 500px;
-            height: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        ">
+    <div v-if="showExtendRequestModal" class="extend-modal-overlay">
+        <div class="extend-modal-card">
             <!-- Header -->
-            <div style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 16px;
-            ">
-                <h3 style="
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #059669;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    margin: 0;
-                ">
+            <div class="extend-modal-header">
+                <h3 class="extend-modal-title">
                     <i class="bi bi-arrow-repeat"></i> Yêu Cầu Gia Hạn Hợp Đồng
                 </h3>
-                <button @click="showExtendRequestModal = false" style="
-                    background: none;
-                    border: none;
-                    font-size: 24px;
-                    color: #94a3b8;
-                    cursor: pointer;
-                    line-height: 1;
-                    padding: 0;
-                ">
+                <button @click="showExtendRequestModal = false" class="extend-modal-close">
                     &times;
                 </button>
             </div>
 
             <!-- Description -->
-            <p style="
-                font-size: 13.5px;
-                color: #475569;
-                margin-top: 0;
-                margin-bottom: 16px;
-                line-height: 1.5;
-            ">
+            <p class="extend-modal-desc">
                 Bạn đang gửi yêu cầu tiếp tục gia hạn hợp đồng thuê phòng. Vui lòng chọn thời gian và nhập ghi chú (nếu
                 có) để chủ trọ xét duyệt.
             </p>
@@ -1018,25 +762,9 @@ const submitReport = () => {
             <!-- Form Body -->
             <form @submit.prevent="submitExtendRequest">
                 <!-- Chọn thời gian gia hạn -->
-                <div style="margin-bottom: 16px;">
-                    <label style="
-                        display: block;
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #334155;
-                        margin-bottom: 6px;
-                    ">Số tháng muốn gia hạn thêm <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
-                    <select v-model="extendRequestForm.desired_months" style="
-                        width: 100%;
-                        padding: 10px 12px;
-                        border: 1px solid #cbd5e1;
-                        border-radius: 8px;
-                        font-size: 13.5px;
-                        outline: none;
-                        background: white;
-                        box-sizing: border-box;
-                        cursor: pointer;
-                    ">
+                <div class="extend-modal-field">
+                    <label class="extend-modal-label">Số tháng muốn gia hạn thêm <span class="text-danger-star">(*)</span>:</label>
+                    <select v-model="extendRequestForm.desired_months" class="extend-modal-select">
                         <option :value="3">3 Tháng</option>
                         <option :value="6">6 Tháng (Nửa năm)</option>
                         <option :value="12">12 Tháng (1 Năm)</option>
@@ -1045,54 +773,18 @@ const submitReport = () => {
                 </div>
 
                 <!-- Ghi chú -->
-                <div style="margin-bottom: 20px;">
-                    <label style="
-                        display: block;
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #334155;
-                        margin-bottom: 6px;
-                    ">Ghi chú gửi Chủ trọ:</label>
+                <div class="extend-modal-field-lg">
+                    <label class="extend-modal-label">Ghi chú gửi Chủ trọ:</label>
                     <textarea v-model="extendRequestForm.note" rows="3"
-                        placeholder="Nhập nguyện vọng hoặc đề xuất thêm của bạn..." style="
-                        width: 100%;
-                        padding: 10px 12px;
-                        border: 1px solid #cbd5e1;
-                        border-radius: 8px;
-                        font-size: 13.5px;
-                        outline: none;
-                        resize: none;
-                        box-sizing: border-box;
-                    "></textarea>
+                        placeholder="Nhập nguyện vọng hoặc đề xuất thêm của bạn..." class="extend-modal-textarea"></textarea>
                 </div>
 
                 <!-- Footer Actions -->
-                <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" @click="showExtendRequestModal = false" style="
-                        padding: 9px 16px;
-                        background: #f1f5f9;
-                        color: #475569;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: 600;
-                        font-size: 13.5px;
-                        cursor: pointer;
-                    ">
+                <div class="extend-modal-footer">
+                    <button type="button" @click="showExtendRequestModal = false" class="btn-cancel">
                         Hủy bỏ
                     </button>
-                    <button type="submit" :disabled="isSubmittingExtension" style="
-                        padding: 9px 18px;
-                        background: #059669;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: 600;
-                        font-size: 13.5px;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                    ">
+                    <button type="submit" :disabled="isSubmittingExtension" class="btn-submit-success">
                         <i v-if="isSubmittingExtension" class="bi bi-arrow-repeat animate-spin"></i>
                         <i v-else class="bi bi-send-fill"></i> Gửi Yêu Cầu
                     </button>
@@ -1102,68 +794,21 @@ const submitReport = () => {
     </div>
 
     <!-- Modal Báo cáo Sự cố và Vi phạm cho Client -->
-    <div v-if="showReportModal" class="modal" style="
-        display: flex;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 9999;
-        justify-content: center;
-        align-items: center;
-        padding: 16px;
-        box-sizing: border-box;
-    ">
-        <div class="modal-content" style="
-            background: white;
-            padding: 24px;
-            border-radius: 16px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-            box-sizing: border-box;
-        ">
+    <div v-if="showReportModal" class="report-modal-overlay">
+        <div class="report-modal-card">
 
             <!-- Header -->
-            <div style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 16px;
-            ">
-                <h3 style="
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #dc2626;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    margin: 0;
-                ">
+            <div class="report-modal-header">
+                <h3 class="report-modal-title">
                     <i class="bi bi-exclamation-octagon-fill"></i> Báo Cáo Sự Cố / Vi Phạm
                 </h3>
-                <button type="button" @click="showReportModal = false" style="
-                    background: none;
-                    border: none;
-                    font-size: 24px;
-                    color: #94a3b8;
-                    cursor: pointer;
-                    line-height: 1;
-                    padding: 0;
-                ">
+                <button type="button" @click="showReportModal = false" class="report-modal-close">
                     &times;
                 </button>
             </div>
 
             <!-- Description -->
-            <p style="
-                font-size: 13.5px;
-                color: #475569;
-                margin-top: 0;
-                margin-bottom: 16px;
-                line-height: 1.5;
-            ">
+            <p class="report-modal-desc">
                 Vui lòng cung cấp đầy đủ thông tin chi tiết và hình ảnh minh chứng để chủ trọ kịp thời nắm bắt và xử lý
                 sự cố.
             </p>
@@ -1172,25 +817,9 @@ const submitReport = () => {
             <form @submit.prevent="submitReport">
 
                 <!-- Phân loại báo cáo -->
-                <div style="margin-bottom: 16px;">
-                    <label style="
-                        display: block;
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #334155;
-                        margin-bottom: 6px;
-                    ">Loại báo cáo <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
-                    <select v-model="reportForm.reason" style="
-                        width: 100%;
-                        padding: 10px 12px;
-                        border: 1px solid #cbd5e1;
-                        border-radius: 8px;
-                        font-size: 13.5px;
-                        outline: none;
-                        background: white;
-                        box-sizing: border-box;
-                        cursor: pointer;
-                    ">
+                <div class="report-modal-field">
+                    <label class="report-modal-label">Loại báo cáo <span class="text-danger-star">(*)</span>:</label>
+                    <select v-model="reportForm.reason" class="report-modal-select">
                         <option value="" disabled>-- Chọn phân loại báo cáo --</option>
                         <option v-for="(r, idx) in props.reasons" :key="r.id || idx"
                             :value="typeof r === 'object' ? r.reason : r">
@@ -1200,163 +829,67 @@ const submitReport = () => {
                             Lý do khác
                         </option>
                     </select>
-                    <p v-if="reportForm.errors?.reason"
-                        style="color: #dc2626; font-size: 12px; margin-top: 4px; margin-bottom: 0;">
+                    <p v-if="reportForm.errors?.reason" class="report-field-error">
                         {{ reportForm.errors.reason }}
                     </p>
                 </div>
 
                 <!-- Mô tả chi tiết -->
-                <div style="margin-bottom: 16px;">
-                    <label style="
-                        display: block;
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #334155;
-                        margin-bottom: 6px;
-                    ">Mô tả chi tiết <span style="color: #dc2626; font-weight: bold;">(*)</span>:</label>
+                <div class="report-modal-field">
+                    <label class="report-modal-label">Mô tả chi tiết <span class="text-danger-star">(*)</span>:</label>
                     <textarea v-model="reportForm.description" rows="4"
-                        placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề cần xử lý..." style="
-                        width: 100%;
-                        padding: 10px 12px;
-                        border: 1px solid #cbd5e1;
-                        border-radius: 8px;
-                        font-size: 13.5px;
-                        outline: none;
-                        resize: none;
-                        box-sizing: border-box;
-                    "></textarea>
-                    <p v-if="reportForm.errors?.description"
-                        style="color: #dc2626; font-size: 12px; margin-top: 4px; margin-bottom: 0;">
+                        placeholder="Mô tả cụ thể vị trí, tình trạng hỏng hóc hoặc vấn đề cần xử lý..." class="report-modal-textarea"></textarea>
+                    <p v-if="reportForm.errors?.description" class="report-field-error">
                         {{ reportForm.errors.description }}
                     </p>
                 </div>
 
                 <!-- Hình ảnh minh chứng -->
-                <div style="margin-bottom: 20px;">
-                    <label style="
-                        display: block;
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #334155;
-                        margin-bottom: 6px;
-                    ">Hình ảnh minh chứng:</label>
+                <div class="report-modal-field-lg">
+                    <label class="report-modal-label">Hình ảnh minh chứng:</label>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="evidence-upload-grid">
                         <!-- Camera -->
-                        <label style="
-                            display: flex;
-                            align-items: center;
-                            gap: 10px;
-                            padding: 10px;
-                            border: 1px dashed #fca5a5;
-                            background: #fef2f2;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            box-sizing: border-box;
-                        ">
-                            <div style="
-                                width: 36px;
-                                height: 36px;
-                                background: white;
-                                border-radius: 6px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-                            ">
-                                <i class="bi bi-camera-fill" style="color: #dc2626; font-size: 16px;"></i>
+                        <label class="evidence-upload-btn evidence-upload-btn-camera">
+                            <div class="evidence-icon-box">
+                                <i class="bi bi-camera-fill evidence-icon-camera"></i>
                             </div>
                             <div>
-                                <span style="display: block; font-size: 12px; font-weight: 700; color: #b91c1c;">Chụp
-                                    ảnh</span>
-                                <span style="display: block; font-size: 10px; color: #ef4444;">Mở camera</span>
+                                <span class="evidence-btn-title text-danger">Chụp ảnh</span>
+                                <span class="evidence-btn-sub text-danger-sub">Mở camera</span>
                             </div>
-                            <input type="file" accept="image/*" capture="environment" style="display: none;"
+                            <input type="file" accept="image/*" capture="environment" class="hidden-file-input"
                                 @change="handleEvidenceImages" />
                         </label>
 
                         <!-- Bộ sưu tập -->
-                        <label style="
-                            display: flex;
-                            align-items: center;
-                            gap: 10px;
-                            padding: 10px;
-                            border: 1px dashed #cbd5e1;
-                            background: #f8fafc;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            box-sizing: border-box;
-                        ">
-                            <div style="
-                                width: 36px;
-                                height: 36px;
-                                background: white;
-                                border-radius: 6px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-                            ">
-                                <i class="bi bi-images" style="color: #64748b; font-size: 16px;"></i>
+                        <label class="evidence-upload-btn evidence-upload-btn-gallery">
+                            <div class="evidence-icon-box">
+                                <i class="bi bi-images evidence-icon-gallery"></i>
                             </div>
                             <div>
-                                <span style="display: block; font-size: 12px; font-weight: 700; color: #334155;">Bộ sưu
-                                    tập</span>
-                                <span style="display: block; font-size: 10px; color: #94a3b8;">Chọn ảnh có sẵn</span>
+                                <span class="evidence-btn-title text-slate">Bộ sưu tập</span>
+                                <span class="evidence-btn-sub text-slate-sub">Chọn ảnh có sẵn</span>
                             </div>
-                            <input type="file" multiple accept="image/*,.heic,.heif" style="display: none;"
+                            <input type="file" multiple accept="image/*,.heic,.heif" class="hidden-file-input"
                                 @change="handleEvidenceImages" />
                         </label>
                     </div>
 
                     <!-- Preview ảnh -->
-                    <div v-if="previewEvidenceImages && previewEvidenceImages.length > 0" style="
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 8px;
-                        margin-top: 10px;
-                    ">
+                    <div v-if="previewEvidenceImages && previewEvidenceImages.length > 0" class="evidence-preview-grid">
                         <div v-for="(img, idx) in previewEvidenceImages" :key="idx">
-                            <img :src="img" style="
-                                width: 56px;
-                                height: 56px;
-                                object-fit: cover;
-                                border-radius: 6px;
-                                border: 1px solid #e2e8f0;
-                            " />
+                            <img :src="img" class="evidence-preview-img" />
                         </div>
                     </div>
                 </div>
 
                 <!-- Footer Actions -->
-                <div
-                    style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
-                    <button type="button" @click="showReportModal = false" style="
-                        padding: 9px 16px;
-                        background: #f1f5f9;
-                        color: #475569;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: 600;
-                        font-size: 13.5px;
-                        cursor: pointer;
-                    ">
+                <div class="report-modal-footer">
+                    <button type="button" @click="showReportModal = false" class="btn-cancel">
                         Hủy bỏ
                     </button>
-                    <button type="submit" :disabled="reportForm.processing" style="
-                        padding: 9px 18px;
-                        background: #dc2626;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: 600;
-                        font-size: 13.5px;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                    ">
+                    <button type="submit" :disabled="reportForm.processing" class="btn-submit-danger">
                         <i v-if="reportForm.processing" class="bi bi-arrow-repeat animate-spin"></i>
                         <i v-else class="bi bi-send-fill"></i>
                         <span>{{ reportForm.processing ? "Đang gửi..." : "Gửi Báo Cáo" }}</span>

@@ -61,8 +61,7 @@ class RoomPostRepository implements RoomPostRepositoryInterface
     {
         return RoomPost::with(['room.boardingHouse.user', 'landlord'])
             ->where('status', 'approved')
-            ->orderBy('view_count', 'desc')
-            ->orderBy('created_at', 'desc')
+            ->orderByRaw('bumped_at IS NULL ASC, bumped_at DESC, view_count DESC, created_at DESC')
             ->take($limit)
             ->get();
     }

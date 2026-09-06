@@ -40,8 +40,8 @@ class LandlordController extends Controller
     {
         $landlordId = Auth::id();
         $boardingHouseId = session('selected_boarding_house_id');
-        //lấy danh sách ID các cơ sở do chủ trọ xử lý
-        $houseIdsQuery = \App\Models\BoardingHouse::where('user_id', $landlordId);
+        //lấy danh sách ID các cơ sở do chủ trọ xử lý (chỉ tính cơ sở đã được Admin duyệt)
+        $houseIdsQuery = \App\Models\BoardingHouse::where('user_id', $landlordId)->where('status', 'approved');
         if ($boardingHouseId) {
             $houseIdsQuery->where('id', $boardingHouseId);
         }
@@ -70,8 +70,8 @@ class LandlordController extends Controller
             $q->whereIn('boarding_house_id', $houseIds);
         })->where('status', 'paid')->sum('total_amount');
 
-        //số cơ sở trọ đang sở hữu
-        $totalBoardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)->count();
+        //số cơ sở trọ đang sở hữu (chỉ đếm cơ sở đã duyệt)
+        $totalBoardingHouses = \App\Models\BoardingHouse::where('user_id', $landlordId)->where('status', 'approved')->count();
 
         //thông tin gói dịch vụ hiện tại
         $user = Auth::user();
@@ -238,7 +238,8 @@ class LandlordController extends Controller
         $services = $allServices->where('is_active', true)->values();
 
         //lấy tất cả tầng của chủ trọ để dùng riêng cho chọn tầng khi tạo phòng mới
-        $propertyId = $this->roomService->getOrCreatePropertyId($landlordId);
+        $boardingHouseId = session('selected_boarding_house_id');
+        $propertyId = $this->roomService->getOrCreatePropertyId($landlordId, $boardingHouseId);
         $allFloors = \App\Models\Floor::where('property_id', $propertyId)
             ->orderBy('name')
             ->get(['id', 'name'])
@@ -271,10 +272,16 @@ class LandlordController extends Controller
             'longitude' => 'nullable|numeric',
         ]);
         try {
-            $result = $this->roomService->createFloor(Auth::id(), $request->only('name', 'address', 'latitude', 'longitude'));
+            $boardingHouseId = session('selected_boarding_house_id');
+            $result = $this->roomService->createFloor(
+                Auth::id(),
+                $request->only('name', 'address', 'latitude', 'longitude'),
+                $boardingHouseId // <-- Truyền ID cơ sở đang chọn
+            );
             return redirect()->back()->with('success', 'Thêm tầng/dãy thành công!');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
+
         }
     }
 
@@ -705,23 +712,32 @@ class LandlordController extends Controller
             ->toArray();
 
         // 1. Lịch hẹn thuê phòng mới (nguyên căn chưa có hợp đồng) -> Đưa vào "Hợp đồng chờ"
-        $appointments = \App\Models\Appointment::with(['user', 'room'])
+        $appointmentQuery = \App\Models\Appointment::with(['user', 'room'])
             ->where('landlord_id', $landlordId)
             ->whereIn('status', ['approved', 'viewed', 'waiting_contract'])
-            ->whereIn('feedback_result', ['interested', 'like'])
-            ->whereNotIn('room_id', $existingContractRoomIds)
-            ->get();
+            ->whereIn('feedback_result', ['interested', 'like']);
+        // Lọc theo cơ sở đang chọn trên Header
+        if ($boardingHousesId) {
+            $appointmentQuery->whereHas('room', function ($q) use ($boardingHousesId) {
+                $q->where('boarding_house_id', $boardingHousesId);
+            });
+        }
+        $appointments = $appointmentQuery->whereNotIn('room_id', $existingContractRoomIds)->get();
 
         // 2. Lịch hẹn Người lạ đăng ký ở ghép -> Chỉ lấy lịch hẹn ĐANG CHỜ (Chưa chốt/Chưa thanh toán/Chưa vào ở)
-        $roommateAppointments = \App\Models\Appointment::with(['user', 'room'])
+        $roommateQuery = \App\Models\Appointment::with(['user', 'room'])
             ->where('landlord_id', $landlordId)
             ->whereIn('status', ['approved', 'viewed', 'waiting_contract'])
             ->whereIn('feedback_result', ['interested', 'like'])
             ->whereIn('room_id', $existingContractRoomIds)
-            ->whereHas('room', function ($q) {
+            ->whereHas('room', function ($q) use ($boardingHousesId) {
                 $q->whereColumn('current_people', '<', 'capacity');
-            })
-            ->get()
+                if ($boardingHousesId) {
+                    $q->where('boarding_house_id', $boardingHousesId);
+                }
+            });
+
+        $roommateAppointments = $roommateQuery->get()
             ->reject(function ($apt) {
                 // Loại bỏ nếu người này ĐÃ LÀ cư dân ở ghép active hoặc Chủ hợp đồng active của phòng này
                 $isAlreadyResident = \App\Models\RoomResident::where('room_id', $apt->room_id)
@@ -752,8 +768,11 @@ class LandlordController extends Controller
             });
 
         // 3. Lấy danh sách yêu cầu ở ghép (loại giới thiệu người quen) đang chờ
-        $acquaintanceRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId) {
+        $acquaintanceRequests = \App\Models\RoommateRequest::whereHas('room.boardingHouse', function ($q) use ($landlordId, $boardingHousesId) {
             $q->where('user_id', $landlordId);
+            if ($boardingHousesId) {
+                $q->where('id', $boardingHousesId);
+            }
         })
             ->where('status', 'pending')
             ->where('type', 'acquaintance')

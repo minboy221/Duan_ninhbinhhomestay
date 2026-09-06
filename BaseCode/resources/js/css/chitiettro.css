@@ -1203,6 +1203,31 @@ button.next {
     gap: 18px;
 }
 
+@media (max-width: 640px) {
+    .report-type-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .report-card {
+        padding: 12px 14px;
+        border-radius: 14px;
+    }
+    .report-card-content {
+        gap: 12px;
+    }
+    .report-card-content i {
+        font-size: 22px;
+    }
+    .report-card h4 {
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    .report-card p {
+        font-size: 12px;
+        line-height: 1.4;
+    }
+}
+
 .report-card {
     display: flex;
     height: 100%;

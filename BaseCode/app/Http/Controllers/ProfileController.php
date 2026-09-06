@@ -40,7 +40,7 @@ class ProfileController extends Controller
         $profileData = $this->profileService->getProfileData($user);
         //lấy danh sách các lý do báo cáo đang active
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
-        return Inertia::render('Profile/tranguser', [
+        return Inertia::render('Profile/TrangUser', [
             'user' => $user,
             'rentalStatus' => $profileData['rentalStatus'],
             'accountStatus' => $profileData['accountStatus'],
@@ -487,7 +487,7 @@ class ProfileController extends Controller
     }
 
     /**
-     * Hủy đăng ký / đổi ý từ Ưng sang Hủy hợp đồng (gửi lý do tới chủ trọ phê duyệt)
+     * Hủy đăng ký / đổi ý từ Ưng sang Hủy hợp đồng (gửi lý do tới chủ trọ)
      */
     public function cancelInterest(Request $request, \App\Models\Appointment $appointment): RedirectResponse
     {
@@ -502,12 +502,17 @@ class ProfileController extends Controller
         ]);
 
         $appointment->update([
-            'feedback_result' => 'cancel_requested',
+            'feedback_result' => 'cancelled',
             'cancellation_reason' => $request->reason,
             'feedback_reason' => $request->reason,
             'feedback_time' => now(),
-            'status' => 'cancel_requested',
+            'status' => 'cancelled',
         ]);
+
+        //tự động giải phóng phòng trọ về trạng thái trống
+        if($appointment->room){
+            $appointment->room->update(['status' => 'available']);
+        }
 
         //gửi thông báo cho chủ trọ
         $appointment->load(['user', 'room', 'landlord']);
@@ -525,7 +530,7 @@ class ProfileController extends Controller
         if ($contract) {
             \App\Models\Contract::$allowImmutableUpdate = true;
             $contract->update([
-                'status' => 'termination_requested',
+                'status' => 'cancelled',
                 'cancellation_reason' => $request->reason,
                 'cancelled_by' => $user->id
             ]);
@@ -759,9 +764,12 @@ class ProfileController extends Controller
         }
 
         $user = \App\Models\User::where(function ($q) use ($phone, $email, $cccd) {
-            if (!empty($phone)) $q->orWhere('phone', $phone);
-            if (!empty($email)) $q->orWhere('email', $email);
-            if (!empty($cccd)) $q->orWhere('cccd_number', $cccd);
+            if (!empty($phone))
+                $q->orWhere('phone', $phone);
+            if (!empty($email))
+                $q->orWhere('email', $email);
+            if (!empty($cccd))
+                $q->orWhere('cccd_number', $cccd);
         })->first(['id', 'name', 'phone', 'email', 'cccd_number']);
 
         if (!$user) {
@@ -805,7 +813,7 @@ class ProfileController extends Controller
             ],
             'is_renting_elsewhere' => $isRentingElsewhere,
             'rental_info' => $rentalInfo,
-            'message' => $isRentingElsewhere 
+            'message' => $isRentingElsewhere
                 ? "Cảnh báo: Thành viên này hiện {$rentalInfo}!"
                 : "Đã tìm thấy tài khoản \"{$user->name}\" trên hệ thống."
         ]);

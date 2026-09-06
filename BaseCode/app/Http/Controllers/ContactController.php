@@ -192,18 +192,20 @@ class ContactController extends Controller
             'content.required' => 'Vui lòng nhập nội dung giải trình khiếu nại.',
             'content.min' => 'Nội dung giải trình phải ít nhất 10 ký tự.',
         ]);
-        // Tạo bản ghi lưu vào mục Liên hệ của Admin
-        Contact::create([
-            'name' => 'Khiếu nại Mở khóa Tài khoản (' . $request->email . ')',
+        $ticketCode = 'LH-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(4));
+        \App\Models\Contact::create([
+            'ticket_code' => $ticketCode,
+            'name' => 'Khiếu nại Mở khóa (' . $request->email . ')',
             'email' => $request->email,
             'phone' => $request->phone,
+            'category' => 'technical',
             'subject' => 'YÊU CẦU KHIẾU NẠI MỞ KHÓA TÀI KHOẢN',
-            'message' => "Yêu cầu mở khóa từ User Email: {$request->email}.\nSố điện thoại: {$request->phone}.\n\nNội dung giải trình:\n" . $request->content,
-            'status' => 'unread',
+            'message' => "Yêu cầu mở khóa từ User Email: {$request->email}.\nSĐT liên hệ: {$request->phone}.\n\nNội dung giải trình:\n" . $request->content,
+            'status' => 'pending',
         ]);
         return response()->json([
             'success' => true,
-            'message' => 'Đơn khiếu nại của bạn đã được gửi tới Ban quản trị. Admin sẽ kiểm tra và phản hồi trong thời gian sớm nhất!'
+            'message' => 'Đơn khiếu nại của bạn đã được gửi tới Ban quản trị. Admin sẽ kiểm tra và phản hồi qua email trong thời gian sớm nhất!'
         ]);
     }
 }

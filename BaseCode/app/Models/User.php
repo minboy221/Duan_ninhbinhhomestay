@@ -107,6 +107,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(BoardingHouse::class, 'user_id', 'id')->latestOfMany();
     }
 
+    public function boardingHouses()
+    {
+        return $this->hasMany(BoardingHouse::class, 'user_id', 'id');
+    }
+
     /**
      * Relationship to favorited rooms
      */
@@ -137,6 +142,19 @@ class User extends Authenticatable implements MustVerifyEmail
     public function subscriptions()
     {
         return $this->hasMany(LandlordSubscription::class);
+    }
+
+    public function contracts()
+    {
+        return $this->hasMany(Contract::class, 'tenant_id')
+            ->orderByRaw("CASE 
+                WHEN status = 'active' THEN 1 
+                WHEN status = 'signed' THEN 2 
+                WHEN status = 'pending' THEN 3 
+                WHEN status = 'awaiting_upload' THEN 4 
+                ELSE 5 
+            END")
+            ->orderBy('id', 'desc');
     }
     public function activeSubscription()
     {

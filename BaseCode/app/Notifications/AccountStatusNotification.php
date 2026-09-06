@@ -39,19 +39,19 @@ class AccountStatusNotification extends Notification
     {
         $mail = new MailMessage();
         if ($this->status === 'locked') {
-            $mail->subject('[Ninh Bình StayWork] Thông báo: Tài khoản của bạn đã bị khóa!')
+            $mail->subject('[Ninh Bình StayWork] Thông báo: Tài khoản của bạn đã bị tạm khóa!')
                 ->greeting("Kính gửi {$notifiable->name},")
-                ->line("Tài khoản của bạn ({$notifiable->email}) đã bị tạm khóa quản trị viên.")
-                ->line("**Lý do khóa:** " . ($this->reason ?? 'Vi phạm điều khoản dịch vụ.'))
-                ->line("**Tác động:** Nếu bạn là Chủ trọ, toàn bộ tin đăng phòng trọ của bạn đã được tạm ẩn khỏi trang tìm kiếm công khai.")
-                ->line("Nếu có bất kỳ thắc mắc hoặc cần khiếu nại mở lại tài khoản, vui lòng phản hồi email này hoặc liên hệ bộ phận hỗ trợ:")
-                ->line("**Email Hỗ Trợ:** {$this->contactEmail}")
-                ->action('Xem Điều Khoản Dịch Vụ', url('/chitietdieukhoan'));
+                ->line("Tài khoản của bạn ({$notifiable->email}) đã bị tạm khóa bởi quản trị viên hệ thống.")
+                ->line("**Lý do khóa:** " . ($this->reason ?? 'Vi phạm điều khoản hoặc chính sách hệ thống.'))
+                ->line("**Lưu ý:** Nếu bạn là Chủ trọ, toàn bộ tin đăng phòng trọ của bạn đã được tạm ẩn khỏi hệ thống tìm kiếm.")
+                ->line("Nếu bạn tin rằng đây là sự nhầm lẫn hoặc muốn giải trình để mở lại tài khoản, vui lòng bấm vào nút bên dưới để gửi yêu cầu khiếu nại tới Ban Quản Trị:")
+                ->action('Gửi Khiếu Nại Mở Tài Khoản', url('/contact?type=appeal&email=' . urlencode($notifiable->email)))
+                ->line("Email liên hệ hỗ trợ trực tiếp: {$this->contactEmail}");
         } else {
             $mail->subject('[Ninh Bình StayWork] Thông báo: Tài khoản của bạn đã được khôi phục!')
                 ->greeting("Kính gửi {$notifiable->name},")
                 ->line("Tài khoản của bạn ({$notifiable->email}) đã được Admin mở khóa thành công.")
-                ->line("Bạn hiện đã có thể đăng nhập và tiếp tục sử dụng tất cả các dịch vụ trên hệ thống.")
+                ->line("Bạn hiện đã có thể đăng nhập và tiếp tục sử dụng tất cả dịch vụ trên hệ thống.")
                 ->action('Đăng Nhập Ngay', url('/login'));
         }
         return $mail;

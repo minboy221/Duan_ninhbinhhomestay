@@ -26,7 +26,15 @@ class ReportRepository implements ReportRepositoryInterface
     public function getUserReports(int $userId)
     {
         return Report::where('reporter_id', $userId)
-            ->with('reportable')
+            ->with([
+                'reportable' => function ($morphTo) {
+                    $morphTo->morphWith([
+                        \App\Models\Contract::class => ['room.boardingHouse'],
+                        \App\Models\Invoice::class => ['contract.room.boardingHouse'],
+                        \App\Models\Room::class => ['boardingHouse'],
+                    ]);
+                }
+            ])
             ->latest()
             ->paginate(10);
     }
