@@ -359,7 +359,7 @@ class ContractService
     {
         return DB::transaction(function () use ($contract, $data, $landlordId) {
             $tenant = $contract->tenant;
-            if ($tenant) {
+            if ($tenant && !empty($data['tenant_cccd'])) {
                 $tenant->update(['cccd_number' => $data['tenant_cccd']]);
             }
             //lưu lại lịch sử gia hạn hợp đồng
@@ -369,7 +369,7 @@ class ContractService
                 'new_end_date' => $data['new_end_date'],
                 'old_monthly_rent' => $contract->monthly_rent,
                 'new_monthly_rent' => $contract->monthly_rent,
-                'tenant_cccd_number' => $data['tenant_cccd'],
+                'tenant_cccd_number' => $data['tenant_cccd'] ?? $tenant?->cccd_number,
                 'notes' => $data['notes'] ?? null,
                 'created_by' => $landlordId,
             ]);
@@ -636,6 +636,7 @@ class ContractService
                 $oldContract->tenant->notify(new \App\Notifications\AdminNotification(
                     'Chuyển giao hợp đồng thành công',
                     "Hợp đồng thuê phòng của bạn đã được chuyển giao thành công cho thành viên {$newTenant->name}.",
+                    'contract_transferred',
                     route('quanlynoio')
                 ));
             }
@@ -643,6 +644,7 @@ class ContractService
             $newTenant->notify(new \App\Notifications\AdminNotification(
                 'Chúc mừng! Bạn đã trở thành Chủ hợp đồng mới',
                 "Bạn đã được chuyển đứng tên chủ hợp đồng chính cho phòng trọ.",
+                'contract_transferred',
                 route('quanlynoio')
             ));
 

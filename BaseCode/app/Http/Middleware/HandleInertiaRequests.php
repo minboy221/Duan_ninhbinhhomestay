@@ -282,7 +282,7 @@ class HandleInertiaRequests extends Middleware
                         ->whereHas('room.boardingHouse', function ($q) use ($user, $selectedBoardingHouseId) {
                             $q->where('user_id', $user->id);
                             if ($selectedBoardingHouseId) {
-                                $q->where('boarding_house_id', $selectedBoardingHouseId);
+                                $q->where('id', $selectedBoardingHouseId);
                             }
                         })->count() : 0,
                 'pending_landlord_reports_count' => ($user && $user->role === 'landlord')

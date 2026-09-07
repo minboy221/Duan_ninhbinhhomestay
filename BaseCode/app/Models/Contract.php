@@ -90,18 +90,15 @@ class Contract extends Model
     //hàm từ động sinh link PDF cloudflare R2
     public function getContractFileUrlAttribute()
     {
-        if (!$this->contract_file_path) {
+        $filePath = $this->contract_file_path ?: $this->signed_contract_image;
+        if (!$filePath) {
             return null;
         }
-        if (str_starts_with($this->contract_file_path, 'http://') || str_starts_with($this->contract_file_path, 'https://')) {
-            return $this->contract_file_path;
+        if (str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://')) {
+            return $filePath;
         }
-        //tạo link đầy đủ từ đĩa cloudflare
-        try {
-            return Storage::disk('r2_private')->url($this->contract_file_path);
-        } catch (\Exception $e) {
-            return Storage::url($this->contract_file_path);
-        }
+        $filename = basename($filePath);
+        return "/files/private/contracts/" . $filename;
     }
 
 

@@ -233,9 +233,15 @@ class LandlordController extends Controller
         $floors = $this->roomService->getFloorsWithRooms($landlordId, $boardingHouseId);
         $statusCounts = $this->roomService->getStatusCounts($landlordId, $boardingHouseId);
 
-        // Fetch active services
-        $allServices = $this->serviceManagementService->getServices($landlordId, $boardingHouseId);
-        $services = $allServices->where('is_active', true)->values();
+        // Fetch active services for landlord rooms modal (auto-initialize default services if empty)
+        $services = $this->serviceManagementService->getConfiguredServices($landlordId, $boardingHouseId);
+        if ($services->isEmpty()) {
+            $allPropertyIds = \App\Models\Property::where('landlord_id', $landlordId)->pluck('id');
+            $services = \App\Models\Service::whereIn('property_id', $allPropertyIds)
+                ->where('is_active', true)
+                ->get();
+        }
+        $services = $services->filter(fn($s) => (bool) $s->is_active)->unique('name')->values();
 
         //lấy tất cả tầng của chủ trọ để dùng riêng cho chọn tầng khi tạo phòng mới
         $boardingHouseId = session('selected_boarding_house_id');
@@ -337,12 +343,13 @@ class LandlordController extends Controller
                 'price' => 'required|numeric|min:0',
                 'area' => 'required|numeric|min:0',
                 'capacity' => 'nullable|integer|min:1',
-                'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+                'status' => 'nullable|string|in:available,rented,maintenance,expiring_soon,pending_renewal,suspended,under_construction',
                 'amenities' => 'nullable|string',
                 'images' => 'nullable|array|max:10',
                 'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
                 'latitude' => 'nullable|numeric',
                 'longitude' => 'nullable|numeric',
+                'service_ids' => 'nullable',
             ]);
 
             $imageFiles = $request->file('images', []);
@@ -395,7 +402,7 @@ class LandlordController extends Controller
             'price' => 'nullable|numeric|min:0',
             'area' => 'nullable|numeric|min:0',
             'capacity' => 'nullable|integer|min:1',
-            'status' => 'nullable|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+            'status' => 'nullable|string|in:available,rented,maintenance,expiring_soon,pending_renewal,suspended,under_construction',
             'maintenance_reason' => 'nullable|string',
             'amenities' => 'nullable|string',
             'new_images' => 'nullable|array|max:10',
@@ -404,6 +411,7 @@ class LandlordController extends Controller
             'removed_images.*' => 'string',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
+            'service_ids' => 'nullable',
         ]);
 
         $newImageFiles = $request->file('new_images', []);
@@ -412,7 +420,7 @@ class LandlordController extends Controller
         try {
             $result = $this->roomService->updateRoom(Auth::id(), $id, $request->all(), $newImageFiles, $removedImages);
             if (!$result)
-                return redirect()->back()->with('error', 'Không thể cập nhật phòng');
+                return redirect()->back()->with('error', 'Không thể cập nhật phòng. Số phòng có thể đã bị trùng hoặc dữ liệu không hợp lệ!');
             return redirect()->back()->with('success', 'Cập nhật phòng thành công');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
@@ -431,7 +439,7 @@ class LandlordController extends Controller
             );
         }
         $request->validate([
-            'status' => 'required|string|in:available,rented,maintenance,deposited,expiring_soon,pending_renewal,suspended,under_construction',
+            'status' => 'required|string|in:available,rented,maintenance,expiring_soon,pending_renewal,suspended,under_construction',
             'maintenance_reason' => 'nullable|string',
         ]);
         $result = $this->roomService->changeStatus(Auth::id(), $id, $request->status, $request->maintenance_reason);
@@ -1131,43 +1139,62 @@ class LandlordController extends Controller
 
         $prompt = "Hãy đọc chỉ số hiện tại trên công tơ điện/nước trong ảnh này. Chỉ trả về một số nguyên duy nhất đại diện cho chỉ số đó. Không trả thêm bất cứ chữ hay kí tự đặc biệt nào khác. Nếu không đọc được hoặc không tìm thấy công tơ, hãy trả về 'ERROR'.";
 
-        try {
-            $response = \Illuminate\Support\Facades\Http::timeout(30)->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
-                'contents' => [
-                    [
-                        'parts' => [
+        $models = [
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-1.5-flash-8b',
+            'gemini-flash-latest'
+        ];
+
+        $lastStatus = 500;
+
+        foreach ($models as $model) {
+            try {
+                $response = \Illuminate\Support\Facades\Http::timeout(25)
+                    ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}", [
+                        'contents' => [
                             [
-                                'text' => $prompt
-                            ],
-                            [
-                                'inlineData' => [
-                                    'mimeType' => $mimeType,
-                                    'data' => $base64
+                                'parts' => [
+                                    ['text' => $prompt],
+                                    [
+                                        'inlineData' => [
+                                            'mimeType' => $mimeType,
+                                            'data' => $base64
+                                        ]
+                                    ]
                                 ]
                             ]
                         ]
-                    ]
-                ]
-            ]);
+                    ]);
 
-            if ($response->successful()) {
-                $result = $response->json();
-                $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                $text = trim($text);
+                if ($response->successful()) {
+                    $result = $response->json();
+                    $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                    $text = trim($text);
+                    $digits = preg_replace('/\D/', '', $text);
 
-                $digits = preg_replace('/\D/', '', $text);
+                    if (str_contains(strtoupper($text), 'ERROR') || empty($digits)) {
+                        return response()->json(['error' => 'AI không thể nhận dạng được số công tơ từ ảnh này. Vui lòng nhập tay hoặc chụp ảnh rõ nét hơn!'], 422);
+                    }
 
-                if (str_contains(strtoupper($text), 'ERROR') || empty($digits)) {
-                    return response()->json(['error' => 'AI không thể nhận dạng được số công tơ từ ảnh này. Vui lòng nhập tay hoặc chụp ảnh rõ nét hơn!'], 422);
+                    return response()->json(['index' => (int) $digits]);
                 }
 
-                return response()->json(['index' => (int) $digits]);
-            } else {
-                return response()->json(['error' => 'Lỗi kết nối dịch vụ AI (Gemini API): ' . $response->status()], 500);
+                $lastStatus = $response->status();
+
+                // Nếu gặp lỗi 503 (Quá tải), 429 (Giới hạn) hoặc 500 từ máy chủ Google, tự nghỉ 300ms rồi đổi model khác
+                if (in_array($lastStatus, [503, 429, 500, 502, 504])) {
+                    usleep(300000);
+                    continue;
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning("Gemini OCR Model {$model} error: " . $e->getMessage());
+                usleep(300000);
+                continue;
             }
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Đã xảy ra lỗi khi gọi AI xử lý ảnh: ' . $e->getMessage()], 500);
         }
+
+        return response()->json(['error' => "Dịch vụ AI (Google Gemini) hiện đang bị quá tải tạm thời từ máy chủ Google (Mã lỗi {$lastStatus}). Vui lòng thử lại sau vài giây!"], 500);
     }
     public function addResident(Request $request, int $roomId)
     {
@@ -1216,5 +1243,15 @@ class LandlordController extends Controller
                 ));
             }
         }
+    }
+
+    public function pricingSheets()
+    {
+        return redirect()->route('landlord.services');
+    }
+
+    public function pricingSheetsCreate()
+    {
+        return redirect()->route('landlord.services');
     }
 }

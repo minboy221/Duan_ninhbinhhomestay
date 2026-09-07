@@ -118,7 +118,7 @@ const uploadAvatar = (e) => {
                                 </Link>
                             </li>
                             <li class="logout">
-                                <Link :href="route('logout')" method="post">
+                                <Link :href="route('logout')" method="post" as="button">
                                     <i class="bi bi-box-arrow-right"></i>
                                     <span>Đăng xuất</span>
                                 </Link>
@@ -154,7 +154,7 @@ const uploadAvatar = (e) => {
             <i class="bi bi-gear-wide-connected"></i>
             <span>Cài Đặt</span>
         </Link>
-        <Link class="logout" :href="route('logout')" method="post">
+        <Link class="logout" :href="route('logout')" method="post" as="button">
             <i class="bi bi-box-arrow-right"></i>
             <span>Đăng xuất</span>
         </Link>

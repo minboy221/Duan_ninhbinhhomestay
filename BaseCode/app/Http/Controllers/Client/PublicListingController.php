@@ -28,7 +28,7 @@ class PublicListingController extends Controller
         // Gọi Service lọc danh sách tin đăng chuẩn (đã xử lý đẩy tin xen kẽ)
         $filteredData = $this->listingService->getFilteredListings($request);
         $categoryData = $categoryService->getActiveData();
-        return Inertia::render('Client/TimTro', [
+        return Inertia::render('Client/timtro', [
             'listings' => $filteredData['listings'],
             'ai_parsed' => $filteredData['ai_parsed'],
             'filters' => $request->only([

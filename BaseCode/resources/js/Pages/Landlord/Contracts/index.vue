@@ -528,11 +528,8 @@ const getContractUrl = (contractObj) => {
     const path = target.contract_file_path || target.signed_contract_image;
     if (!path) return "#";
     if (path.startsWith("http://") || path.startsWith("https://")) return path;
-    const baseUrl = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL;
-    if (baseUrl) {
-        return `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
-    }
-    return `/storage/${path}`;
+    const filename = path.split("/").pop();
+    return `/files/private/contracts/${filename}`;
 };
 
 const minEndDate = computed(() => {

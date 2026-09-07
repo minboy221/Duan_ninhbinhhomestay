@@ -42,24 +42,36 @@ class BoardingHouseController extends Controller
     {
         return Inertia::render('Landlord/BoardingHouses/Create');
     }
-
     public function store(StoreBoardingHouseRequest $request)
     {
         $user = Auth::user();
-        $currentCount = \App\Models\BoardingHouse::where('user_id', $user->id)->count();
+        // 1. Kiểm tra hạn mức gói dịch vụ
+        $currentCount = \App\Models\BoardingHouse::where('user_id', $user->id)
+            ->where('status', '!=', 'rejected')
+            ->count();
+
         if (!$user->canCreateResource('max_boarding_houses', $currentCount)) {
-            $limit = $user->getFeatureValue('max_boarding_houses');
-            return redirect()->back()->with('error', "Gói dịch vụ của bạn cho phép tạo tối đa {$limit} Cơ sở/Dãy trọ. Bạn hiện đang có {$currentCount} Cơ sở. Vui lòng nâng cấp gói để tạo thêm!");
+            $limit = $user->getFeatureValue('max_boading_houses');
+            return redirect()->back()->with('error', "Gói dịch vụ của bạn cho phép tạo tối đa {$limit} Cơ sở/Dãy trọ. Bạn hiện đang có {$currentCount} Cơ sở hoạt động, Vui lòng nâng cấp gói để tạo thêm!");
         }
-        $this->boardingHouseService->createBoardingHouse(
-            $request->only(['name', 'district', 'address_detail', 'directions_guide', 'latitude', 'longitude']),
-            $request->file('room_images'),
-            $request->file('contract_images'),
-            Auth::id(),
-            Auth::user()->name
-        );
-        return redirect()->route('landlord.boarding-houses.index')->with('success', 'Đã thêm cơ sở mới. Đang chờ Ban Quản Trị xét duyệt.');
+
+        // 2. Bổ sung đoạn gọi Service lưu dữ liệu vào CSDL (Trước đây bị thiếu)
+        try {
+            $this->boardingHouseService->createBoardingHouse(
+                $request->only(['name', 'district', 'address_detail', 'directions_guide', 'latitude', 'longitude']),
+                $request->file('room_images'),
+                $request->file('contract_images'),
+                $user->id,
+                $user->name
+            );
+
+            return redirect()->route('landlord.boarding-houses.index')
+                ->with('success', 'Nộp đơn tạo cơ sở trọ mới thành công! Vui lòng chờ Admin duyệt.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
+
 
     public function selectBoardingHouse(Request $request)
     {

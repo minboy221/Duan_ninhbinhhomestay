@@ -59,30 +59,40 @@ class ServiceManagementService
             $waterAmenity = \App\Models\Amenity::where('name', 'like', '%nước%')->first();
 
             if ($elecAmenity) {
-                $this->serviceRepo->create([
-                    'property_id' => $propertyId,
-                    'boarding_house_id' => $boardingHouseId,
-                    'amenity_id' => $elecAmenity->id,
-                    'name' => $elecAmenity->name,
-                    'icon' => $elecAmenity->icon,
-                    'price' => 3500,
-                    'type' => 'per_kwh',
-                    'is_active' => true,
-                    'color' => 'rose',
-                ]);
+                $existsElec = \App\Models\Service::where('property_id', $propertyId)
+                    ->where('name', $elecAmenity->name)
+                    ->exists();
+                if (!$existsElec) {
+                    $this->serviceRepo->create([
+                        'property_id' => $propertyId,
+                        'boarding_house_id' => $boardingHouseId,
+                        'amenity_id' => $elecAmenity->id,
+                        'name' => $elecAmenity->name,
+                        'icon' => $elecAmenity->icon,
+                        'price' => 3500,
+                        'type' => 'per_kwh',
+                        'is_active' => true,
+                        'color' => 'rose',
+                    ]);
+                }
             }
             if ($waterAmenity) {
-                $this->serviceRepo->create([
-                    'property_id' => $propertyId,
-                    'boarding_house_id' => $boardingHouseId,
-                    'amenity_id' => $waterAmenity->id,
-                    'name' => $waterAmenity->name,
-                    'icon' => $waterAmenity->icon,
-                    'price' => 20000,
-                    'type' => 'per_m3',
-                    'is_active' => true,
-                    'color' => 'blue',
-                ]);
+                $existsWater = \App\Models\Service::where('property_id', $propertyId)
+                    ->where('name', $waterAmenity->name)
+                    ->exists();
+                if (!$existsWater) {
+                    $this->serviceRepo->create([
+                        'property_id' => $propertyId,
+                        'boarding_house_id' => $boardingHouseId,
+                        'amenity_id' => $waterAmenity->id,
+                        'name' => $waterAmenity->name,
+                        'icon' => $waterAmenity->icon,
+                        'price' => 20000,
+                        'type' => 'per_m3',
+                        'is_active' => true,
+                        'color' => 'blue',
+                    ]);
+                }
             }
 
             if ($boardingHouseId) {

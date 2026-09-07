@@ -73,14 +73,29 @@ class AdminVerificationController extends Controller
         $user = auth()->user();
         if ($user && $user->role !== 'admin') {
             $verification = \App\Models\UserVerification::where('user_id', $user->id)->first();
-            $isUserOwner = str_contains($filename, 'user_' . $user->id . '_')
+            $isKycOwner = str_contains($filename, 'user_' . $user->id . '_')
                 || ($verification && (
                     ($verification->id_card_front && str_contains($verification->id_card_front, $cleanFilename)) ||
                     ($verification->id_card_back && str_contains($verification->id_card_back, $cleanFilename)) ||
                     ($verification->face_auth_image && str_contains($verification->face_auth_image, $cleanFilename))
                 ));
-            if (!$isUserOwner) {
-                abort(403, 'Không có quyền truy cập file me.');
+
+            $isContractOwner = false;
+            if ($type === 'contracts') {
+                $isContractOwner = \App\Models\Contract::where(function ($q) use ($user) {
+                    $q->where('tenant_id', $user->id)
+                      ->orWhereHas('room.boardingHouse', function ($bhQ) use ($user) {
+                          $bhQ->where('user_id', $user->id);
+                      });
+                })
+                ->where(function ($q) use ($cleanFilename) {
+                    $q->where('contract_file_path', 'like', '%' . $cleanFilename . '%')
+                      ->orWhere('signed_contract_image', 'like', '%' . $cleanFilename . '%');
+                })->exists();
+            }
+
+            if (!$isKycOwner && !$isContractOwner) {
+                abort(403, 'Không có quyền truy cập file.');
             }
         }
 
@@ -126,6 +141,11 @@ class AdminVerificationController extends Controller
         // Thêm kiểm tra trên Cloudflare R2 (r2_private, r2_public, r2)
         $r2Disks = ['r2_private', 'r2_public', 'r2', 'private', 'public'];
         $r2RelativePaths = [
+            "contracts/documents/{$cleanFilename}",
+            "contracts/{$cleanFilename}",
+            "signed_contracts/{$cleanFilename}",
+            "boarding_houses/contracts/{$cleanFilename}",
+            "properties/contracts/{$cleanFilename}",
             "kyc/{$type}/{$cleanFilename}",
             "kyc/{$cleanFilename}",
             "properties/{$type}/{$cleanFilename}",
@@ -135,12 +155,15 @@ class AdminVerificationController extends Controller
         ];
 
         foreach ($r2Disks as $r2Disk) {
-            if (!config("filesystems.disks.{$r2Disk}.key"))
+            if (!config("filesystems.disks.{$r2Disk}.key") && !config("filesystems.disks.{$r2Disk}.driver"))
                 continue;
             try {
                 foreach ($r2RelativePaths as $relPath) {
                     if (Storage::disk($r2Disk)->exists($relPath)) {
-                        $mimeType = Storage::disk($r2Disk)->mimeType($relPath) ?: 'image/jpeg';
+                        $mimeType = Storage::disk($r2Disk)->mimeType($relPath);
+                        if (!$mimeType || $mimeType === 'text/plain') {
+                            $mimeType = str_ends_with(strtolower($cleanFilename), '.pdf') ? 'application/pdf' : 'image/jpeg';
+                        }
                         $content = Storage::disk($r2Disk)->get($relPath);
                         return response($content, 200, [
                             'Content-Type' => $mimeType,
@@ -153,7 +176,7 @@ class AdminVerificationController extends Controller
             }
         }
 
-        abort(404, 'Không tìm thấy file ảnh thực tế trên hệ thống.');
+        abort(404, 'Không tìm thấy file ảnh/tài liệu thực tế trên hệ thống.');
     }
 
     //hàm xoá hồ sơ

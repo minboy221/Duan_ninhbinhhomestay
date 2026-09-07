@@ -41,8 +41,8 @@ class RoomService
         if ($propertyIds->isEmpty()) {
             return [];
         }
-        // Lấy tất cả các tầng thuộc các Property của chủ trọ
-        $floors = \App\Models\Floor::whereIn('property_id', $propertyIds)->get();
+        // Lấy tất cả các tầng thuộc các Property của chủ trọ kèm phòng và dịch vụ
+        $floors = \App\Models\Floor::whereIn('property_id', $propertyIds)->with(['rooms.services'])->get();
         return $floors->map(function ($floor) use ($boardingHouseId) {
             $allRooms = $floor->rooms;
             $rooms = $allRooms;
@@ -194,10 +194,10 @@ class RoomService
             if ($hasActiveContract) {
                 throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang có Hợp Đồng thuê còn hiệu lực!");
             }
-            //chặn nếu phòng đang ở trạng thái đã thuê hoặc đặt cọc
-            $restrictedStatuses = ['rented', 'deposited', 'expiring_soon', 'pending_renewal'];
+            //chặn nếu phòng đang ở trạng thái đã thuê
+            $restrictedStatuses = ['rented', 'expiring_soon', 'pending_renewal'];
             if (in_array($room->status, $restrictedStatuses)) {
-                throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang trong trạng thái Đã thuê hoặc Đặt cọc!");
+                throw new \Exception("Không thể xoá tầng này vì phòng '{$room->name}' đang trong trạng thái Đã thuê!");
             }
         }
 
@@ -223,7 +223,7 @@ class RoomService
 
         $statuses = defined('\App\Models\Room::STATUSES')
             ? \App\Models\Room::STATUSES
-            : ['available', 'rented', 'maintenance', 'deposited', 'expiring_soon', 'pending_renewal', 'suspended', 'under_construction'];
+            : ['available', 'rented', 'maintenance', 'expiring_soon', 'pending_renewal', 'suspended', 'under_construction'];
 
         $result = [];
         foreach ($statuses as $status) {
@@ -304,8 +304,23 @@ class RoomService
             $serviceIds = is_array($data['service_ids']) ? $data['service_ids'] : explode(',', (string) $data['service_ids']);
             $serviceIds = array_filter(array_map('intval', $serviceIds));
             if (!empty($serviceIds)) {
-                $room->services()->sync($serviceIds);
-                $serviceNames = $room->services()->pluck('name')->toArray();
+                $validServiceIds = \App\Models\Service::whereIn('id', $serviceIds)->pluck('id')->toArray();
+                if (!empty($validServiceIds)) {
+                    $validServiceIds = array_values(array_unique($validServiceIds));
+                    $room->services()->sync($validServiceIds);
+                    $serviceNames = $room->services()->pluck('name')->filter()->unique()->toArray();
+                    $room->update(['amenities' => implode(', ', $serviceNames)]);
+                }
+            }
+        } else {
+            $defaultServiceIds = \App\Models\Service::where('property_id', $room->property_id ?? $floor->property_id)
+                ->where('is_active', true)
+                ->pluck('id')
+                ->unique()
+                ->toArray();
+            if (!empty($defaultServiceIds)) {
+                $room->services()->sync($defaultServiceIds);
+                $serviceNames = $room->services()->pluck('name')->filter()->unique()->toArray();
                 $room->update(['amenities' => implode(', ', $serviceNames)]);
             }
         }
@@ -382,26 +397,39 @@ class RoomService
 
         $updated = $this->roomRepo->update($room, $updateData);
 
-        if ($updated && isset($data['service_ids']) && is_array($data['service_ids'])) {
-            //lưu lại giá đóng băng hiện tại trong bảng pivot để tránh bị reset về null
-            $existingPivots = \DB::table('room_service')
-                ->where('room_id', $room->id)
-                ->pluck('price', 'service_id')
-                ->toArray();
-            $syncData = [];
-            foreach ($data['service_ids'] as $sId) {
-                $sId = (int) $sId;
-                if (isset($existingPivots[$sId]) && !is_null($existingPivots[$sId])) {
-                    $syncData[$sId] = ['price' => $existingPivots[$sId]];
-                } else {
-                    $syncData[$sId] = [];
+        if ($updated && array_key_exists('service_ids', $data)) {
+            //chuẩn hoá dữ liệu service_ids
+            $rawIds = $data['service_ids'];
+            if (is_array($rawIds)) {
+                $serviceIds = $rawIds;
+            } elseif (is_string($rawIds) && trim($rawIds) !== '') {
+                $serviceIds = explode(',', $rawIds);
+            } else {
+                $serviceIds = [];
+            }
+            //chuyển tất cả ID về dạng số nguyên
+            $validServiceIds = [];
+            foreach ($serviceIds as $id) {
+                $intId = (int) $id;
+                if ($intId > 0) {
+                    $validServiceIds[] = $intId;
                 }
             }
-            $room->services()->sync($syncData);
-            $serviceNames = $room->services()->pluck('name')->toArray();
-            $room->update(['amenities' => implode(',', $serviceNames)]);
+            // Lọc lại các ID dịch vụ thực sự tồn tại trong DB để tránh vi phạm khóa ngoại MySQL (Foreign Key Error)
+            if (!empty($validServiceIds)) {
+                $validServiceIds = array_values(array_unique($validServiceIds));
+                $validServiceIds = \App\Models\Service::whereIn('id', $validServiceIds)->pluck('id')->toArray();
+            }
+
+            //thực hiện đồng bộ danh sách dịch vụ áp dụng cho phòng
+            $room->services()->sync($validServiceIds);
+            //cập nhật danh sách tên dịch vụ hiển thị
+            $serviceNames = $room->services()->pluck('name')->filter()->unique()->toArray();
+            $amenitiesStr = !empty($serviceNames) ? implode(', ', $serviceNames) : null;
+            $room->update(['amenities' => $amenitiesStr]);
         }
-        return $updated;
+
+        return true;
     }
 
     /**
@@ -417,12 +445,12 @@ class RoomService
             return false;
         }
 
-        if (in_array($room->status, ['pending_renewal', 'deposited']) && $status === 'rented' && $room->current_people <= 0) {
+        if (in_array($room->status, ['pending_renewal']) && $status === 'rented' && $room->current_people <= 0) {
             return 'empty_people';
         }
 
         $updateData = ['status' => $status];
-        if (in_array($status, ['rented', 'deposited']) && $room->current_people <= 0) {
+        if ($status === 'rented' && $room->current_people <= 0) {
             $updateData['current_people'] = 1;
         }
 
@@ -446,7 +474,7 @@ class RoomService
             return false;
         }
 
-        $allowedStatuses = ['deposited', 'rented', 'expiring_soon', 'pending_renewal'];
+        $allowedStatuses = ['rented', 'expiring_soon', 'pending_renewal'];
         if (!in_array($room->status, $allowedStatuses)) {
             return 'invalid_status';
         }
@@ -469,7 +497,7 @@ class RoomService
             return false;
         }
 
-        if (!in_array($room->status, ['rented', 'deposited', 'pending_renewal', 'expiring_soon'])) {
+        if (!in_array($room->status, ['rented', 'pending_renewal', 'expiring_soon'])) {
             return 'invalid_status';
         }
 
@@ -663,13 +691,13 @@ class RoomService
             'current_people' => $currentPeople,
             'amenities' => $room->amenities,
             'images' => $room->images ?? [],
-            'services' => $room->relationLoaded('services') ? $room->services->map(function ($service) {
+            'services' => $room->services ? $room->services->unique('name')->map(function ($service) {
                 $srv = $service->toArray();
                 if ($service->pivot && !is_null($service->pivot->price)) {
                     $srv['price'] = (float) $service->pivot->price;
                 }
                 return $srv;
-            })->toArray() : [],
+            })->values()->toArray() : [],
             'has_approved_post' => $room->roomPosts()->where('status', 'approved')->exists(),
             'residents' => $room->residents()->with('user')->get()->map(function ($r) {
                 return [

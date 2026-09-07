@@ -40,7 +40,7 @@ class ProfileController extends Controller
         $profileData = $this->profileService->getProfileData($user);
         //lấy danh sách các lý do báo cáo đang active
         $reasons = \App\Models\ReportReason::where('is_active', true)->get();
-        return Inertia::render('Profile/TrangUser', [
+        return Inertia::render('Profile/tranguser', [
             'user' => $user,
             'rentalStatus' => $profileData['rentalStatus'],
             'accountStatus' => $profileData['accountStatus'],
@@ -442,7 +442,16 @@ class ProfileController extends Controller
         }
 
         if ($request->filled('cccd')) {
-            $user->update(['cccd_number' => $request->cccd]);
+            $cccdVal = trim((string)$request->cccd);
+            $dummyList = [
+                '012345678901', '123456789012', '234567890123', '345678901234',
+                '456789012345', '567890123456', '678901234567', '789012345678',
+                '890123456789', '987654321098', '876543210987'
+            ];
+            $isValid = preg_match('/^(?!([0-9])\1{11}$)(00[1-9]|0[1-8][0-9]|09[0-6])[0-9]{9}$/', $cccdVal) && !in_array($cccdVal, $dummyList);
+            if ($isValid) {
+                $user->update(['cccd_number' => $cccdVal]);
+            }
         }
 
         $aiData = null;

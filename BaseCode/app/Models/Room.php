@@ -12,7 +12,6 @@ class Room extends Model
         'available',
         'rented',
         'maintenance',
-        'deposited',
         'expiring_soon',
         'pending_renewal',
         'suspended',
@@ -30,6 +29,8 @@ class Room extends Model
         'current_people',
         'status',
         'images',
+        'amenities',
+        'maintenance_reason',
     ];
 
     protected $casts = [

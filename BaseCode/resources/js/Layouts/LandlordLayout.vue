@@ -258,6 +258,67 @@ const navGroups = [
     },
 ];
 
+//hàm phân loại màu sắc cho thông báo
+const getNotificationTheme = (notif) => {
+    if (!notif) return {
+        bg: 'bg-emerald-100',
+        text: 'text-emerald-600',
+        bar: 'linear-gradient(90deg, #22c55e, #4ade80)',
+        icon: 'bi-check-circle-fill',
+        badgeBg: '#f0fdf4',
+        badgeColor: '#22c55e'
+    };
+    const type = (notif.type || '').toLowerCase();
+    const title = (notif.data?.title || '').toLowerCase();
+    const message = (notif.data?.message || notif.data?.content || '').toLowerCase();
+    const contentText = `${type} ${title} ${message}`;
+    // 1. Nhóm ĐỎ: Từ chối / Hủy / Bị khóa / Lỗi / Hết hạn / Tịch thu
+    if (
+        type.includes('rejected') ||
+        type.includes('cancelled') ||
+        contentText.includes('từ chối') ||
+        contentText.includes('hủy') ||
+        contentText.includes('thất bại') ||
+        contentText.includes('khóa') ||
+        contentText.includes('hết hạn')
+    ) {
+        return {
+            bg: 'bg-rose-100',
+            text: 'text-rose-600',
+            bar: 'linear-gradient(90deg, #ef4444, #f87171)',
+            icon: 'bi-x-circle-fill',
+            badgeBg: '#fef2f2',
+            badgeColor: '#ef4444'
+        };
+    }
+    // 2. Nhóm VÀNG / CAM: Cảnh báo / Chờ duyệt / Nhắc nhở / Sắp hết hạn
+    if (
+        type.includes('warning') ||
+        type.includes('pending') ||
+        contentText.includes('cảnh báo') ||
+        contentText.includes('chờ') ||
+        contentText.includes('nhắc nhở') ||
+        contentText.includes('sắp hết')
+    ) {
+        return {
+            bg: 'bg-amber-100',
+            text: 'text-amber-600',
+            bar: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+            icon: 'bi-exclamation-triangle-fill',
+            badgeBg: '#fffbeb',
+            badgeColor: '#d97706'
+        };
+    }
+    // 3. Nhóm XANH LÁ (Mặc định): Thành công / Đã duyệt / Thanh toán / Lịch hẹn mới
+    return {
+        bg: 'bg-emerald-100',
+        text: 'text-emerald-600',
+        bar: 'linear-gradient(90deg, #22c55e, #4ade80)',
+        icon: 'bi-check-circle-fill',
+        badgeBg: '#f0fdf4',
+        badgeColor: '#22c55e'
+    };
+};
 // Bottom tab bar mobile
 const bottomTabs = [
     {
@@ -344,13 +405,13 @@ onMounted(() => {
                 showWelcomePopup.value = true;
                 //phát âm thanh thông báo
                 try {
-                    const audio = new Audio(
-                        "https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav",
-                    );
+                    const audio = new Audio("/sounds/notification.mp3");
                     audio.volume = 0.5;
-                    audio.play();
+                    audio.play().catch((err) => {
+                        console.log("Trình duyệt tạm thời chặn tự động phát âm thanh:", err);
+                    });
                 } catch (e) {
-                    console.log("Autoplay audio blocked.");
+                    console.log("Không thể phát âm thanh thông báo.");
                 }
             },
         );
@@ -439,27 +500,29 @@ const closePopup = () => {
                                                     : 'text-slate-400 group-hover:text-slate-700',
                                             ]"></i>
                                             <span v-if="
-                                                 (!sidebarOpen) && (
-                                                     (item.label === 'Khiếu Nại' && page.props.auth?.pending_landlord_reports_count > 0) ||
-                                                     (item.label === 'Gói Dịch Vụ' && page.props.auth?.user?.subscription_expiring) ||
-                                                     (item.label === 'Yêu Cầu Ở Ghép' && page.props.auth?.pending_roommate_requests_count > 0)
-                                                 )
-                                             "
+                                                (!sidebarOpen) && (
+                                                    (item.label === 'Khiếu Nại' && page.props.auth?.pending_landlord_reports_count > 0) ||
+                                                    (item.label === 'Gói Dịch Vụ' && page.props.auth?.user?.subscription_expiring) ||
+                                                    (item.label === 'Yêu Cầu Ở Ghép' && page.props.auth?.pending_roommate_requests_count > 0)
+                                                )
+                                            "
                                                 class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white"></span>
                                         </div>
                                         <span v-if="sidebarOpen" class="text-base font-bold tracking-tight truncate">{{
                                             item.label }}</span>
 
                                         <!-- Badge số lượng cho Yêu Cầu Ở Ghép -->
-                                        <span v-if="item.label === 'Yêu Cầu Ở Ghép' && page.props.auth?.pending_roommate_requests_count > 0 && sidebarOpen"
+                                        <span
+                                            v-if="item.label === 'Yêu Cầu Ở Ghép' && page.props.auth?.pending_roommate_requests_count > 0 && sidebarOpen"
                                             class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]">
                                             {{ page.props.auth.pending_roommate_requests_count }}
                                         </span>
 
                                         <!-- Badge cảnh báo Sắp Hết Hạn cho Gói Dịch Vụ -->
-                                        <span v-if="item.label === 'Gói Dịch Vụ' && page.props.auth?.user?.subscription_expiring && sidebarOpen"
-                                             class="ml-auto px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200/80 rounded-full uppercase animate-pulse flex items-center gap-1">
-                                             <i class="bi bi-exclamation-circle-fill"></i> Hết hạn
+                                        <span
+                                            v-if="item.label === 'Gói Dịch Vụ' && page.props.auth?.user?.subscription_expiring && sidebarOpen"
+                                            class="ml-auto px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200/80 rounded-full uppercase animate-pulse flex items-center gap-1">
+                                            <i class="bi bi-exclamation-circle-fill"></i> Hết hạn
                                         </span>
 
                                         <!-- Huy hiệu VIP mờ cho mục Menu bị khóa -->
@@ -473,7 +536,8 @@ const closePopup = () => {
                                             item.label === 'Khiếu Nại' &&
                                             page.props.auth?.pending_landlord_reports_count > 0 &&
                                             sidebarOpen
-                                        " class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]">
+                                        "
+                                            class="ml-auto px-1.5 py-0.5 text-[9px] font-bold bg-rose-500 text-white rounded-full leading-none flex items-center justify-center min-w-[18px] h-[18px]">
                                             {{ page.props.auth.pending_landlord_reports_count }}
                                         </span>
                                         <span v-if="item.isPro && sidebarOpen"
@@ -725,20 +789,8 @@ const closePopup = () => {
                                             <div class="flex gap-3 items-start">
                                                 <div class="flex-shrink-0 mt-1">
                                                     <div class="w-8 h-8 rounded-full flex items-center justify-center"
-                                                        :class="notification.type ===
-                                                            'App\\Notifications\\LandlordRejected' ||
-                                                            notification.type ===
-                                                            'listing_rejected'
-                                                            ? 'bg-rose-100 text-rose-600'
-                                                            : 'bg-emerald-100 text-emerald-600'
-                                                            ">
-                                                        <i :class="notification.type ===
-                                                            'App\\Notifications\\LandlordRejected' ||
-                                                            notification.type ===
-                                                            'listing_rejected'
-                                                            ? 'bi bi-x-circle'
-                                                            : 'bi bi-info-circle'
-                                                            "></i>
+                                                        :class="[getNotificationTheme(notification).bg, getNotificationTheme(notification).text]">
+                                                        <i :class="['bi', getNotificationTheme(notification).icon]"></i>
                                                     </div>
                                                 </div>
                                                 <Link :href="notification.data.url ||
@@ -836,7 +888,8 @@ const closePopup = () => {
                         </div>
 
                         <div class="hidden lg:flex flex-col">
-                            <span class="text-xs font-bold text-slate-900 leading-none">{{ user?.name || "Chủ trọ" }}</span>
+                            <span class="text-xs font-bold text-slate-900 leading-none">{{ user?.name || "Chủ trọ"
+                                }}</span>
                             <span class="text-[9px] font-extrabold text-emerald-600 mt-1 uppercase tracking-wide">Chủ
                                 Trọ</span>
                         </div>
@@ -845,7 +898,8 @@ const closePopup = () => {
             </header>
 
             <!-- Main view screen -->
-            <main class="flex-1 overflow-y-auto px-3 sm:px-6 pt-4 sm:pt-6 pb-28 md:p-8 bg-[#f8fafc] text-sm max-w-full overflow-x-hidden">
+            <main
+                class="flex-1 overflow-y-auto px-3 sm:px-6 pt-4 sm:pt-6 pb-28 md:p-8 bg-[#f8fafc] text-sm max-w-full overflow-x-hidden">
                 <slot />
             </main>
         </div>
@@ -1026,7 +1080,7 @@ const closePopup = () => {
                 <i :class="['bi', tab.icon, 'text-xl']"></i>
                 <span class="text-[9px] font-bold uppercase tracking-wider">{{
                     tab.label
-                    }}</span>
+                }}</span>
             </button>
             <Link v-else :href="tab.path" class="flex flex-col items-center gap-1 p-2" :class="isActive(tab.path)
                 ? 'text-emerald-500'
@@ -1035,7 +1089,7 @@ const closePopup = () => {
                 <i :class="['bi', tab.icon, 'text-xl']"></i>
                 <span class="text-[9px] font-bold uppercase tracking-wider">{{
                     tab.label
-                    }}</span>
+                }}</span>
             </Link>
         </template>
     </nav>
@@ -1125,13 +1179,8 @@ const closePopup = () => {
                         overflow: hidden;
                         position: relative;
                     ">
-                    <!-- Thanh màu báo hiệu (xanh/đỏ) -->
-                    <div :style="latestNotification?.type === 'listing_rejected' ||
-                        latestNotification?.type ===
-                        'App\\Notifications\\LandlordRejected'
-                        ? 'height: 4px; background: linear-gradient(90deg, #ef4444, #f87171);'
-                        : 'height: 4px; background: linear-gradient(90deg, #22c55e, #4ade80);'
-                        "></div>
+                    <!-- Thanh màu báo hiệu (Tự đổi màu theo loại thông báo) -->
+                    <div :style="`height: 4px; background: ${getNotificationTheme(latestNotification).bar};`"></div>
 
                     <div style="padding: 24px">
                         <!-- Nút tắt (X) -->
@@ -1166,20 +1215,8 @@ const closePopup = () => {
                                 align-items: flex-start;
                             ">
                             <!-- Icon -->
-                            <div :style="latestNotification?.type ===
-                                'listing_rejected' ||
-                                latestNotification?.type ===
-                                'App\\Notifications\\LandlordRejected'
-                                ? 'flex-shrink: 0; width: 48px; height: 48px; background: #fef2f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444;'
-                                : 'flex-shrink: 0; width: 48px; height: 48px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #22c55e;'
-                                ">
-                                <i :class="latestNotification?.type ===
-                                    'listing_rejected' ||
-                                    latestNotification?.type ===
-                                    'App\\Notifications\\LandlordRejected'
-                                    ? 'bi bi-x-circle-fill text-2xl'
-                                    : 'bi bi-check-circle-fill text-2xl'
-                                    "></i>
+                            <div :style="`flex-shrink: 0; width: 48px; height: 48px; background: ${getNotificationTheme(latestNotification).badgeBg}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: ${getNotificationTheme(latestNotification).badgeColor};`">
+                                <i :class="['bi', getNotificationTheme(latestNotification).icon, 'text-2xl']"></i>
                             </div>
 
                             <!-- Nội dung -->

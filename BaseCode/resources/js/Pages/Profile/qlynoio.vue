@@ -116,14 +116,11 @@ const formatDate = (dateStr) => {
 
 const getContractUrl = () => {
     if (props.contract?.contract_file_url) return props.contract.contract_file_url;
-    const path = props.contract?.contract_file_path;
+    const path = props.contract?.contract_file_path || props.contract?.signed_contract_image;
     if (!path) return null;
     if (path.startsWith("http://") || path.startsWith("https://")) return path;
-    const baseUrl = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL;
-    if (baseUrl) {
-        return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
-    }
-    return "/storage/" + path;
+    const filename = path.split("/").pop();
+    return `/files/private/contracts/${filename}`;
 };
 
 const isImage = (path) => {

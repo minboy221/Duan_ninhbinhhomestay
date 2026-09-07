@@ -85,41 +85,43 @@ const getLocation = () => {
             form.longitude = lon.toString();
 
             try {
-                //gọi API để dịch toạ độ
+                // gọi API để dịch toạ độ với timeout 5 giây
                 const response = await axios.get(
                     `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
+                    { timeout: 5000 }
                 );
                 if (response.data) {
                     const addressObj = response.data.address || {};
-                    //phân tích quận/huyện/xã
+
+                    // phân tích Quận / Huyện / Xã chuẩn Việt Nam
                     const districtVal =
                         addressObj.district ||
-                        addressObj.suburd ||
-                        addressObj.county ||
+                        addressObj.suburb ||
                         addressObj.city_district ||
+                        addressObj.state_district ||
+                        addressObj.county ||
+                        addressObj.town ||
                         addressObj.city ||
                         "";
                     form.district = districtVal;
-                    //phân tích số nhà, ngõ ngách, tên đường
-                    const road = addressObj.road || "";
-                    const houseNumber = (addressObj.house_number =
-                        addressObj.house_number || "");
+
+                    // phân tích số nhà, ngõ ngách, tên đường
+                    const road = addressObj.road || addressObj.pedestrian || "";
+                    const houseNumber = addressObj.house_number || "";
                     const neighbourhood =
-                        addressObj.neighbourhood || addressObj.quarter || "";
+                        addressObj.neighbourhood || addressObj.quarter || addressObj.suburb || "";
+
                     let detailAddress = "";
-                    if (houseNumber) detailAddress += houseNumber + "";
-                    if (road) detailAddress += road;
-                    if (
-                        neighbourhood &&
-                        !!detailAddress.includes(neighbourhood)
-                    ) {
-                        detailAddress +=
-                            (detailAddress ? "," : "") + neighbourhood;
+                    if (houseNumber) detailAddress += "Số " + houseNumber;
+                    if (road) detailAddress += (detailAddress ? ", " : "") + road;
+                    if (neighbourhood && !detailAddress.includes(neighbourhood)) {
+                        detailAddress += (detailAddress ? ", " : "") + neighbourhood;
                     }
-                    //nếu không tách biệt được số nhà cụ thể, lấy tên đụa điểm
+
                     if (!detailAddress) {
-                        detailAddress = response.data.display_name;
+                        detailAddress = response.data.display_name || "";
                     }
+
                     form.address_detail = detailAddress;
                     form.clearErrors(
                         "latitude",
@@ -130,12 +132,16 @@ const getLocation = () => {
                 }
             } catch (error) {
                 console.error("Lỗi lấy địa chỉ từ GPS:", error);
+                showWarning(
+                    "Không thể dịch tự động địa chỉ",
+                    "Đã lấy được tọa độ GPS! Tuy nhiên kết nối máy chủ dịch tên đường bị gián đoạn. Vui lòng tự nhập thủ công tên Quận/Huyện và Địa chỉ chi tiết."
+                );
             }
         },
         (error) => {
             showWarning(
                 "Lỗi GPS",
-                "Không thể lấy vị trí. Vui lòng nhập thủ công hoặc cho phép quyền truy cập vị trí.",
+                "Không thể lấy vị trí. Vui lòng kiểm tra quyền truy cập vị trí trên trình duyệt hoặc nhập thủ công.",
             );
         },
         { enableHighAccuracy: true, timeout: 10000 },
@@ -148,6 +154,10 @@ const submit = () => {
         preserveScroll: true,
         onSuccess: () => {
             // Handled by redirect in controller
+        },
+        onError: (errs) => {
+            const firstErr = Object.values(errs)[0];
+            showError("Không thể nộp đơn", firstErr || "Vui lòng kiểm tra lại các thông tin bắt buộc trong biểu mẫu!");
         },
     });
 };

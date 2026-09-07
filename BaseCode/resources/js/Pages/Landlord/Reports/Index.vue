@@ -264,13 +264,13 @@ onUnmounted(() => {
                     </thead>
 
                     <tbody>
-                        <tr v-if="reports.data.length === 0">
+                        <tr v-if="!reports || !reports.data || reports.data.length === 0">
                             <td colspan="6" class="p-6 text-center text-slate-400">
                                 Không có khiếu nại nào dành cho bạn.
                             </td>
                         </tr>
 
-                        <tr v-for="r in reports.data" :key="r.id" class="border-b border-slate-100 hover:bg-slate-50">
+                        <tr v-for="r in (reports?.data || [])" :key="r.id" class="border-b border-slate-100 hover:bg-slate-50">
                             <td class="p-3">
                                 <p class="font-semibold text-slate-800">
                                     {{ r.reporter?.name }}

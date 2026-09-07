@@ -50,7 +50,7 @@ const capitalize = (str) =>
     str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 const isInfoLocked = computed(
     () =>
-        props.isEdit && ["deposited", "rented"].includes(originalStatus.value),
+        props.isEdit && ["rented"].includes(originalStatus.value),
 );
 
 const colorsConfig = {
@@ -88,8 +88,7 @@ const colorsConfig = {
 
 // Transitions for room statuses
 const statusTransitions = {
-    available: ["deposited", "maintenance"],
-    deposited: ["rented", "available"],
+    available: ["maintenance"],
     rented: [],
     expiring_soon: ["pending_renewal"],
     pending_renewal: ["rented", "available"],
@@ -124,9 +123,9 @@ watch(
                 status: props.room.status || "available",
                 maintenance_reason: props.room.maintenance_reason || "",
                 amenities: props.room.amenities || "",
-                service_ids: props.room.services
+                service_ids: (props.room.services && props.room.services.length > 0)
                     ? props.room.services.map((s) => s.id)
-                    : [],
+                    : (props.services || []).map((s) => s.id),
             };
             originalStatus.value = props.room.status || "available";
         } else {
@@ -140,7 +139,7 @@ watch(
                 status: "available",
                 maintenance_reason: "",
                 amenities: "",
-                service_ids: [],
+                service_ids: (props.services || []).map((s) => s.id),
             };
         }
     },
@@ -230,9 +229,13 @@ const submit = () => {
         fd.append("maintenance_reason", form.value.maintenance_reason);
     if (form.value.amenities) fd.append("amenities", form.value.amenities);
 
-    form.value.service_ids.forEach((id) => {
-        fd.append("service_ids[]", id);
-    });
+    if(form.value.service_ids && form.value.service_ids.length > 0){
+        form.value.service_ids.forEach((id) => {
+            fd.append("service_ids[]", id);
+        });
+    }else{
+        fd.append("service_ids", "");
+    }
 
     if (addMode.value === "single") {
         fd.append("room_number", `P.${form.value.room_number}`);
@@ -497,22 +500,18 @@ const isRentedOrOccupied = computed(() => {
                 </div>
 
                 <!-- Services Checkbox Grid -->
-                <div v-if="services.length > 0" class="space-y-1">
+                <div class="space-y-1">
                     <label class="text-xs font-bold text-slate-500">Dịch vụ áp dụng
                         <span class="text-slate-400 font-normal">(không bắt buộc)</span></label>
-                    <div class="grid grid-cols-2 gap-2 mt-1">
+                    <div v-if="services && services.length > 0" class="grid grid-cols-2 gap-2 mt-1">
                         <label v-for="srv in services" :key="srv.id" :class="[
-                            'flex items-center gap-2 p-2.5 border rounded-xl text-[11px] font-bold cursor-pointer transition-all',
+                            'flex items-center gap-2 p-2.5 border rounded-xl text-[11px] font-bold cursor-pointer transition-all select-none',
                             form.service_ids.includes(srv.id)
                                 ? [
-                                    colorsConfig[srv.color || 'emerald']
-                                        ?.bg,
-                                    colorsConfig[srv.color || 'emerald']
-                                        ?.border,
-                                    colorsConfig[srv.color || 'emerald']
-                                        ?.text,
-                                    'shadow-sm',
-                                    'border-opacity-50',
+                                    colorsConfig[srv.color || 'emerald']?.bg,
+                                    colorsConfig[srv.color || 'emerald']?.border,
+                                    colorsConfig[srv.color || 'emerald']?.text,
+                                    'shadow-sm border-opacity-50',
                                 ]
                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50',
                         ]">
@@ -521,26 +520,25 @@ const isRentedOrOccupied = computed(() => {
                                 'bi',
                                 srv.icon || 'bi-lightning-charge-fill',
                                 form.service_ids.includes(srv.id)
-                                    ? colorsConfig[srv.color || 'emerald']
-                                        ?.text
+                                    ? colorsConfig[srv.color || 'emerald']?.text
                                     : 'text-slate-400',
                             ]"></i>
-                            <div class="flex flex-col">
-                                <span>{{ srv.name }}</span>
+                            <div class="flex flex-col min-w-0">
+                                <span class="truncate">{{ srv.name }}</span>
                                 <span :class="[
                                     'text-[9px] font-normal',
                                     form.service_ids.includes(srv.id)
-                                        ? colorsConfig[
-                                            srv.color || 'emerald'
-                                        ]?.text
+                                        ? colorsConfig[srv.color || 'emerald']?.text
                                         : 'text-slate-400',
-                                ]">{{
-                                    new Intl.NumberFormat("vi-VN").format(
-                                        srv.price,
-                                    )
-                                }}đ</span>
+                                ]">
+                                    {{ new Intl.NumberFormat("vi-VN").format(srv.price) }}đ/{{ srv.unit || 'tháng' }}
+                                </span>
                             </div>
                         </label>
+                    </div>
+                    <div v-else class="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs text-slate-500 flex items-center justify-between mt-1">
+                        <span>Chưa có dịch vụ nào được thiết lập.</span>
+                        <a href="/landlord/services" class="text-emerald-600 font-bold hover:underline">Tạo dịch vụ ngay</a>
                     </div>
                 </div>
 

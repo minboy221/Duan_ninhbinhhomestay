@@ -95,11 +95,16 @@ function formatDate(dateStr) {
 
 function getContractFileUrl(filePath) {
     if (!filePath) return "#";
+    if (typeof filePath === "object" && filePath !== null) {
+        if (filePath.contract_file_url) return filePath.contract_file_url;
+        filePath = filePath.signed_contract_image || filePath.contract_file_path;
+    }
+    if (!filePath || typeof filePath !== "string") return "#";
     if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
         return filePath;
     }
     const filename = filePath.split("/").pop();
-    return route("admin.files.private", { type: "contracts", filename: filename });
+    return `/files/private/contracts/${filename}`;
 }
 
 // Action modal
@@ -393,9 +398,9 @@ function resetFilters() {
                                 </button>
                                 <!-- Nút đối soát khi user đang có lý do xin mở khóa -->
                                 <button v-if="u.profile_unlock_reason" @click="openReviewModal(u)"
-                                    class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm cursor-pointer"
+                                    class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm cursor-pointer transition-all"
                                     title="Đối soát Hợp đồng & Lý do trước khi duyệt">
-                                    <i class="bi bi-file-earmark-check"></i> Đối soát
+                                    <i class="bi bi-file-earmark-check"></i> Đối soát & Duyệt
                                 </button>
                                 <button :class="[
                                     'act-btn',
@@ -637,51 +642,54 @@ function resetFilters() {
         <!-- Modal Đối soát Hợp Đồng khi duyệt mở khóa -->
         <Teleport to="body">
             <div v-if="showReviewModal && selectedUserForReview"
-                class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[99999]"
+                class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[99999] font-sans antialiased"
                 @click.self="showReviewModal = false">
                 <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-fade-in" style="box-sizing: border-box;">
                     <!-- Header -->
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h3 class="font-extrabold text-base text-slate-800 flex items-center gap-2 m-0">
-                            <i class="bi bi-file-earmark-check-fill text-amber-500 text-lg"></i>
-                            Đối Soát Hợp Đồng & Lý Do Mở Khóa Hồ Sơ
+                        <h3 class="font-bold text-base text-slate-800 flex items-center gap-2 m-0 tracking-tight">
+                            <i class="bi bi-file-earmark-check-fill text-indigo-600 text-lg"></i>
+                            {{ selectedUserForReview.profile_unlock_reason ? 'Đối Soát Hợp Đồng & Lý Do Mở Khóa Hồ Sơ' : 'Đối Soát Hợp Đồng & Thông Tin Tài Khoản' }}
                         </h3>
-                        <button @click="showReviewModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer bg-transparent border-0">&times;</button>
+                        <button @click="showReviewModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer bg-transparent border-0 leading-none">&times;</button>
                     </div>
 
                     <!-- Thông tin User & Lý do xin mở khóa -->
-                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 space-y-1.5">
-                        <p class="m-0"><strong>Tài khoản:</strong> {{ selectedUserForReview.name }} ({{ selectedUserForReview.email }} - SĐT: {{ selectedUserForReview.phone || 'Chưa cập nhật' }})</p>
-                        <p class="m-0 text-amber-800">
-                            <strong>Lý do xin sửa hồ sơ:</strong> 
-                            <span class="font-extrabold text-amber-950 italic">"{{ selectedUserForReview.profile_unlock_reason }}"</span>
+                    <div :class="selectedUserForReview.profile_unlock_reason ? 'bg-amber-50/80 border-amber-200/80 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-800'" class="border rounded-xl p-4 text-xs space-y-2 leading-relaxed">
+                        <p class="m-0 font-medium">
+                            <strong class="font-semibold">Tài khoản:</strong> {{ selectedUserForReview.name }} 
+                            <span class="opacity-80">({{ selectedUserForReview.email }} - SĐT: {{ selectedUserForReview.phone || 'Chưa cập nhật' }} - Vai trò: {{ roleLabel[selectedUserForReview.role] || 'Người dùng' }})</span>
+                        </p>
+                        <p v-if="selectedUserForReview.profile_unlock_reason" class="m-0">
+                            <strong class="font-semibold">Lý do xin sửa hồ sơ:</strong> 
+                            <span class="font-semibold italic">"{{ selectedUserForReview.profile_unlock_reason }}"</span>
                         </p>
                     </div>
 
                     <!-- Danh sách Hợp đồng đang có -->
                     <div>
-                        <h4 class="font-bold text-xs text-slate-700 mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
+                        <h4 class="font-semibold text-xs text-slate-600 mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
                             <i class="bi bi-journal-text text-indigo-600"></i>
                             Danh sách Hợp đồng thuê trọ của tài khoản:
                         </h4>
                         <div v-if="!selectedUserForReview.contracts?.length" class="text-xs text-slate-400 italic p-4 bg-slate-50 rounded-xl text-center border border-slate-200">
-                            <i class="bi bi-info-circle text-base block mb-1"></i>
+                            <i class="bi bi-info-circle text-base block mb-1 text-slate-400"></i>
                             Tài khoản này chưa có hợp đồng thuê trọ nào trên hệ thống.
                         </div>
                         <div v-else class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                            <div v-for="contract in selectedUserForReview.contracts" :key="contract.id" class="p-3.5 border border-slate-200 rounded-xl flex items-center justify-between text-xs bg-slate-50/80 hover:bg-slate-100/80 transition-all">
-                                <div>
-                                    <p class="font-bold text-slate-800 m-0 text-sm">
+                            <div v-for="contract in selectedUserForReview.contracts" :key="contract.id" class="p-3.5 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs bg-slate-50/70 hover:bg-slate-100/80 transition-all">
+                                <div class="space-y-1">
+                                    <p class="font-bold text-slate-800 m-0 text-sm tracking-tight">
                                         Phòng {{ contract.room?.room_number || 'Phòng trọ' }} 
                                         <span class="text-slate-500 font-normal">({{ contract.room?.boarding_house?.name || 'Nhà trọ' }})</span>
                                     </p>
-                                    <p class="text-slate-500 text-[11px] m-0 mt-1 flex items-center gap-2">
+                                    <p class="text-slate-500 text-[11px] m-0 flex items-center gap-2">
                                         <span>Trạng thái: 
-                                            <span class="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded text-[11px]"
+                                            <span class="inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded text-[11px]"
                                                   :class="{
-                                                      'bg-green-100 text-green-700': contract.status === 'active' || contract.status === 'signed',
-                                                      'bg-red-100 text-red-700': contract.status === 'terminated' || contract.status === 'cancelled',
-                                                      'bg-amber-100 text-amber-700': contract.status === 'pending' || contract.status === 'awaiting_upload'
+                                                      'bg-emerald-100 text-emerald-800': contract.status === 'active' || contract.status === 'signed',
+                                                      'bg-rose-100 text-rose-800': contract.status === 'terminated' || contract.status === 'cancelled',
+                                                      'bg-amber-100 text-amber-800': contract.status === 'pending' || contract.status === 'awaiting_upload'
                                                   }">
                                                 {{ 
                                                     contract.status === 'active' ? 'Đang hiệu lực (Active)' :
@@ -690,32 +698,37 @@ function resetFilters() {
                                                 }}
                                             </span>
                                         </span>
-                                        <span v-if="contract.start_date">• Ngày bắt đầu: <strong>{{ formatDate(contract.start_date) }}</strong></span>
+                                        <span v-if="contract.start_date">• Ngày bắt đầu: <strong class="font-semibold text-slate-700">{{ formatDate(contract.start_date) }}</strong></span>
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     <!-- Xem File Hợp đồng PDF / Ảnh đã ký -->
-                                    <a v-if="contract.signed_contract_image || contract.contract_file_path" 
-                                       :href="getContractFileUrl(contract.signed_contract_image || contract.contract_file_path)" 
+                                    <a v-if="contract.contract_file_url || contract.signed_contract_image || contract.contract_file_path" 
+                                       :href="getContractFileUrl(contract)" 
                                        target="_blank" 
-                                       class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs text-decoration-none"
+                                       class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all text-decoration-none"
                                        title="Xem File PDF / Ảnh hợp đồng đã ký">
-                                        <i class="bi bi-file-earmark-pdf-fill"></i> Xem File HD
+                                        <i class="bi bi-file-earmark-pdf-fill text-sm"></i> Xem File HĐ
                                     </a>
-                                    <span v-else class="text-[11px] text-slate-400 italic">Chưa có file HD</span>
+                                    <span v-else class="text-[11px] text-slate-400 italic">Chưa có file HĐ</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                        <button @click="showReviewModal = false; handleRejectUnlockProfile(selectedUserForReview)" class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl transition-colors cursor-pointer border-0">
-                            <i class="bi bi-x-circle-fill"></i> Từ Chối Yêu Cầu
+                    <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                        <button @click="showReviewModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer border-0">
+                            Đóng
                         </button>
-                        <button @click="showReviewModal = false; handleUnlockProfile(selectedUserForReview)" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer border-0">
-                            <i class="bi bi-unlock-fill"></i> Cho Phép Sửa Hồ Sơ
-                        </button>
+                        <template v-if="selectedUserForReview.profile_unlock_reason">
+                            <button @click="showReviewModal = false; handleRejectUnlockProfile(selectedUserForReview)" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer border border-rose-200/60">
+                                <i class="bi bi-x-circle-fill"></i> Từ Chối Yêu Cầu
+                            </button>
+                            <button @click="showReviewModal = false; handleUnlockProfile(selectedUserForReview)" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer border-0">
+                                <i class="bi bi-unlock-fill"></i> Cho Phép Sửa Hồ Sơ
+                            </button>
+                        </template>
                     </div>
                 </div>
             </div>

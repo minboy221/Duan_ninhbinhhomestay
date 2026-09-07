@@ -167,6 +167,30 @@ onMounted(() => {
     fetchProvinces();
 });
 
+const validateCCCD = (val) => {
+    if (!val) return false;
+    const str = String(val).trim();
+    if (!/^\d{12}$/.test(str)) return false;
+    if (/^(\d)\1{11}$/.test(str)) return false;
+    const dummyList = [
+        "012345678901",
+        "123456789012",
+        "234567890123",
+        "345678901234",
+        "456789012345",
+        "567890123456",
+        "678901234567",
+        "789012345678",
+        "890123456789",
+        "987654321098",
+        "876543210987",
+    ];
+    if (dummyList.includes(str)) return false;
+    const provinceCode = parseInt(str.substring(0, 3), 10);
+    if (provinceCode < 1 || provinceCode > 96) return false;
+    return true;
+};
+
 const submit = () => {
     // 1. Nếu người dùng nhập CCCD nhưng chưa điền SĐT -> Cảnh báo yêu cầu nhập SĐT
     if (!form.phone) {
@@ -177,11 +201,11 @@ const submit = () => {
         return;
     }
 
-    // 2. Nếu chưa điền CCCD -> Cảnh báo yêu cầu nhập CCCD
-    if (!form.cccd_number) {
+    // 2. Nếu chưa điền CCCD hoặc CCCD không đúng chuẩn
+    if (!form.cccd_number || !validateCCCD(form.cccd_number)) {
         form.setError(
             "cccd_number",
-            "Số CCCD (12 chữ số) là bắt buộc. Vui lòng nhập CCCD của bạn!",
+            "Số CCCD không hợp lệ! Vui lòng nhập đúng 12 số CCCD chuẩn của Bộ Công An (mã tỉnh từ 001 đến 096, không nhập dãy số lặp lại hoặc số tiến lùi như 012345678901).",
         );
         return;
     }

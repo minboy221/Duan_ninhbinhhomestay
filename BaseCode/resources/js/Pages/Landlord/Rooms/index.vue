@@ -111,12 +111,6 @@ const statusConfig = {
         cls: "bg-amber-50 text-amber-600 border-amber-250",
         dot: "bg-amber-500",
     },
-    deposited: {
-        label: "Đã Đặt Cọc",
-        icon: "bi-cash-stack",
-        cls: "bg-purple-50 text-purple-600 border-purple-250",
-        dot: "bg-purple-500",
-    },
     expiring_soon: {
         label: "Sắp Hết HĐ",
         icon: "bi-clock-history",
@@ -196,7 +190,6 @@ const isRoomActive = (status) => {
     return [
         "available",
         "rented",
-        "deposited",
         "expiring_soon",
         "pending_renewal",
     ].includes(status);
@@ -271,8 +264,7 @@ const allFilteredRooms = computed(() => {
 
 // Transitions rules
 const statusTransitions = {
-    available: ["deposited", "maintenance"],
-    deposited: ["rented", "available"],
+    available: ["maintenance"],
     rented: ["expiring_soon", "maintenance"],
     expiring_soon: ["pending_renewal"],
     pending_renewal: ["rented", "available"],
@@ -583,7 +575,6 @@ const submitFloor = () => {
 const delFloor = (f) => {
     const restrictedStatuses = [
         "rented",
-        "deposited",
         "expiring_soon",
         "pending_renewal",
     ];
@@ -594,7 +585,7 @@ const delFloor = (f) => {
     if (hasRestrictedRoom) {
         showAlert(
             "Không thể xóa",
-            "Tầng này có phòng đang trong trạng thái Đã thuê, Đã đặt cọc, Sắp hết hạn HĐ hoặc Chờ gia hạn. Không thể xóa!",
+            "Tầng này có phòng đang trong trạng thái Đã thuê, Sắp hết hạn HĐ hoặc Chờ gia hạn. Không thể xóa!",
             "warning",
         );
         return;
@@ -635,7 +626,7 @@ const quickSt = (st) => {
         return;
     }
     if (
-        ["pending_renewal", "deposited"].includes(selRoom.value.status) &&
+        ["pending_renewal"].includes(selRoom.value.status) &&
         st === "rented" &&
         selRoom.value.current_people === 0
     ) {
@@ -838,7 +829,6 @@ const addPerson = (room) => {
     if (!targetRoom) return;
 
     const allowedStatuses = [
-        "deposited",
         "rented",
         "expiring_soon",
         "pending_renewal",

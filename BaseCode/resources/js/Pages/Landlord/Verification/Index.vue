@@ -14,12 +14,19 @@ const isModelsLoaded = ref(false);
 onMounted(async () => {
     try {
         const faceapi = await import("face-api.js");
-        await Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri("/models"),
-            faceapi.nets.faceLandmark68Net.loadFromUri("/models"),
-            faceapi.nets.faceRecognitionNet.loadFromUri("/models"),
-            faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
-        ]);
+        const loadModels = async (uri) => {
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(uri),
+                faceapi.nets.faceLandmark68Net.loadFromUri(uri),
+                faceapi.nets.faceRecognitionNet.loadFromUri(uri),
+            ]);
+        };
+        try {
+            await loadModels("/models");
+        } catch (localErr) {
+            console.warn("Tải model local thất bại, chuyển sang nạp từ CDN jsDelivr...", localErr);
+            await loadModels("https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights");
+        }
         isModelsLoaded.value = true;
     } catch (error) {
         console.error("Lỗi khi tải model:", error);

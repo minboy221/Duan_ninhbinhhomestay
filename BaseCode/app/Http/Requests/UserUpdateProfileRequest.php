@@ -34,6 +34,24 @@ class UserUpdateProfileRequest extends FormRequest
                 'string',
                 'size:12',
                 'regex:/^(?!([0-9])\1{11}$)(00[1-9]|0[1-8][0-9]|09[0-6])[0-9]{9}$/',
+                function ($attribute, $value, $fail) {
+                    $dummyList = [
+                        "012345678901",
+                        "123456789012",
+                        "234567890123",
+                        "345678901234",
+                        "456789012345",
+                        "567890123456",
+                        "678901234567",
+                        "789012345678",
+                        "890123456789",
+                        "987654321098",
+                        "876543210987",
+                    ];
+                    if (in_array(trim((string)$value), $dummyList)) {
+                        $fail('Số CCCD không hợp lệ! Không được nhập dãy số tiến lùi giả (như 012345678901). Vui lòng nhập số CCCD 12 số thực tế.');
+                    }
+                },
                 Rule::unique('users', 'cccd_number')->ignore($userId)
             ],
             // Tùy chọn (Không bắt buộc)

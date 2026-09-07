@@ -216,4 +216,10 @@ class ContractController extends Controller
             return redirect()->back()->with('error', $e->getMessage());
         }
     }
+
+    // Chấm dứt hợp đồng
+    public function terminateContract(Request $request, Contract $contract)
+    {
+        return $this->markAsExpired($request, $contract);
+    }
 }
